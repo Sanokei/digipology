@@ -1,0 +1,39 @@
+[
+  {
+    "name": "nested objects, empty containers, and ordering",
+    "value": {
+      "z": null,
+      "emptyObject": {},
+      "emptyArray": [],
+      "nested": {
+        "second": 2,
+        "first": [true, false, { "beta": "β", "alpha": "a" }]
+      },
+      "text": "plain"
+    },
+    "canonical": "{\"emptyArray\":[],\"emptyObject\":{},\"nested\":{\"first\":[true,false,{\"alpha\":\"a\",\"beta\":\"β\"}],\"second\":2},\"text\":\"plain\",\"z\":null}",
+    "hash": "sha256:60f24fb181c96864cc3386951987b5bde0555cd8076d887abfc111b6c542f9b2"
+  },
+  {
+    "name": "deep nesting",
+    "value": {
+      "level1": {
+        "level2": {
+          "level3": {
+            "level4": {
+              "level5": {
+                "level6": {
+                  "level7": {
+                    "level8": ["end", null]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "canonical": "{\"level1\":{\"level2\":{\"level3\":{\"level4\":{\"level5\":{\"level6\":{\"level7\":{\"level8\":[\"end\",null]}}}}}}}}",
+    "hash": "sha256:a8579db7949096478062b20f394937280881f1a5e8166a7d53b6c09d169e20aa"
+  }
+]

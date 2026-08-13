@@ -1,0 +1,15 @@
+[
+  {
+    "name": "unicode, controls, escapes, and lone surrogates",
+    "value": {
+      "loneLow": "\udfff",
+      "replacement": "�",
+      "escapes": "\"\\/",
+      "controls": "\u0000\n\t",
+      "astral": "😀𝄞",
+      "loneHigh": "\ud800"
+    },
+    "canonical": "{\"astral\":\"😀𝄞\",\"controls\":\"\\u0000\\u000a\\u0009\",\"escapes\":\"\\\"\\\\/\",\"loneHigh\":\"\\ud800\",\"loneLow\":\"\\udfff\",\"replacement\":\"�\"}",
+    "hash": "sha256:366267faa06eda58163d17172a393ee109a28b5f63524d10d2c53295db40fd44"
+  }
+]
