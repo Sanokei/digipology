@@ -41,9 +41,16 @@ array or object.
 - Object keys sorted by UTF-16 code unit order (standard JS `<` on strings); output encoded as UTF-8. Arrays serialize in order.
 - Accepted values: `null`, booleans, finite numbers, strings, arrays, plain string-keyed objects. Everything else (`undefined`, functions, symbols, BigInt, Map/Set, class instances beyond plain objects, cyclic graphs) is rejected with `CanonicalizationError` including the JSON path.
 - `NaN` / `Infinity` / `-Infinity` rejected. `-0` normalized to `0`.
-- Number formatting: shortest round-trip representation per ECMAScript `Number::toString(x, 10)`. Document explicitly that ECMA-262 fully specifies this algorithm, so all conforming JS engines produce identical output — this is the load-bearing fact that makes cross-browser hashing viable (RISK-001). Integer-valued doubles serialize without a decimal point (`3`, not `3.0`); non-integers use the engine's shortest form (`0.1`, `1e21`, etc.).
+- Number formatting: shortest round-trip representation per ECMAScript `Number::toString(x, 10)`. ECMA-262 fully specifies this algorithm, so all conforming JS engines produce identical output — this is the load-bearing fact that makes cross-browser hashing viable (RISK-001). Integer-valued doubles serialize without a decimal point (`3`, not `3.0`); non-integers use the engine's shortest form (`0.1`, `1e21`, etc.).
 - Strings escaped per JSON with a fixed escaping policy (escape only the mandatory characters: `"` `\\` and control chars < 0x20, using `\uXXXX` lowercase-hex form for controls without short escapes). No optional escaping, so output is unique.
 - No whitespace anywhere in output.
+
+Concretely, the escaping policy emits exactly three escape forms: `\"` for the
+quotation mark, `\\` for the backslash, and lowercase `\u00xx` for every
+control character below U+0020. The two-character short escapes `\b`, `\t`,
+`\n`, `\f`, and `\r` are never emitted (a newline serializes as the six
+characters `\u000a`), and no character outside those three categories is
+ever escaped except unpaired surrogates as described below.
 
 The exponent sign emitted by `Number::toString` is retained, so `1e21` as a
 number serializes as `1e+21`. This follows ECMA-262 rather than applying a
