@@ -1,0 +1,24 @@
+{
+  "name": "digipology-canonical-json",
+  "version": "0.1.0",
+  "description": "Deterministic canonical JSON serialization and pure TypeScript SHA-256 hashing for Digipology.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "files": [
+    "src",
+    "fixtures",
+    "LICENSE",
+    "README.md"
+  ],
+  "license": "MIT",
+  "dependencies": {}
+}
