@@ -1,0 +1,216 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const loop = ["Create", "Playtest", "Publish", "Browse", "Host", "Invite", "Play"];
+
+const packages = [
+  ["digipology-canonical-json", "Stable serialization and state hashing"],
+  ["digipology-prng", "Versioned, reproducible randomness"],
+  ["digipology-kernel", "Pure tabletop state and action engine"],
+  ["digipology-protocol", "Shared multiplayer wire contracts"],
+  ["digipology-lua", "Sandboxed creator scripting host"],
+] as const;
+---
+
+<BaseLayout pageClass="landing-page">
+  <section class="hero shell" aria-labelledby="hero-title">
+    <div class="hero-copy">
+      <p class="eyebrow"><span>Open table / open rules</span></p>
+      <h1 id="hero-title">
+        Make the rules.<br />
+        <em>Share the table.</em>
+      </h1>
+      <p class="hero-lede">
+        Digipology is a browser-native tabletop platform for building games, testing
+        them with friends, and playing from an invitation—without an install.
+      </p>
+      <div class="hero-actions">
+        <a class="button button-primary" href="/docs/">Open the field guide</a>
+        <a class="text-link" href="https://github.com/Sanokei/digipology">
+          Follow the build <span aria-hidden="true">↗</span>
+        </a>
+      </div>
+    </div>
+
+    <aside class="status-docket" aria-label="Project status">
+      <div class="docket-topline">
+        <span>Status note</span>
+        <span>Issue 008</span>
+      </div>
+      <p class="status-stamp">Early<br />development</p>
+      <p>
+        The table is not playable yet. The public foundation—specification, architecture,
+        packages, and docs—is being built first.
+      </p>
+      <a href="/docs/getting-started/">What exists today <span aria-hidden="true">→</span></a>
+    </aside>
+  </section>
+
+  <section class="loop-section" id="loop" aria-labelledby="loop-title">
+    <div class="shell loop-heading">
+      <div>
+        <p class="eyebrow">One continuous campaign</p>
+        <h2 id="loop-title">From blank table<br />to game night.</h2>
+      </div>
+      <p>
+        The creator and player experience is one loop. Ideas become tested rules,
+        published releases, hosted rooms, and invitations that open straight in the browser.
+      </p>
+    </div>
+
+    <div class="loop-board shell" aria-label="Digipology product loop">
+      <ol>
+        {loop.map((step, index) => (
+          <li class:list={{ "loop-player": index === loop.length - 1 }}>
+            <span class="loop-index">{String(index + 1).padStart(2, "0")}</span>
+            <strong>{step}</strong>
+            <span class="loop-connector" aria-hidden="true">→</span>
+          </li>
+        ))}
+      </ol>
+      <p class="loop-return" aria-hidden="true">Every played game informs the next creation.</p>
+    </div>
+  </section>
+
+  <section class="principle-band" aria-label="Browser-native principle">
+    <div class="shell">
+      <p class="principle-code">Principle 001</p>
+      <blockquote>
+        “A valid invite should be all a player needs.”
+      </blockquote>
+      <p class="principle-note">No native install. No renderer download. Just the table, in the browser.</p>
+    </div>
+  </section>
+
+  <section class="architecture-section shell" id="architecture" aria-labelledby="architecture-title">
+    <header class="architecture-heading">
+      <p class="eyebrow">A table built to agree</p>
+      <h2 id="architecture-title">Fast in your hands.<br />Exact underneath.</h2>
+      <p>
+        Digipology separates what the game <em>is</em> from how it looks and how players
+        connect. The result is immediate interaction backed by reproducible rules.
+      </p>
+    </header>
+
+    <div class="architecture-ledger">
+      <article>
+        <span class="ledger-mark">K</span>
+        <div>
+          <p class="ledger-label">The referee</p>
+          <h3>Deterministic kernel</h3>
+          <p>
+            The same starting snapshot and ordered actions produce the same state on every
+            healthy client. Seeded randomness, atomic actions, and canonical hashes make
+            disagreement visible.
+          </p>
+        </div>
+      </article>
+      <article>
+        <span class="ledger-mark">T</span>
+        <div>
+          <p class="ledger-label">The table</p>
+          <h3>Browser-native presentation</h3>
+          <p>
+            Babylon.js draws responsive pieces and motion, but never owns the rules. The
+            browser can predict a gesture instantly while canonical play stays separate.
+          </p>
+        </div>
+      </article>
+      <article>
+        <span class="ledger-mark">R</span>
+        <div>
+          <p class="ledger-label">The room</p>
+          <h3>One shared action order</h3>
+          <p>
+            A Cloudflare room sequences actions and broadcasts them. Clients run the rules;
+            the server coordinates the table instead of becoming a second game engine.
+          </p>
+        </div>
+      </article>
+    </div>
+
+    <a class="rulebook-link" href="/docs/architecture/">
+      <span>Read the architecture as a field guide</span>
+      <span aria-hidden="true">Rule 02 →</span>
+    </a>
+  </section>
+
+  <section class="creator-section" aria-labelledby="creator-title">
+    <div class="shell creator-grid">
+      <div class="creator-copy">
+        <p class="eyebrow">Creator rules / Lua preview</p>
+        <h2 id="creator-title">Script the game,<br />not the browser.</h2>
+        <p>
+          Lua gives creators tabletop vocabulary—decks, hands, dice, counters, zones,
+          players, prompts, and seeded random calls—inside a deterministic sandbox.
+        </p>
+        <ul class="plain-checks">
+          <li>Documented API only</li>
+          <li>No network or filesystem escape</li>
+          <li>Bounded, atomic rule execution</li>
+        </ul>
+        <a class="button button-quiet" href="/docs/lua-preview/">Preview the Lua API</a>
+      </div>
+
+      <figure class="code-sheet">
+        <figcaption>
+          <span>Example / opening deal</span>
+          <span>Preview</span>
+        </figcaption>
+        <pre><code><span class="code-keyword">function</span> on_start(ctx)
+  state.turn = <span class="code-number">1</span>
+  refs.main_deck:shuffle()
+
+  <span class="code-keyword">for</span> _, player <span class="code-keyword">in</span>
+    ipairs(players:list()) <span class="code-keyword">do</span>
+    <span class="code-keyword">if</span> player.hand <span class="code-keyword">then</span>
+      refs.main_deck:deal(player, <span class="code-number">5</span>)
+    <span class="code-keyword">end</span>
+  <span class="code-keyword">end</span>
+<span class="code-keyword">end</span></code></pre>
+        <p>Same seed. Same order. Same deal.</p>
+      </figure>
+    </div>
+  </section>
+
+  <section class="ecosystem-section shell" aria-labelledby="ecosystem-title">
+    <header>
+      <div>
+        <p class="eyebrow">Built in public</p>
+        <h2 id="ecosystem-title">Small pieces.<br />Open table.</h2>
+      </div>
+      <p>
+        Digipology's foundations are public, focused packages. Use one piece, inspect the
+        whole system, or help shape the platform in the open.
+      </p>
+    </header>
+
+    <div class="package-ledger">
+      {packages.map(([name, description], index) => (
+        <a href={`https://www.npmjs.com/package/${name}`}>
+          <span class="package-number">P-{String(index + 1).padStart(2, "0")}</span>
+          <span>
+            <strong>{name}</strong>
+            <small>{description}</small>
+          </span>
+          <span class="external-mark" aria-hidden="true">↗</span>
+        </a>
+      ))}
+    </div>
+
+    <div class="open-source-callout">
+      <p>Specification, decisions, issues, and source live together.</p>
+      <a class="button button-primary" href="https://github.com/Sanokei/digipology">
+        Visit the GitHub repository
+      </a>
+    </div>
+  </section>
+
+  <section class="closing-section">
+    <div class="shell closing-inner">
+      <p class="eyebrow">The first move</p>
+      <h2>The table comes later.<br /><em>The rules start now.</em></h2>
+      <a href="/docs/">Read the documentation <span aria-hidden="true">→</span></a>
+    </div>
+  </section>
+</BaseLayout>

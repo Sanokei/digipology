@@ -1,0 +1,19 @@
+{
+  "name": "digipology-site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build && bun run check:links",
+    "preview": "astro preview",
+    "typecheck": "astro check",
+    "test": "bun test",
+    "check:links": "bun scripts/check-links.ts"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "astro": "5.18.2",
+    "typescript": "^5.7.0"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "digipology-site",
+  "compatibility_date": "2026-08-13",
+  "assets": {
+    "directory": "./dist",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  },
+  "workers_dev": true,
+
+  // Production custom domain — enable only after the DNS prerequisites in README.md:
+  // "routes": [
+  //   { "pattern": "digipology.com", "custom_domain": true }
+  // ]
+}
