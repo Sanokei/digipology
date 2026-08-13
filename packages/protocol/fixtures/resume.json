@@ -1,0 +1,1 @@
+{"type":"resume","protocolVersion":1,"fromSequence":1849,"actions":[{"type":"ordered_action","protocolVersion":1,"sequence":1849,"actionId":"act_room123_1849","requestId":"req_91","actor":{"type":"player","playerId":"player_alice"},"action":{"type":"entity.grab","payload":{"entityId":"ent_red_pawn"}}}]}

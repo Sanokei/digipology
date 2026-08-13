@@ -1,0 +1,1 @@
+{"type":"bootstrap","protocolVersion":1,"sequence":1848,"snapshot":{"state":{"turn":3}},"players":[{"playerId":"player_alice","displayName":"Alice","seatId":"seat_red","connected":true},{"playerId":"player_bob","displayName":"Bob","seatId":null,"connected":false}]}
