@@ -62,6 +62,18 @@ describe("value bridge", () => {
     }
   });
 
+  test("extracts a 1e6-element array within budget", async () => {
+    const lua = await sandbox(20_000_000);
+    const result = (await lua.run(
+      "local t = {}; for i = 1, 1000000 do t[i] = i end; return t",
+    )) as number[];
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBe(1_000_000);
+    expect(result[0]).toBe(1);
+    expect(result[499_999]).toBe(500_000);
+    expect(result[999_999]).toBe(1_000_000);
+  }, 30_000);
+
   test("treats 1.0 keys as Lua integer keys and empty tables as objects", async () => {
     const lua = await sandbox();
     expect(await lua.run("return { [1.0] = 'one' }")).toEqual(["one"]);
@@ -188,6 +200,14 @@ describe("instruction budget", () => {
       .rejects.toBeInstanceOf(LuaError);
     await expect(lua.run("local s = ''; while true do s = s .. 'x' end"))
       .rejects.toMatchObject({ kind: "budget_exceeded" });
+  });
+
+  test("a script using about half its budget completes", async () => {
+    // Calibrated: this loop costs ~2.2k VM instructions (it fails below a
+    // 2_500 budget), so a 5_000 budget leaves roughly half unused.
+    const lua = await sandbox(5_000);
+    expect(await lua.run("local n = 0; for i = 1, 1000 do n = n + i end; return n"))
+      .toBe(500_500);
   });
 
   test("resets accounting between runs", async () => {

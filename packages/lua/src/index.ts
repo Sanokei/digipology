@@ -327,6 +327,7 @@ export async function createSandbox(opts: SandboxOptions): Promise<Sandbox> {
             throw new BudgetAbort("Lua instruction budget exceeded");
           }
         }, "vii");
+        functionPointers.push(hookPointer);
         api.lua_sethook(state, hookPointer, LUA_MASKCOUNT, hookInterval);
 
         let status: number;
