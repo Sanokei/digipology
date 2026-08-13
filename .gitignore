@@ -1,3 +1,7 @@
+# Lockfile intentionally untracked during 0.x bootstrap: parallel package PRs
+# would conflict on it constantly. Revisit once the tree stabilizes.
+bun.lock
+bun.lockb
 node_modules/
 dist/
 build/
