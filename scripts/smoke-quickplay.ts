@@ -8,7 +8,7 @@
 //   4. /api/games reports currentPlayers > 0 while connected and an
 //      incremented totalPlays after play counts flush,
 //   5. the quickplay room is listed in /api/rooms/public,
-//   6. builtin 2:3 covers serve with immutable cache headers,
+//   6. builtin 2:3 covers serve immutably at the catalog-reported version,
 //   7. the home page shell plus its assets carry the capsule markup.
 import {
   applyOrdered,
@@ -203,7 +203,9 @@ async function runChecks(): Promise<void> {
 
   for (const slug of ["first-deal", "dice-dash"]) {
     await check(`builtin cover for ${slug} is cached and 2:3`, async () => {
-      const response = await httpRequest(`/api/games/${slug}/cover?v=1`);
+      const game = await catalogGame(slug);
+      expect(game.coverVersion !== null, `catalog reports no cover version for ${slug}`);
+      const response = await httpRequest(`/api/games/${slug}/cover?v=${game.coverVersion}`);
       expect(response.status === 200, `cover returned ${response.status}`);
       expect(
         response.contentType.startsWith("image/"),

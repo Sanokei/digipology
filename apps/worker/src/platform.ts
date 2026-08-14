@@ -974,11 +974,12 @@ function withMetrics(
   game: GamesResponse["games"][number],
   metrics?: GameMetrics,
 ): GamesResponse["games"][number] {
+  // coverVersion deliberately stays from the summary: builtin covers version
+  // from code (BUILTIN_COVER_VERSION), not from the seeded D1 games row.
   return metrics === undefined ? game : {
     ...game,
     currentPlayers: metrics.currentPlayers,
     totalPlays: metrics.totalPlays,
-    coverVersion: metrics.coverVersion,
   };
 }
 

@@ -53,7 +53,6 @@ export interface UploadedGameRecord {
 export interface GameMetrics {
   currentPlayers: number;
   totalPlays: number;
-  coverVersion: number | null;
 }
 
 export interface UploadedReleaseRecord extends UploadedReleaseSummaryDto {
@@ -86,7 +85,6 @@ interface GameMetricsRow {
   slug: string;
   current_players: number;
   total_plays: number;
-  cover_version: number | null;
 }
 
 interface ReleaseRow {
@@ -234,7 +232,7 @@ export class D1Repositories implements MagicLinkRepository, SessionRepository, R
 
   async listGameMetrics(freshAfter: number): Promise<Map<string, GameMetrics>> {
     const rows = await this.db.prepare(
-      `SELECT g.slug, g.total_plays, g.cover_version,
+      `SELECT g.slug, g.total_plays,
               COALESCE(SUM(r.player_count), 0) AS current_players
        FROM games g
        LEFT JOIN rooms_index r
@@ -242,12 +240,11 @@ export class D1Repositories implements MagicLinkRepository, SessionRepository, R
         AND r.ended_at IS NULL
         AND r.last_heartbeat_at IS NOT NULL
         AND r.last_heartbeat_at >= ?
-       GROUP BY g.id, g.slug, g.total_plays, g.cover_version`,
+       GROUP BY g.id, g.slug, g.total_plays`,
     ).bind(freshAfter).all<GameMetricsRow>();
     return new Map(rows.results.map((row) => [row.slug, {
       currentPlayers: row.current_players,
       totalPlays: row.total_plays,
-      coverVersion: row.cover_version,
     }]));
   }
 

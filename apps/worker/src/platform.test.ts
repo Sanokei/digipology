@@ -65,7 +65,7 @@ describe("catalog routes", () => {
               },
               async all() {
                 if (sql.includes("COALESCE(SUM")) return { results: [{
-                  slug: "community-dice", current_players: 5, total_plays: 17, cover_version: 3,
+                  slug: "community-dice", current_players: 5, total_plays: 17,
                 }] };
                 return { results: [] };
               },
