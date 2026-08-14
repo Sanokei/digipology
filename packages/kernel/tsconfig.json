@@ -2,7 +2,10 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
-    "rootDir": "src"
+    "paths": {
+      "digipology-canonical-json": ["../canonical-json/src/index.ts"],
+      "digipology-prng": ["../prng/src/index.ts"]
+    }
   },
   "include": ["src/index.ts"]
 }
