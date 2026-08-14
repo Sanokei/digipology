@@ -8,6 +8,7 @@
     "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
+      "digipology-ai": ["../../packages/ai/src/index.ts"],
       "digipology-canonical-json": ["../../packages/canonical-json/src/index.ts"],
       "digipology-demo-games": ["../../packages/demo-games/src/index.ts"],
       "digipology-kernel": ["../../packages/kernel/src/index.ts"],

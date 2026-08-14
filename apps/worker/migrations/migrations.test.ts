@@ -44,4 +44,22 @@ describe("D1 migrations", () => {
     ]);
     db.close();
   });
+
+  test("0004 adds per-user UTC-day DeepSeek usage after the existing migrations", async () => {
+    const db = new Database(":memory:");
+    for (const name of [
+      "0001_platform_v1.sql",
+      "0002_uploaded_games_v1.sql",
+      "0003_quickplay_metrics_covers.sql",
+      "0004_deepseek_usage.sql",
+    ]) db.exec(await Bun.file(new URL(`./${name}`, import.meta.url)).text());
+    db.query("INSERT INTO deepseek_usage (user_id, day, usd) VALUES (?, ?, ?)")
+      .run("user_1", "2026-08-14", 0.25);
+    expect(db.query("SELECT user_id, day, usd FROM deepseek_usage").get()).toEqual({
+      user_id: "user_1", day: "2026-08-14", usd: 0.25,
+    });
+    expect(() => db.query("INSERT INTO deepseek_usage (user_id, day, usd) VALUES (?, ?, ?)")
+      .run("user_1", "2026-08-14", 1)).toThrow();
+    db.close();
+  });
 });

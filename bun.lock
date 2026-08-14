@@ -41,6 +41,7 @@
       "name": "digipology-worker",
       "version": "0.1.0",
       "dependencies": {
+        "digipology-ai": "workspace:*",
         "digipology-canonical-json": "workspace:*",
         "digipology-demo-games": "workspace:*",
         "digipology-kernel": "workspace:*",

@@ -52,6 +52,16 @@ describe("API client", () => {
       error: { code: "validation_failed", status: 422, report: [{ check: "manifest_hash", ok: false }] },
     });
 
+    const aiFailure = createApiClient(async () => Response.json({
+      error: { code: "ai_generation_failed", message: "Try again" },
+      validationReport: [{ check: "kernel_load", ok: false, detail: "invalid state" }],
+      telemetry: { attempts: 3 },
+    }, { status: 502 }));
+    expect(await aiFailure.createAiGame("make a game")).toMatchObject({
+      ok: false,
+      error: { code: "ai_generation_failed", status: 502, report: [{ check: "kernel_load", ok: false }] },
+    });
+
     const offline = createApiClient(async () => { throw new Error("offline"); });
     expect(await offline.me()).toMatchObject({ ok: false, error: { code: "network_error" } });
   });
@@ -67,6 +77,8 @@ describe("API client", () => {
     await client.listGames(); await client.listMyGames();
     await client.createGame({ title: "Demo", tagline: "", minPlayers: 2, maxPlayers: 4, bundle: {} as never });
     await client.createRelease("demo game", {} as never);
+    await client.createAiGame("Make a card game");
+    await client.editAiGame("demo game", "Add a timer");
     await client.updateGameVisibility("demo game", "unlisted");
     await client.createRoom({ releaseSlugOrId: "demo", visibility: "private", displayName: "Ada" });
     await client.joinRoom({ code: "ABCD-EFGH", displayName: "Grace" }); await client.listPublicRooms();
@@ -75,7 +87,8 @@ describe("API client", () => {
     expect(calls.map(({ path, init }) => [path, init?.method])).toEqual([
       ["/api/auth/logout", "POST"], ["/api/me", "GET"], ["/api/me", "PATCH"],
       ["/api/games", "GET"], ["/api/games/mine", "GET"], ["/api/games", "POST"],
-      ["/api/games/demo%20game/releases", "POST"], ["/api/games/demo%20game", "PATCH"],
+      ["/api/games/demo%20game/releases", "POST"], ["/api/ai/games", "POST"],
+      ["/api/ai/games/demo%20game/edit", "POST"], ["/api/games/demo%20game", "PATCH"],
       ["/api/rooms", "POST"], ["/api/rooms/join", "POST"],
       ["/api/rooms/public", "GET"], ["/api/quickplay", "POST"],
       ["/api/releases/rel%2F1/bundle", "GET"],
@@ -85,8 +98,10 @@ describe("API client", () => {
       expect(new Headers(init?.headers).has(CSRF_HEADER)).toBe(init?.method !== "GET");
     }
     expect(calls[2]?.init?.body).toBe(JSON.stringify({ name: "Ada" }));
-    expect(calls[8]?.init?.body).toBe(JSON.stringify({ releaseSlugOrId: "demo", visibility: "private", displayName: "Ada" }));
-    expect(calls[9]?.init?.body).toBe(JSON.stringify({ code: "ABCD-EFGH", displayName: "Grace" }));
-    expect(calls[11]?.init?.body).toBe(JSON.stringify({ slug: "demo game", displayName: "Grace" }));
+    expect(calls[7]?.init?.body).toBe(JSON.stringify({ prompt: "Make a card game" }));
+    expect(calls[8]?.init?.body).toBe(JSON.stringify({ instruction: "Add a timer" }));
+    expect(calls[10]?.init?.body).toBe(JSON.stringify({ releaseSlugOrId: "demo", visibility: "private", displayName: "Ada" }));
+    expect(calls[11]?.init?.body).toBe(JSON.stringify({ code: "ABCD-EFGH", displayName: "Grace" }));
+    expect(calls[13]?.init?.body).toBe(JSON.stringify({ slug: "demo game", displayName: "Grace" }));
   });
 });

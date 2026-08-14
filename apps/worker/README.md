@@ -71,6 +71,19 @@ an AES-GCM-encrypted development token. Retrieve the latest link from
 
 ## Local development
 
+AI game creation is intentionally keyless-safe. Production operators enable it
+with the interactive secret command (the key must never be added to
+`wrangler.jsonc`):
+
+```sh
+bunx wrangler secret put DEEPSEEK_API_KEY
+```
+
+`DEEPSEEK_MODEL` and `AI_DAILY_USD_CAP` are non-secret vars. Their committed
+defaults are `deepseek-v4-flash` and USD 1 per user per UTC day. Without the
+secret, authenticated AI draft endpoints return `503 ai_unconfigured`; manual
+uploads and publishing remain available.
+
 From the repository root:
 
 ```sh

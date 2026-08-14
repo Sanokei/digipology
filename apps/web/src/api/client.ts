@@ -1,6 +1,7 @@
 import type {
   ApiError,
   ApiResult,
+  AiGameDraftResponse,
   CreateGameRequest,
   CreateGameResponse,
   CreateReleaseResponse,
@@ -33,6 +34,8 @@ export interface ApiClient {
   listMyGames(): Promise<ApiResult<MyGamesResponse>>;
   createGame(input: CreateGameRequest): Promise<ApiResult<CreateGameResponse>>;
   createRelease(slug: string, bundle: ReleaseBundleDto): Promise<ApiResult<CreateReleaseResponse>>;
+  createAiGame(prompt: string): Promise<ApiResult<AiGameDraftResponse>>;
+  editAiGame(slug: string, instruction: string): Promise<ApiResult<AiGameDraftResponse>>;
   updateGameVisibility(slug: string, visibility: "public" | "unlisted"): Promise<ApiResult<UpdateGameResponse>>;
   createRoom(input: CreateRoomRequest): Promise<ApiResult<CreateRoomResponse>>;
   joinRoom(input: JoinRoomRequest): Promise<ApiResult<JoinRoomResponse>>;
@@ -55,7 +58,8 @@ function mapError(value: unknown, status?: number): ApiError {
         message,
         ...(status === undefined ? {} : { status }),
       };
-      if (Array.isArray(value.report)) mapped.report = value.report as NonNullable<ApiError["report"]>;
+      const report = Array.isArray(value.report) ? value.report : value.validationReport;
+      if (Array.isArray(report)) mapped.report = report as NonNullable<ApiError["report"]>;
       return mapped;
     }
   }
@@ -116,6 +120,8 @@ export function createApiClient(fetcher: Fetcher = fetch): ApiClient {
     listMyGames: () => request("/api/games/mine"),
     createGame: (input) => post("/api/games", input),
     createRelease: (slug, bundle) => post(`/api/games/${encodeURIComponent(slug)}/releases`, { bundle }),
+    createAiGame: (prompt) => post("/api/ai/games", { prompt }),
+    editAiGame: (slug, instruction) => post(`/api/ai/games/${encodeURIComponent(slug)}/edit`, { instruction }),
     updateGameVisibility: (slug, visibility) => request(`/api/games/${encodeURIComponent(slug)}`, {
       method: "PATCH", body: JSON.stringify({ visibility }),
     }),
