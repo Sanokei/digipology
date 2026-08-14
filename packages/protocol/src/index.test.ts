@@ -122,12 +122,15 @@ describe("committed fixtures", () => {
     test(`parses and deep-compares ${name}`, async () => {
       const url = new URL(`../fixtures/${name}`, import.meta.url);
       const raw = (await Bun.file(url).text()).trimEnd();
-      const expected = JSON.parse(raw) as unknown;
+      const expected = JSON.parse(raw) as ClientMessage | ServerMessage;
       const result =
         direction === "client"
           ? parseClientMessage(raw)
           : parseServerMessage(raw);
-      expect(result).toEqual({ ok: true, message: expected });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.message).toEqual(expected);
+      }
     });
   }
 });

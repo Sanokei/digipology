@@ -2,7 +2,10 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
-    "rootDir": "src"
+    "resolveJsonModule": true,
+    "paths": {
+      "digipology-canonical-json": ["../canonical-json/src/index.ts"]
+    }
   },
-  "include": ["src/index.ts"]
+  "include": ["src/**/*"]
 }
