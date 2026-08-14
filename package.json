@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "test": "bun test",
-    "typecheck": "bun run --filter '*' typecheck"
+    "typecheck": "bun run --filter '*' typecheck && tsc -p scripts"
   },
   "devDependencies": {
     "typescript": "^5.7.0"

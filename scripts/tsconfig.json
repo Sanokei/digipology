@@ -1,0 +1,23 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "digipology-canonical-json": ["../packages/canonical-json/src/index.ts"],
+      "digipology-demo-games": ["../packages/demo-games/src/index.ts"],
+      "digipology-kernel": ["../packages/kernel/src/index.ts"],
+      "digipology-lua": ["../packages/lua/src/index.ts"],
+      "digipology-prng": ["../packages/prng/src/index.ts"],
+      "digipology-protocol": ["../packages/protocol/src/index.ts"],
+      "digipology-protocol/http": ["../packages/protocol/src/http.ts"]
+    },
+    "typeRoots": [
+      "../node_modules/@types",
+      "../node_modules/.bun/node_modules/@types",
+      "../apps/worker/node_modules/@types"
+    ],
+    "types": ["bun"]
+  },
+  "include": ["smoke-play.ts"]
+}
