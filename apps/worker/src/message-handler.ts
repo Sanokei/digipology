@@ -19,7 +19,7 @@ export interface ConnectionState {
 
 export interface MessageHandlerContext {
   state: ConnectionState;
-  authenticate(token: string): string | null;
+  authenticate(token: string): Promise<string | null>;
   hello(playerId: string, lastSequence: number | null): ServerMessage;
   sequence(playerId: string, message: Extract<ClientMessage, { type: "action_request" }>): {
     message: ServerMessage;
@@ -32,35 +32,26 @@ export function handleTextFrame(
   socket: MessageSocket,
   raw: string,
   context: MessageHandlerContext,
-): void {
+): Promise<void> {
   const parsed = parseClientMessage(raw);
   if (!parsed.ok) {
     sendProtocolError(socket, parsed.error.code, parsed.error.detail);
     if (!context.state.authenticated) socket.close(1002, "Invalid hello");
-    return;
+    return Promise.resolve();
   }
 
   if (!context.state.authenticated) {
     if (parsed.message.type !== "hello") {
       sendProtocolError(socket, "malformed_message", "The first frame must be hello");
       socket.close(1002, "Expected hello");
-      return;
+      return Promise.resolve();
     }
-    const playerId = context.authenticate(parsed.message.sessionToken);
-    if (playerId === null) {
-      sendProtocolError(socket, "invalid_session", "The room session is not valid");
-      socket.close(1008, "Invalid session");
-      return;
-    }
-    context.state.authenticated = true;
-    context.state.playerId = playerId;
-    sendServerMessage(socket, context.hello(playerId, parsed.message.lastSequence));
-    return;
+    return handleHello(socket, context, parsed.message.sessionToken, parsed.message.lastSequence);
   }
 
   if (parsed.message.type === "hello") {
     sendProtocolError(socket, "malformed_message", "hello may only be sent once");
-    return;
+    return Promise.resolve();
   }
   if (parsed.message.type === "ping") {
     sendServerMessage(socket, {
@@ -68,7 +59,7 @@ export function handleTextFrame(
       protocolVersion: PROTOCOL_VERSION,
       ...(parsed.message.t === undefined ? {} : { t: parsed.message.t }),
     });
-    return;
+    return Promise.resolve();
   }
 
   const playerId = context.state.playerId;
@@ -76,6 +67,24 @@ export function handleTextFrame(
   const result = context.sequence(playerId, parsed.message);
   if (result.duplicate) sendServerMessage(socket, result.message);
   else context.broadcast(result.message);
+  return Promise.resolve();
+}
+
+async function handleHello(
+  socket: MessageSocket,
+  context: MessageHandlerContext,
+  token: string,
+  lastSequence: number | null,
+): Promise<void> {
+  const playerId = await context.authenticate(token);
+  if (playerId === null) {
+    sendProtocolError(socket, "invalid_session", "The room session is not valid");
+    socket.close(1008, "Invalid session");
+    return;
+  }
+  context.state.authenticated = true;
+  context.state.playerId = playerId;
+  sendServerMessage(socket, context.hello(playerId, lastSequence));
 }
 
 export function sendServerMessage(socket: MessageSocket, message: ServerMessage): void {

@@ -7,21 +7,24 @@ import {
   type RoomEndedMessage,
   type ServerMessage,
 } from "digipology-protocol";
+import { hashSelector, sha256Hex, timingSafeHashEqual } from "./crypto";
 import {
   handleTextFrame,
   sendServerMessage,
   type ConnectionState,
 } from "./message-handler";
-import { generateJoinCode, generatePlayerId, generateSessionToken, normalizeJoinCode } from "./random";
+import { handlePlatformRequest } from "./platform";
+import { generatePlayerId, generateSessionToken } from "./random";
 import { ACTION_RETENTION, RoomCore, type RoomCoreState } from "./room-core";
 
 const DEFAULT_ROOM_CAPACITY = 8;
 const EMPTY_ROOM_TTL_MS = 30 * 60 * 1000;
-const HTTP_BODY_LIMIT = 4 * 1024;
+const DUMMY_HASH = "0".repeat(64);
 
 interface RoomMetadataRow extends Record<string, SqlStorageValue> {
   room_id: string;
   join_code: string;
+  release_id: string;
   capacity: number;
   ended_reason: "host_ended" | "expired" | "moderation" | null;
   last_sequence: number;
@@ -30,7 +33,11 @@ interface RoomMetadataRow extends Record<string, SqlStorageValue> {
 interface PlayerRow extends Record<string, SqlStorageValue> {
   player_id: string;
   display_name: string;
-  session_token: string;
+}
+
+interface PlayerTokenRow extends Record<string, SqlStorageValue> {
+  player_id: string;
+  token_hash: string;
 }
 
 interface ActionRow extends Record<string, SqlStorageValue> {
@@ -39,62 +46,79 @@ interface ActionRow extends Record<string, SqlStorageValue> {
 
 type SocketAttachment = ConnectionState;
 
+type JoinResult =
+  | {
+      status: "ok";
+      playerId: string;
+      roomToken: string;
+      releaseId: string;
+      playerCount: number;
+    }
+  | { status: "not_found" }
+  | { status: "full" }
+  | { status: "ended" };
+
 export class RoomDO extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
-    ctx.blockConcurrencyWhile(async () => {
-      this.ctx.storage.sql.exec(`
-        CREATE TABLE IF NOT EXISTS room (
-          singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
-          room_id TEXT NOT NULL,
-          join_code TEXT NOT NULL,
-          capacity INTEGER NOT NULL,
-          ended_reason TEXT,
-          last_sequence INTEGER NOT NULL DEFAULT 0
-        );
-        CREATE TABLE IF NOT EXISTS players (
-          player_id TEXT PRIMARY KEY,
-          display_name TEXT NOT NULL,
-          session_token TEXT NOT NULL UNIQUE
-        );
-        CREATE TABLE IF NOT EXISTS actions (
-          sequence INTEGER PRIMARY KEY,
-          request_id TEXT NOT NULL UNIQUE,
-          body TEXT NOT NULL
-        );
-      `);
-    });
   }
 
-  init(roomId: string, joinCode: string, capacity = DEFAULT_ROOM_CAPACITY): boolean {
-    const existing = this.room();
-    if (existing !== null) return false;
-    this.ctx.storage.sql.exec(
-      "INSERT INTO room (singleton, room_id, join_code, capacity, ended_reason, last_sequence) VALUES (1, ?, ?, ?, NULL, 0)",
-      roomId,
-      joinCode,
-      capacity,
-    );
+  init(
+    roomId: string,
+    joinCode: string,
+    releaseId: string,
+    capacity = DEFAULT_ROOM_CAPACITY,
+  ): boolean {
+    if (this.room() !== null) return false;
+    if (!Number.isSafeInteger(capacity) || capacity < 1 || capacity > 64) return false;
+    this.ctx.storage.transactionSync(() => {
+      this.createSchema();
+      this.ctx.storage.sql.exec(
+        `INSERT INTO room
+          (singleton, room_id, join_code, release_id, capacity, ended_reason, last_sequence)
+         VALUES (1, ?, ?, ?, ?, NULL, 0)`,
+        roomId,
+        joinCode,
+        releaseId,
+        capacity,
+      );
+    });
     return true;
   }
 
-  join(displayName: string): { status: "ok"; playerId: string; sessionToken: string } | { status: "not_found" | "full" } {
-    const room = this.room();
-    if (room === null || room.ended_reason !== null) return { status: "not_found" };
-    const count = this.ctx.storage.sql.exec<{ count: number }>("SELECT COUNT(*) AS count FROM players").one().count;
-    if (count >= room.capacity) return { status: "full" };
+  async join(displayName: string): Promise<JoinResult> {
     const playerId = generatePlayerId();
-    const sessionToken = generateSessionToken();
-    this.ctx.storage.sql.exec(
-      "INSERT INTO players (player_id, display_name, session_token) VALUES (?, ?, ?)",
-      playerId,
-      displayName,
-      sessionToken,
-    );
-    return { status: "ok", playerId, sessionToken };
+    const roomToken = generateSessionToken();
+    const tokenHash = await sha256Hex(roomToken);
+    const tokenSelector = hashSelector(tokenHash);
+    return this.ctx.storage.transactionSync(() => {
+      const room = this.room();
+      if (room === null) return { status: "not_found" };
+      if (room.ended_reason !== null) return { status: "ended" };
+      const count = this.ctx.storage.sql.exec<{ count: number }>(
+        "SELECT COUNT(*) AS count FROM players",
+      ).one().count;
+      if (count >= room.capacity) return { status: "full" };
+      this.ctx.storage.sql.exec(
+        `INSERT INTO players
+          (player_id, display_name, token_selector, token_hash)
+         VALUES (?, ?, ?, ?)`,
+        playerId,
+        normalizeDisplayName(displayName),
+        tokenSelector,
+        tokenHash,
+      );
+      return {
+        status: "ok",
+        playerId,
+        roomToken,
+        releaseId: room.release_id,
+        playerCount: count + 1,
+      };
+    });
   }
 
-  end(reason: "host_ended" | "expired" | "moderation" = "host_ended"): boolean {
+  async end(reason: "host_ended" | "expired" | "moderation" = "host_ended"): Promise<boolean> {
     const room = this.room();
     if (room === null || room.ended_reason !== null) return false;
     this.ctx.storage.sql.exec("UPDATE room SET ended_reason = ? WHERE singleton = 1", reason);
@@ -103,12 +127,33 @@ export class RoomDO extends DurableObject<Env> {
       sendServerMessage(socket, message);
       socket.close(1000, "Room ended");
     }
+    try {
+      await this.env.DB.prepare(
+        "UPDATE rooms_index SET ended_at = ? WHERE room_id = ?",
+      ).bind(Date.now(), room.room_id).run();
+    } catch (error) {
+      console.error(JSON.stringify({
+        level: "error",
+        message: "room discovery cache end update failed",
+        roomId: room.room_id,
+        error: error instanceof Error ? error.message : String(error),
+      }));
+    }
     return true;
   }
 
   async fetch(request: Request): Promise<Response> {
+    if (this.room() === null) {
+      return Response.json(
+        { error: { code: "not_found", message: "Room not found" } },
+        { status: 404 },
+      );
+    }
     if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
-      return new Response("Expected WebSocket upgrade", { status: 426 });
+      return Response.json(
+        { error: { code: "websocket_required", message: "Expected WebSocket upgrade" } },
+        { status: 426 },
+      );
     }
     const pair = new WebSocketPair();
     const client = pair[0];
@@ -119,30 +164,32 @@ export class RoomDO extends DurableObject<Env> {
     return new Response(null, { status: 101, webSocket: client });
   }
 
-  webSocketMessage(socket: WebSocket, frame: string | ArrayBuffer): void {
+  async webSocketMessage(socket: WebSocket, frame: string | ArrayBuffer): Promise<void> {
     if (typeof frame !== "string") {
-      handleTextFrame(socket, "", this.messageContext(socket));
+      await handleTextFrame(socket, "", this.messageContext(socket));
       return;
     }
     const context = this.messageContext(socket);
-    handleTextFrame(socket, frame, context);
+    await handleTextFrame(socket, frame, context);
     socket.serializeAttachment(context.state);
   }
 
   async webSocketClose(socket: WebSocket): Promise<void> {
-    if (this.ctx.getWebSockets().every((peer) => peer === socket)) {
+    if (this.room() !== null && this.ctx.getWebSockets().every((peer) => peer === socket)) {
       await this.ctx.storage.setAlarm(Date.now() + EMPTY_ROOM_TTL_MS);
     }
   }
 
   async webSocketError(socket: WebSocket): Promise<void> {
-    if (this.ctx.getWebSockets().every((peer) => peer === socket)) {
+    if (this.room() !== null && this.ctx.getWebSockets().every((peer) => peer === socket)) {
       await this.ctx.storage.setAlarm(Date.now() + EMPTY_ROOM_TTL_MS);
     }
   }
 
-  alarm(): void {
-    if (this.ctx.getWebSockets().length === 0) this.end("expired");
+  async alarm(): Promise<void> {
+    if (this.room() !== null && this.ctx.getWebSockets().length === 0) {
+      await this.end("expired");
+    }
   }
 
   private messageContext(socket: WebSocket) {
@@ -150,17 +197,7 @@ export class RoomDO extends DurableObject<Env> {
     const state: SocketAttachment = attachment ?? { authenticated: false, playerId: null };
     return {
       state,
-      authenticate: (token: string): string | null => {
-        const room = this.room();
-        if (room === null) return null;
-        const player = this.ctx.storage.sql.exec<{ player_id: string }>(
-          "SELECT player_id FROM players WHERE session_token = ?",
-          token,
-        ).toArray()[0];
-        if (player === undefined) return null;
-        const players = this.ctx.storage.sql.exec<{ count: number }>("SELECT COUNT(*) AS count FROM players").one().count;
-        return players <= room.capacity ? player.player_id : null;
-      },
+      authenticate: (token: string): Promise<string | null> => this.authenticateRoomToken(token),
       hello: (_playerId: string, lastSequence: number | null): ServerMessage => {
         socket.serializeAttachment(state);
         const room = this.requiredRoom();
@@ -197,33 +234,71 @@ export class RoomDO extends DurableObject<Env> {
     };
   }
 
+  private async authenticateRoomToken(token: string): Promise<string | null> {
+    const room = this.room();
+    if (room === null || room.ended_reason !== null) return null;
+    const tokenHash = await sha256Hex(token);
+    const candidates = this.ctx.storage.sql.exec<PlayerTokenRow>(
+      "SELECT player_id, token_hash FROM players WHERE token_selector = ?",
+      hashSelector(tokenHash),
+    ).toArray();
+    if (candidates.length === 0) await timingSafeHashEqual(tokenHash, DUMMY_HASH);
+    let playerId: string | null = null;
+    for (const candidate of candidates) {
+      const equal = await timingSafeHashEqual(tokenHash, candidate.token_hash);
+      if (equal && playerId === null) playerId = candidate.player_id;
+    }
+    return playerId;
+  }
+
   private sequence(playerId: string, request: ActionRequest): { message: OrderedAction; duplicate: boolean } {
     return this.ctx.storage.transactionSync(() => {
-      const room = this.requiredRoom();
-      const core = this.loadCore(room);
-      const result = core.sequence(request, playerId);
-      if (!result.duplicate) {
-        this.ctx.storage.sql.exec(
-          "UPDATE room SET last_sequence = ? WHERE singleton = 1",
-          result.orderedAction.sequence,
-        );
-        this.ctx.storage.sql.exec(
-          "INSERT INTO actions (sequence, request_id, body) VALUES (?, ?, ?)",
-          result.orderedAction.sequence,
-          request.requestId,
-          JSON.stringify(result.orderedAction),
-        );
-        this.ctx.storage.sql.exec(
-          "DELETE FROM actions WHERE sequence <= ?",
-          result.orderedAction.sequence - ACTION_RETENTION,
-        );
+      const existing = this.ctx.storage.sql.exec<ActionRow>(
+        "SELECT body FROM request_dedup WHERE request_id = ?",
+        request.requestId,
+      ).toArray()[0];
+      if (existing !== undefined) {
+        return { message: JSON.parse(existing.body) as OrderedAction, duplicate: true };
       }
-      return { message: result.orderedAction, duplicate: result.duplicate };
+
+      const room = this.requiredRoom();
+      const result = this.loadCore(room).sequence(request, playerId);
+      this.ctx.storage.sql.exec(
+        "UPDATE room SET last_sequence = ? WHERE singleton = 1",
+        result.orderedAction.sequence,
+      );
+      const body = JSON.stringify(result.orderedAction);
+      this.ctx.storage.sql.exec(
+        `INSERT INTO actions (sequence, action_id, request_id, body)
+         VALUES (?, ?, ?, ?)`,
+        result.orderedAction.sequence,
+        result.orderedAction.actionId,
+        request.requestId,
+        body,
+      );
+      // This table is deliberately independent of replay-window trimming. A
+      // retried request ID therefore keeps its one canonical sequence mapping.
+      this.ctx.storage.sql.exec(
+        "INSERT INTO request_dedup (request_id, action_id, sequence, body) VALUES (?, ?, ?, ?)",
+        request.requestId,
+        result.orderedAction.actionId,
+        result.orderedAction.sequence,
+        body,
+      );
+      this.ctx.storage.sql.exec(
+        "DELETE FROM actions WHERE sequence <= ?",
+        result.orderedAction.sequence - ACTION_RETENTION,
+      );
+      return { message: result.orderedAction, duplicate: false };
     });
   }
 
   private room(): RoomMetadataRow | null {
-    return this.ctx.storage.sql.exec<RoomMetadataRow>("SELECT room_id, join_code, capacity, ended_reason, last_sequence FROM room WHERE singleton = 1").toArray()[0] ?? null;
+    if (!this.tableExists("room")) return null;
+    return this.ctx.storage.sql.exec<RoomMetadataRow>(
+      `SELECT room_id, join_code, release_id, capacity, ended_reason, last_sequence
+       FROM room WHERE singleton = 1`,
+    ).toArray()[0] ?? null;
   }
 
   private requiredRoom(): RoomMetadataRow {
@@ -233,7 +308,9 @@ export class RoomDO extends DurableObject<Env> {
   }
 
   private loadCore(room: RoomMetadataRow): RoomCore {
-    const actions = this.ctx.storage.sql.exec<ActionRow>("SELECT body FROM actions ORDER BY sequence").toArray().map((row) => JSON.parse(row.body) as OrderedAction);
+    const actions = this.ctx.storage.sql.exec<ActionRow>(
+      "SELECT body FROM actions ORDER BY sequence",
+    ).toArray().map((row) => JSON.parse(row.body) as OrderedAction);
     const state: RoomCoreState = { lastSequence: room.last_sequence, actions };
     return new RoomCore(room.room_id.slice(-8), state);
   }
@@ -245,101 +322,77 @@ export class RoomDO extends DurableObject<Env> {
         return state?.authenticated === true && state.playerId !== null ? [state.playerId] : [];
       }),
     );
-    return this.ctx.storage.sql.exec<PlayerRow>("SELECT player_id, display_name, session_token FROM players ORDER BY rowid").toArray().map((player) => ({
+    return this.ctx.storage.sql.exec<PlayerRow>(
+      "SELECT player_id, display_name FROM players ORDER BY rowid",
+    ).toArray().map((player) => ({
       playerId: player.player_id,
       displayName: player.display_name,
       seatId: null,
       connected: connected.has(player.player_id),
     }));
   }
+
+  private tableExists(name: string): boolean {
+    return this.ctx.storage.sql.exec<{ count: number }>(
+      "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = ?",
+      name,
+    ).one().count === 1;
+  }
+
+  private createSchema(): void {
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE room (
+        singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+        room_id TEXT NOT NULL,
+        join_code TEXT NOT NULL,
+        release_id TEXT NOT NULL,
+        capacity INTEGER NOT NULL,
+        ended_reason TEXT,
+        last_sequence INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE TABLE players (
+        player_id TEXT PRIMARY KEY,
+        display_name TEXT NOT NULL,
+        token_selector TEXT NOT NULL,
+        token_hash TEXT NOT NULL UNIQUE
+      );
+      CREATE INDEX players_token_selector_idx ON players(token_selector);
+      CREATE TABLE actions (
+        sequence INTEGER PRIMARY KEY,
+        action_id TEXT NOT NULL UNIQUE,
+        request_id TEXT NOT NULL UNIQUE,
+        body TEXT NOT NULL
+      );
+      CREATE TABLE request_dedup (
+        request_id TEXT PRIMARY KEY,
+        action_id TEXT NOT NULL UNIQUE,
+        sequence INTEGER NOT NULL UNIQUE,
+        body TEXT NOT NULL
+      );
+    `);
+  }
 }
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     try {
-      return await route(request, env);
+      return await handlePlatformRequest(request, env);
     } catch (error) {
-      console.error(JSON.stringify({ message: "request failed", error: error instanceof Error ? error.message : String(error), path: new URL(request.url).pathname }));
-      return jsonResponse({ error: "Internal server error" }, 500);
+      console.error(JSON.stringify({
+        level: "error",
+        message: "request failed",
+        error: error instanceof Error ? error.message : String(error),
+        path: new URL(request.url).pathname,
+      }));
+      return Response.json(
+        { error: { code: "internal_error", message: "Internal server error" } },
+        { status: 500 },
+      );
     }
   },
 } satisfies ExportedHandler<Env>;
 
-async function route(request: Request, env: Env): Promise<Response> {
-  const url = new URL(request.url);
-  if (request.method === "POST" && url.pathname === "/api/rooms") {
-    const body = await readJsonObject(request);
-    if (body === null || Object.keys(body).length !== 0) return jsonError(400, "Expected an empty JSON object");
-    for (let attempts = 0; attempts < 8; attempts += 1) {
-      const joinCode = generateJoinCode();
-      const id = env.ROOM.idFromName(joinCode);
-      const roomId = id.toString();
-      const initialized = await env.ROOM.get(id).init(roomId, joinCode);
-      if (initialized) {
-        return jsonResponse({ roomId, joinCode, wsUrl: websocketUrl(url, roomId) }, 201);
-      }
-    }
-    return jsonError(503, "Could not allocate a room code");
-  }
-  if (request.method === "POST" && url.pathname === "/api/rooms/join") {
-    const body = await readJsonObject(request);
-    if (body === null || typeof body.joinCode !== "string" || (body.displayName !== undefined && typeof body.displayName !== "string")) {
-      return jsonError(400, "Expected joinCode and optional displayName strings");
-    }
-    const joinCode = normalizeJoinCode(body.joinCode);
-    if (!/^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{7}$/.test(joinCode)) return jsonError(404, "Room not found");
-    const id = env.ROOM.idFromName(joinCode);
-    const result = await env.ROOM.get(id).join(normalizeDisplayName(body.displayName));
-    if (result.status === "not_found") return jsonError(404, "Room not found or ended");
-    if (result.status === "full") return jsonError(409, "Room is full");
-    if (result.status !== "ok") return jsonError(500, "Unexpected join result");
-    const roomId = id.toString();
-    return jsonResponse({ roomId, playerId: result.playerId, sessionToken: result.sessionToken, wsUrl: websocketUrl(url, roomId) });
-  }
-  const match = /^\/api\/rooms\/([0-9a-f]{64})\/ws$/.exec(url.pathname);
-  if (request.method === "GET" && match?.[1] !== undefined) {
-    return env.ROOM.get(env.ROOM.idFromString(match[1])).fetch(request);
-  }
-  const endMatch = /^\/api\/rooms\/([0-9a-f]{64})\/end$/.exec(url.pathname);
-  if (request.method === "POST" && endMatch?.[1] !== undefined) {
-    const ended = await env.ROOM.get(env.ROOM.idFromString(endMatch[1])).end();
-    return ended ? new Response(null, { status: 204 }) : jsonError(404, "Room not found or already ended");
-  }
-  return jsonError(404, "Not found");
-}
-
-async function readJsonObject(request: Request): Promise<Record<string, unknown> | null> {
-  const length = Number(request.headers.get("Content-Length") ?? "0");
-  if (Number.isFinite(length) && length > HTTP_BODY_LIMIT) return null;
-  const text = await request.text();
-  if (new TextEncoder().encode(text).byteLength > HTTP_BODY_LIMIT) return null;
-  try {
-    const value = JSON.parse(text) as unknown;
-    return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null;
-  } catch {
-    return null;
-  }
-}
-
-function normalizeDisplayName(value: unknown): string {
-  if (typeof value !== "string") return "Player";
-  const normalized = value.trim().replaceAll(/\s+/g, " ").slice(0, 64);
-  return normalized || "Player";
-}
-
-function websocketUrl(url: URL, roomId: string): string {
-  const ws = new URL(`/api/rooms/${roomId}/ws`, url);
-  ws.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-  return ws.toString();
-}
-
-function jsonError(status: number, error: string): Response {
-  return jsonResponse({ error }, status);
-}
-
-function jsonResponse(value: unknown, status = 200): Response {
-  return new Response(JSON.stringify(value), {
-    status,
-    headers: { "Content-Type": "application/json; charset=utf-8" },
-  });
+function normalizeDisplayName(value: string): string {
+  const normalized = value.trim().replaceAll(/\s+/g, " ");
+  return Array.from(normalized || "Player").slice(0, 64).join("");
 }

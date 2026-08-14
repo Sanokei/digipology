@@ -1,21 +1,34 @@
 import { parseServerMessage, type ServerMessage } from "digipology-protocol";
+import type {
+  CreateRoomResponse,
+  GamesResponse,
+  JoinRoomResponse,
+} from "digipology-protocol/http";
 
 const baseUrl = (Bun.env.WORKER_URL ?? "http://127.0.0.1:8787").replace(/\/$/, "");
 
 async function main(): Promise<void> {
-  const created = await jsonRequest<{ roomId: string; joinCode: string; wsUrl: string }>("/api/rooms", {});
-  pass("create", created.joinCode.length === 7);
-  const alice = await join(created.joinCode, "Alice");
-  const bob = await join(` ${created.joinCode.toLowerCase()} `, "Bob");
-  pass("join + normalization", alice.roomId === bob.roomId);
+  const catalog = await getJson<GamesResponse>("/api/games");
+  const game = catalog.games[0];
+  if (game === undefined) throw new Error("Built-in catalog is empty");
+  pass("catalog", game.builtin && game.maxPlayers >= 2);
 
-  const a = await connect(alice.wsUrl);
+  const created = await jsonRequest<CreateRoomResponse>("/api/rooms", {
+    releaseSlugOrId: game.slug,
+    visibility: "private",
+    displayName: "Alice",
+  });
+  pass("create + pin release", /^[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(created.joinCode));
+  const bob = await join(` ${created.joinCode.toLowerCase().replace("-", " - ")} `, "Bob");
+  pass("D1 code lookup + normalization", created.roomId === bob.roomId && bob.releaseId.length > 0);
+
+  const a = await connect(created.wsUrl);
   const b = await connect(bob.wsUrl);
   const bootstrapA = next(a);
   const bootstrapB = next(b);
-  a.send(JSON.stringify({ type: "hello", protocolVersion: 1, sessionToken: alice.sessionToken, lastSequence: null }));
-  b.send(JSON.stringify({ type: "hello", protocolVersion: 1, sessionToken: bob.sessionToken, lastSequence: null }));
-  pass("two bootstraps", (await bootstrapA).type === "bootstrap" && (await bootstrapB).type === "bootstrap");
+  a.send(JSON.stringify({ type: "hello", protocolVersion: 1, sessionToken: created.roomToken, lastSequence: null }));
+  b.send(JSON.stringify({ type: "hello", protocolVersion: 1, sessionToken: bob.roomToken, lastSequence: null }));
+  pass("two WebSocket hellos", (await bootstrapA).type === "bootstrap" && (await bootstrapB).type === "bootstrap");
 
   const action = { type: "action_request", protocolVersion: 1, requestId: "smoke_req_1", predictedAtSequence: 0, action: { type: "entity.grab", payload: { entityId: "ent_red_pawn" } } };
   const orderedAPromise = next(a);
@@ -31,33 +44,48 @@ async function main(): Promise<void> {
   pass("duplicate mapping", JSON.stringify(duplicate) === JSON.stringify(orderedA));
 
   a.close();
-  const reconnected = await connect(alice.wsUrl);
+  const reconnected = await connect(created.wsUrl);
   const resumePromise = next(reconnected);
-  reconnected.send(JSON.stringify({ type: "hello", protocolVersion: 1, sessionToken: alice.sessionToken, lastSequence: 0 }));
+  reconnected.send(JSON.stringify({ type: "hello", protocolVersion: 1, sessionToken: created.roomToken, lastSequence: 0 }));
   const resume = await resumePromise;
   pass("reconnect resume", resume.type === "resume" && resume.fromSequence === 1 && resume.actions.length === 1);
 
-  for (let index = 3; index <= 8; index += 1) {
+  for (let index = 3; index <= game.maxPlayers; index += 1) {
     await join(created.joinCode, `Player ${index}`);
   }
   const fullResponse = await fetch(`${baseUrl}/api/rooms/join`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ joinCode: created.joinCode, displayName: "Player 9" }),
+    headers: apiHeaders(),
+    body: JSON.stringify({ code: created.joinCode, displayName: `Player ${game.maxPlayers + 1}` }),
   });
-  pass("room capacity", fullResponse.status === 409);
+  const fullBody = await fullResponse.json() as { error?: { code?: string } };
+  pass("room capacity", fullResponse.status === 409 && fullBody.error?.code === "full");
   reconnected.close();
   b.close();
 }
 
-async function join(joinCode: string, displayName: string) {
-  return jsonRequest<{ roomId: string; playerId: string; sessionToken: string; wsUrl: string }>("/api/rooms/join", { joinCode, displayName });
+async function join(code: string, displayName: string): Promise<JoinRoomResponse> {
+  return jsonRequest<JoinRoomResponse>("/api/rooms/join", { code, displayName });
+}
+
+async function getJson<T>(path: string): Promise<T> {
+  const response = await fetch(`${baseUrl}${path}`);
+  if (!response.ok) throw new Error(`${path} returned ${response.status}: ${await response.text()}`);
+  return response.json() as Promise<T>;
 }
 
 async function jsonRequest<T>(path: string, body: object): Promise<T> {
-  const response = await fetch(`${baseUrl}${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: "POST",
+    headers: apiHeaders(),
+    body: JSON.stringify(body),
+  });
   if (!response.ok) throw new Error(`${path} returned ${response.status}: ${await response.text()}`);
   return response.json() as Promise<T>;
+}
+
+function apiHeaders(): Record<string, string> {
+  return { "Content-Type": "application/json", "X-Digipology-CSRF": "1" };
 }
 
 async function connect(wsUrl: string): Promise<WebSocket> {

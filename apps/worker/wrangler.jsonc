@@ -1,9 +1,32 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
-  "name": "digipology-worker",
+  "name": "digipology-play",
   "main": "src/index.ts",
   "compatibility_date": "2026-08-13",
   "compatibility_flags": ["nodejs_compat"],
+  // SESSION_SECRET is a Wrangler secret and must be configured out of band:
+  // `wrangler secret put SESSION_SECRET`. Never add it to `vars`.
+  "vars": {
+    "PUBLIC_ORIGIN": "https://play.digipology.com",
+    "EMAIL_FROM": "noreply@digipology.com"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "digipology",
+      "migrations_dir": "migrations"
+    }
+  ],
+  // The sender domain must first be onboarded with
+  // `wrangler email sending enable digipology.com`.
+  "send_email": [{ "name": "EMAIL" }],
+  // EMAIL_DEV_MODE is intentionally absent. Set it only in an uncommitted
+  // `.dev.vars` while running `wrangler dev`.
+  "assets": {
+    "directory": "../web/dist",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
   "durable_objects": {
     "bindings": [{ "name": "ROOM", "class_name": "RoomDO" }]
   },
