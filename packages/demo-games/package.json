@@ -1,0 +1,48 @@
+{
+  "name": "digipology-demo-games",
+  "version": "0.1.0",
+  "description": "Immutable built-in demo game release bundles for Digipology.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "bun": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "bun run build",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sanokei/digipology.git",
+    "directory": "packages/demo-games"
+  },
+  "homepage": "https://digipology.com",
+  "bugs": {
+    "url": "https://github.com/Sanokei/digipology/issues"
+  },
+  "keywords": [
+    "games",
+    "demo",
+    "deterministic",
+    "lua",
+    "digipology"
+  ],
+  "devDependencies": {
+    "digipology-canonical-json": "workspace:*",
+    "digipology-kernel": "workspace:*",
+    "digipology-lua": "workspace:*"
+  }
+}

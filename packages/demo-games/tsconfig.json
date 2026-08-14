@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "paths": {
+      "digipology-canonical-json": ["../canonical-json/src/index.ts"],
+      "digipology-kernel": ["../kernel/src/index.ts"],
+      "digipology-lua": ["../lua/src/index.ts"],
+      "digipology-prng": ["../prng/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["src/**/*.test.ts"]
+}
