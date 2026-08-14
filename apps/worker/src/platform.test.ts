@@ -153,11 +153,14 @@ describe("upload body cap", () => {
 describe("quick play route", () => {
   test("joins a fresh room as an auto-named guest and returns its join code", async () => {
     let joinedName = "";
+    let requiredJoinable = false;
+    const statements: string[] = [];
     const db = quickPlayDb([{ room_id: "a".repeat(64), join_code: "ABCD-2345", player_count: 3,
-      max_players: 4, last_heartbeat_at: Date.now() }]);
+      max_players: 4, last_heartbeat_at: Date.now(), joinable: 1 }], [], statements);
     const room = {
-      join: async (name: string) => {
+      join: async (name: string, requireQuickPlayJoinable: boolean) => {
         joinedName = name;
+        requiredJoinable = requireQuickPlayJoinable;
         return { status: "ok" as const, playerId: "player_guest", roomToken: "token", releaseId: "builtin_dice_dash_2", playerCount: 4 };
       },
     };
@@ -175,6 +178,9 @@ describe("quick play route", () => {
     }), env);
     expect(response.status).toBe(200);
     expect(joinedName).toMatch(/^Guest-[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{4}$/);
+    expect(requiredJoinable).toBe(true);
+    expect(statements.filter((sql) => sql.includes("rooms_index") && sql.includes("joinable = 1")))
+      .toHaveLength(2);
     expect(await response.json()).toMatchObject({
       roomId: "a".repeat(64), joinCode: "ABCD-2345", releaseId: "builtin_dice_dash_2",
     });
@@ -327,9 +333,14 @@ describe("uploaded game authorization", () => {
   });
 });
 
-function quickPlayDb(rows: unknown[], inserts: unknown[][] = []): D1Database {
+function quickPlayDb(
+  rows: unknown[],
+  inserts: unknown[][] = [],
+  statements: string[] = [],
+): D1Database {
   return {
     prepare(sql: string) {
+      statements.push(sql);
       return {
         bind(...values: unknown[]) {
           return {

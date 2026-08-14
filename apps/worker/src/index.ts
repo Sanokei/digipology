@@ -20,8 +20,11 @@ import { generatePlayerId, generateSessionToken } from "./random";
 import { createBuiltinInitialState } from "./initial-state";
 import {
   ACTION_RETENTION,
+  checkpointBaseConnects,
+  checkpointIsDue,
+  replayCheckpoint,
   RoomCore,
-  roomBootstrapMessages,
+  roomBootstrapFromSnapshots,
   type RoomCoreState,
 } from "./room-core";
 import { ROOM_HEARTBEAT_INTERVAL_MS } from "./quickplay";
@@ -39,6 +42,9 @@ interface RoomMetadataRow extends Record<string, SqlStorageValue> {
   last_sequence: number;
   started: number;
   initial_snapshot: string | null;
+  checkpoint_snapshot: string | null;
+  checkpoint_sequence: number | null;
+  quickplay_joinable: number;
   last_heartbeat_at: number | null;
   empty_since_at: number | null;
 }
@@ -69,7 +75,8 @@ type JoinResult =
     }
   | { status: "not_found" }
   | { status: "full" }
-  | { status: "ended" };
+  | { status: "ended" }
+  | { status: "ineligible" };
 
 export class RoomDO extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
@@ -88,8 +95,9 @@ export class RoomDO extends DurableObject<Env> {
       this.createSchema();
       this.ctx.storage.sql.exec(
         `INSERT INTO room
-          (singleton, room_id, join_code, release_id, capacity, ended_reason, last_sequence)
-         VALUES (1, ?, ?, ?, ?, NULL, 0)`,
+          (singleton, room_id, join_code, release_id, capacity, ended_reason,
+           last_sequence, quickplay_joinable)
+         VALUES (1, ?, ?, ?, ?, NULL, 0, 1)`,
         roomId,
         joinCode,
         releaseId,
@@ -99,7 +107,7 @@ export class RoomDO extends DurableObject<Env> {
     return true;
   }
 
-  async join(displayName: string): Promise<JoinResult> {
+  async join(displayName: string, requireQuickPlayJoinable = false): Promise<JoinResult> {
     const playerId = generatePlayerId();
     const roomToken = generateSessionToken();
     const tokenHash = await sha256Hex(roomToken);
@@ -109,6 +117,9 @@ export class RoomDO extends DurableObject<Env> {
       const room = this.room();
       if (room === null) return { status: "not_found" };
       if (room.ended_reason !== null) return { status: "ended" };
+      if (requireQuickPlayJoinable && room.quickplay_joinable !== 1) {
+        return { status: "ineligible" };
+      }
       const count = this.ctx.storage.sql.exec<{ count: number }>(
         "SELECT COUNT(*) AS count FROM players",
       ).one().count;
@@ -143,6 +154,7 @@ export class RoomDO extends DurableObject<Env> {
           `seat_assign_${playerId}`,
         ).orderedAction);
         for (const ordered of orderedActions) this.persistSystemAction(ordered);
+        this.advanceCheckpointIfNeeded(room, core);
         this.ctx.storage.sql.exec(
           "UPDATE room SET last_sequence = ? WHERE singleton = 1",
           core.state.lastSequence,
@@ -168,7 +180,10 @@ export class RoomDO extends DurableObject<Env> {
   async end(reason: "host_ended" | "expired" | "moderation" = "host_ended"): Promise<boolean> {
     const room = this.room();
     if (room === null || room.ended_reason !== null) return false;
-    this.ctx.storage.sql.exec("UPDATE room SET ended_reason = ? WHERE singleton = 1", reason);
+    this.ctx.storage.sql.exec(
+      "UPDATE room SET ended_reason = ?, quickplay_joinable = 0 WHERE singleton = 1",
+      reason,
+    );
     const message: RoomEndedMessage = { type: "room_ended", protocolVersion: PROTOCOL_VERSION, reason };
     for (const socket of this.ctx.getWebSockets()) {
       sendServerMessage(socket, message);
@@ -177,7 +192,7 @@ export class RoomDO extends DurableObject<Env> {
     this.ctx.waitUntil(this.flushPlayCounts());
     try {
       await this.env.DB.prepare(
-        "UPDATE rooms_index SET ended_at = ?, player_count = 0 WHERE room_id = ?",
+        "UPDATE rooms_index SET ended_at = ?, player_count = 0, joinable = 0 WHERE room_id = ?",
       ).bind(Date.now(), room.room_id).run();
     } catch (error) {
       console.error(JSON.stringify({
@@ -272,6 +287,22 @@ export class RoomDO extends DurableObject<Env> {
         lastSequence: number | null,
       ): Promise<ServerMessage | readonly ServerMessage[]> => {
         socket.serializeAttachment(state);
+        const before = this.requiredRoom();
+        if (
+          before.ended_reason === null &&
+          before.started === 0 &&
+          before.last_sequence !== 0
+        ) {
+          await this.expireLegacyRoom();
+        }
+        const afterLegacyCheck = this.requiredRoom();
+        if (afterLegacyCheck.ended_reason !== null) {
+          return {
+            type: "room_ended",
+            protocolVersion: PROTOCOL_VERSION,
+            reason: afterLegacyCheck.ended_reason,
+          };
+        }
         await this.startIfNeeded();
         const room = this.requiredRoom();
         if (room.ended_reason !== null) {
@@ -279,14 +310,15 @@ export class RoomDO extends DurableObject<Env> {
         }
         if (lastSequence === null) {
           const initialSnapshot = this.requiredInitialSnapshot(room);
-          const replay = this.loadCore(room).resumeAfter(initialSnapshot.sequence);
-          if (replay.type !== "resume") {
-            return { type: "resync_required", protocolVersion: PROTOCOL_VERSION };
-          }
-          return roomBootstrapMessages(
+          const core = this.loadCore(room);
+          const checkpoint = core.resumeAfter(initialSnapshot.sequence).type === "resync_required"
+            ? this.storedCheckpoint(room)
+            : null;
+          return roomBootstrapFromSnapshots(
+            core,
             initialSnapshot,
+            checkpoint,
             this.players(),
-            replay.message.actions,
           );
         }
         const result = this.loadCore(room).resumeAfter(lastSequence);
@@ -318,7 +350,7 @@ export class RoomDO extends DurableObject<Env> {
 
   private async authenticateRoomToken(token: string): Promise<string | null> {
     const room = this.room();
-    if (room === null || room.ended_reason !== null) return null;
+    if (room === null) return null;
     const tokenHash = await sha256Hex(token);
     const candidates = this.ctx.storage.sql.exec<PlayerTokenRow>(
       "SELECT player_id, token_hash FROM players WHERE token_selector = ?",
@@ -334,19 +366,24 @@ export class RoomDO extends DurableObject<Env> {
   }
 
   private sequence(playerId: string, request: ActionRequest): { message: OrderedAction; duplicate: boolean } {
-    return this.ctx.storage.transactionSync(() => {
+    const sequenced = this.ctx.storage.transactionSync(() => {
       const existing = this.ctx.storage.sql.exec<ActionRow>(
         "SELECT body FROM request_dedup WHERE request_id = ?",
         request.requestId,
       ).toArray()[0];
       if (existing !== undefined) {
-        return { message: JSON.parse(existing.body) as OrderedAction, duplicate: true };
+        return {
+          message: JSON.parse(existing.body) as OrderedAction,
+          duplicate: true,
+          becameIneligible: false,
+        };
       }
 
       const room = this.requiredRoom();
-      const result = this.loadCore(room).sequence(request, playerId);
+      const core = this.loadCore(room);
+      const result = core.sequence(request, playerId);
       this.ctx.storage.sql.exec(
-        "UPDATE room SET last_sequence = ? WHERE singleton = 1",
+        "UPDATE room SET last_sequence = ?, quickplay_joinable = 0 WHERE singleton = 1",
         result.orderedAction.sequence,
       );
       const body = JSON.stringify(result.orderedAction);
@@ -371,13 +408,27 @@ export class RoomDO extends DurableObject<Env> {
         "DELETE FROM actions WHERE sequence <= ?",
         result.orderedAction.sequence - ACTION_RETENTION,
       );
-      return { message: result.orderedAction, duplicate: false };
+      this.advanceCheckpointIfNeeded(room, core);
+      return {
+        message: result.orderedAction,
+        duplicate: false,
+        // The joinable index column only ever transitions once; pushing the
+        // metadata on every action would cost one D1 write per gameplay
+        // action for nothing.
+        becameIneligible: room.quickplay_joinable === 1,
+      };
     });
+    if (sequenced.becameIneligible) this.scheduleIndexMetadataUpdate();
+    return { message: sequenced.message, duplicate: sequenced.duplicate };
   }
 
   private async startIfNeeded(): Promise<void> {
     const before = this.requiredRoom();
-    if (before.started === 1) return;
+    if (before.started === 1 || before.ended_reason !== null) return;
+    if (before.last_sequence !== 0) {
+      await this.expireLegacyRoom();
+      return;
+    }
     const roster = this.playerRows().map((player) => ({
       playerId: player.player_id,
       displayName: player.display_name,
@@ -388,11 +439,15 @@ export class RoomDO extends DurableObject<Env> {
       : snapshot(builtinState);
     this.ctx.storage.transactionSync(() => {
       const room = this.requiredRoom();
-      if (room.started === 1) return;
+      if (room.started === 1 || room.ended_reason !== null) return;
       if (room.last_sequence !== 0) {
-        throw new Error("A legacy room with actions cannot be started canonically");
+        this.ctx.storage.sql.exec(
+          "UPDATE room SET ended_reason = 'expired', quickplay_joinable = 0 WHERE singleton = 1",
+        );
+        return;
       }
       if (baseSnapshot.releaseId !== room.release_id) throw new Error("Room release snapshot mismatch");
+      if (baseSnapshot.sequence !== 0) throw new Error("Room initial snapshot must start at sequence 0");
       const initialState = loadSnapshot(baseSnapshot);
       const core = this.loadCore(room);
       const started = core.sequenceSystem(
@@ -439,7 +494,72 @@ export class RoomDO extends DurableObject<Env> {
 
   private requiredInitialSnapshot(room: RoomMetadataRow): GameSnapshot {
     if (room.initial_snapshot === null) throw new Error("Started room has no initial snapshot");
-    return JSON.parse(room.initial_snapshot) as GameSnapshot;
+    const candidate = JSON.parse(room.initial_snapshot) as GameSnapshot;
+    loadSnapshot(candidate);
+    return candidate;
+  }
+
+  private storedCheckpoint(room: RoomMetadataRow): GameSnapshot | null {
+    if (room.checkpoint_snapshot === null && room.checkpoint_sequence === null) return null;
+    if (room.checkpoint_snapshot === null || room.checkpoint_sequence === null) {
+      throw new Error("Room checkpoint metadata is incomplete");
+    }
+    const candidate = JSON.parse(room.checkpoint_snapshot) as GameSnapshot;
+    loadSnapshot(candidate);
+    if (candidate.sequence !== room.checkpoint_sequence) {
+      throw new Error("Room checkpoint sequence does not match its snapshot");
+    }
+    return candidate;
+  }
+
+  private advanceCheckpointIfNeeded(room: RoomMetadataRow, core: RoomCore): void {
+    const baseSequence = room.checkpoint_sequence ?? 0;
+    if (!checkpointIsDue(baseSequence, core.state.lastSequence)) return;
+    const stored = this.storedCheckpoint(room);
+    const base = stored ?? this.requiredInitialSnapshot(room);
+    if (stored === null && !checkpointBaseConnects(base.sequence, core.state)) {
+      // A room that predates the checkpoint columns can already have a
+      // retention floor beyond its initial snapshot; no checkpoint can be
+      // constructed for it any more. Leave it on pre-checkpoint behavior
+      // instead of failing the gameplay action that tried to advance it.
+      return;
+    }
+    const next = replayCheckpoint(base, core.state.actions);
+    if (next.sequence !== core.state.lastSequence) {
+      throw new Error("Checkpoint replay did not reach the room sequence");
+    }
+    this.ctx.storage.sql.exec(
+      `UPDATE room SET checkpoint_snapshot = ?, checkpoint_sequence = ?
+       WHERE singleton = 1`,
+      JSON.stringify(next),
+      next.sequence,
+    );
+  }
+
+  private async expireLegacyRoom(): Promise<void> {
+    const expired = this.ctx.storage.transactionSync(() => {
+      const room = this.requiredRoom();
+      if (
+        room.ended_reason !== null ||
+        room.started !== 0 ||
+        room.last_sequence === 0
+      ) {
+        return null;
+      }
+      this.ctx.storage.sql.exec(
+        "UPDATE room SET ended_reason = 'expired', quickplay_joinable = 0 WHERE singleton = 1",
+      );
+      return room;
+    });
+    if (expired === null) return;
+    this.ctx.waitUntil(this.flushPlayCounts());
+    try {
+      await this.env.DB.prepare(
+        "UPDATE rooms_index SET ended_at = ?, player_count = 0, joinable = 0 WHERE room_id = ?",
+      ).bind(Date.now(), expired.room_id).run();
+    } catch (error) {
+      this.logMetadataFailure("legacy_expiry", expired.room_id, error);
+    }
   }
 
   private persistSystemAction(ordered: OrderedAction): void {
@@ -525,9 +645,9 @@ export class RoomDO extends DurableObject<Env> {
     const heartbeatAt = room.last_heartbeat_at ?? Date.now();
     try {
       await this.env.DB.prepare(
-        `UPDATE rooms_index SET player_count = ?, last_heartbeat_at = ?
+        `UPDATE rooms_index SET player_count = ?, last_heartbeat_at = ?, joinable = ?
          WHERE room_id = ? AND ended_at IS NULL`,
-      ).bind(playerCount, heartbeatAt, room.room_id).run();
+      ).bind(playerCount, heartbeatAt, room.quickplay_joinable, room.room_id).run();
     } catch (error) {
       this.logMetadataFailure("liveness", room.room_id, error);
     }
@@ -585,7 +705,8 @@ export class RoomDO extends DurableObject<Env> {
     this.ensureRoomSchema();
     return this.ctx.storage.sql.exec<RoomMetadataRow>(
       `SELECT room_id, join_code, release_id, capacity, ended_reason, last_sequence,
-              started, initial_snapshot, last_heartbeat_at, empty_since_at
+              started, initial_snapshot, checkpoint_snapshot, checkpoint_sequence,
+              quickplay_joinable, last_heartbeat_at, empty_since_at
        FROM room WHERE singleton = 1`,
     ).toArray()[0] ?? null;
   }
@@ -644,6 +765,9 @@ export class RoomDO extends DurableObject<Env> {
         last_sequence INTEGER NOT NULL DEFAULT 0,
         started INTEGER NOT NULL DEFAULT 0,
         initial_snapshot TEXT,
+        checkpoint_snapshot TEXT,
+        checkpoint_sequence INTEGER,
+        quickplay_joinable INTEGER NOT NULL DEFAULT 0 CHECK (quickplay_joinable IN (0, 1)),
         last_heartbeat_at INTEGER,
         empty_since_at INTEGER
       );
@@ -689,6 +813,17 @@ export class RoomDO extends DurableObject<Env> {
     }
     if (!columns.has("initial_snapshot")) {
       this.ctx.storage.sql.exec("ALTER TABLE room ADD COLUMN initial_snapshot TEXT");
+    }
+    if (!columns.has("checkpoint_snapshot")) {
+      this.ctx.storage.sql.exec("ALTER TABLE room ADD COLUMN checkpoint_snapshot TEXT");
+    }
+    if (!columns.has("checkpoint_sequence")) {
+      this.ctx.storage.sql.exec("ALTER TABLE room ADD COLUMN checkpoint_sequence INTEGER");
+    }
+    if (!columns.has("quickplay_joinable")) {
+      this.ctx.storage.sql.exec(
+        "ALTER TABLE room ADD COLUMN quickplay_joinable INTEGER NOT NULL DEFAULT 0 CHECK (quickplay_joinable IN (0, 1))",
+      );
     }
     if (!columns.has("last_heartbeat_at")) {
       this.ctx.storage.sql.exec("ALTER TABLE room ADD COLUMN last_heartbeat_at INTEGER");

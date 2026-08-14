@@ -92,6 +92,7 @@ interface QuickPlayCandidateRow {
   player_count: number;
   max_players: number;
   last_heartbeat_at: number | null;
+  joinable: number;
 }
 
 interface DevelopmentMagicLinkRow {
@@ -534,9 +535,10 @@ export async function handlePlatformRequest(
     const result = await runQuickPlayMatchmaking(now, {
       select: async () => {
         const rows = await env.DB.prepare(
-          `SELECT room_id, join_code, player_count, max_players, last_heartbeat_at
+          `SELECT room_id, join_code, player_count, max_players, last_heartbeat_at, joinable
            FROM rooms_index
            WHERE release_id = ? AND visibility = 'public' AND ended_at IS NULL
+             AND joinable = 1
              AND last_heartbeat_at IS NOT NULL AND last_heartbeat_at >= ?
              AND player_count < max_players
            ORDER BY player_count DESC, created_at ASC LIMIT 12`,
@@ -546,7 +548,8 @@ export async function handlePlatformRequest(
       claim: async (candidate) => {
         const claimed = await env.DB.prepare(
           `UPDATE rooms_index SET player_count = player_count + 1
-           WHERE room_id = ? AND ended_at IS NULL AND player_count < max_players
+           WHERE room_id = ? AND ended_at IS NULL AND joinable = 1
+             AND player_count < max_players
              AND last_heartbeat_at IS NOT NULL AND last_heartbeat_at >= ?`,
         ).bind(candidate.roomId, now - ROOM_HEARTBEAT_STALE_MS).run();
         return claimed.meta.changes > 0;
@@ -554,7 +557,7 @@ export async function handlePlatformRequest(
       join: async (candidate) => {
         try {
           const id = env.ROOM.idFromString(candidate.roomId);
-          const joined = await env.ROOM.get(id).join(displayName);
+          const joined = await env.ROOM.get(id).join(displayName, true);
           return joined.status === "ok"
             ? { status: "ok" as const, value: joined }
             : { status: joined.status };
@@ -565,6 +568,8 @@ export async function handlePlatformRequest(
       reconcile: async (candidate, outcome) => {
         if (outcome === "full") {
           await updatePlayerCount(env.DB, candidate.roomId, candidate.maxPlayers);
+        } else if (outcome === "ineligible") {
+          await markRoomIneligible(env.DB, candidate.roomId);
         } else {
           await markRoomEnded(env.DB, candidate.roomId, now);
         }
@@ -635,8 +640,8 @@ export async function handlePlatformRequest(
           `INSERT INTO rooms_index
             (room_id, join_code, join_code_normalized, visibility, release_id,
              player_count, max_players, created_at, ended_at, origin,
-             last_heartbeat_at, game_slug)
-           VALUES (?, ?, ?, ?, ?, 0, ?, ?, NULL, 'hosted', ?, ?)`,
+             last_heartbeat_at, game_slug, joinable)
+           VALUES (?, ?, ?, ?, ?, 0, ?, ?, NULL, 'hosted', ?, ?, 1)`,
         ).bind(
           roomId,
           joinCode,
@@ -710,6 +715,9 @@ export async function handlePlatformRequest(
       return joinError("ended");
     }
     if (result.status === "full") return joinError("full");
+    if (result.status === "ineligible") {
+      throw new Error("Manual room join was unexpectedly checked for quick-play eligibility");
+    }
     await updatePlayerCount(env.DB, row.room_id, result.playerCount);
     const response: JoinRoomResponse = {
       roomId: row.room_id,
@@ -1091,8 +1099,8 @@ async function allocateRoomForPlayer(
         `INSERT INTO rooms_index
           (room_id, join_code, join_code_normalized, visibility, release_id,
            player_count, max_players, created_at, ended_at, origin,
-           last_heartbeat_at, game_slug)
-         VALUES (?, ?, ?, ?, ?, 0, ?, ?, NULL, ?, ?, ?)`,
+           last_heartbeat_at, game_slug, joinable)
+         VALUES (?, ?, ?, ?, ?, 0, ?, ?, NULL, ?, ?, ?, 1)`,
       ).bind(
         roomId,
         joinCode,
@@ -1139,6 +1147,7 @@ function quickPlayCandidate(row: QuickPlayCandidateRow): QuickPlayCandidate {
     playerCount: row.player_count,
     maxPlayers: row.max_players,
     lastHeartbeatAt: row.last_heartbeat_at,
+    joinable: row.joinable === 1,
   };
 }
 
@@ -1163,9 +1172,21 @@ async function updatePlayerCount(db: D1Database, roomId: string, playerCount: nu
 
 async function markRoomEnded(db: D1Database, roomId: string, now: number): Promise<void> {
   try {
-    await db.prepare("UPDATE rooms_index SET ended_at = ? WHERE room_id = ?").bind(now, roomId).run();
+    await db.prepare("UPDATE rooms_index SET ended_at = ?, joinable = 0 WHERE room_id = ?").bind(now, roomId).run();
   } catch (error) {
     logIndexCacheFailure("ended_at", roomId, error);
+  }
+}
+
+async function markRoomIneligible(db: D1Database, roomId: string): Promise<void> {
+  try {
+    await db.prepare(
+      `UPDATE rooms_index
+       SET joinable = 0, player_count = CASE WHEN player_count > 0 THEN player_count - 1 ELSE 0 END
+       WHERE room_id = ?`,
+    ).bind(roomId).run();
+  } catch (error) {
+    logIndexCacheFailure("joinable", roomId, error);
   }
 }
 

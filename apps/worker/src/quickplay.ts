@@ -8,17 +8,21 @@ export interface QuickPlayCandidate {
   playerCount: number;
   maxPlayers: number;
   lastHeartbeatAt: number | null;
+  joinable: boolean;
 }
 
 export type QuickPlayJoinOutcome<T> =
   | { status: "ok"; value: T }
-  | { status: "full" | "ended" | "not_found" };
+  | { status: "full" | "ended" | "not_found" | "ineligible" };
 
 export interface QuickPlayOperations<T> {
   select(): Promise<readonly QuickPlayCandidate[]>;
   claim(candidate: QuickPlayCandidate): Promise<boolean>;
   join(candidate: QuickPlayCandidate): Promise<QuickPlayJoinOutcome<T>>;
-  reconcile(candidate: QuickPlayCandidate, outcome: "full" | "ended" | "not_found"): Promise<void>;
+  reconcile(
+    candidate: QuickPlayCandidate,
+    outcome: "full" | "ended" | "not_found" | "ineligible",
+  ): Promise<void>;
 }
 
 export type QuickPlayMatchResult<T> =
@@ -26,7 +30,7 @@ export type QuickPlayMatchResult<T> =
   | { decision: "create"; attempts: number };
 
 export function quickPlayAttemptDecision(
-  outcome: "claim_lost" | "joined" | "full" | "ended" | "not_found",
+  outcome: "claim_lost" | "joined" | "full" | "ended" | "not_found" | "ineligible",
   attempt: number,
   maxAttempts = QUICKPLAY_MAX_ATTEMPTS,
 ): "joined" | "retry" | "create" {
@@ -43,6 +47,7 @@ export function chooseQuickPlayCandidate(
   return candidates
     .filter((candidate) =>
       !excludedRoomIds.has(candidate.roomId) &&
+      candidate.joinable &&
       candidate.playerCount >= 0 &&
       candidate.playerCount < candidate.maxPlayers &&
       candidate.lastHeartbeatAt !== null &&

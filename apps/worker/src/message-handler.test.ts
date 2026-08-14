@@ -110,4 +110,27 @@ describe("protocol message handler", () => {
     }), ctx);
     expect(events).toEqual(["sent", "counted"]);
   });
+
+  test("sends room_ended and closes cleanly for legacy and subsequent hellos", async () => {
+    let endedReason: "expired" | null = null;
+    const hello = JSON.stringify({
+      type: "hello",
+      protocolVersion: 1,
+      sessionToken: "valid",
+      lastSequence: null,
+    });
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const socket = new MockSocket();
+      const ctx = context();
+      ctx.hello = () => {
+        endedReason ??= "expired";
+        return { type: "room_ended", protocolVersion: 1, reason: endedReason };
+      };
+      await expect(handleTextFrame(socket, hello, ctx)).resolves.toBeUndefined();
+      expect(socket.sent).toEqual([
+        { type: "room_ended", protocolVersion: 1, reason: "expired" },
+      ]);
+      expect(socket.closed).toEqual([1000, "Room ended"]);
+    }
+  });
 });
