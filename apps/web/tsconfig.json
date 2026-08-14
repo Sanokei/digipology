@@ -10,10 +10,13 @@
       "digipology-canonical-json": ["../../packages/canonical-json/src/index.ts"],
       "digipology-covers": ["../../packages/covers/src/index.ts"],
       "digipology-kernel": ["../../packages/kernel/src/index.ts"],
+      "digipology-lua": ["../../packages/lua/src/index.ts"],
+      "digipology-lua/lua-api-manifest": ["../../packages/lua/src/luaApiManifest.ts"],
       "digipology-prng": ["../../packages/prng/src/index.ts"],
       "digipology-protocol": ["../../packages/protocol/src/index.ts"],
       "digipology-protocol/http": ["../../packages/protocol/src/http.ts"]
     },
+    "resolveJsonModule": true,
     "types": ["vite/client", "bun"]
   },
   "include": ["src", "vite.config.ts"]

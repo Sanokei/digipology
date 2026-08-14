@@ -12,6 +12,7 @@ import {
 
 import { prevalidateRelease } from "../../releaseValidation";
 import type { EditorDraft } from "./types";
+import { createScript } from "./scripts";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -61,8 +62,7 @@ export function createEmptyEditorDraft(id: string, now = new Date().toISOString(
     title: "Untitled Game",
     definitions: {},
   };
-  bundle.integrity.manifestHash = releaseManifestHash(bundle, hashValue);
-  return {
+  const draft: EditorDraft = {
     editorVersion: 1,
     id,
     title: "Untitled Game",
@@ -74,6 +74,9 @@ export function createEmptyEditorDraft(id: string, now = new Date().toISOString(
     updatedAt: now,
     bundle,
   };
+  createScript(draft, "game.lua", "");
+  bundle.integrity.manifestHash = releaseManifestHash(bundle, hashValue);
+  return draft;
 }
 
 export function normalizeReleaseBundle(value: unknown): ReleaseBundleDto {

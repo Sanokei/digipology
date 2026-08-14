@@ -10,7 +10,7 @@ import { PointerEventTypes } from "@babylonjs/core/Events/pointerEvents";
 import { Scene } from "@babylonjs/core/scene";
 import type { EntityRecord, TransformComponent } from "digipology-kernel";
 
-import type { RoomClient } from "../net/roomClient";
+import type { TableActionSender } from "./TableScene";
 import type { KernelStore } from "../state/kernelStore";
 import { attachDragBehavior } from "./dragBehavior";
 import { TABLE_DEPTH, TABLE_SURFACE_Y, TABLE_WIDTH, buildCamera, buildLighting, buildTableSurface } from "./table";
@@ -101,7 +101,7 @@ function animateTransform(scene: Scene, mesh: Mesh, transform: TransformComponen
   return () => scene.onBeforeRenderObservable.remove(observer);
 }
 
-export function useBabylonScene(canvasRef: RefObject<HTMLCanvasElement>, store: KernelStore, client: RoomClient | null, interactionsPaused: boolean): void {
+export function useBabylonScene(canvasRef: RefObject<HTMLCanvasElement>, store: KernelStore, client: TableActionSender | null, interactionsPaused: boolean): void {
   const pausedRef = useRef(interactionsPaused);
   pausedRef.current = interactionsPaused;
   useEffect(() => {

@@ -4,7 +4,10 @@ export const EDITOR_LAYOUT_STORAGE_KEY = "dgp.editor.layout";
 
 export const EDITOR_PANELS = [
   { id: "hierarchy", title: "Hierarchy", tabId: "panel-hierarchy", defaultTabsetId: "editor-left" },
+  { id: "scripts", title: "Scripts", tabId: "panel-scripts", defaultTabsetId: "editor-left" },
   { id: "viewport", title: "Table", tabId: "panel-viewport", defaultTabsetId: "editor-center" },
+  { id: "lua", title: "Lua IDE", tabId: "panel-lua", defaultTabsetId: "editor-center" },
+  { id: "ai", title: "AI Assist", tabId: "panel-ai", defaultTabsetId: "editor-right" },
   { id: "inspector", title: "Inspector", tabId: "panel-inspector", defaultTabsetId: "editor-right" },
   { id: "console", title: "Console", tabId: "panel-console", defaultTabsetId: "editor-bottom" },
   { id: "history", title: "History", tabId: "panel-history", defaultTabsetId: "editor-bottom" },
@@ -52,17 +55,17 @@ export function createDefaultEditorLayout(): IJsonModel {
     layout: {
       type: "row",
       children: [
-        { type: "tabset", id: "editor-left", weight: 20, children: [createPanelTab("hierarchy")] },
+        { type: "tabset", id: "editor-left", weight: 20, children: [createPanelTab("hierarchy"), createPanelTab("scripts")] },
         {
           type: "column",
           id: "editor-middle",
           weight: 56,
           children: [
-            { type: "tabset", id: "editor-center", weight: 72, children: [createPanelTab("viewport")] },
+            { type: "tabset", id: "editor-center", weight: 72, children: [createPanelTab("viewport"), createPanelTab("lua")] },
             { type: "tabset", id: "editor-bottom", weight: 28, children: [createPanelTab("console"), createPanelTab("history")] },
           ],
         },
-        { type: "tabset", id: "editor-right", weight: 24, children: [createPanelTab("inspector")] },
+        { type: "tabset", id: "editor-right", weight: 24, children: [createPanelTab("inspector"), createPanelTab("ai")] },
       ],
     },
   };

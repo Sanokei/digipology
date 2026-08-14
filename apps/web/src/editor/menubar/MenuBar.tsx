@@ -44,11 +44,11 @@ export function fuzzyCommandMatch(query: string, candidate: string): boolean {
   return needle.length > 0 && index === needle.length;
 }
 
-export function MenuBar({ actions, status }: { actions: Record<"File" | "Edit" | "Window", MenuAction[]>; status: ReactNode }) {
+export function MenuBar({ actions, status }: { actions: Record<"File" | "Edit" | "Play" | "Window", MenuAction[]>; status: ReactNode }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
-  const commands = useMemo(() => flatten([...actions.File, ...actions.Edit, ...actions.Window]), [actions]);
+  const commands = useMemo(() => flatten([...actions.File, ...actions.Edit, ...actions.Play, ...actions.Window]), [actions]);
   const matches = query === "" ? commands.slice(0, 10) : commands.filter((command) => fuzzyCommandMatch(query, command.index)).slice(0, 12);
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
@@ -61,7 +61,7 @@ export function MenuBar({ actions, status }: { actions: Record<"File" | "Edit" |
   useEffect(() => { if (paletteOpen) queueMicrotask(() => inputRef.current?.focus()); }, [paletteOpen]);
   return <header className="editor-menubar">
     <a href="/" className="editor-brand">DGP <span>Editor</span></a>
-    <nav aria-label="Editor menu"><MenuDropdown label="File" actions={actions.File} /><MenuDropdown label="Edit" actions={actions.Edit} /><MenuDropdown label="Window" actions={actions.Window} /></nav>
+    <nav aria-label="Editor menu"><MenuDropdown label="File" actions={actions.File} /><MenuDropdown label="Edit" actions={actions.Edit} /><MenuDropdown label="Play" actions={actions.Play} /><MenuDropdown label="Window" actions={actions.Window} /></nav>
     <button type="button" className="editor-command-button" onClick={() => setPaletteOpen(true)}><Command size={14} /> Commands <kbd>Ctrl K</kbd></button>
     <div className="editor-menu-status">{status}</div>
     {paletteOpen ? <div className="editor-palette-backdrop" role="presentation" onMouseDown={() => setPaletteOpen(false)}><section className="editor-palette" role="dialog" aria-modal="true" aria-label="Command palette" onMouseDown={(event) => event.stopPropagation()}>

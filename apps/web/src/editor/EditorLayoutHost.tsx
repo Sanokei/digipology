@@ -13,6 +13,8 @@ import {
 } from "./layout";
 import { renderEditorPanel } from "./panels";
 import type { EditorStore } from "./state";
+import { PlaytestProvider } from "./playtest/context";
+import type { PlaytestController } from "./playtest/PlaytestController";
 
 export interface EditorLayoutApi {
   focusPanel(panelId: EditorPanelId): void;
@@ -24,7 +26,7 @@ function initialModel(): Model {
   catch { return Model.fromJson(createDefaultEditorLayout()); }
 }
 
-export function EditorLayoutHost({ store, onReady }: { store: EditorStore; onReady?: (api: EditorLayoutApi | null) => void }) {
+export function EditorLayoutHost({ store, playtest, onReady }: { store: EditorStore; playtest: PlaytestController; onReady?: (api: EditorLayoutApi | null) => void }) {
   const [model, setModel] = useState(initialModel);
   const focusPanel = useCallback((panelId: EditorPanelId) => {
     const definition = panelDefinition(panelId);
@@ -53,6 +55,6 @@ export function EditorLayoutHost({ store, onReady }: { store: EditorStore; onRea
       ? renderEditorPanel(component, store)
       : <div className="editor-empty-state">This panel is unavailable.</div>;
   }, [store]);
-  return <div className="editor-layout-host"><Layout model={model} factory={factory}
-    onModelChange={(next) => { try { localStorage.setItem(EDITOR_LAYOUT_STORAGE_KEY, JSON.stringify(next.toJson())); } catch { /* Layout persistence is best-effort. */ } }} /></div>;
+  return <div className="editor-layout-host"><PlaytestProvider controller={playtest}><Layout model={model} factory={factory}
+    onModelChange={(next) => { try { localStorage.setItem(EDITOR_LAYOUT_STORAGE_KEY, JSON.stringify(next.toJson())); } catch { /* Layout persistence is best-effort. */ } }} /></PlaytestProvider></div>;
 }

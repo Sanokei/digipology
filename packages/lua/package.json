@@ -10,6 +10,11 @@
       "types": "./dist/index.d.ts",
       "bun": "./src/index.ts",
       "default": "./dist/index.js"
+    },
+    "./lua-api-manifest": {
+      "types": "./dist/luaApiManifest.d.ts",
+      "bun": "./src/luaApiManifest.ts",
+      "default": "./dist/luaApiManifest.js"
     }
   },
   "files": [
@@ -19,6 +24,8 @@
     "LICENSE"
   ],
   "scripts": {
+    "codegen": "bun run scripts/generate-lua-api-manifest.ts",
+    "prebuild": "bun run codegen",
     "build": "tsc -p tsconfig.build.json",
     "prepack": "bun run build",
     "typecheck": "tsc --noEmit",
