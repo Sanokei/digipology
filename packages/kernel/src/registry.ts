@@ -8,7 +8,9 @@ import {
 import type {
   ActionDefinition,
   ActionInstance,
+  ActionRegistryOptions,
   ActionSource,
+  ActionValidationContext,
   ApplyContext,
   ApplyOrderedResult,
   CanonicalGameState,
@@ -29,6 +31,13 @@ export class SequenceError extends Error {
 
 export class ActionRegistry {
   private readonly definitions = new Map<string, ActionDefinition<unknown>>();
+  private readonly validationContext: ActionValidationContext;
+
+  constructor(options: ActionRegistryOptions = {}) {
+    this.validationContext = Object.freeze({
+      canPress: options.canPress ?? options.can_press ?? (() => true),
+    });
+  }
 
   register<P>(definition: ActionDefinition<P>): void {
     if (typeof definition.type !== "string" || definition.type.length === 0) {
@@ -59,6 +68,10 @@ export class ActionRegistry {
     return Array.from(this.definitions.keys()).sort((left, right) =>
       left < right ? -1 : left > right ? 1 : 0,
     );
+  }
+
+  validateContext(): ActionValidationContext {
+    return this.validationContext;
   }
 }
 
@@ -168,7 +181,11 @@ export function applyOrderedWithRegistry(
   };
   let validation;
   try {
-    validation = definition.validate(validationState, instance);
+    validation = definition.validate(
+      validationState,
+      instance,
+      registry.validateContext(),
+    );
   } catch {
     return rejected(state, ordered, "Action validation failed");
   }
@@ -225,6 +242,7 @@ export function createInitialState(input: {
   players?: CanonicalGameState["players"];
   seats?: CanonicalGameState["seats"];
   entities?: CanonicalGameState["entities"];
+  stacks?: NonNullable<CanonicalGameState["stacks"]>;
   scriptState?: JsonValue;
   prompts?: CanonicalGameState["prompts"];
 }): CanonicalGameState {
@@ -238,6 +256,7 @@ export function createInitialState(input: {
     players: cloneCanonical(input.players ?? {}),
     seats: cloneCanonical(input.seats ?? {}),
     entities: cloneCanonical(input.entities ?? {}),
+    ...(input.stacks === undefined ? {} : { stacks: cloneCanonical(input.stacks) }),
     scriptState: cloneCanonical(input.scriptState ?? {}),
     prompts: cloneCanonical(input.prompts ?? {}),
   };

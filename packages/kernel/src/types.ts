@@ -6,6 +6,7 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 export type PlayerId = string;
 export type SeatId = string;
 export type EntityId = string;
+export type StackId = string;
 export type PromptId = string;
 
 export type Settings = Record<string, boolean | number | string>;
@@ -49,6 +50,10 @@ export interface GrabbableComponent {
   heldBy: PlayerId | null;
 }
 
+export interface LockableComponent {
+  locked: boolean;
+}
+
 export interface FlippableComponent {
   flipped: boolean;
 }
@@ -81,6 +86,15 @@ export interface HandComponent {
   canonicalOrder: boolean;
 }
 
+export interface StackableComponent {
+  enabled: boolean;
+}
+
+/** Canonical gameplay tags used by zones and snap points. */
+export interface TagsComponent {
+  values: string[];
+}
+
 export interface DieComponent {
   definitionId: string;
   value: number | string;
@@ -92,6 +106,8 @@ export interface ZoneComponent {
   shape: "box" | "sphere";
   acceptedTags: string[];
   visibleInPlay: boolean;
+  /** Present once canonical zone membership has been authored or computed. */
+  members?: EntityId[];
 }
 
 export interface SnapPointComponent {
@@ -99,6 +115,8 @@ export interface SnapPointComponent {
   capacity: number;
   tags: string[];
   alignment: JsonValue;
+  /** Present once canonical attachment state has been authored or computed. */
+  attached?: EntityId[];
 }
 
 export interface TextComponent {
@@ -113,7 +131,10 @@ export interface ButtonComponent {
 export interface EntityComponents {
   transform?: TransformComponent;
   grabbable?: GrabbableComponent;
+  lockable?: LockableComponent;
   flippable?: FlippableComponent;
+  stackable?: StackableComponent;
+  tags?: TagsComponent;
   card?: CardComponent;
   container?: ContainerComponent;
   deck?: DeckComponent;
@@ -132,6 +153,12 @@ export interface EntityRecord {
   components: EntityComponents;
 }
 
+export interface StackRecord {
+  id: StackId;
+  /** Last item is the canonical top, matching v1 Container/Deck ordering. */
+  items: EntityId[];
+}
+
 export interface CanonicalGameState {
   schemaVersion: 1;
   sequence: number;
@@ -142,6 +169,8 @@ export interface CanonicalGameState {
   players: Record<PlayerId, PlayerRecord>;
   seats: Record<SeatId, SeatRecord>;
   entities: Record<EntityId, EntityRecord>;
+  /** Optional for schema-v1 compatibility; created lazily by stack actions. */
+  stacks?: Record<StackId, StackRecord>;
   scriptState: JsonValue;
   prompts: Record<PromptId, PromptRecord>;
 }
@@ -206,6 +235,24 @@ export interface ApplyContext {
   emit(type: string, data?: { [key: string]: JsonValue }): void;
 }
 
+export type DeepReadonly<T> = T extends JsonPrimitive
+  ? T
+  : T extends ReadonlyArray<infer Item>
+    ? ReadonlyArray<DeepReadonly<Item>>
+    : T extends object
+      ? { readonly [Key in keyof T]: DeepReadonly<T[Key]> }
+      : T;
+
+export type CanPressGuard = (
+  state: DeepReadonly<CanonicalGameState>,
+  action: DeepReadonly<ActionInstance<unknown>>,
+  entityId: EntityId,
+) => boolean;
+
+export interface ActionValidationContext {
+  readonly canPress: CanPressGuard;
+}
+
 export interface ActionDefinition<P = unknown> {
   type: string;
   version: 1;
@@ -213,6 +260,7 @@ export interface ActionDefinition<P = unknown> {
   validate(
     state: Readonly<CanonicalGameState>,
     action: ActionInstance<P>,
+    context?: ActionValidationContext,
   ): ValidationResult;
   apply(
     draft: CanonicalGameState,
@@ -240,4 +288,11 @@ export interface ComponentDefinition {
   type: string;
   behavior: "implemented" | "stub";
   requires: readonly string[];
+}
+
+export interface ActionRegistryOptions {
+  /** JavaScript-facing spelling. */
+  canPress?: CanPressGuard;
+  /** Lua guard spelling retained for the wave-9 binding surface. */
+  can_press?: CanPressGuard;
 }

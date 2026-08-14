@@ -5,15 +5,23 @@ import type {
   ContainerComponent,
   CounterComponent,
   EntityRecord,
+  HandComponent,
   JsonValue,
   Quaternion,
+  SnapPointComponent,
+  StackRecord,
+  TagsComponent,
+  TextComponent,
   TransformComponent,
   Vector3,
+  ZoneComponent,
 } from "./types";
 
 export const TRANSFORM_QUANTIZATION_GRID = 0.0001;
 export const TRANSFORM_MAX_ABS_COORDINATE = 1_000_000;
 export const QUATERNION_UNIT_TOLERANCE = 0.001;
+/** Canonical text values use a 4 KiB UTF-8 budget in kernel v1. */
+export const TEXT_MAX_UTF8_BYTES = 4096;
 
 const hasOwn = Object.prototype.hasOwnProperty;
 
@@ -56,6 +64,21 @@ function cloneKnownCanonical(value: unknown): JsonValue {
 
 function finiteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+export function canonicalUtf8ByteLength(value: string): number {
+  let bytes = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code <= 0x7f) bytes += 1;
+    else if (code <= 0x7ff) bytes += 2;
+    else if (code >= 0xd800 && code <= 0xdbff) {
+      const next = value.charCodeAt(index + 1);
+      if (next >= 0xdc00 && next <= 0xdfff) index += 1;
+      bytes += next >= 0xdc00 && next <= 0xdfff ? 4 : 3;
+    } else bytes += 3;
+  }
+  return bytes;
 }
 
 function vectorProblem(value: unknown, scale: boolean): string | undefined {
@@ -222,6 +245,194 @@ function validateCounter(component: unknown, entityId: string): void {
   }
 }
 
+function validateStringArray(
+  value: unknown,
+  label: string,
+  allowEmptyStrings = false,
+): asserts value is string[] {
+  if (
+    !Array.isArray(value) ||
+    value.some(
+      (item) =>
+        typeof item !== "string" || (!allowEmptyStrings && item.length === 0),
+    )
+  ) {
+    throw new InvalidGameStateError(`${label} must be an array of strings`);
+  }
+}
+
+function validateReferencedIds(
+  value: unknown,
+  label: string,
+  entities: Record<string, unknown>,
+  ownerId: string | undefined,
+  requireSorted: boolean,
+): string[] {
+  validateStringArray(value, label);
+  const seen = new Set<string>();
+  for (const entityId of value) {
+    if (!hasOwn.call(entities, entityId)) {
+      throw new InvalidGameStateError(`${label} references unknown entity ${entityId}`);
+    }
+    if (ownerId !== undefined && entityId === ownerId) {
+      throw new InvalidGameStateError(`${label} cannot reference itself`);
+    }
+    if (seen.has(entityId)) {
+      throw new InvalidGameStateError(`${label} contains duplicate entity ${entityId}`);
+    }
+    seen.add(entityId);
+  }
+  if (requireSorted) {
+    const sorted = [...value].sort((left, right) =>
+      left < right ? -1 : left > right ? 1 : 0,
+    );
+    for (let index = 0; index < value.length; index += 1) {
+      if (value[index] !== sorted[index]) {
+        throw new InvalidGameStateError(`${label} must use ascending entity order`);
+      }
+    }
+  }
+  return value;
+}
+
+function validateHand(component: unknown, entityId: string): void {
+  const hand = requireRecord(
+    component,
+    `entities.${entityId}.components.hand`,
+  ) as unknown as HandComponent;
+  if (
+    typeof hand.owner !== "string" ||
+    hand.owner.length === 0 ||
+    typeof hand.canonicalOrder !== "boolean"
+  ) {
+    throw new InvalidGameStateError(`entity ${entityId} has invalid hand`);
+  }
+}
+
+function validateTags(component: unknown, entityId: string): void {
+  const tags = requireRecord(
+    component,
+    `entities.${entityId}.components.tags`,
+  ) as unknown as TagsComponent;
+  validateStringArray(tags.values, `entity ${entityId} tags`);
+}
+
+function validateZone(
+  component: unknown,
+  entityId: string,
+  entities: Record<string, unknown>,
+): void {
+  const zone = requireRecord(
+    component,
+    `entities.${entityId}.components.zone`,
+  ) as unknown as ZoneComponent;
+  if (
+    (zone.shape !== "box" && zone.shape !== "sphere") ||
+    typeof zone.visibleInPlay !== "boolean"
+  ) {
+    throw new InvalidGameStateError(`entity ${entityId} has invalid zone`);
+  }
+  validateStringArray(zone.acceptedTags, `zone ${entityId} acceptedTags`);
+  if (zone.members !== undefined) {
+    validateReferencedIds(
+      zone.members,
+      `zone ${entityId} members`,
+      entities,
+      entityId,
+      true,
+    );
+  }
+}
+
+function validateSnapPoint(
+  component: unknown,
+  entityId: string,
+  entities: Record<string, unknown>,
+  placements: Record<string, string>,
+): void {
+  const snapPoint = requireRecord(
+    component,
+    `entities.${entityId}.components.snap-point`,
+  ) as unknown as SnapPointComponent;
+  if (
+    !finiteNumber(snapPoint.radius) ||
+    snapPoint.radius < 0 ||
+    !Number.isSafeInteger(snapPoint.capacity) ||
+    snapPoint.capacity < 0
+  ) {
+    throw new InvalidGameStateError(`entity ${entityId} has invalid snap-point limits`);
+  }
+  validateStringArray(snapPoint.tags, `snap-point ${entityId} tags`);
+  if (!hasOwn.call(snapPoint as unknown as object, "alignment")) {
+    throw new InvalidGameStateError(`snap-point ${entityId} requires alignment`);
+  }
+  if (snapPoint.attached === undefined) return;
+  const attached = validateReferencedIds(
+    snapPoint.attached,
+    `snap-point ${entityId} attached`,
+    entities,
+    entityId,
+    true,
+  );
+  if (attached.length > snapPoint.capacity) {
+    throw new InvalidGameStateError(`snap-point ${entityId} exceeds capacity`);
+  }
+  for (const attachedId of attached) {
+    const tags = ((entities[attachedId] as EntityRecord).components.tags as
+      | TagsComponent
+      | undefined)?.values ?? [];
+    if (
+      snapPoint.tags.length > 0 &&
+      !snapPoint.tags.some((tag) => tags.includes(tag))
+    ) {
+      throw new InvalidGameStateError(
+        `snap-point ${entityId} has incompatible attachment ${attachedId}`,
+      );
+    }
+    if (hasOwn.call(placements, attachedId)) {
+      throw new InvalidGameStateError(
+        `entity ${attachedId} has more than one exclusive placement`,
+      );
+    }
+    placements[attachedId] = `snap:${entityId}`;
+  }
+}
+
+function validateStacks(
+  value: unknown,
+  entities: Record<string, unknown>,
+  placements: Record<string, string>,
+): void {
+  const stacks = validateIdentityRecords(value, "stacks");
+  for (const stackId of sortedKeys(stacks)) {
+    const stack = stacks[stackId] as unknown as StackRecord;
+    const items = validateReferencedIds(
+      stack.items,
+      `stack ${stackId} items`,
+      entities,
+      undefined,
+      false,
+    );
+    if (items.length === 0) {
+      throw new InvalidGameStateError(`stack ${stackId} must not be empty`);
+    }
+    for (const itemId of items) {
+      const stackable = (entities[itemId] as EntityRecord).components.stackable as
+        | { enabled?: unknown }
+        | undefined;
+      if (stackable?.enabled !== true) {
+        throw new InvalidGameStateError(`stack ${stackId} item ${itemId} is not stackable`);
+      }
+      if (hasOwn.call(placements, itemId)) {
+        throw new InvalidGameStateError(
+          `entity ${itemId} has more than one exclusive placement`,
+        );
+      }
+      placements[itemId] = `stack:${stackId}`;
+    }
+  }
+}
+
 function validateEntity(
   entity: unknown,
   entityId: string,
@@ -252,6 +463,25 @@ function validateEntity(
       throw new InvalidGameStateError(`entity ${entityId} has invalid grabbable`);
     }
   }
+  if (hasOwn.call(components, "lockable")) {
+    const lockable = requireRecord(
+      components.lockable,
+      `entities.${entityId}.components.lockable`,
+    );
+    if (typeof lockable.locked !== "boolean") {
+      throw new InvalidGameStateError(`entity ${entityId} has invalid lockable`);
+    }
+  }
+  if (hasOwn.call(components, "stackable")) {
+    const stackable = requireRecord(
+      components.stackable,
+      `entities.${entityId}.components.stackable`,
+    );
+    if (typeof stackable.enabled !== "boolean") {
+      throw new InvalidGameStateError(`entity ${entityId} has invalid stackable`);
+    }
+  }
+  if (hasOwn.call(components, "tags")) validateTags(components.tags, entityId);
   if (hasOwn.call(components, "flippable")) {
     const flippable = requireRecord(
       components.flippable,
@@ -286,6 +516,36 @@ function validateEntity(
   }
   if (hasOwn.call(components, "hand") && !hasOwn.call(components, "container")) {
     throw new InvalidGameStateError(`hand ${entityId} requires a container`);
+  }
+  if (hasOwn.call(components, "hand")) validateHand(components.hand, entityId);
+  if (hasOwn.call(components, "zone")) {
+    validateZone(components.zone, entityId, entities);
+  }
+  if (hasOwn.call(components, "snap-point")) {
+    validateSnapPoint(components["snap-point"], entityId, entities, memberships);
+  }
+  if (hasOwn.call(components, "text")) {
+    const text = requireRecord(
+      components.text,
+      `entities.${entityId}.components.text`,
+    ) as unknown as TextComponent;
+    if (typeof text.value !== "string") {
+      throw new InvalidGameStateError(`entity ${entityId} has invalid text`);
+    }
+    if (canonicalUtf8ByteLength(text.value) > TEXT_MAX_UTF8_BYTES) {
+      throw new InvalidGameStateError(
+        `entity ${entityId} text exceeds ${TEXT_MAX_UTF8_BYTES} UTF-8 bytes`,
+      );
+    }
+  }
+  if (hasOwn.call(components, "button")) {
+    const button = requireRecord(
+      components.button,
+      `entities.${entityId}.components.button`,
+    );
+    if (typeof button.enabled !== "boolean" || typeof button.label !== "string") {
+      throw new InvalidGameStateError(`entity ${entityId} has invalid button`);
+    }
   }
   if (hasOwn.call(components, "counter")) {
     validateCounter(components.counter, entityId);
@@ -328,6 +588,9 @@ export function validateCanonicalGameState(state: unknown): asserts state is Can
   validateIdentityRecords(candidate.prompts, "prompts");
   const entities = validateIdentityRecords(candidate.entities, "entities");
   const memberships: Record<string, string> = {};
+  if (hasOwn.call(candidate, "stacks")) {
+    validateStacks(candidate.stacks, entities, memberships);
+  }
   for (const entityId of sortedKeys(entities)) {
     validateEntity(entities[entityId], entityId, entities, memberships);
   }
