@@ -11,6 +11,7 @@ import {
 import {
   ACTION_RETENTION,
   assertCheckpointConnectsToTail,
+  checkpointBaseConnects,
   checkpointIsDue,
   CHECKPOINT_INTERVAL,
   replayCheckpoint,
@@ -240,6 +241,31 @@ describe("RoomCore sequencing", () => {
     expect(recovery.slice(1).map((message) => "sequence" in message ? message.sequence : -1))
       .toEqual(long.state.actions.filter((action) => action.sequence > checkpoint.sequence)
         .map((action) => action.sequence));
+  });
+
+  test("detects when a checkpoint base no longer connects to the retained tail", () => {
+    // A room that predates checkpointing can be past the retention window
+    // with only its sequence-0 initial snapshot available. That base must be
+    // recognized as unusable (the DO skips checkpointing such rooms) while an
+    // in-window base still connects and replays.
+    const core = new RoomCore("preexisting");
+    for (let index = 1; index <= ACTION_RETENTION + 30; index += 1) {
+      core.sequence(request(index), "player_host");
+    }
+    const floor = retentionFloor(core.state);
+    expect(floor).toBeGreaterThan(1);
+    expect(checkpointBaseConnects(0, core.state)).toBe(false);
+    expect(checkpointBaseConnects(floor - 2, core.state)).toBe(false);
+    expect(checkpointBaseConnects(floor - 1, core.state)).toBe(true);
+    expect(checkpointBaseConnects(core.state.lastSequence, core.state)).toBe(true);
+    expect(checkpointBaseConnects(core.state.lastSequence + 1, core.state)).toBe(false);
+    // The disconnected base is exactly the shape replayCheckpoint rejects.
+    expect(() => replayCheckpoint(checkpointInitialSnapshot(), core.state.actions))
+      .toThrow("not contiguous");
+
+    const fresh = new RoomCore("fresh");
+    for (let index = 1; index <= 10; index += 1) fresh.sequence(request(index), "player_host");
+    expect(checkpointBaseConnects(0, fresh.state)).toBe(true);
   });
 
   test("fails loudly when an over-window bootstrap checkpoint is missing or malformed", () => {

@@ -20,6 +20,7 @@ import { generatePlayerId, generateSessionToken } from "./random";
 import { createBuiltinInitialState } from "./initial-state";
 import {
   ACTION_RETENTION,
+  checkpointBaseConnects,
   checkpointIsDue,
   replayCheckpoint,
   RoomCore,
@@ -371,7 +372,11 @@ export class RoomDO extends DurableObject<Env> {
         request.requestId,
       ).toArray()[0];
       if (existing !== undefined) {
-        return { message: JSON.parse(existing.body) as OrderedAction, duplicate: true };
+        return {
+          message: JSON.parse(existing.body) as OrderedAction,
+          duplicate: true,
+          becameIneligible: false,
+        };
       }
 
       const room = this.requiredRoom();
@@ -404,10 +409,17 @@ export class RoomDO extends DurableObject<Env> {
         result.orderedAction.sequence - ACTION_RETENTION,
       );
       this.advanceCheckpointIfNeeded(room, core);
-      return { message: result.orderedAction, duplicate: false };
+      return {
+        message: result.orderedAction,
+        duplicate: false,
+        // The joinable index column only ever transitions once; pushing the
+        // metadata on every action would cost one D1 write per gameplay
+        // action for nothing.
+        becameIneligible: room.quickplay_joinable === 1,
+      };
     });
-    if (!sequenced.duplicate) this.scheduleIndexMetadataUpdate();
-    return sequenced;
+    if (sequenced.becameIneligible) this.scheduleIndexMetadataUpdate();
+    return { message: sequenced.message, duplicate: sequenced.duplicate };
   }
 
   private async startIfNeeded(): Promise<void> {
@@ -505,6 +517,13 @@ export class RoomDO extends DurableObject<Env> {
     if (!checkpointIsDue(baseSequence, core.state.lastSequence)) return;
     const stored = this.storedCheckpoint(room);
     const base = stored ?? this.requiredInitialSnapshot(room);
+    if (stored === null && !checkpointBaseConnects(base.sequence, core.state)) {
+      // A room that predates the checkpoint columns can already have a
+      // retention floor beyond its initial snapshot; no checkpoint can be
+      // constructed for it any more. Leave it on pre-checkpoint behavior
+      // instead of failing the gameplay action that tried to advance it.
+      return;
+    }
     const next = replayCheckpoint(base, core.state.actions);
     if (next.sequence !== core.state.lastSequence) {
       throw new Error("Checkpoint replay did not reach the room sequence");

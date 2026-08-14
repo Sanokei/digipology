@@ -193,6 +193,14 @@ export function replayCheckpoint(
   return snapshot(state);
 }
 
+/** True when a bootstrap/checkpoint base still connects to the retained tail. */
+export function checkpointBaseConnects(
+  baseSequence: number,
+  state: RoomCoreState,
+): boolean {
+  return baseSequence >= retentionFloor(state) - 1 && baseSequence <= state.lastSequence;
+}
+
 export function assertCheckpointConnectsToTail(
   checkpointSequence: number,
   state: RoomCoreState,
