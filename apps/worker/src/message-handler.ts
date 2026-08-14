@@ -97,6 +97,9 @@ async function handleHello(
     sendServerMessage(socket, message);
   }
   await context.afterHelloSent?.(playerId, messages);
+  if (messages.some((message) => message.type === "room_ended")) {
+    socket.close(1000, "Room ended");
+  }
 }
 
 export function sendServerMessage(socket: MessageSocket, message: ServerMessage): void {

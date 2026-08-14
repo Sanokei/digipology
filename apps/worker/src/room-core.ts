@@ -6,9 +6,19 @@ import {
   type ResumeMessage,
   type ServerMessage,
 } from "digipology-protocol";
-import type { GameSnapshot } from "digipology-kernel";
+import {
+  applyOrdered,
+  loadSnapshot,
+  snapshot,
+  type GameSnapshot,
+} from "digipology-kernel";
 
 export const ACTION_RETENTION = 500;
+export const CHECKPOINT_INTERVAL = 200;
+
+if (CHECKPOINT_INTERVAL >= ACTION_RETENTION) {
+  throw new Error("CHECKPOINT_INTERVAL must be less than ACTION_RETENTION");
+}
 
 export interface RoomCoreState {
   lastSequence: number;
@@ -140,7 +150,7 @@ export function retentionFloor(state: RoomCoreState): number {
 }
 
 export function roomBootstrapMessages(
-  initialSnapshot: GameSnapshot,
+  bootstrapSnapshot: GameSnapshot,
   players: PlayerInfo[],
   actions: readonly OrderedAction[],
 ): readonly ServerMessage[] {
@@ -148,12 +158,84 @@ export function roomBootstrapMessages(
     {
       type: "bootstrap",
       protocolVersion: PROTOCOL_VERSION,
-      sequence: initialSnapshot.sequence,
-      snapshot: initialSnapshot,
+      sequence: bootstrapSnapshot.sequence,
+      snapshot: bootstrapSnapshot,
       players,
     },
     ...actions,
   ];
+}
+
+export function checkpointIsDue(
+  checkpointSequence: number,
+  lastSequence: number,
+): boolean {
+  return lastSequence - checkpointSequence >= CHECKPOINT_INTERVAL;
+}
+
+/** Mechanically replay a contiguous retained tail into a hash-verified snapshot. */
+export function replayCheckpoint(
+  baseSnapshot: GameSnapshot,
+  retainedActions: readonly OrderedAction[],
+): GameSnapshot {
+  let state = loadSnapshot(baseSnapshot);
+  let expectedSequence = baseSnapshot.sequence + 1;
+  for (const action of retainedActions) {
+    if (action.sequence <= baseSnapshot.sequence) continue;
+    if (action.sequence !== expectedSequence) {
+      throw new Error(
+        `Checkpoint replay is not contiguous: expected ${expectedSequence}, received ${action.sequence}`,
+      );
+    }
+    state = applyOrdered(state, action).state;
+    expectedSequence += 1;
+  }
+  return snapshot(state);
+}
+
+export function assertCheckpointConnectsToTail(
+  checkpointSequence: number,
+  state: RoomCoreState,
+): void {
+  const floor = retentionFloor(state);
+  if (checkpointSequence < floor - 1 || checkpointSequence > state.lastSequence) {
+    throw new Error(
+      `Checkpoint sequence ${checkpointSequence} does not connect to retained window ${floor}-${state.lastSequence}`,
+    );
+  }
+}
+
+/** Prefer the initial snapshot while it connects; require a checkpoint only after retention advances. */
+export function roomBootstrapFromSnapshots(
+  core: RoomCore,
+  initialSnapshot: GameSnapshot,
+  checkpointSnapshot: GameSnapshot | null,
+  players: PlayerInfo[],
+): readonly ServerMessage[] {
+  const initialReplay = core.resumeAfter(initialSnapshot.sequence);
+  if (initialReplay.type === "resume") {
+    return roomBootstrapMessages(initialSnapshot, players, initialReplay.message.actions);
+  }
+  if (initialReplay.type === "invalid_sequence") {
+    throw new Error("Initial snapshot sequence is ahead of the room sequence");
+  }
+  if (checkpointSnapshot === null) {
+    throw new Error("Room action window requires a checkpoint snapshot");
+  }
+  loadSnapshot(checkpointSnapshot);
+  if (checkpointSnapshot.releaseId !== initialSnapshot.releaseId) {
+    throw new Error("Room checkpoint release does not match the initial snapshot");
+  }
+  assertCheckpointConnectsToTail(checkpointSnapshot.sequence, core.state);
+  const checkpointReplay = core.resumeAfter(checkpointSnapshot.sequence);
+  if (checkpointReplay.type !== "resume") {
+    throw new Error("Room checkpoint does not connect to the retained action tail");
+  }
+  return roomBootstrapMessages(
+    checkpointSnapshot,
+    players,
+    checkpointReplay.message.actions,
+  );
 }
 
 function cloneState(state: RoomCoreState): RoomCoreState {

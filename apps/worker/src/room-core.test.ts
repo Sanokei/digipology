@@ -1,22 +1,50 @@
 import { describe, expect, test } from "bun:test";
 import type { ActionRequest } from "digipology-protocol";
 import { createBuiltinInitialState } from "./initial-state";
-import { snapshot } from "digipology-kernel";
+import {
+  applyOrdered,
+  createInitialState,
+  loadSnapshot,
+  snapshot,
+  type GameSnapshot,
+} from "digipology-kernel";
 import {
   ACTION_RETENTION,
+  assertCheckpointConnectsToTail,
+  checkpointIsDue,
+  CHECKPOINT_INTERVAL,
+  replayCheckpoint,
   RoomCore,
+  roomBootstrapFromSnapshots,
   retentionFloor,
   roomBootstrapMessages,
 } from "./room-core";
 
-function request(index: number, payload: unknown = { index }): ActionRequest {
+function request(
+  index: number,
+  payload: unknown = { index },
+  actionType = "test.action",
+): ActionRequest {
   return {
     type: "action_request",
     protocolVersion: 1,
     requestId: `req_${index}`,
     predictedAtSequence: Math.max(0, index - 1),
-    action: { type: "test.action", payload },
+    action: { type: actionType, payload },
   };
+}
+
+function checkpointInitialSnapshot(): GameSnapshot {
+  return snapshot(createInitialState({
+    releaseId: "release_checkpoint_test",
+    rng: { algorithm: "sfc32-v1", state: [1, 2, 3, 4], draws: 0 },
+    entities: {
+      score: {
+        id: "score",
+        components: { counter: { value: 0, default: 0, min: 0, max: 10_000 } },
+      },
+    },
+  }));
 }
 
 describe("RoomCore sequencing", () => {
@@ -145,5 +173,86 @@ describe("RoomCore sequencing", () => {
       actor: { type: "system" },
       action: { type: "system.game_start" },
     });
+  });
+
+  test("keeps checkpoint cadence inside retention and converges after more than 500 actions", () => {
+    expect(CHECKPOINT_INTERVAL).toBeLessThan(ACTION_RETENTION);
+    const initialSnapshot = checkpointInitialSnapshot();
+    const core = new RoomCore("checkpoint");
+    let checkpoint: GameSnapshot = initialSnapshot;
+    let uninterrupted = loadSnapshot(initialSnapshot);
+
+    for (let index = 1; index <= ACTION_RETENTION + 101; index += 1) {
+      const ordered = core.sequence(
+        request(index, { entityId: "score", amount: 1 }, "counter.add"),
+        "player_host",
+      ).orderedAction;
+      uninterrupted = applyOrdered(uninterrupted, ordered).state;
+      if (checkpointIsDue(checkpoint.sequence, core.state.lastSequence)) {
+        assertCheckpointConnectsToTail(checkpoint.sequence, core.state);
+        checkpoint = replayCheckpoint(checkpoint, core.state.actions);
+      }
+      if (core.state.lastSequence > ACTION_RETENTION) {
+        assertCheckpointConnectsToTail(checkpoint.sequence, core.state);
+      }
+    }
+
+    const checkpointBootstrap = roomBootstrapFromSnapshots(
+      core,
+      initialSnapshot,
+      checkpoint,
+      [],
+    );
+    expect(checkpointBootstrap[0]).toMatchObject({
+      type: "bootstrap",
+      sequence: checkpoint.sequence,
+    });
+    let recovered = loadSnapshot(checkpoint);
+    for (const ordered of core.state.actions.filter(
+      (action) => action.sequence > checkpoint.sequence,
+    )) {
+      recovered = applyOrdered(recovered, ordered).state;
+    }
+    expect(snapshot(recovered).stateHash).toBe(snapshot(uninterrupted).stateHash);
+  });
+
+  test("uses the initial snapshot below retention and checkpoint recovery after stale resync", () => {
+    const initialSnapshot = checkpointInitialSnapshot();
+    const short = new RoomCore("short");
+    for (let index = 1; index <= 10; index += 1) short.sequence(request(index), "player_host");
+    expect(roomBootstrapFromSnapshots(short, initialSnapshot, null, [])[0]).toMatchObject({
+      type: "bootstrap",
+      sequence: initialSnapshot.sequence,
+      snapshot: initialSnapshot,
+    });
+
+    const long = new RoomCore("long");
+    let checkpoint = initialSnapshot;
+    for (let index = 1; index <= ACTION_RETENTION + CHECKPOINT_INTERVAL; index += 1) {
+      long.sequence(request(index), "player_host");
+      if (checkpointIsDue(checkpoint.sequence, long.state.lastSequence)) {
+        checkpoint = replayCheckpoint(checkpoint, long.state.actions);
+      }
+    }
+    expect(long.resumeAfter(0)).toEqual({ type: "resync_required" });
+    const recovery = roomBootstrapFromSnapshots(long, initialSnapshot, checkpoint, []);
+    expect(recovery[0]).toMatchObject({ type: "bootstrap", sequence: checkpoint.sequence });
+    expect(recovery.slice(1).map((message) => "sequence" in message ? message.sequence : -1))
+      .toEqual(long.state.actions.filter((action) => action.sequence > checkpoint.sequence)
+        .map((action) => action.sequence));
+  });
+
+  test("fails loudly when an over-window bootstrap checkpoint is missing or malformed", () => {
+    const initialSnapshot = checkpointInitialSnapshot();
+    const core = new RoomCore("broken");
+    for (let index = 1; index <= ACTION_RETENTION + 1; index += 1) {
+      core.sequence(request(index), "player_host");
+    }
+    expect(() => roomBootstrapFromSnapshots(core, initialSnapshot, null, []))
+      .toThrow("requires a checkpoint");
+    expect(() => roomBootstrapFromSnapshots(core, initialSnapshot, {
+      ...initialSnapshot,
+      sequence: retentionFloor(core.state) - 1,
+    }, [])).toThrow("metadata does not match");
   });
 });

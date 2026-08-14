@@ -62,4 +62,33 @@ describe("D1 migrations", () => {
       .run("user_1", "2026-08-14", 1)).toThrow();
     db.close();
   });
+
+  test("0005 conservatively excludes existing rooms and allows explicit new lobbies", async () => {
+    const db = new Database(":memory:");
+    for (const name of [
+      "0001_platform_v1.sql",
+      "0002_uploaded_games_v1.sql",
+      "0003_quickplay_metrics_covers.sql",
+      "0004_deepseek_usage.sql",
+    ]) db.exec(await Bun.file(new URL(`./${name}`, import.meta.url)).text());
+    db.query(`INSERT INTO rooms_index
+      (room_id, join_code, join_code_normalized, visibility, release_id,
+       player_count, max_players, created_at, ended_at, origin,
+       last_heartbeat_at, game_slug)
+      VALUES ('room_residual', 'BBBB-2222', 'BBBB2222', 'public',
+              'builtin_first_deal_1', 2, 4, 1, NULL, 'quickplay', 1, 'first-deal')`).run();
+    db.exec(await Bun.file(new URL("./0005_room_joinability.sql", import.meta.url)).text());
+
+    expect(db.query("SELECT joinable FROM rooms_index WHERE room_id = 'room_residual'").get())
+      .toEqual({ joinable: 0 });
+    db.query(`INSERT INTO rooms_index
+      (room_id, join_code, join_code_normalized, visibility, release_id,
+       player_count, max_players, created_at, ended_at, origin,
+       last_heartbeat_at, game_slug, joinable)
+      VALUES ('room_lobby', 'CCCC-2222', 'CCCC2222', 'public',
+              'builtin_first_deal_1', 1, 4, 2, NULL, 'quickplay', 2, 'first-deal', 1)`).run();
+    expect(db.query("SELECT room_id FROM rooms_index WHERE joinable = 1").all())
+      .toEqual([{ room_id: "room_lobby" }]);
+    db.close();
+  });
 });

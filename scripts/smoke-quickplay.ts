@@ -5,11 +5,12 @@
 //   1. two POST /api/quickplay calls for the same slug land in the same room,
 //   2. both sockets bootstrap with server-generated Guest-XXXX names,
 //   3. one ordered action converges on both clients,
-//   4. /api/games reports currentPlayers > 0 while connected and an
+//   4. after gameplay starts, a third caller is not packed into that residual room,
+//   5. /api/games reports currentPlayers > 0 while connected and an
 //      incremented totalPlays after play counts flush,
-//   5. the quickplay room is listed in /api/rooms/public,
-//   6. builtin 2:3 covers serve immutably at the catalog-reported version,
-//   7. the home page shell plus its assets carry the capsule markup.
+//   6. the quickplay room is listed in /api/rooms/public,
+//   7. builtin 2:3 covers serve immutably at the catalog-reported version,
+//   8. the home page shell plus its assets carry the capsule markup.
 import {
   applyOrdered,
   loadSnapshot,
@@ -134,7 +135,10 @@ async function runChecks(): Promise<void> {
   const room = await check("both sockets bootstrap with Guest-XXXX names", async () => {
     const one = requireValue(first, "guest quickplay creates a room");
     const two = requireValue(second, "second guest quickplay joins the same room");
-    const [a, b] = await Promise.all([connect(one.wsUrl), connect(two.wsUrl)]);
+    const [a, b] = await Promise.all([
+      connect(webSocketTarget(one.wsUrl)),
+      connect(webSocketTarget(two.wsUrl)),
+    ]);
     sendHello(a.socket, one.roomToken);
     sendHello(b.socket, two.roomToken);
     const pair: ClientPair = { a, b };
@@ -157,6 +161,17 @@ async function runChecks(): Promise<void> {
     await sendOrdered(connected.pair, connected.simulation, "entity.grab", { entityId: cardId });
   });
 
+  await check("gameplay residual is excluded from new quickplay callers", async () => {
+    const residual = requireValue(first, "guest quickplay creates a room");
+    const response = await quickPlay(SLUG);
+    expect(response.status === 200, `expected 200, received ${response.status}`);
+    validateQuickPlay(response.value);
+    expect(
+      response.value.roomId !== residual.roomId,
+      `new quickplay caller was packed into residual room ${residual.joinCode}`,
+    );
+  });
+
   await check("catalog reports currentPlayers > 0 while connected", async () => {
     requireValue(room, "both sockets bootstrap with Guest-XXXX names");
     const game = await catalogGame(SLUG);
@@ -174,7 +189,7 @@ async function runChecks(): Promise<void> {
       requireValue(room, "both sockets bootstrap with Guest-XXXX names");
       // Play counts flush on the next Durable Object fetch or alarm; a
       // throwaway socket to the same room forces a flush immediately.
-      const flusher = await connect(created.wsUrl);
+      const flusher = await connect(webSocketTarget(created.wsUrl));
       flusher.socket.close(1000, "flush trigger");
       const deadline = Date.now() + PLAY_COUNT_TIMEOUT_MS;
       let latest = before.totalPlays;
@@ -271,6 +286,17 @@ function validateQuickPlay(value: QuickPlayResponse): void {
   expect(typeof value.wsUrl === "string" && value.wsUrl.length > 0, "wsUrl is empty");
   expect(typeof value.releaseId === "string" && value.releaseId.length > 0, "releaseId is empty");
   expect(typeof value.joinCode === "string" && JOIN_CODE.test(value.joinCode), "join code is invalid");
+}
+
+function webSocketTarget(value: string): string {
+  const target = new URL(value);
+  const local = new URL(origin);
+  if (local.hostname !== "127.0.0.1" && local.hostname !== "localhost") {
+    return target.toString();
+  }
+  target.protocol = local.protocol === "https:" ? "wss:" : "ws:";
+  target.host = local.host;
+  return target.toString();
 }
 
 async function sendOrdered(
