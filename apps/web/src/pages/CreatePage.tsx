@@ -1,5 +1,5 @@
 import { type ChangeEvent, type FormEvent, useCallback, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import type { OwnedGameDto, UploadValidationReportItem } from "digipology-protocol/http";
 
 import { api } from "../api/client";
@@ -18,8 +18,9 @@ export function ValidationReport({ report }: { report: UploadValidationReportIte
   </ul>;
 }
 export function CreatePage() {
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [title, setTitle] = useState("");
   const [tagline, setTagline] = useState("");
   const [slug, setSlug] = useState("");
@@ -39,6 +40,10 @@ export function CreatePage() {
   }, [user]);
   useEffect(() => { void loadGames(); }, [loadGames]);
 
+  function signIn() {
+    navigate("/login", { state: { backgroundLocation: location } });
+  }
+
   function validate() {
     const result = prevalidateCreateGame({ title, tagline, slug, minPlayers, maxPlayers }, bundleText);
     setReport(result.report);
@@ -47,6 +52,7 @@ export function CreatePage() {
 
   async function publish(event: FormEvent) {
     event.preventDefault();
+    if (user === null) { signIn(); return; }
     const checked = validate();
     if (checked.request === null) { setMessage("Fix the failed checks before publishing."); return; }
     setBusy(true); setMessage(null);
@@ -63,6 +69,7 @@ export function CreatePage() {
   }
 
   async function readFile(event: ChangeEvent<HTMLInputElement>) {
+    if (user === null) { event.currentTarget.value = ""; signIn(); return; }
     const file = event.currentTarget.files?.[0];
     if (file === undefined) return;
     setBundleText(await file.text());
@@ -70,6 +77,7 @@ export function CreatePage() {
   }
 
   async function toggle(game: OwnedGameDto) {
+    if (user === null) { signIn(); return; }
     const visibility = nextVisibility(game);
     const result = await api.updateGameVisibility(game.slug, visibility);
     if (!result.ok) { setMessage(result.error.message); return; }
@@ -77,6 +85,7 @@ export function CreatePage() {
   }
 
   async function host(game: OwnedGameDto) {
+    if (user === null) { signIn(); return; }
     const result = await api.createRoom({ releaseSlugOrId: game.latestReleaseId, visibility: "private" });
     if (!result.ok) { setMessage(result.error.message); return; }
     saveRoomSession(ownedGameRoomSession(game, result.value));
@@ -84,6 +93,7 @@ export function CreatePage() {
   }
 
   async function publishRelease(game: OwnedGameDto, event: ChangeEvent<HTMLInputElement>) {
+    if (user === null) { event.currentTarget.value = ""; signIn(); return; }
     const file = event.currentTarget.files?.[0];
     if (file === undefined) return;
     const checked = prevalidateRelease(await file.text(), game.minPlayers, game.maxPlayers);
@@ -99,9 +109,6 @@ export function CreatePage() {
     await loadGames();
   }
 
-  if (loading) return <div className="site-page"><SiteHeader /><main className="creator-page"><p>Checking your account…</p></main></div>;
-  if (user === null) return <div className="site-page"><SiteHeader /><main className="creator-page"><section className="dialog-card"><p className="eyebrow">Creator upload</p><h1>Sign in to publish</h1><p>Publishing and managing community games requires an account.</p><Link className="button-link" to="/login">Sign in</Link></section></main></div>;
-
   return <div className="site-page"><SiteHeader /><main className="creator-page">
     <section className="creator-panel">
       <p className="eyebrow">Creator upload</p><h1>Publish a game</h1>
@@ -111,16 +118,16 @@ export function CreatePage() {
         <label htmlFor="game-tagline">Tagline</label><input id="game-tagline" maxLength={240} value={tagline} onChange={(event) => setTagline(event.currentTarget.value)} />
         <label htmlFor="game-slug">Slug <small>(optional)</small></label><input id="game-slug" maxLength={48} placeholder="generated-from-title" value={slug} onChange={(event) => setSlug(event.currentTarget.value)} />
         <div className="field-pair"><label>Minimum players<input type="number" min={1} max={64} value={minPlayers} onChange={(event) => setMinPlayers(event.currentTarget.valueAsNumber)} /></label><label>Maximum players<input type="number" min={1} max={64} value={maxPlayers} onChange={(event) => setMaxPlayers(event.currentTarget.valueAsNumber)} /></label></div>
-        <label htmlFor="bundle-file">Release JSON file</label><input id="bundle-file" type="file" accept="application/json,.json" onChange={(event) => void readFile(event)} />
+        <label htmlFor="bundle-file">Release JSON file</label><input id="bundle-file" type="file" accept="application/json,.json" onClick={(event) => { if (user === null) { event.preventDefault(); signIn(); } }} onChange={(event) => void readFile(event)} />
         <label htmlFor="bundle-json">Release JSON</label><textarea id="bundle-json" rows={12} value={bundleText} onChange={(event) => { setBundleText(event.currentTarget.value); setReport([]); }} />
         <div className="button-row"><button type="button" className="secondary-button" onClick={validate}>Validate</button><button className="primary-button" disabled={busy} type="submit">{busy ? "Publishing…" : "Publish release 1"}</button></div>
       </form>
       {message === null ? null : <p className="form-notice" role="status">{message}</p>}
       {report.length === 0 ? null : <ValidationReport report={report} />}
     </section>
-    <section className="creator-panel" aria-labelledby="my-games-title">
+    <section className="creator-panel" id="my-games" aria-labelledby="my-games-title">
       <p className="eyebrow">Library</p><h2 id="my-games-title">My games</h2>
-      {games.length === 0 ? <p>No uploads yet.</p> : games.map((game) => <article className="my-game" key={game.slug}>
+      {user === null ? <><p>Sign in to keep published games with your account and manage their visibility.</p><button className="secondary-button" type="button" onClick={signIn}>Sign in for My Games</button></> : games.length === 0 ? <p>No uploads yet.</p> : games.map((game) => <article className="my-game" key={game.slug}>
         <div><h3>{game.title}</h3><p>{game.tagline}</p><small>{game.visibility} · latest release {game.releases[0]?.releaseNumber}</small></div>
         <div className="button-row"><button className="secondary-button" type="button" onClick={() => void toggle(game)}>{game.visibility === "public" ? "Make unlisted" : "Make public"}</button><button className="primary-button" type="button" onClick={() => void host(game)}>Host</button><label className="file-button">New release<input type="file" accept="application/json,.json" onChange={(event) => void publishRelease(game, event)} /></label></div>
         <ol className="release-list">{game.releases.map((release) => <li key={release.releaseId}><strong>Release {release.releaseNumber}</strong><span>{new Date(release.createdAt).toLocaleDateString()}</span><code>{release.releaseId}</code></li>)}</ol>
