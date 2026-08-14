@@ -144,6 +144,35 @@ describe("ordered transactions", () => {
     expect(() => applyOrdered(state, ordered)).toThrow(SequenceError);
   });
 
+  test("null action rejects without throwing and advances only sequence", () => {
+    const state = baseState();
+    const result = applyOrdered(state, {
+      sequence: state.sequence + 1,
+      actionId: "null_action",
+      actor: { type: "player", playerId: "alice" },
+      action: null as never,
+    });
+    const expected = cloneCanonical(state);
+    expected.sequence = state.sequence + 1;
+
+    expect(result.rejection).toBeDefined();
+    expect(result.events[0]?.data.actionType).toBeNull();
+    expect(result.state).toEqual(expected);
+  });
+
+  test("action without a payload key rejects without throwing", () => {
+    const state = baseState();
+    const result = applyOrdered(state, {
+      sequence: state.sequence + 1,
+      actionId: "missing_payload",
+      actor: { type: "player", playerId: "alice" },
+      action: { type: "counter.add" } as never,
+    });
+
+    expect(result.rejection?.reason).toBe("Action payload is required");
+    expect(result.state.sequence).toBe(state.sequence + 1);
+  });
+
   test("source validation is independent and rejection advances sequence", () => {
     const state = baseState();
     const result = applyOrdered(

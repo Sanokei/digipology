@@ -8,15 +8,22 @@ const forbidden = [
   ["noncanonical serializer", /JSON[.]stringify/],
 ] as const;
 
-const glob = new Bun.Glob("**/*.ts");
-const violations: string[] = [];
-for await (const path of glob.scan({ cwd: "src", absolute: false })) {
-  if (path.endsWith(".test.ts")) continue;
-  const source = await Bun.file(`src/${path}`).text();
-  for (const [label, pattern] of forbidden) {
-    if (pattern.test(source)) violations.push(`${path}: ${label}`);
+export async function findForbiddenApis(directory: string): Promise<string[]> {
+  const glob = new Bun.Glob("**/*.ts");
+  const violations: string[] = [];
+  for await (const path of glob.scan({ cwd: directory, absolute: false })) {
+    if (path.endsWith(".test.ts")) continue;
+    const source = await Bun.file(`${directory}/${path}`).text();
+    for (const [label, pattern] of forbidden) {
+      if (pattern.test(source)) violations.push(`${path}: ${label}`);
+    }
   }
+  return violations;
 }
-if (violations.length > 0) {
-  throw new Error(`Forbidden kernel APIs found:\n${violations.join("\n")}`);
+
+if (import.meta.main) {
+  const violations = await findForbiddenApis(`${import.meta.dir}/../src`);
+  if (violations.length > 0) {
+    throw new Error(`Forbidden kernel APIs found:\n${violations.join("\n")}`);
+  }
 }

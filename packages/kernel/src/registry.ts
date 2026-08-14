@@ -74,6 +74,12 @@ function rejected(
   ordered: OrderedActionInput<unknown>,
   reason: string,
 ): ApplyOrderedResult {
+  const actionType =
+    typeof ordered.action === "object" &&
+    ordered.action !== null &&
+    typeof ordered.action.type === "string"
+      ? ordered.action.type
+      : null;
   const next = cloneCanonical(state);
   next.sequence = ordered.sequence;
   validateCanonicalGameState(next);
@@ -84,7 +90,7 @@ function rejected(
         type: "action.rejected",
         sequence: ordered.sequence,
         actionId: ordered.actionId,
-        data: { actionType: ordered.action.type, reason },
+        data: { actionType, reason },
       },
     ],
     rejection: { reason },
@@ -120,6 +126,9 @@ function inputProblem(ordered: OrderedActionInput<unknown>): string | undefined 
     ordered.action.type.length === 0
   ) {
     return "Action type must be a non-empty string";
+  }
+  if (!Object.prototype.hasOwnProperty.call(ordered.action, "payload")) {
+    return "Action payload is required";
   }
   return undefined;
 }
