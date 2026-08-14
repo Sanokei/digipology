@@ -1,4 +1,6 @@
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
+import { ArcRotateCameraPointersInput } from "@babylonjs/core/Cameras/Inputs/arcRotateCameraPointersInput";
+import type { PointerTouch } from "@babylonjs/core/Events/pointerEvents";
 import { Color3 } from "@babylonjs/core/Maths/math.color";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
@@ -16,6 +18,32 @@ export const GRABBABLE_SIZE = 0.9;
 
 export interface LightingGraph {
   shadows: ShadowGenerator;
+}
+
+class MultiTouchOnlyArcRotatePointersInput extends ArcRotateCameraPointersInput {
+  override onTouch(point: PointerTouch | null, offsetX: number, offsetY: number): void {
+    if (point?.type === "touch") return;
+    super.onTouch(point, offsetX, offsetY);
+  }
+
+  override onMultiTouch(
+    pointA: PointerTouch | null,
+    pointB: PointerTouch | null,
+    previousPinchSquaredDistance: number,
+    pinchSquaredDistance: number,
+    previousMultiTouchPanPosition: PointerTouch | null,
+    multiTouchPanPosition: PointerTouch | null,
+  ): void {
+    if (pointA?.type === "touch" || pointB?.type === "touch") return;
+    super.onMultiTouch(
+      pointA,
+      pointB,
+      previousPinchSquaredDistance,
+      pinchSquaredDistance,
+      previousMultiTouchPanPosition,
+      multiTouchPanPosition,
+    );
+  }
 }
 
 export function buildTableSurface(scene: Scene): Mesh {
@@ -78,6 +106,13 @@ export function buildCamera(scene: Scene, canvas: HTMLCanvasElement): ArcRotateC
   camera.panningSensibility = 175;
   camera.wheelPrecision = 42;
   camera.inertia = 0.72;
+  camera.inputs.removeByType("ArcRotateCameraPointersInput");
+  const pointers = new MultiTouchOnlyArcRotatePointersInput();
+  pointers.angularSensibilityX = 1_000;
+  pointers.angularSensibilityY = 1_000;
+  pointers.pinchPrecision = 12;
+  pointers.panningSensibility = camera.panningSensibility;
+  camera.inputs.add(pointers);
   camera.attachControl(canvas, true);
   scene.activeCamera = camera;
 

@@ -75,6 +75,15 @@ interface AttachDragBehaviorOptions {
   canInteract?: () => boolean;
 }
 
+export interface AttachedDragBehavior {
+  beginTouchDrag(pointerId: number): void;
+  moveTouchDrag(pointerId: number, x: number, y: number): void;
+  finishTouchDrag(pointerId: number): void;
+  cancelTouchDrag(pointerId: number): void;
+  setTouchSelected(selected: boolean): void;
+  dispose(): void;
+}
+
 const HOVER_COLOR = Color3.FromHexString("#f7d89b");
 const HELD_COLOR = Color3.FromHexString("#fff2be");
 const LIFT_HEIGHT = 0.22;
@@ -96,7 +105,7 @@ export function attachDragBehavior({
   onGrab,
   onDrop,
   canInteract,
-}: AttachDragBehaviorOptions): () => void {
+}: AttachDragBehaviorOptions): AttachedDragBehavior {
   const highlight = new HighlightLayer("grab-highlight", scene);
   const pickingRay = new Ray(Vector3.Zero(), Vector3.Down());
   const dragPoint = Vector3.Zero();
@@ -104,6 +113,11 @@ export function attachDragBehavior({
   const dragPlaneY = bounds.restingY + LIFT_HEIGHT;
   let heldPointerId: number | null = null;
   let isHovered = false;
+  let isTouchSelected = false;
+
+  function idleHighlight(): Color3 | null {
+    return isHovered || isTouchSelected ? HOVER_COLOR : null;
+  }
 
   function setHighlight(color: Color3 | null) {
     highlight.removeMesh(mesh);
@@ -118,7 +132,7 @@ export function attachDragBehavior({
     }
     isHovered = hovered;
     canvas.style.cursor = hovered ? "grab" : "default";
-    setHighlight(hovered ? HOVER_COLOR : null);
+    setHighlight(idleHighlight());
   }
 
   function finishDrag(pointerId?: number, submit = true) {
@@ -132,7 +146,7 @@ export function attachDragBehavior({
     mesh.position.z = clamp(mesh.position.z, bounds.minZ, bounds.maxZ);
     mesh.position.y = bounds.restingY;
     canvas.style.cursor = isHovered ? "grab" : "default";
-    setHighlight(isHovered ? HOVER_COLOR : null);
+    setHighlight(idleHighlight());
     camera.attachControl(canvas, true);
 
     if (submit) onDrop?.({ x: mesh.position.x, y: mesh.position.y, z: mesh.position.z });
@@ -142,8 +156,31 @@ export function attachDragBehavior({
     }
   }
 
+  function beginDrag(pointerId: number) {
+    if (heldPointerId !== null || canInteract?.() === false) return;
+    heldPointerId = pointerId;
+    isHovered = true;
+    mesh.position.y = dragPlaneY;
+    camera.detachControl();
+    canvas.setPointerCapture(pointerId);
+    canvas.style.cursor = "grabbing";
+    setHighlight(HELD_COLOR);
+    onGrab?.();
+  }
+
+  function moveDrag(pointerId: number, x: number, y: number) {
+    if (heldPointerId !== pointerId) return;
+    scene.createPickingRayToRef(x, y, identityMatrix, pickingRay, camera);
+
+    if (intersectRayWithHorizontalPlaneToRef(pickingRay, dragPlaneY, dragPoint)) {
+      mesh.position.x = clamp(dragPoint.x, bounds.minX, bounds.maxX);
+      mesh.position.z = clamp(dragPoint.z, bounds.minZ, bounds.maxZ);
+    }
+  }
+
   function handlePointer(pointerInfo: PointerInfo) {
     const event = pointerInfo.event as PointerEvent;
+    if (event.pointerType === "touch") return;
 
     if (pointerInfo.type === PointerEventTypes.POINTERDOWN) {
       if (event.button !== 0 || pointerInfo.pickInfo?.pickedMesh !== mesh || canInteract?.() === false) {
@@ -151,14 +188,7 @@ export function attachDragBehavior({
       }
 
       event.preventDefault();
-      heldPointerId = event.pointerId;
-      isHovered = true;
-      mesh.position.y = dragPlaneY;
-      camera.detachControl();
-      canvas.setPointerCapture(event.pointerId);
-      canvas.style.cursor = "grabbing";
-      setHighlight(HELD_COLOR);
-      onGrab?.();
+      beginDrag(event.pointerId);
       return;
     }
 
@@ -180,18 +210,7 @@ export function attachDragBehavior({
       return;
     }
 
-    scene.createPickingRayToRef(
-      scene.pointerX,
-      scene.pointerY,
-      identityMatrix,
-      pickingRay,
-      camera,
-    );
-
-    if (intersectRayWithHorizontalPlaneToRef(pickingRay, dragPlaneY, dragPoint)) {
-      mesh.position.x = clamp(dragPoint.x, bounds.minX, bounds.maxX);
-      mesh.position.z = clamp(dragPoint.z, bounds.minZ, bounds.maxZ);
-    }
+    moveDrag(event.pointerId, scene.pointerX, scene.pointerY);
   }
 
   function handleLostPointerCapture(event: PointerEvent) {
@@ -206,12 +225,22 @@ export function attachDragBehavior({
   canvas.addEventListener("lostpointercapture", handleLostPointerCapture);
   canvas.addEventListener("pointercancel", handlePointerCancel);
 
-  return () => {
-    finishDrag(undefined, false);
-    scene.onPointerObservable.remove(pointerObserver);
-    canvas.removeEventListener("lostpointercapture", handleLostPointerCapture);
-    canvas.removeEventListener("pointercancel", handlePointerCancel);
-    canvas.style.cursor = "default";
-    highlight.dispose();
+  return {
+    beginTouchDrag: beginDrag,
+    moveTouchDrag: moveDrag,
+    finishTouchDrag: (pointerId) => finishDrag(pointerId),
+    cancelTouchDrag: (pointerId) => finishDrag(pointerId),
+    setTouchSelected(selected) {
+      isTouchSelected = selected;
+      if (heldPointerId === null) setHighlight(idleHighlight());
+    },
+    dispose() {
+      finishDrag(undefined, false);
+      scene.onPointerObservable.remove(pointerObserver);
+      canvas.removeEventListener("lostpointercapture", handleLostPointerCapture);
+      canvas.removeEventListener("pointercancel", handlePointerCancel);
+      canvas.style.cursor = "default";
+      highlight.dispose();
+    },
   };
 }
