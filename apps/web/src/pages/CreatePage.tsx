@@ -14,6 +14,7 @@ import { useAuth } from "../auth/AuthContext";
 import { SiteHeader } from "../components/SiteHeader";
 import { prevalidateCreateGame, prevalidateRelease } from "../releaseValidation";
 import { saveRoomSession } from "../utils/roomSession";
+import { readEditorCreatePrefill } from "./createPrefill";
 import {
   aiCreatePrefill,
   aiReleasePrefill,
@@ -39,12 +40,13 @@ export function CreatePage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [title, setTitle] = useState("");
-  const [tagline, setTagline] = useState("");
-  const [slug, setSlug] = useState("");
-  const [minPlayers, setMinPlayers] = useState(2);
-  const [maxPlayers, setMaxPlayers] = useState(4);
-  const [bundleText, setBundleText] = useState("");
+  const editorPrefill = readEditorCreatePrefill(location.state);
+  const [title, setTitle] = useState(() => editorPrefill?.title ?? "");
+  const [tagline, setTagline] = useState(() => editorPrefill?.tagline ?? "");
+  const [slug, setSlug] = useState(() => editorPrefill?.slug ?? "");
+  const [minPlayers, setMinPlayers] = useState(() => editorPrefill?.minPlayers ?? 2);
+  const [maxPlayers, setMaxPlayers] = useState(() => editorPrefill?.maxPlayers ?? 4);
+  const [bundleText, setBundleText] = useState(() => editorPrefill?.bundleText ?? "");
   const [report, setReport] = useState<UploadValidationReportItem[]>([]);
   const [games, setGames] = useState<OwnedGameDto[]>([]);
   const [busy, setBusy] = useState(false);

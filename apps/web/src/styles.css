@@ -935,3 +935,9 @@ button.action-card { width: 100%; border-right: 0; border-left: 0; text-align: l
     transition: none !important;
   }
 }
+/* The exclusion screen is part of the small route gate, so these styles stay in the main shell chunk. */
+.editor-mobile-gate { min-height: 100dvh; display: grid; place-items: center; padding: 28px; background: #0b0b0f; color: #f3f3f5; text-align: center; }
+.editor-mobile-gate > div { width: min(620px, 100%); }
+.editor-mobile-gate h1 { margin: 8px 0 14px; font-size: clamp(30px, 8vw, 52px); line-height: 1.05; }
+.editor-mobile-gate p { color: #a1a1aa; }
+.editor-mobile-gate nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 24px; }
