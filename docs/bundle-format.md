@@ -7,6 +7,8 @@ description: The JSON upload contract, immutable integrity chain, validation che
 
 A release bundle is one UTF-8 JSON object, at most 1 MiB as an upload request. Published bundles are immutable. The platform assigns the final `gameId`, `releaseId`, and `releaseNumber`, recomputes the snapshot and manifest hashes for those identifiers, and stores the canonical JSON at `releases/<releaseId>.json`.
 
+The desktop editor assembles this format for you and hands it to the same validated create flow described below. See the [creator guide](./creator-guide.md) for the authoring, playtest, export, and publish workflow.
+
 ```json
 {
   "formatVersion": 1,
