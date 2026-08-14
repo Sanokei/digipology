@@ -22,6 +22,7 @@ import type {
 } from "digipology-protocol/http";
 
 const NETWORK_TIMEOUT_MS = 7_000;
+const MAX_FRAMES_PER_REQUEST = 20;
 const JOIN_CODE = /^[A-Z2-9]{4}-[A-Z2-9]{4}$/;
 const origin = parseOrigin(Bun.argv[2] ?? "http://127.0.0.1:8787");
 const sockets = new Set<WebSocket>();
@@ -42,13 +43,25 @@ interface Frame {
 }
 
 interface FrameWaiter {
-  promise: Promise<Frame>;
-  cancel(): void;
+  resolve(frame: Frame): void;
+  reject(error: Error): void;
+  timeout: ReturnType<typeof setTimeout>;
 }
 
-interface SocketPair {
-  a: WebSocket;
-  b: WebSocket;
+/** A connected room socket whose incoming frames are queued losslessly. */
+interface Client {
+  socket: WebSocket;
+  next(): Promise<Frame>;
+}
+
+interface ClientPair {
+  a: Client;
+  b: Client;
+}
+
+interface ConnectedRoom {
+  pair: ClientPair;
+  simulation: Simulation;
 }
 
 interface Simulation {
@@ -131,41 +144,27 @@ async function runChecks(): Promise<void> {
     return response.value;
   });
 
-  const firstSockets = await check("websocket handshake x2", async () => {
+  const firstRoom = await check("websocket handshake x2", async () => {
     const created = requireValue(firstCreated, "create private room");
     const joined = requireValue(firstJoined, "guest join via code");
     const [a, b] = await Promise.all([connect(created.wsUrl), connect(joined.wsUrl)]);
-    const frames = await receivePair(a, b, () => {
-      sendHello(a, created.roomToken);
-      sendHello(b, joined.roomToken);
-    });
-    expect(frames[0].message.type === "bootstrap", "client A did not receive bootstrap");
-    expect(frames[1].message.type === "bootstrap", "client B did not receive bootstrap");
-    return { a, b };
+    sendHello(a.socket, created.roomToken);
+    sendHello(b.socket, joined.roomToken);
+    const pair: ClientPair = { a, b };
+    const simulation = await bootstrapSimulation(pair);
+    return { pair, simulation } satisfies ConnectedRoom;
   });
 
-  const firstSimulation = await check("release bundle snapshot", async () => {
+  await check("release bundle snapshot", async () => {
     const joined = requireValue(firstJoined, "guest join via code");
-    return loadReleaseSimulation(joined.releaseId);
+    await validateReleaseBundle(joined.releaseId);
   });
 
   let cardId: string | undefined;
-  if (firstSimulation !== undefined) cardId = findCard(firstSimulation.a);
+  if (firstRoom !== undefined) cardId = findCard(firstRoom.simulation.a);
 
-  await orderedCheck(
-    "entity.grab",
-    { entityId: cardId },
-    1,
-    firstSockets,
-    firstSimulation,
-  );
-  await orderedCheck(
-    "entity.flip",
-    { entityId: cardId },
-    2,
-    firstSockets,
-    firstSimulation,
-  );
+  await orderedCheck("entity.grab", { entityId: cardId }, firstRoom);
+  await orderedCheck("entity.flip", { entityId: cardId }, firstRoom);
   await orderedCheck(
     "entity.drop",
     {
@@ -176,9 +175,7 @@ async function runChecks(): Promise<void> {
         scale: { x: 1, y: 1, z: 1 },
       },
     },
-    3,
-    firstSockets,
-    firstSimulation,
+    firstRoom,
   );
 
   await check(
@@ -199,23 +196,16 @@ async function runChecks(): Promise<void> {
         connect(created.wsUrl),
         connect(joinedResponse.value.wsUrl),
       ]);
-      const bootstraps = await receivePair(a, b, () => {
-        sendHello(a, created.roomToken);
-        sendHello(b, joinedResponse.value.roomToken);
-      });
-      expect(bootstraps[0].message.type === "bootstrap", "client A did not receive bootstrap");
-      expect(bootstraps[1].message.type === "bootstrap", "client B did not receive bootstrap");
+      sendHello(a.socket, created.roomToken);
+      sendHello(b.socket, joinedResponse.value.roomToken);
+      const pair: ClientPair = { a, b };
+      const simulation = await bootstrapSimulation(pair);
 
-      const simulation = await loadReleaseSimulation(joinedResponse.value.releaseId);
-      await sendOrdered(
-        { a, b },
-        simulation,
-        "deck.shuffle",
-        { deckId: "roll_source" },
-        1,
-      );
-      const valueA = rolledValue(simulation.a);
-      const valueB = rolledValue(simulation.b);
+      const dieId = findDie(simulation.a);
+      expect(dieId !== undefined, "no entity has a die component");
+      await sendOrdered(pair, simulation, "die.roll", { entityId: dieId });
+      const valueA = rolledValue(simulation.a, dieId);
+      const valueB = rolledValue(simulation.b, dieId);
       expect(valueA === valueB, `clients disagree on rolled value (${valueA} versus ${valueB})`);
       return valueA;
     },
@@ -267,26 +257,22 @@ async function runChecks(): Promise<void> {
 async function orderedCheck(
   actionType: string,
   payload: unknown,
-  expectedSequence: number,
-  pair: SocketPair | undefined,
-  simulation: Simulation | undefined,
+  room: ConnectedRoom | undefined,
 ): Promise<void> {
   await check(`ordered ${actionType}`, async () => {
-    const connected = requireValue(pair, "websocket handshake x2");
-    const states = requireValue(simulation, "release bundle snapshot");
+    const connected = requireValue(room, "websocket handshake x2");
     if (isRecord(payload) && payload.entityId === undefined) {
       throw new Error("no entity has both grabbable and flippable components");
     }
-    await sendOrdered(connected, states, actionType, payload, expectedSequence);
+    await sendOrdered(connected.pair, connected.simulation, actionType, payload);
   });
 }
 
 async function sendOrdered(
-  pair: SocketPair,
+  pair: ClientPair,
   simulation: Simulation,
   actionType: string,
   payload: unknown,
-  expectedSequence: number,
 ): Promise<void> {
   const request: ActionRequest = {
     type: "action_request",
@@ -295,36 +281,85 @@ async function sendOrdered(
     predictedAtSequence: simulation.a.sequence,
     action: { type: actionType, payload },
   };
-  const frames = await receivePair(pair.a, pair.b, () => {
-    pair.a.send(JSON.stringify(request));
-  });
-  expect(frames[0].raw === frames[1].raw, "clients received different ordered frames");
-  expect(frames[0].message.type === "ordered_action", "client A did not receive ordered_action");
-  expect(frames[1].message.type === "ordered_action", "client B did not receive ordered_action");
-
-  const orderedA = frames[0].message;
-  const orderedB = frames[1].message;
-  expect(
-    orderedA.sequence === expectedSequence && orderedB.sequence === expectedSequence,
-    `expected sequence ${expectedSequence}, received ${orderedA.sequence} and ${orderedB.sequence}`,
-  );
-  expect(
-    orderedA.requestId === request.requestId && orderedB.requestId === request.requestId,
-    "ordered action did not preserve requestId",
-  );
-
-  const resultA = applyOrdered(simulation.a, toKernelAction(orderedA));
-  const resultB = applyOrdered(simulation.b, toKernelAction(orderedB));
-  simulation.a = resultA.state;
-  simulation.b = resultB.state;
-  expect(resultA.rejection === undefined, `client A rejected action: ${resultA.rejection?.reason}`);
-  expect(resultB.rejection === undefined, `client B rejected action: ${resultB.rejection?.reason}`);
+  pair.a.socket.send(JSON.stringify(request));
+  const frameA = await applyUntilRequest(simulation, "a", pair.a, request.requestId);
+  const frameB = await applyUntilRequest(simulation, "b", pair.b, request.requestId);
+  expect(frameA.raw === frameB.raw, "clients received different ordered frames");
 
   const hashA = snapshot(simulation.a).stateHash;
   const hashB = snapshot(simulation.b).stateHash;
   expect(hashA === hashB, "kernel state hashes diverged");
   expect(hashA !== simulation.hash, "kernel state hash did not change");
   simulation.hash = hashA;
+}
+
+/**
+ * Applies every broadcast ordered action (including system-sequenced ones such
+ * as system.game_start) to one client's simulation, in arrival order, until
+ * the action produced by the given request arrives. Sequence contiguity is
+ * asserted against the local simulation rather than against absolute numbers,
+ * because the room log legitimately begins with system actions.
+ */
+async function applyUntilRequest(
+  simulation: Simulation,
+  side: "a" | "b",
+  client: Client,
+  requestId: string,
+): Promise<Frame> {
+  const label = side.toUpperCase();
+  for (let received = 0; received < MAX_FRAMES_PER_REQUEST; received += 1) {
+    const frame = await client.next();
+    const message = frame.message;
+    expect(
+      message.type === "ordered_action",
+      `client ${label} expected ordered_action, received ${describeFrame(message)}`,
+    );
+    const expectedSequence = simulation[side].sequence + 1;
+    expect(
+      message.sequence === expectedSequence,
+      `client ${label} expected sequence ${expectedSequence}, received ${message.sequence}`,
+    );
+    const result = applyOrdered(simulation[side], toKernelAction(message));
+    simulation[side] = result.state;
+    expect(
+      result.rejection === undefined,
+      `client ${label} rejected ${message.action.type}: ${result.rejection?.reason}`,
+    );
+    if (message.requestId === requestId) return frame;
+    expect(
+      message.actor.type === "system",
+      `client ${label} received an unexpected player action ${message.action.type}`,
+    );
+  }
+  throw new Error(`client ${label} never received the ordered action for request ${requestId}`);
+}
+
+async function bootstrapSimulation(pair: ClientPair): Promise<Simulation> {
+  const [frameA, frameB] = await Promise.all([pair.a.next(), pair.b.next()]);
+  expect(
+    frameA.message.type === "bootstrap",
+    `client A expected bootstrap, received ${describeFrame(frameA.message)}`,
+  );
+  expect(
+    frameB.message.type === "bootstrap",
+    `client B expected bootstrap, received ${describeFrame(frameB.message)}`,
+  );
+  const a = loadSnapshot(frameA.message.snapshot as GameSnapshot);
+  const b = loadSnapshot(frameB.message.snapshot as GameSnapshot);
+  expect(
+    a.sequence === frameA.message.sequence && b.sequence === frameB.message.sequence,
+    "bootstrap sequence does not match its snapshot",
+  );
+  const hashA = snapshot(a).stateHash;
+  const hashB = snapshot(b).stateHash;
+  expect(hashA === hashB, "bootstrap snapshots have different hashes");
+  return { a, b, hash: hashA };
+}
+
+function describeFrame(message: ServerMessage): string {
+  return message.type === "protocol_error"
+    ? `protocol_error: ${message.message}`
+    : message.type;
 }
 
 function toKernelAction(message: OrderedAction): OrderedActionInput<unknown> {
@@ -336,7 +371,7 @@ function toKernelAction(message: OrderedAction): OrderedActionInput<unknown> {
   };
 }
 
-async function loadReleaseSimulation(releaseId: string): Promise<Simulation> {
+async function validateReleaseBundle(releaseId: string): Promise<void> {
   const response = await getJson<unknown>(
     `/api/releases/${encodeURIComponent(releaseId)}/bundle`,
   );
@@ -350,7 +385,6 @@ async function loadReleaseSimulation(releaseId: string): Promise<Simulation> {
   const hashA = snapshot(a).stateHash;
   const hashB = snapshot(b).stateHash;
   expect(hashA === hashB, "independently loaded snapshots have different hashes");
-  return { a, b, hash: hashA };
 }
 
 function findCard(state: CanonicalGameState): string | undefined {
@@ -362,15 +396,19 @@ function findCard(state: CanonicalGameState): string | undefined {
     .sort(compareStrings)[0];
 }
 
-function rolledValue(state: CanonicalGameState): number {
-  const container = state.entities.roll_source?.components.container;
-  expect(container !== undefined, "roll_source does not have a container");
-  const tokenId = container.items[container.items.length - 1];
-  expect(tokenId !== undefined, "roll_source is empty");
-  const value = state.entities[tokenId]?.components.counter?.value;
+function findDie(state: CanonicalGameState): string | undefined {
+  return Object.keys(state.entities)
+    .filter((entityId) => state.entities[entityId]?.components.die !== undefined)
+    .sort(compareStrings)[0];
+}
+
+function rolledValue(state: CanonicalGameState, dieId: string): number {
+  const die = state.entities[dieId]?.components.die;
+  expect(die !== undefined, `${dieId} does not have a die component`);
+  const value = die.value;
   expect(
     typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 6,
-    `top roll token ${tokenId} does not contain an integer value from 1 to 6`,
+    `die ${dieId} does not contain an integer value from 1 to 6`,
   );
   return value;
 }
@@ -472,8 +510,78 @@ function apiHeaders(): Record<string, string> {
   };
 }
 
-async function connect(wsUrl: string): Promise<WebSocket> {
+/**
+ * Opens a room socket and queues every incoming frame from the moment the
+ * connection exists. Frames arriving between reads (for example the
+ * system.game_start action delivered right after bootstrap) are never lost.
+ */
+async function connect(wsUrl: string): Promise<Client> {
   const socket = new WebSocket(wsUrl);
+  const frames: Frame[] = [];
+  const waiters: FrameWaiter[] = [];
+  let failure: Error | null = null;
+
+  const push = (frame: Frame): void => {
+    const waiter = waiters.shift();
+    if (waiter === undefined) {
+      frames.push(frame);
+      return;
+    }
+    clearTimeout(waiter.timeout);
+    waiter.resolve(frame);
+  };
+  const fail = (error: Error): void => {
+    if (failure === null) failure = error;
+    for (const waiter of waiters.splice(0)) {
+      clearTimeout(waiter.timeout);
+      waiter.reject(error);
+    }
+  };
+
+  socket.addEventListener("message", (event) => {
+    if (typeof event.data !== "string") {
+      fail(new Error("Expected a text WebSocket frame"));
+      return;
+    }
+    const parsed = parseServerMessage(event.data);
+    if (!parsed.ok) {
+      fail(new Error(`Invalid server message: ${parsed.error.detail}`));
+      return;
+    }
+    push({ raw: event.data, message: parsed.message });
+  });
+  socket.addEventListener("error", () => fail(new Error("WebSocket failed")));
+  socket.addEventListener("close", () => fail(new Error("WebSocket closed")));
+
+  await opened(socket);
+  sockets.add(socket);
+  socket.addEventListener("close", () => sockets.delete(socket), { once: true });
+
+  return {
+    socket,
+    next(): Promise<Frame> {
+      const queued = frames.shift();
+      if (queued !== undefined) return Promise.resolve(queued);
+      if (failure !== null) return Promise.reject(failure);
+      return new Promise<Frame>((resolve, reject) => {
+        const waiter: FrameWaiter = {
+          resolve,
+          reject,
+          timeout: setTimeout(() => {
+            const index = waiters.indexOf(waiter);
+            if (index !== -1) waiters.splice(index, 1);
+            reject(
+              new Error(`Timed out waiting for WebSocket message after ${NETWORK_TIMEOUT_MS} ms`),
+            );
+          }, NETWORK_TIMEOUT_MS),
+        };
+        waiters.push(waiter);
+      });
+    },
+  };
+}
+
+function opened(socket: WebSocket): Promise<void> {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       cleanup();
@@ -488,9 +596,7 @@ async function connect(wsUrl: string): Promise<WebSocket> {
     };
     const onOpen = (): void => {
       cleanup();
-      sockets.add(socket);
-      socket.addEventListener("close", () => sockets.delete(socket), { once: true });
-      resolve(socket);
+      resolve();
     };
     const onError = (): void => {
       cleanup();
@@ -513,76 +619,6 @@ function sendHello(socket: WebSocket, sessionToken: string): void {
     sessionToken,
     lastSequence: null,
   }));
-}
-
-async function receivePair(
-  a: WebSocket,
-  b: WebSocket,
-  send: () => void,
-): Promise<[Frame, Frame]> {
-  const waiterA = next(a);
-  const waiterB = next(b);
-  const combined = Promise.all([waiterA.promise, waiterB.promise]);
-  try {
-    send();
-    return await combined;
-  } catch (error) {
-    waiterA.cancel();
-    waiterB.cancel();
-    throw error;
-  }
-}
-
-function next(socket: WebSocket): FrameWaiter {
-  let rejectPromise: (error: Error) => void = () => undefined;
-  let settled = false;
-  let timeout: ReturnType<typeof setTimeout>;
-
-  const cleanup = (): void => {
-    clearTimeout(timeout);
-    socket.removeEventListener("message", onMessage);
-    socket.removeEventListener("error", onError);
-    socket.removeEventListener("close", onClose);
-  };
-  const fail = (error: Error): void => {
-    if (settled) return;
-    settled = true;
-    cleanup();
-    rejectPromise(error);
-  };
-  const onMessage = (event: MessageEvent): void => {
-    if (settled) return;
-    if (typeof event.data !== "string") {
-      fail(new Error("Expected a text WebSocket frame"));
-      return;
-    }
-    const parsed = parseServerMessage(event.data);
-    if (!parsed.ok) {
-      fail(new Error(`Invalid server message: ${parsed.error.detail}`));
-      return;
-    }
-    settled = true;
-    cleanup();
-    resolvePromise({ raw: event.data, message: parsed.message });
-  };
-  const onError = (): void => fail(new Error("WebSocket failed while waiting for a message"));
-  const onClose = (): void => fail(new Error("WebSocket closed while waiting for a message"));
-  let resolvePromise: (frame: Frame) => void = () => undefined;
-  const promise = new Promise<Frame>((resolve, reject) => {
-    resolvePromise = resolve;
-    rejectPromise = reject;
-  });
-  timeout = setTimeout(
-    () => fail(new Error(`Timed out waiting for WebSocket message after ${NETWORK_TIMEOUT_MS} ms`)),
-    NETWORK_TIMEOUT_MS,
-  );
-  socket.addEventListener("message", onMessage);
-  socket.addEventListener("error", onError, { once: true });
-  socket.addEventListener("close", onClose, { once: true });
-  return {
-    promise,
-    cancel: () => fail(new Error("WebSocket message wait cancelled")),
-  };
 }
 
 async function check<T>(
