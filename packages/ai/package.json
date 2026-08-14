@@ -1,0 +1,45 @@
+{
+  "name": "digipology-ai",
+  "version": "0.1.0",
+  "description": "Zero-dependency DeepSeek transport and structured-output harness for Digipology.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "bun": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "bun run build",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sanokei/digipology.git",
+    "directory": "packages/ai"
+  },
+  "homepage": "https://digipology.com",
+  "bugs": {
+    "url": "https://github.com/Sanokei/digipology/issues"
+  },
+  "keywords": [
+    "deepseek",
+    "structured-output",
+    "ai",
+    "digipology"
+  ],
+  "devDependencies": {
+    "@types/bun": "^1.3.0"
+  }
+}
