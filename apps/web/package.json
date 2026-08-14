@@ -11,15 +11,24 @@
   },
   "dependencies": {
     "@babylonjs/core": "^7.54.3",
+    "@codemirror/autocomplete": "^6.18.4",
+    "@codemirror/commands": "^6.8.1",
+    "@codemirror/language": "^6.10.8",
+    "@codemirror/legacy-modes": "^6.5.1",
+    "@codemirror/search": "^6.5.8",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/view": "^6.36.3",
     "digipology-canonical-json": "workspace:*",
     "digipology-covers": "workspace:*",
     "digipology-kernel": "workspace:*",
+    "digipology-lua": "workspace:*",
     "digipology-protocol": "workspace:*",
     "flexlayout-react": "^0.8.17",
     "lucide-react": "^0.468.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.30.1"
+    "react-router-dom": "^6.30.1",
+    "stylua-wasm": "^0.1.2"
   },
   "devDependencies": {
     "@types/bun": "^1.3.0",
@@ -27,6 +36,8 @@
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
     "typescript": "^5.7.3",
-    "vite": "^6.1.0"
+    "vite": "^6.1.0",
+    "vite-plugin-top-level-await": "^1.4.4",
+    "vite-plugin-wasm": "^3.4.1"
   }
 }

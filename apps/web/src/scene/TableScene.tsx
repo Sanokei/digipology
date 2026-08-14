@@ -1,12 +1,15 @@
 import { useRef, type ReactNode } from "react";
 
-import type { RoomClient } from "../net/roomClient";
 import type { KernelStore } from "../state/kernelStore";
 import { useBabylonScene } from "./useBabylonScene";
 
+export interface TableActionSender {
+  sendAction(action: { type: string; payload: unknown }): unknown;
+}
+
 interface TableSceneProps {
   store: KernelStore;
-  client?: RoomClient | null;
+  client?: TableActionSender | null;
   interactionsPaused: boolean;
   readOnly?: boolean;
   topBar?: ReactNode;

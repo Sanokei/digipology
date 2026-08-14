@@ -41,6 +41,7 @@ export interface EditorSnapshot {
   entities: Readonly<Record<string, EntityRecord>>;
   selectedEntityId: string | null;
   selectedEntity: EntityRecord | null;
+  selectedScriptPath: string | null;
   past: readonly HistoryFrame[];
   future: readonly HistoryFrame[];
   logs: readonly EditorLogEntry[];

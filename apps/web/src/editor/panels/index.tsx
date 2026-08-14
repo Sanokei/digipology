@@ -9,6 +9,9 @@ const LazyInspector = lazy(async () => ({ default: (await import("./inspector/In
 const LazyConsole = lazy(async () => ({ default: (await import("./console/ConsolePanel")).ConsolePanel }));
 const LazyHistory = lazy(async () => ({ default: (await import("./history/HistoryPanel")).HistoryPanel }));
 const LazyViewport = lazy(async () => ({ default: (await import("./viewport/ViewportPanel")).ViewportPanel }));
+const LazyScripts = lazy(async () => ({ default: (await import("./scripts/ScriptExplorerPanel")).ScriptExplorerPanel }));
+const LazyLua = lazy(async () => ({ default: (await import("./lua/LuaEditorPanel")).LuaEditorPanel }));
+const LazyAi = lazy(async () => ({ default: (await import("./ai/AiAssistPanel")).AiAssistPanel }));
 
 type PanelComponent = LazyExoticComponent<ComponentType<{ store: EditorStore }>>;
 
@@ -18,6 +21,9 @@ export const PANEL_REGISTRY: Readonly<Record<EditorPanelId, PanelComponent>> = {
   console: LazyConsole,
   history: LazyHistory,
   viewport: LazyViewport,
+  scripts: LazyScripts,
+  lua: LazyLua,
+  ai: LazyAi,
 };
 
 export function renderEditorPanel(panelId: EditorPanelId, store: EditorStore): ReactNode {

@@ -1,11 +1,13 @@
 import { useSyncExternalStore } from "react";
 import type { CanonicalGameState, EntityRecord } from "digipology-kernel";
+import type { ReleaseBundleDto } from "digipology-protocol/http";
 
 import { rebuildDraftIntegrity } from "./bundle";
 import { AUTO_SAVE_DEBOUNCE_MS, MAX_HISTORY_ENTRIES, MAX_LOG_ENTRIES } from "./constants";
 import * as ComponentActions from "./actions/components";
 import * as EntityActions from "./actions/entities";
 import { createHistoryFrame } from "./actions/history";
+import { createScript, deleteScript, renameScript, scriptContent, scriptFiles, updateScript } from "./scripts";
 import type {
   EditorDraft,
   EditorLogEntry,
@@ -45,6 +47,7 @@ export class EditorStore {
   private readonly clearTimer: (handle: TimerHandle) => void;
   private draft: EditorDraft;
   private selectedEntityId: string | null = null;
+  private selectedScriptPath: string | null;
   private past: HistoryFrame[] = [];
   private future: HistoryFrame[] = [];
   private logs: EditorLogEntry[] = [];
@@ -60,6 +63,7 @@ export class EditorStore {
   constructor(draft: EditorDraft, options: EditorStoreOptions = {}) {
     this.draft = structuredClone(draft);
     rebuildDraftIntegrity(this.draft);
+    this.selectedScriptPath = scriptFiles(this.draft.bundle)[0]?.path ?? null;
     this.saveDraft = options.saveDraft ?? (() => undefined);
     this.now = options.now ?? (() => new Date().toISOString());
     this.defer = options.defer ?? defaultDefer;
@@ -84,6 +88,7 @@ export class EditorStore {
       entities,
       selectedEntityId: this.selectedEntityId,
       selectedEntity: this.selectedEntityId === null ? null : entities[this.selectedEntityId] ?? null,
+      selectedScriptPath: this.selectedScriptPath,
       past: this.past,
       future: this.future,
       logs: this.logs,
@@ -121,6 +126,54 @@ export class EditorStore {
     this.publish(false);
   }
 
+  selectScript(path: string | null): void {
+    this.selectedScriptPath = path !== null && scriptContent(this.draft, path) !== null ? path : null;
+    this.publish(false);
+  }
+
+  createScript(name: string, content = ""): boolean {
+    let path: string | null = null;
+    const ok = this.applySceneCommand(`Created script ${name}`, (draft) => {
+      path = createScript(draft, name, content);
+    });
+    if (ok) {
+      this.selectedScriptPath = path;
+      this.publish(false);
+    }
+    return ok;
+  }
+
+  renameSelectedScript(name: string): boolean {
+    const current = this.selectedScriptPath;
+    if (current === null) return false;
+    let path: string | null = null;
+    const ok = this.applySceneCommand(`Renamed script ${current}`, (draft) => {
+      path = renameScript(draft, current, name);
+    });
+    if (ok) {
+      this.selectedScriptPath = path;
+      this.publish(false);
+    }
+    return ok;
+  }
+
+  deleteSelectedScript(): boolean {
+    const current = this.selectedScriptPath;
+    if (current === null) return false;
+    const ok = this.applySceneCommand(`Deleted script ${current}`, (draft) => deleteScript(draft, current));
+    if (ok) {
+      this.selectedScriptPath = scriptFiles(this.draft.bundle)[0]?.path ?? null;
+      this.publish(false);
+    }
+    return ok;
+  }
+
+  updateSelectedScript(content: string, label = "Edited script"): boolean {
+    const current = this.selectedScriptPath;
+    if (current === null || scriptContent(this.draft, current) === content) return false;
+    return this.applySceneCommand(`${label} ${current}`, (draft) => updateScript(draft, current, content));
+  }
+
   applySceneCommand(label: string, mutate: (draft: EditorDraft) => void): boolean {
     if (this.coalesced !== null) this.endCoalescedSceneCommand();
     const previous = createHistoryFrame(this.draft, this.selectedEntityId, label, this.now());
@@ -137,6 +190,9 @@ export class EditorStore {
     this.draft = candidate;
     if (this.selectedEntityId !== null && state(candidate).entities[this.selectedEntityId] === undefined) {
       this.selectedEntityId = null;
+    }
+    if (this.selectedScriptPath !== null && scriptContent(candidate, this.selectedScriptPath) === null) {
+      this.selectedScriptPath = scriptFiles(candidate.bundle)[0]?.path ?? null;
     }
     this.past = [...this.past, previous].slice(-MAX_HISTORY_ENTRIES);
     this.future = [];
@@ -200,6 +256,9 @@ export class EditorStore {
     this.future = [...this.future, current].slice(-MAX_HISTORY_ENTRIES);
     this.draft = structuredClone(frame.draft);
     this.selectedEntityId = frame.selectedEntityId;
+    if (this.selectedScriptPath !== null && scriptContent(this.draft, this.selectedScriptPath) === null) {
+      this.selectedScriptPath = scriptFiles(this.draft.bundle)[0]?.path ?? null;
+    }
     this.saveStatus = "saving";
     this.appendLog(`Undid ${frame.label}`);
     this.publish(true);
@@ -213,6 +272,9 @@ export class EditorStore {
     this.past = [...this.past, current].slice(-MAX_HISTORY_ENTRIES);
     this.draft = structuredClone(frame.draft);
     this.selectedEntityId = frame.selectedEntityId;
+    if (this.selectedScriptPath !== null && scriptContent(this.draft, this.selectedScriptPath) === null) {
+      this.selectedScriptPath = scriptFiles(this.draft.bundle)[0]?.path ?? null;
+    }
     this.saveStatus = "saving";
     this.appendLog(`Redid ${frame.label}`);
     this.publish(true);
@@ -227,6 +289,7 @@ export class EditorStore {
     this.draft = structuredClone(draft);
     rebuildDraftIntegrity(this.draft);
     this.selectedEntityId = null;
+    this.selectedScriptPath = scriptFiles(this.draft.bundle)[0]?.path ?? null;
     this.past = [];
     this.future = [];
     this.saveStatus = "saving";
@@ -317,6 +380,15 @@ export class EditorStore {
           draft.minPlayers < 1 || draft.maxPlayers > 64 || draft.minPlayers > draft.maxPlayers) {
         throw new TypeError("Player limits must be between 1 and 64.");
       }
+    });
+  }
+
+  applyAiBundle(bundle: ReleaseBundleDto): boolean {
+    return this.applySceneCommand("Applied AI edit", (draft) => {
+      draft.bundle = structuredClone(bundle);
+      draft.title = bundle.title ?? draft.title;
+      draft.minPlayers = bundle.minPlayers;
+      draft.maxPlayers = bundle.maxPlayers;
     });
   }
 

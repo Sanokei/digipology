@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { CloudUpload, Save } from "lucide-react";
+import { CloudUpload, Pause, Play, Save, Square } from "lucide-react";
 
 import { EditorLayoutHost, type EditorLayoutApi } from "./EditorLayoutHost";
 import { EDITOR_PANELS } from "./layout";
@@ -18,6 +18,7 @@ import {
   useEditorSnapshot,
 } from "./state";
 import "./editor.css";
+import { PlaytestController, usePlaytestSnapshot } from "./playtest/PlaytestController";
 
 function downloadBundle(store: EditorStore): void {
   const draft = store.getSnapshot().draft;
@@ -41,6 +42,8 @@ export function EditorPage() {
   const navigate = useNavigate();
   const fileInput = useRef<HTMLInputElement>(null);
   const layoutApi = useRef<EditorLayoutApi | null>(null);
+  const playtest = useMemo(() => new PlaytestController(), []);
+  const playtestSnapshot = usePlaytestSnapshot(playtest);
   const [error, setError] = useState<string | null>(null);
   const store = useMemo(() => {
     const loaded = loadEditorDraft(localStorage, draftId);
@@ -54,6 +57,7 @@ export function EditorPage() {
   }, [draftId]);
   const snapshot = useEditorSnapshot(store);
   useEffect(() => () => store.dispose(), [store]);
+  useEffect(() => () => playtest.dispose(), [playtest]);
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -65,11 +69,16 @@ export function EditorPage() {
         event.preventDefault(); store.duplicateSelectedEntity();
       } else if (event.key === "Delete") {
         event.preventDefault(); store.deleteSelectedEntity();
+      } else if (event.key === "F5") {
+        event.preventDefault();
+        if (event.shiftKey) playtest.stop();
+        else if (playtest.getSnapshot().status === "playing") playtest.tick();
+        else void playtest.start(store.getSnapshot().draft);
       }
     };
     window.addEventListener("keydown", keydown, true);
     return () => window.removeEventListener("keydown", keydown, true);
-  }, [store]);
+  }, [playtest, store]);
 
   const importFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0];
@@ -103,7 +112,7 @@ export function EditorPage() {
     return () => window.removeEventListener("keydown", keydown, true);
   }, [navigate, openDraft, store]);
   const onLayoutReady = useCallback((api: EditorLayoutApi | null) => { layoutApi.current = api; }, []);
-  const menuActions = useMemo<Record<"File" | "Edit" | "Window", MenuAction[]>>(() => ({
+  const menuActions = useMemo<Record<"File" | "Edit" | "Play" | "Window", MenuAction[]>>(() => ({
     File: [
       { kind: "action", label: "New draft", shortcut: "Ctrl+N", onSelect: () => navigate(`/edit/${randomDraftId()}`) },
       { kind: "action", label: "Open local draft…", shortcut: "Ctrl+O", onSelect: openDraft },
@@ -120,15 +129,20 @@ export function EditorPage() {
       { kind: "action", label: "Duplicate entity", shortcut: "Ctrl+D", disabled: snapshot.selectedEntityId === null, onSelect: () => { store.duplicateSelectedEntity(); } },
       { kind: "action", label: "Delete entity", shortcut: "Delete", disabled: snapshot.selectedEntityId === null, onSelect: () => { store.deleteSelectedEntity(); } },
     ],
+    Play: [
+      { kind: "action", label: "Play draft", shortcut: "F5", searchTerms: ["start test run"], disabled: playtestSnapshot.status !== "stopped", onSelect: () => { void playtest.start(store.getSnapshot().draft); } },
+      { kind: "action", label: "Advance kernel tick", shortcut: "F5", searchTerms: ["step timer"], disabled: playtestSnapshot.status !== "playing", onSelect: () => playtest.tick() },
+      { kind: "action", label: "Stop playtest", shortcut: "Shift+F5", searchTerms: ["discard runtime"], disabled: playtestSnapshot.status === "stopped", onSelect: () => playtest.stop() },
+    ],
     Window: [
       { kind: "header", label: "Panels" },
       ...EDITOR_PANELS.map((panel): MenuAction => ({ kind: "action", label: panel.title, onSelect: () => layoutApi.current?.focusPanel(panel.id) })),
       { kind: "separator" },
       { kind: "action", label: "Reset layout", onSelect: () => layoutApi.current?.resetLayout() },
     ],
-  }), [navigate, openDraft, publish, snapshot.future.length, snapshot.past.length, snapshot.selectedEntityId, store]);
+  }), [navigate, openDraft, playtest, playtestSnapshot.status, publish, snapshot.future.length, snapshot.past.length, snapshot.selectedEntityId, store]);
   return <div className="editor-shell">
-    <MenuBar actions={menuActions} status={<><span className={`editor-save-status is-${snapshot.saveStatus}`}>{snapshot.saveStatus === "saved" ? <Save size={13} /> : null}{snapshot.saveStatus}</span><span>{snapshot.draft.title}</span><button type="button" className="editor-publish-button" onClick={publish}><CloudUpload size={14} />Publish</button></>} />
+    <MenuBar actions={menuActions} status={<><span className={`editor-save-status is-${snapshot.saveStatus}`}>{snapshot.saveStatus === "saved" ? <Save size={13} /> : null}{snapshot.saveStatus}</span><span>{snapshot.draft.title}</span>{playtestSnapshot.status === "playing" ? <><button type="button" className="editor-transport-button" onClick={() => playtest.tick()}><Pause size={13} />Tick {playtestSnapshot.tick}</button><button type="button" className="editor-transport-button" onClick={() => playtest.stop()}><Square size={12} />Stop</button></> : <button type="button" className="editor-transport-button" disabled={playtestSnapshot.status === "starting"} onClick={() => { void playtest.start(store.getSnapshot().draft); }}><Play size={13} />{playtestSnapshot.status === "starting" ? "Starting" : "Play"}</button>}<button type="button" className="editor-publish-button" onClick={publish}><CloudUpload size={14} />Publish</button></>} />
     <div className="editor-details-bar">
       <label>Title<CommitTextInput value={snapshot.draft.title} onCommit={(title) => store.updateDraftMetadata({ title })} /></label>
       <label>Tagline<CommitTextInput value={snapshot.draft.tagline} onCommit={(tagline) => store.updateDraftMetadata({ tagline })} /></label>
@@ -137,6 +151,6 @@ export function EditorPage() {
       {error === null ? null : <p role="alert">{error}</p>}
     </div>
     <input ref={fileInput} className="editor-hidden-input" type="file" accept="application/json,.json" onChange={(event) => void importFile(event)} />
-    <EditorLayoutHost store={store} onReady={onLayoutReady} />
+    <EditorLayoutHost store={store} playtest={playtest} onReady={onLayoutReady} />
   </div>;
 }
