@@ -79,6 +79,8 @@ describe("API client", () => {
     await client.createRelease("demo game", {} as never);
     await client.createAiGame("Make a card game");
     await client.editAiGame("demo game", "Add a timer");
+    await client.generateCovers("demo game");
+    await client.uploadCover("demo game", new Blob(["png"], { type: "image/png" }));
     await client.updateGameVisibility("demo game", "unlisted");
     await client.createRoom({ releaseSlugOrId: "demo", visibility: "private", displayName: "Ada" });
     await client.joinRoom({ code: "ABCD-EFGH", displayName: "Grace" }); await client.listPublicRooms();
@@ -88,7 +90,9 @@ describe("API client", () => {
       ["/api/auth/logout", "POST"], ["/api/me", "GET"], ["/api/me", "PATCH"],
       ["/api/games", "GET"], ["/api/games/mine", "GET"], ["/api/games", "POST"],
       ["/api/games/demo%20game/releases", "POST"], ["/api/ai/games", "POST"],
-      ["/api/ai/games/demo%20game/edit", "POST"], ["/api/games/demo%20game", "PATCH"],
+      ["/api/ai/games/demo%20game/edit", "POST"],
+      ["/api/games/demo%20game/covers/generate", "POST"], ["/api/games/demo%20game/cover", "POST"],
+      ["/api/games/demo%20game", "PATCH"],
       ["/api/rooms", "POST"], ["/api/rooms/join", "POST"],
       ["/api/rooms/public", "GET"], ["/api/quickplay", "POST"],
       ["/api/releases/rel%2F1/bundle", "GET"],
@@ -100,8 +104,9 @@ describe("API client", () => {
     expect(calls[2]?.init?.body).toBe(JSON.stringify({ name: "Ada" }));
     expect(calls[7]?.init?.body).toBe(JSON.stringify({ prompt: "Make a card game" }));
     expect(calls[8]?.init?.body).toBe(JSON.stringify({ instruction: "Add a timer" }));
-    expect(calls[10]?.init?.body).toBe(JSON.stringify({ releaseSlugOrId: "demo", visibility: "private", displayName: "Ada" }));
-    expect(calls[11]?.init?.body).toBe(JSON.stringify({ code: "ABCD-EFGH", displayName: "Grace" }));
-    expect(calls[13]?.init?.body).toBe(JSON.stringify({ slug: "demo game", displayName: "Grace" }));
+    expect(new Headers(calls[10]?.init?.headers).get("Content-Type")).toBe("image/png");
+    expect(calls[12]?.init?.body).toBe(JSON.stringify({ releaseSlugOrId: "demo", visibility: "private", displayName: "Ada" }));
+    expect(calls[13]?.init?.body).toBe(JSON.stringify({ code: "ABCD-EFGH", displayName: "Grace" }));
+    expect(calls[15]?.init?.body).toBe(JSON.stringify({ slug: "demo game", displayName: "Grace" }));
   });
 });

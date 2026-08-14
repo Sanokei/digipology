@@ -4,6 +4,7 @@ import type {
   AiGameDraftResponse,
   CreateGameRequest,
   CreateGameResponse,
+  CoverUploadResponse,
   CreateReleaseResponse,
   CreateRoomRequest,
   CreateRoomResponse,
@@ -18,11 +19,17 @@ import type {
   UserDto,
   UserResponse,
 } from "digipology-protocol/http";
+import type { CoverSpec } from "digipology-covers";
 import { CSRF_HEADER } from "digipology-protocol/http";
 import type { CatalogGamesResponse, QuickPlayRequest, QuickPlayResponse } from "./quickplayAdapter";
 
 export { CSRF_HEADER } from "digipology-protocol/http";
 export type Fetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+
+export interface GenerateCoversResponse {
+  source: "ai" | "procedural";
+  candidates: Array<{ spec: CoverSpec; svg: string }>;
+}
 
 export interface ApiClient {
   requestLink(email: string): Promise<ApiResult<void>>;
@@ -36,6 +43,8 @@ export interface ApiClient {
   createRelease(slug: string, bundle: ReleaseBundleDto): Promise<ApiResult<CreateReleaseResponse>>;
   createAiGame(prompt: string): Promise<ApiResult<AiGameDraftResponse>>;
   editAiGame(slug: string, instruction: string): Promise<ApiResult<AiGameDraftResponse>>;
+  generateCovers(slug: string): Promise<ApiResult<GenerateCoversResponse>>;
+  uploadCover(slug: string, png: Blob): Promise<ApiResult<CoverUploadResponse>>;
   updateGameVisibility(slug: string, visibility: "public" | "unlisted"): Promise<ApiResult<UpdateGameResponse>>;
   createRoom(input: CreateRoomRequest): Promise<ApiResult<CreateRoomResponse>>;
   joinRoom(input: JoinRoomRequest): Promise<ApiResult<JoinRoomResponse>>;
@@ -122,6 +131,12 @@ export function createApiClient(fetcher: Fetcher = fetch): ApiClient {
     createRelease: (slug, bundle) => post(`/api/games/${encodeURIComponent(slug)}/releases`, { bundle }),
     createAiGame: (prompt) => post("/api/ai/games", { prompt }),
     editAiGame: (slug, instruction) => post(`/api/ai/games/${encodeURIComponent(slug)}/edit`, { instruction }),
+    generateCovers: (slug) => post(`/api/games/${encodeURIComponent(slug)}/covers/generate`),
+    uploadCover: (slug, png) => request(`/api/games/${encodeURIComponent(slug)}/cover`, {
+      method: "POST",
+      headers: { "Content-Type": "image/png" },
+      body: png,
+    }),
     updateGameVisibility: (slug, visibility) => request(`/api/games/${encodeURIComponent(slug)}`, {
       method: "PATCH", body: JSON.stringify({ visibility }),
     }),

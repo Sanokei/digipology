@@ -452,6 +452,16 @@ button.action-card { width: 100%; border-right: 0; border-left: 0; text-align: l
 .validation-report li strong { margin-right: 8px; }.validation-report li small { display: block; margin: 5px 0 0 43px; color: var(--muted); text-transform: none; overflow-wrap: anywhere; }
 .validation-ok { border-color: var(--accent); }.validation-failed { border-color: #ff8f79; }
 .my-game { padding: 22px 0; border-bottom: 1px solid var(--line); }.my-game h3 { margin: 0; }.my-game p, .my-game small { color: var(--muted); }
+.cover-picker { margin: 18px 0; padding: 16px; border: 1px solid var(--line); background: rgba(255,255,255,.018); }
+.cover-picker__header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.cover-picker__header div { display: grid; gap: 4px; }
+.cover-picker__header small { color: var(--muted); }
+.cover-picker__status { margin: 12px 0 0; color: var(--muted); font-size: .75rem; }
+.cover-picker__grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+.cover-picker__candidate { display: grid; gap: 8px; padding: 0 0 9px; overflow: hidden; border: 1px solid var(--line); background: #09120f; color: var(--ink); cursor: pointer; font-size: .62rem; font-weight: 700; text-transform: uppercase; transition: transform .14s ease, border-color .14s ease; }
+.cover-picker__candidate img { width: 100%; aspect-ratio: 2 / 3; display: block; object-fit: cover; background: #0b0b0f; }
+.cover-picker__candidate:hover, .cover-picker__candidate:focus-visible { border-color: var(--accent); transform: translateY(-2px); }
+.cover-picker__candidate:disabled { cursor: wait; opacity: .7; transform: none; }
 .release-list { display: grid; gap: 6px; margin: 18px 0 0; padding: 0; list-style: none; }.release-list li { display: grid; grid-template-columns: 90px 90px 1fr; gap: 10px; font-size: .67rem; }.release-list code { color: var(--muted); overflow-wrap: anywhere; }
 .catalog-page > header { max-width: 680px; margin-bottom: 44px; }.game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }.game-card { min-height: 245px; padding: 25px; border: 1px solid var(--line); background: rgba(13,24,20,.75); }.game-card span, .game-card small { color: var(--accent); font-family: "DM Mono", monospace; font-size: .62rem; text-transform: uppercase; }.game-card h2 { margin: 44px 0 10px; font-size: 1.6rem; }.game-card p { min-height: 52px; color: var(--muted); line-height: 1.6; }.game-detail { max-width: 760px; }.game-detail dl { display: grid; grid-template-columns: 110px 1fr; gap: 12px; margin: 30px 0; }.game-detail dt { color: var(--muted); }.game-detail dd { margin: 0; overflow-wrap: anywhere; }
 
@@ -652,6 +662,7 @@ button.action-card { width: 100%; border-right: 0; border-left: 0; text-align: l
 
 @media (max-width: 860px) {
   .creator-page { grid-template-columns: 1fr; }
+  .cover-picker__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ai-creator-panel .stack-form { grid-template-columns: 1fr; }
   .ai-creator-panel .stack-form button { grid-column: 1; grid-row: auto; }
   .home-main {

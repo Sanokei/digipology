@@ -1,4 +1,5 @@
 import { BUILTIN_GAMES, getBuiltinRelease } from "digipology-demo-games";
+import { BUILTIN_COVER_VERSION } from "./builtin-covers";
 import fixtureRosters from "../../../packages/demo-games/fixtures/builtin-rosters.json";
 import type {
   BuiltinGame,
@@ -40,7 +41,7 @@ const games: readonly CatalogGame[] = BUILTIN_GAMES.map((game: BuiltinGame) => (
   builtin: true,
   currentPlayers: 0,
   totalPlays: 0,
-  coverVersion: 1,
+  coverVersion: BUILTIN_COVER_VERSION,
   latestReleaseId: game.latestReleaseId,
 }));
 

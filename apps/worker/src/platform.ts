@@ -61,6 +61,7 @@ import {
   handleAiGameRequest,
   type AiGameDependencies,
 } from "./ai-games";
+import { handleCoverGeneration } from "./cover-generation";
 
 const HTTP_BODY_LIMIT = 4 * 1024;
 const MAGIC_EMAIL_LIMIT = 3;
@@ -365,6 +366,25 @@ export async function handlePlatformRequest(
   }
 
   const coverMatch = /^\/api\/games\/([^/]+)\/cover$/.exec(url.pathname);
+  const coverGenerateMatch = /^\/api\/games\/([^/]+)\/covers\/generate$/.exec(url.pathname);
+  if (request.method === "POST" && coverGenerateMatch?.[1] !== undefined) {
+    const slug = decodePathSegment(coverGenerateMatch[1]);
+    if (slug === null) return jsonError(404, "not_found", "Game not found");
+    const session = await requestSession(request, repositories, env, now);
+    if (session === null) return jsonError(401, "authentication_required", "Sign in to generate a cover");
+    const coverDependencies = Object.prototype.hasOwnProperty.call(dependencies, "deepseekFetch")
+      ? { deepseekFetch: dependencies.deepseekFetch ?? null }
+      : undefined;
+    return handleCoverGeneration({
+      env,
+      repositories,
+      session,
+      slug,
+      now,
+      ...(coverDependencies === undefined ? {} : { dependencies: coverDependencies }),
+    });
+  }
+
   if (coverMatch?.[1] !== undefined && request.method === "POST") {
     const slug = decodePathSegment(coverMatch[1]);
     if (slug === null) return jsonError(404, "not_found", "Game not found");

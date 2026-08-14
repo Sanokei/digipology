@@ -232,26 +232,16 @@ export async function handleAiGameRequest(input: AiGameRouteInput): Promise<Resp
   };
   const request = buildAiRequest(input.env, input.mode, prompt, existingBundle);
   let lastAssembly: AssemblyResult = failedAssembly("The model did not emit a usable draft");
-  let capReached = false;
-  const meteredFetch: DeepseekFetch = async (payload, timeoutMs) => {
-    if (capReached || await usageAtOrAboveCap(
-      input.env.DB,
-      input.session.user.id,
-      usageDay,
-      cap,
-    )) {
-      capReached = true;
-      return null;
-    }
-    const response = await deepseekFetch(payload, timeoutMs);
-    if (response !== null) {
-      await recordUsage(input.env.DB, input.session.user.id, usageDay, responseUsd(response));
-    }
-    return response;
-  };
+  const metered = createMeteredDeepseekFetch({
+    deepseekFetch,
+    db: input.env.DB,
+    userId: input.session.user.id,
+    day: usageDay,
+    cap,
+  });
 
   const task = await runStructuredTask<Record<string, unknown>>({
-    fetch: meteredFetch,
+    fetch: metered.fetch,
     request,
     maxAttempts: 3,
     extract: (response) => extractToolPayload(response, asRecord),
@@ -269,7 +259,7 @@ export async function handleAiGameRequest(input: AiGameRouteInput): Promise<Resp
     };
     return jsonResponse(response);
   }
-  if (capReached) return dailyCapResponse();
+  if (metered.capReached()) return dailyCapResponse();
 
   const response: AiGameGenerationErrorResponse = {
     error: {
@@ -653,19 +643,19 @@ async function ownedGameForEdit(
   return game;
 }
 
-function resolveDeepseekFetch(env: Env, dependencies: AiGameDependencies | undefined): DeepseekFetch | null {
+export function resolveDeepseekFetch(env: Env, dependencies: AiGameDependencies | undefined): DeepseekFetch | null {
   if (dependencies !== undefined && Object.prototype.hasOwnProperty.call(dependencies, "deepseekFetch")) {
     return dependencies.deepseekFetch ?? null;
   }
   return makeDeepseekFetch({ apiKey: configuredString(env, "DEEPSEEK_API_KEY", "") || undefined });
 }
 
-function dailyCap(env: Env): number {
+export function dailyCap(env: Env): number {
   const parsed = Number(configuredString(env, "AI_DAILY_USD_CAP", "1"));
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : 1;
 }
 
-async function usageAtOrAboveCap(
+export async function usageAtOrAboveCap(
   db: D1Database,
   userId: string,
   day: string,
@@ -689,7 +679,37 @@ export async function recordUsage(
   ).bind(userId, day, Number.isFinite(usd) && usd > 0 ? usd : 0).run();
 }
 
-function configuredString(env: Env, key: string, fallback: string): string {
+export interface MeteredDeepseekFetch {
+  fetch: DeepseekFetch;
+  capReached(): boolean;
+}
+
+/** Wraps a model port so every response is billed before any caller parses it. */
+export function createMeteredDeepseekFetch(input: {
+  deepseekFetch: DeepseekFetch;
+  db: D1Database;
+  userId: string;
+  day: string;
+  cap: number;
+}): MeteredDeepseekFetch {
+  let reached = false;
+  return {
+    fetch: async (payload, timeoutMs) => {
+      if (reached || await usageAtOrAboveCap(input.db, input.userId, input.day, input.cap)) {
+        reached = true;
+        return null;
+      }
+      const response = await input.deepseekFetch(payload, timeoutMs);
+      if (response !== null) {
+        await recordUsage(input.db, input.userId, input.day, responseUsd(response));
+      }
+      return response;
+    },
+    capReached: () => reached,
+  };
+}
+
+export function configuredString(env: Env, key: string, fallback: string): string {
   const value = Reflect.get(env, key);
   return typeof value === "string" && value.length > 0 ? value : fallback;
 }
