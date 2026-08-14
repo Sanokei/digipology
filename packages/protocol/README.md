@@ -45,6 +45,10 @@ The exported `ParseResult<T>` is either `{ ok: true, message: T }` or
 `{ ok: false, error }`. Parse errors have a `code`, human-readable `detail`, and
 usually a JSONPath-like `path` such as `$.action.type`.
 
+HTTP API v1 DTOs and dependency-free request validators are intentionally kept
+in a separate `digipology-protocol/http` entry point so the room wire protocol
+can evolve independently from the platform HTTP API.
+
 ## Client messages
 
 - `hello` begins or restores a room connection. `sessionToken` authenticates a

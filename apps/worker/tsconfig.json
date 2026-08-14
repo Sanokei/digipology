@@ -7,7 +7,9 @@
     "noEmit": true,
     "baseUrl": ".",
     "paths": {
-      "digipology-protocol": ["../../packages/protocol/src/index.ts"]
+      "digipology-demo-games": ["../../packages/demo-games/src/index.ts"],
+      "digipology-protocol": ["../../packages/protocol/src/index.ts"],
+      "digipology-protocol/http": ["../../packages/protocol/src/http.ts"]
     },
     "types": ["@cloudflare/workers-types", "bun"]
   },

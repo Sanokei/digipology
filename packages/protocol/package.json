@@ -8,6 +8,11 @@
       "types": "./dist/index.d.ts",
       "bun": "./src/index.ts",
       "default": "./dist/index.js"
+    },
+    "./http": {
+      "types": "./dist/http.d.ts",
+      "bun": "./src/http.ts",
+      "default": "./dist/http.js"
     }
   },
   "scripts": {

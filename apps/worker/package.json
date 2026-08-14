@@ -11,6 +11,7 @@
     "smoke": "bun scripts/smoke.ts"
   },
   "dependencies": {
+    "digipology-demo-games": "workspace:*",
     "digipology-protocol": "workspace:*"
   },
   "devDependencies": {
