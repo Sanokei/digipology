@@ -25,6 +25,7 @@ export function Tree({
   onSelect,
   onRenameRequest,
   onRename,
+  onRenameEnd,
   onContextMenu,
   onKeyDown,
 }: {
@@ -34,6 +35,7 @@ export function Tree({
   onSelect: (id: string) => void;
   onRenameRequest?: (id: string) => void;
   onRename?: (id: string, value: string) => void;
+  onRenameEnd?: (id: string) => void;
   onContextMenu?: (id: string, event: MouseEvent<HTMLDivElement>) => void;
   onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void;
 }) {
@@ -44,7 +46,8 @@ export function Tree({
       onDoubleClick={() => onRenameRequest?.(node.id)} onContextMenu={(event) => onContextMenu?.(node.id, event)}>
       <span className="editor-tree-dot" />
       {renamingId === node.id && onRename !== undefined
-        ? <CommitTextInput value={node.label} onCommit={(value) => onRename(node.id, value)} />
+        ? <CommitTextInput value={node.label} onCommit={(value) => onRename(node.id, value)}
+          onComplete={() => onRenameEnd?.(node.id)} onCancel={() => onRenameEnd?.(node.id)} />
         : <span>{node.label}</span>}
       {node.suffix}
     </div>

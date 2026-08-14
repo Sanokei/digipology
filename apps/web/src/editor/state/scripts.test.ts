@@ -19,4 +19,12 @@ describe("project script documents", () => {
     expect(store.getSnapshot().past).toHaveLength(history);
     expect(scriptFiles(store.getSnapshot().bundle).map((file) => file.path)).toContain("scripts/round/scoring.lua");
   });
+
+  test("committing an unchanged script name creates no history frame", () => {
+    const store = new EditorStore(editorTestDraft());
+    expect(store.createScript("rules.lua")).toBe(true);
+    const history = store.getSnapshot().past.length;
+    expect(store.renameSelectedScript("rules")).toBe(true);
+    expect(store.getSnapshot().past).toHaveLength(history);
+  });
 });

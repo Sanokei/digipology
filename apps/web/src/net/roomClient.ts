@@ -134,6 +134,7 @@ export class RoomClient {
 
   private scheduleReconnect(): void {
     if (this.stopped || this.reconnectTimer !== null) return;
+    this.store.dropPendingRequests();
     this.reconnectAttempt += 1;
     this.onStatus({ state: "reconnecting", message: "Connection lost. Rejoining the table…" });
     const delay = Math.min(500 * 2 ** (this.reconnectAttempt - 1), 8_000);

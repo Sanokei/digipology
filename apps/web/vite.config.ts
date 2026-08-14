@@ -6,7 +6,18 @@ import { fileURLToPath, URL } from "node:url";
 
 export default defineConfig({
   plugins: [react(), wasm(), topLevelAwait()],
-  build: { target: "esnext" },
+  build: {
+    target: "esnext",
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("/node_modules/@babylonjs/core/") || id.includes("\\node_modules\\@babylonjs\\core\\")) {
+            return "babylon-vendor";
+          }
+        },
+      },
+    },
+  },
   optimizeDeps: {
     // Emscripten's .wasm URL is resolved by stylua-wasm itself. Vite/esbuild
     // pre-bundling rewrites that URL and can leave initialization waiting forever.

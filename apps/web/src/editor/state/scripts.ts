@@ -19,6 +19,11 @@ function assertScriptPath(name: string): string {
   return path;
 }
 
+export function scriptNameMatchesPath(name: string, path: string): boolean {
+  try { return assertScriptPath(name) === path; }
+  catch { return false; }
+}
+
 function releaseFile(path: string, content: string): ReleaseFileDto {
   return {
     path,

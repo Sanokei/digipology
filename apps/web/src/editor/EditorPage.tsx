@@ -5,6 +5,7 @@ import { CloudUpload, Pause, Play, Save, Square } from "lucide-react";
 import { EditorLayoutHost, type EditorLayoutApi } from "./EditorLayoutHost";
 import { EDITOR_PANELS } from "./layout";
 import { MenuBar, type MenuAction } from "./menubar/MenuBar";
+import { OpenDraftDialog } from "./OpenDraftDialog";
 import { CommitTextInput } from "./panels/common/PanelComponents";
 import { draftToCreatePrefill } from "./publish";
 import {
@@ -45,6 +46,7 @@ export function EditorPage() {
   const playtest = useMemo(() => new PlaytestController(), []);
   const playtestSnapshot = usePlaytestSnapshot(playtest);
   const [error, setError] = useState<string | null>(null);
+  const [openDrafts, setOpenDrafts] = useState<ReturnType<typeof loadDraftIndex> | null>(null);
   const store = useMemo(() => {
     const loaded = loadEditorDraft(localStorage, draftId);
     const draft = loaded ?? createEmptyEditorDraft(draftId);
@@ -95,9 +97,11 @@ export function EditorPage() {
   };
   const publish = useCallback(() => navigate("/create", { state: draftToCreatePrefill(store.getSnapshot().draft) }), [navigate, store]);
   const openDraft = useCallback(() => {
-    const drafts = loadDraftIndex(localStorage);
-    const requested = window.prompt(`Open draft id:\n${drafts.map((draft) => `${draft.id} — ${draft.title}`).join("\n")}`, drafts[0]?.id ?? "");
-    if (requested?.trim()) navigate(`/edit/${encodeURIComponent(requested.trim())}`);
+    setOpenDrafts([...loadDraftIndex(localStorage)].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)));
+  }, []);
+  const chooseDraft = useCallback((id: string) => {
+    setOpenDrafts(null);
+    navigate(`/edit/${encodeURIComponent(id)}`);
   }, [navigate]);
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
@@ -151,6 +155,7 @@ export function EditorPage() {
       {error === null ? null : <p role="alert">{error}</p>}
     </div>
     <input ref={fileInput} className="editor-hidden-input" type="file" accept="application/json,.json" onChange={(event) => void importFile(event)} />
+    {openDrafts === null ? null : <OpenDraftDialog drafts={openDrafts} onOpen={chooseDraft} onClose={() => setOpenDrafts(null)} />}
     <EditorLayoutHost store={store} playtest={playtest} onReady={onLayoutReady} />
   </div>;
 }

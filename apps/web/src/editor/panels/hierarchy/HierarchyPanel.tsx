@@ -31,7 +31,8 @@ export function HierarchyPanel({ store }: { store: EditorStore }) {
       <Tree nodes={ids.map((id) => ({ id, label: id, suffix: <small>{Object.keys(snapshot.entities[id]!.components).length}</small> }))}
         selectedId={snapshot.selectedEntityId} renamingId={renamingId} onKeyDown={onKeyDown}
         onSelect={(id) => store.selectEntity(id)} onRenameRequest={(id) => { store.selectEntity(id); setRenamingId(id); }}
-        onRename={(id, value) => { store.selectEntity(id); store.renameSelectedEntity(value); setRenamingId(null); }}
+        onRename={(id, value) => { store.selectEntity(id); store.renameSelectedEntity(value); }}
+        onRenameEnd={() => setRenamingId(null)}
         onContextMenu={(id, event) => { event.preventDefault(); store.selectEntity(id); setMenu({ id, x: event.clientX, y: event.clientY }); }} />}
     {menu === null ? null : <ContextMenu x={menu.x} y={menu.y} onClose={closeMenu}>
       <ContextMenuItem onSelect={() => { setRenamingId(menu.id); setMenu(null); }}><Pencil size={13} />Rename <kbd>F2</kbd></ContextMenuItem>
