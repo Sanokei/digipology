@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 import { api } from "../api/client";
 import type { GameSummaryDto } from "digipology-protocol/http";
@@ -11,11 +11,17 @@ export function publicHostingAllowed(signedIn: boolean, visibility: "private" | 
   return visibility === "private" || signedIn;
 }
 
-export function HostDialog({ onClose }: { onClose(): void }) {
+interface HostDialogProps {
+  initialSlug?: string;
+  onClose(): void;
+  onSignIn(): void;
+}
+
+export function HostDialog({ initialSlug, onClose, onSignIn }: HostDialogProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [games, setGames] = useState<GameSummaryDto[]>([]);
-  const [slug, setSlug] = useState("");
+  const [slug, setSlug] = useState(initialSlug ?? "");
   const [visibility, setVisibility] = useState<"private" | "public">("private");
   const [name, setName] = useState(() => guestDisplayName() ?? "");
   const [busy, setBusy] = useState(false);
@@ -25,14 +31,17 @@ export function HostDialog({ onClose }: { onClose(): void }) {
 
   useEffect(() => {
     void api.listGames().then((result) => {
-      if (result.ok) { setGames(result.value.games); setSlug(result.value.games[0]?.slug ?? ""); }
+      if (result.ok) {
+        setGames(result.value.games);
+        setSlug((current) => current || initialSlug || result.value.games[0]?.slug || "");
+      }
       else setError(result.error.message);
     });
-  }, []);
+  }, [initialSlug]);
 
   async function create(event: FormEvent) {
     event.preventDefault();
-    if (!publicHostingAllowed(user !== null, visibility)) return;
+    if (!publicHostingAllowed(user !== null, visibility)) { onSignIn(); return; }
     setBusy(true); setError(null);
     const displayName = user === null ? name.trim() : undefined;
     const [room, game] = await Promise.all([
@@ -72,9 +81,9 @@ export function HostDialog({ onClose }: { onClose(): void }) {
             <label><input type="radio" name="visibility" checked={visibility === "private"} onChange={() => setVisibility("private")} /> Private</label>
             <label><input type="radio" name="visibility" checked={visibility === "public"} onChange={() => setVisibility("public")} /> Public</label>
           </fieldset>
-          {publicHostingAllowed(user !== null, visibility) ? null : <p className="form-notice">Public rooms require an account. <Link to="/login">Sign in to continue</Link>.</p>}
+          {publicHostingAllowed(user !== null, visibility) ? null : <p className="form-notice">Public rooms require an account. <button className="text-button" type="button" onClick={onSignIn}>Sign in to continue</button>.</p>}
           {error === null ? null : <p className="form-error" role="alert">{error}</p>}
-          <button className="primary-button" type="submit" disabled={busy || slug === "" || !publicHostingAllowed(user !== null, visibility)}>{busy ? "Opening table…" : "Create table"}</button>
+          <button className="primary-button" type="submit" disabled={busy || slug === ""}>{busy ? "Opening table…" : "Create table"}</button>
         </form> : <div className="invite-ready"><p>Share this invite, then enter when you’re ready.</p><label htmlFor="invite-url">Invite URL</label><div className="copy-field"><input id="invite-url" readOnly value={created.inviteUrl} /><button type="button" onClick={() => void copyInvite(created.inviteUrl)}>{copied ? "Copied" : "Copy"}</button></div>{error === null ? null : <p className="form-error" role="alert">{error}</p>}<button className="primary-button" type="button" onClick={() => navigate(`/table/${encodeURIComponent(created.roomId)}`)}>Enter table</button></div>}
       </section>
     </div>

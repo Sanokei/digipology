@@ -70,13 +70,15 @@ describe("API client", () => {
     await client.updateGameVisibility("demo game", "unlisted");
     await client.createRoom({ releaseSlugOrId: "demo", visibility: "private", displayName: "Ada" });
     await client.joinRoom({ code: "ABCD-EFGH", displayName: "Grace" }); await client.listPublicRooms();
+    await client.quickPlay({ slug: "demo game", displayName: "Grace" });
     await client.getReleaseBundle("rel/1");
     expect(calls.map(({ path, init }) => [path, init?.method])).toEqual([
       ["/api/auth/logout", "POST"], ["/api/me", "GET"], ["/api/me", "PATCH"],
       ["/api/games", "GET"], ["/api/games/mine", "GET"], ["/api/games", "POST"],
       ["/api/games/demo%20game/releases", "POST"], ["/api/games/demo%20game", "PATCH"],
       ["/api/rooms", "POST"], ["/api/rooms/join", "POST"],
-      ["/api/rooms/public", "GET"], ["/api/releases/rel%2F1/bundle", "GET"],
+      ["/api/rooms/public", "GET"], ["/api/quickplay", "POST"],
+      ["/api/releases/rel%2F1/bundle", "GET"],
     ]);
     for (const { init } of calls) {
       expect(init?.credentials).toBe("include");
@@ -85,5 +87,6 @@ describe("API client", () => {
     expect(calls[2]?.init?.body).toBe(JSON.stringify({ name: "Ada" }));
     expect(calls[8]?.init?.body).toBe(JSON.stringify({ releaseSlugOrId: "demo", visibility: "private", displayName: "Ada" }));
     expect(calls[9]?.init?.body).toBe(JSON.stringify({ code: "ABCD-EFGH", displayName: "Grace" }));
+    expect(calls[11]?.init?.body).toBe(JSON.stringify({ slug: "demo game", displayName: "Grace" }));
   });
 });

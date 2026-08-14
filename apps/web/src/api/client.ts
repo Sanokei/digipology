@@ -7,7 +7,6 @@ import type {
   CreateRoomRequest,
   CreateRoomResponse,
   GameResponse,
-  GamesResponse,
   JoinRoomRequest,
   JoinRoomResponse,
   MeResponse,
@@ -19,6 +18,7 @@ import type {
   UserResponse,
 } from "digipology-protocol/http";
 import { CSRF_HEADER } from "digipology-protocol/http";
+import type { CatalogGamesResponse, QuickPlayRequest, QuickPlayResponse } from "./quickplayAdapter";
 
 export { CSRF_HEADER } from "digipology-protocol/http";
 export type Fetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -28,7 +28,7 @@ export interface ApiClient {
   logout(): Promise<ApiResult<void>>;
   me(): Promise<ApiResult<MeResponse>>;
   patchMe(name: string): Promise<ApiResult<UserResponse>>;
-  listGames(): Promise<ApiResult<GamesResponse>>;
+  listGames(): Promise<ApiResult<CatalogGamesResponse>>;
   getGame(slug: string): Promise<ApiResult<GameResponse>>;
   listMyGames(): Promise<ApiResult<MyGamesResponse>>;
   createGame(input: CreateGameRequest): Promise<ApiResult<CreateGameResponse>>;
@@ -36,6 +36,7 @@ export interface ApiClient {
   updateGameVisibility(slug: string, visibility: "public" | "unlisted"): Promise<ApiResult<UpdateGameResponse>>;
   createRoom(input: CreateRoomRequest): Promise<ApiResult<CreateRoomResponse>>;
   joinRoom(input: JoinRoomRequest): Promise<ApiResult<JoinRoomResponse>>;
+  quickPlay(input: QuickPlayRequest): Promise<ApiResult<QuickPlayResponse>>;
   listPublicRooms(): Promise<ApiResult<{ rooms: PublicRoomDto[] }>>;
   getReleaseBundle(id: string): Promise<ApiResult<ReleaseBundleDto>>;
 }
@@ -120,6 +121,7 @@ export function createApiClient(fetcher: Fetcher = fetch): ApiClient {
     }),
     createRoom: (input) => post("/api/rooms", input),
     joinRoom: (input) => post("/api/rooms/join", input),
+    quickPlay: (input) => post("/api/quickplay", input),
     listPublicRooms: () => request("/api/rooms/public"),
     getReleaseBundle: (id) => request(`/api/releases/${encodeURIComponent(id)}/bundle`),
   };
