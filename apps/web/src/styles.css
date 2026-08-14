@@ -57,7 +57,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   color: inherit;
   font: inherit;
 }
@@ -71,6 +72,7 @@ button:focus-visible,
 a:focus-visible,
 input:focus-visible,
 select:focus-visible,
+textarea:focus-visible,
 canvas:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
@@ -425,6 +427,28 @@ button.action-card { width: 100%; border-right: 0; border-left: 0; text-align: l
   margin: 0 0 32px;
 }
 
+.creator-page, .catalog-page { width: min(1180px, calc(100% - 48px)); margin: 0 auto; padding: 64px 0 100px; }
+.creator-page { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(320px, .85fr); gap: 34px; align-items: start; }
+.creator-panel, .game-detail { padding: clamp(26px, 4vw, 48px); border: 1px solid var(--line); background: rgba(13,24,20,.82); }
+.creator-panel h1, .catalog-page h1, .game-detail h1 { margin: 0; font-size: clamp(2.5rem, 6vw, 5rem); font-weight: 500; letter-spacing: -.06em; }
+.creator-panel h2 { margin: 0; font-size: 2.2rem; font-weight: 500; }
+.creator-panel > p, .catalog-page header > p:last-child, .game-detail > p { color: var(--muted); line-height: 1.7; }
+.stack-form textarea { width: 100%; padding: 14px; resize: vertical; border: 1px solid rgba(229,242,232,.2); background: #09120f; font-family: "DM Mono", monospace; font-size: .7rem; line-height: 1.55; }
+.field-pair, .button-row { display: flex; gap: 12px; }
+.field-pair > label { flex: 1; }
+.field-pair input { margin-top: 8px; }
+.button-row { flex-wrap: wrap; align-items: center; }
+.secondary-button, .file-button { min-height: 46px; padding: 0 16px; border: 1px solid var(--line); background: #17261f; color: var(--ink); cursor: pointer; font-size: .69rem; font-weight: 700; text-transform: uppercase; }
+.file-button { display: inline-flex; align-items: center; }
+.file-button input { display: none; }
+.validation-report { display: grid; gap: 6px; margin: 20px 0 0; padding: 0; list-style: none; }
+.validation-report li { padding: 10px 12px; border-left: 3px solid; background: rgba(255,255,255,.025); font-family: "DM Mono", monospace; font-size: .66rem; text-transform: capitalize; }
+.validation-report li strong { margin-right: 8px; }.validation-report li small { display: block; margin: 5px 0 0 43px; color: var(--muted); text-transform: none; overflow-wrap: anywhere; }
+.validation-ok { border-color: var(--accent); }.validation-failed { border-color: #ff8f79; }
+.my-game { padding: 22px 0; border-bottom: 1px solid var(--line); }.my-game h3 { margin: 0; }.my-game p, .my-game small { color: var(--muted); }
+.release-list { display: grid; gap: 6px; margin: 18px 0 0; padding: 0; list-style: none; }.release-list li { display: grid; grid-template-columns: 90px 90px 1fr; gap: 10px; font-size: .67rem; }.release-list code { color: var(--muted); overflow-wrap: anywhere; }
+.catalog-page > header { max-width: 680px; margin-bottom: 44px; }.game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }.game-card { min-height: 245px; padding: 25px; border: 1px solid var(--line); background: rgba(13,24,20,.75); }.game-card span, .game-card small { color: var(--accent); font-family: "DM Mono", monospace; font-size: .62rem; text-transform: uppercase; }.game-card h2 { margin: 44px 0 10px; font-size: 1.6rem; }.game-card p { min-height: 52px; color: var(--muted); line-height: 1.6; }.game-detail { max-width: 760px; }.game-detail dl { display: grid; grid-template-columns: 110px 1fr; gap: 12px; margin: 30px 0; }.game-detail dt { color: var(--muted); }.game-detail dd { margin: 0; overflow-wrap: anywhere; }
+
 .button-link {
   display: inline-flex;
   min-height: 48px;
@@ -619,6 +643,7 @@ button.action-card { width: 100%; border-right: 0; border-left: 0; text-align: l
 }
 
 @media (max-width: 860px) {
+  .creator-page { grid-template-columns: 1fr; }
   .home-main {
     grid-template-columns: 1fr;
     gap: 54px;

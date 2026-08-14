@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { api } from "../api/client";
-import type { UserDto } from "../api/types";
+import type { UserDto } from "digipology-protocol/http";
 
 interface AuthValue {
   user: UserDto | null;

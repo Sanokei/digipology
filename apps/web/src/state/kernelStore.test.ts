@@ -18,7 +18,7 @@ function ordered(sequence: number, requestId?: string): OrderedAction {
 }
 function loaded(value = 1): KernelStore {
   const store = new KernelStore();
-  store.loadRelease({ releaseId: "release_test", initialSnapshot: snapshot(initial(value)) });
+  store.loadRelease({ releaseId: "release_test", initialSnapshot: snapshot(initial(value)) } as unknown as Parameters<KernelStore["loadRelease"]>[0]);
   return store;
 }
 

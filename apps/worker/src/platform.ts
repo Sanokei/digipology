@@ -1,16 +1,29 @@
 import type {
+  CreateGameResponse,
+  CreateReleaseResponse,
   CreateRoomResponse,
   GameResponse,
   GamesResponse,
   JoinRoomResponse,
   MeResponse,
+  MyGamesResponse,
   PublicRoomsResponse,
+  UpdateGameResponse,
+  UploadValidationReportItem,
   UserResponse,
 } from "digipology-protocol/http";
 import {
+  CSRF_HEADER,
+  UPLOAD_BODY_LIMIT,
+  isGameSlug,
+  slugifyGameTitle,
+  uploadReportOk,
+  validateCreateGameRequest,
+  validateCreateReleaseRequest,
   validateCreateRoomRequest,
   validateJoinRoomRequest,
   validateRequestMagicLinkRequest,
+  validateUpdateGameRequest,
   validateUpdateMeRequest,
 } from "digipology-protocol/http";
 import {
@@ -29,9 +42,10 @@ import {
   SESSION_COOKIE_NAME,
 } from "./cookies";
 import { decryptDevelopmentToken, encryptDevelopmentToken, sha256Hex } from "./crypto";
-import { D1Repositories } from "./d1-repositories";
+import { D1Repositories, type UploadedGameRecord } from "./d1-repositories";
 import { CloudflareEmailSender, DevelopmentEmailSender, type EmailSender } from "./email";
 import { FixedWindowRateLimiter } from "./rate-limiter";
+import { prepareUploadedBundle, validateUploadedBundle } from "./release-validation";
 import { generateJoinCode, isValidJoinCode, normalizeJoinCode } from "./random";
 
 const HTTP_BODY_LIMIT = 4 * 1024;
@@ -40,8 +54,8 @@ const MAGIC_IP_LIMIT = 10;
 const MAGIC_RATE_WINDOW_MS = 15 * 60 * 1000;
 const JOIN_IP_LIMIT = 30;
 const JOIN_RATE_WINDOW_MS = 60 * 1000;
-// Must match CSRF_HEADER in apps/web/src/api/client.ts (the SPA already on main).
-const CUSTOM_HEADER = "X-Digipology-CSRF";
+const UPLOAD_USER_LIMIT = 10;
+const UPLOAD_RATE_WINDOW_MS = 60 * 60 * 1000;
 
 interface RoomIndexLookupRow {
   room_id: string;
@@ -63,7 +77,7 @@ interface DevelopmentMagicLinkRow {
 export async function handlePlatformRequest(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   if (request.method !== "GET" && url.pathname.startsWith("/api/") && !isCsrfSafe(request)) {
-    return jsonError(403, "csrf_rejected", `Same-origin requests must include ${CUSTOM_HEADER}: 1`);
+    return jsonError(403, "csrf_rejected", `Same-origin requests must include ${CSRF_HEADER}: 1`);
   }
 
   const repositories = new D1Repositories(env.DB);
@@ -159,21 +173,174 @@ export async function handlePlatformRequest(request: Request, env: Env): Promise
   }
 
   if (request.method === "GET" && url.pathname === "/api/games") {
+    const uploaded = hasDatabase(env) ? await repositories.listPublicUploadedGames() : [];
     const response: GamesResponse = {
-      games: builtinCatalog.listGames().map(gameSummary),
+      games: [
+        ...builtinCatalog.listGames().map(gameSummary),
+        ...uploaded.map(uploadedGameSummary),
+      ],
     };
     return jsonResponse(response);
   }
 
+  if (request.method === "GET" && url.pathname === "/api/games/mine") {
+    const session = await requestSession(request, repositories, env, now);
+    if (session === null) return jsonError(401, "authentication_required", "Sign in to view your games");
+    const response: MyGamesResponse = { games: await repositories.listOwnedGames(session.user.id) };
+    return sessionResponse(response, session);
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/games") {
+    const session = await requestSession(request, repositories, env, now);
+    if (session === null) return jsonError(401, "authentication_required", "Sign in to publish a game");
+    const rateResponse = await consumeUploadRate(repositories, session.user.id, now);
+    if (rateResponse !== null) return rateResponse;
+    const upload = await readUploadJson(request);
+    const parsed = validateCreateGameRequest(upload.value);
+    const record = asRecord(upload.value);
+    const title = parsed.ok ? parsed.value.title : typeof record?.title === "string" ? record.title : "";
+    const slugCandidate = parsed.ok
+      ? parsed.value.slug ?? slugifyGameTitle(parsed.value.title)
+      : typeof record?.slug === "string" ? record.slug : slugifyGameTitle(title);
+    const slugUnique = isGameSlug(slugCandidate) && builtinCatalog.getGame(slugCandidate) === null &&
+      !(await repositories.uploadedSlugExists(slugCandidate));
+    const minPlayers = parsed.ok ? parsed.value.minPlayers : numberField(record, "minPlayers");
+    const maxPlayers = parsed.ok ? parsed.value.maxPlayers : numberField(record, "maxPlayers");
+    const bundleValue = parsed.ok ? parsed.value.bundle : record?.bundle;
+    const bundleReport = validateUploadedBundle(bundleValue, minPlayers, maxPlayers);
+    markJsonParseFailure(bundleReport, upload.parseError);
+    const report: UploadValidationReportItem[] = [
+      reportItem("size", !upload.oversize, upload.oversize ? `request body exceeds ${UPLOAD_BODY_LIMIT} bytes` : undefined),
+      reportItem("dto_shape", parsed.ok, parsed.ok ? undefined : parsed.error.message),
+      reportItem("slug", slugUnique, slugUnique ? undefined : "slug is invalid or already in use"),
+      ...bundleReport,
+    ];
+    if (!uploadReportOk(report)) return validationFailed(report);
+    if (!parsed.ok) throw new Error("Validated create-game DTO was not available");
+    const bucket = releaseBucket(env);
+    if (bucket === null) return jsonError(503, "release_storage_unavailable", "Release storage is unavailable");
+    const gameId = `game_${crypto.randomUUID()}`;
+    const releaseId = `release_${crypto.randomUUID()}`;
+    const prepared = prepareUploadedBundle(parsed.value.bundle, {
+      gameId, releaseId, releaseNumber: 1, title: parsed.value.title,
+    });
+    const bundleKey = releaseObjectKey(releaseId);
+    await writeReleaseThenCommit(bucket, bundleKey, prepared.canonicalJson, () =>
+      repositories.createUploadedGame({
+        gameId,
+        releaseId,
+        ownerUserId: session.user.id,
+        slug: slugCandidate,
+        title: parsed.value.title,
+        tagline: parsed.value.tagline,
+        minPlayers: parsed.value.minPlayers,
+        maxPlayers: parsed.value.maxPlayers,
+        manifestHash: prepared.bundle.integrity.manifestHash,
+        bundleKey,
+        now,
+      }));
+    const game = (await repositories.listOwnedGames(session.user.id))
+      .find((candidate) => candidate.slug === slugCandidate);
+    if (game === undefined) throw new Error("Created game could not be reloaded");
+    const response: CreateGameResponse = { game, release: game.releases[0]! };
+    return jsonResponse(response, 201, sessionCookieHeaders(session));
+  }
+
+  const releaseCreateMatch = /^\/api\/games\/([^/]+)\/releases$/.exec(url.pathname);
+  if (request.method === "POST" && releaseCreateMatch?.[1] !== undefined) {
+    const slug = decodePathSegment(releaseCreateMatch[1]);
+    if (slug === null) return jsonError(404, "not_found", "Game not found");
+    const session = await requestSession(request, repositories, env, now);
+    if (session === null) return jsonError(401, "authentication_required", "Sign in to publish a release");
+    const game = await repositories.getUploadedGame(slug);
+    if (game === null) return jsonError(404, "not_found", "Game not found");
+    if (game.ownerUserId !== session.user.id) return jsonError(403, "forbidden", "Only the game owner can publish releases");
+    const rateResponse = await consumeUploadRate(repositories, session.user.id, now);
+    if (rateResponse !== null) return rateResponse;
+    const upload = await readUploadJson(request);
+    const parsed = validateCreateReleaseRequest(upload.value);
+    const record = asRecord(upload.value);
+    const bundleReport = validateUploadedBundle(
+      parsed.ok ? parsed.value.bundle : record?.bundle,
+      game.minPlayers,
+      game.maxPlayers,
+    );
+    markJsonParseFailure(bundleReport, upload.parseError);
+    const report: UploadValidationReportItem[] = [
+      reportItem("size", !upload.oversize, upload.oversize ? `request body exceeds ${UPLOAD_BODY_LIMIT} bytes` : undefined),
+      reportItem("dto_shape", parsed.ok, parsed.ok ? undefined : parsed.error.message),
+      reportItem("slug", true),
+      ...bundleReport,
+    ];
+    if (!uploadReportOk(report)) return validationFailed(report);
+    if (!parsed.ok) throw new Error("Validated create-release DTO was not available");
+    const bucket = releaseBucket(env);
+    if (bucket === null) return jsonError(503, "release_storage_unavailable", "Release storage is unavailable");
+    const releases = (await repositories.listOwnedGames(session.user.id))
+      .find((candidate) => candidate.slug === slug)?.releases ?? [];
+    const releaseNumber = Math.max(0, ...releases.map((candidate) => candidate.releaseNumber)) + 1;
+    const releaseId = `release_${crypto.randomUUID()}`;
+    const prepared = prepareUploadedBundle(parsed.value.bundle, {
+      gameId: game.id, releaseId, releaseNumber, title: game.title,
+    });
+    const bundleKey = releaseObjectKey(releaseId);
+    await writeReleaseThenCommit(bucket, bundleKey, prepared.canonicalJson, () =>
+      repositories.createUploadedRelease({
+        gameId: game.id,
+        releaseId,
+        releaseNumber,
+        manifestHash: prepared.bundle.integrity.manifestHash,
+        bundleKey,
+        now,
+      }));
+    const release = (await repositories.getUploadedRelease(releaseId));
+    if (release === null) throw new Error("Created release could not be reloaded");
+    const response: CreateReleaseResponse = { release };
+    return jsonResponse(response, 201, sessionCookieHeaders(session));
+  }
+
   const gameMatch = /^\/api\/games\/([^/]+)$/.exec(url.pathname);
+  if (gameMatch?.[1] !== undefined && request.method === "PATCH") {
+    const slug = decodePathSegment(gameMatch[1]);
+    if (slug === null) return jsonError(404, "not_found", "Game not found");
+    const session = await requestSession(request, repositories, env, now);
+    if (session === null) return jsonError(401, "authentication_required", "Sign in to update a game");
+    const game = await repositories.getUploadedGame(slug);
+    if (game === null) return jsonError(404, "not_found", "Game not found");
+    if (game.ownerUserId !== session.user.id) return jsonError(403, "forbidden", "Only the game owner can update this game");
+    const parsed = validateUpdateGameRequest(await readJson(request));
+    if (!parsed.ok) return invalidRequest(parsed.error.message);
+    await repositories.updateGameVisibility(slug, session.user.id, parsed.value.visibility, now);
+    const updated = (await repositories.listOwnedGames(session.user.id)).find((candidate) => candidate.slug === slug);
+    if (updated === undefined) throw new Error("Updated game could not be reloaded");
+    const response: UpdateGameResponse = { game: updated };
+    return sessionResponse(response, session);
+  }
+
   if (request.method === "GET" && gameMatch?.[1] !== undefined) {
     const slug = decodePathSegment(gameMatch[1]);
     if (slug === null) return jsonError(404, "not_found", "Game not found");
     const game = builtinCatalog.getGame(slug);
-    if (game === null) return jsonError(404, "not_found", "Game not found");
-    const release = builtinCatalog.getRelease(game.latestReleaseId);
+    if (game !== null) {
+      const release = builtinCatalog.getRelease(game.latestReleaseId);
+      if (release === null) return jsonError(404, "not_found", "Game release not found");
+      const response: GameResponse = { game: gameSummary(game), latestRelease: releaseSummary(release) };
+      return jsonResponse(response);
+    }
+    const uploaded = hasDatabase(env) ? await repositories.getUploadedGame(slug) : null;
+    if (uploaded === null) return jsonError(404, "not_found", "Game not found");
+    const release = await repositories.getUploadedRelease(uploaded.latestReleaseId);
     if (release === null) return jsonError(404, "not_found", "Game release not found");
-    const response: GameResponse = { game: gameSummary(game), latestRelease: releaseSummary(release) };
+    const response: GameResponse = {
+      game: uploadedGameSummary(uploaded),
+      latestRelease: {
+        releaseId: release.releaseId,
+        kernelVersion: release.kernelVersion,
+        luaApiVersion: release.luaApiVersion,
+        releaseNumber: release.releaseNumber,
+        createdAt: release.createdAt,
+      },
+    };
     return jsonResponse(response);
   }
 
@@ -185,10 +352,16 @@ export async function handlePlatformRequest(request: Request, env: Env): Promise
     if (parsed.value.visibility === "public" && session === null) {
       return jsonError(401, "authentication_required", "Sign in to create a public room");
     }
-    const release = builtinCatalog.resolveRelease(parsed.value.releaseSlugOrId);
-    if (release === null) return jsonError(404, "release_not_found", "Release not found");
-    const game = builtinCatalog.getGame(release.gameSlug);
-    if (game === null) return jsonError(404, "release_not_found", "Release game not found");
+    const builtinRelease = builtinCatalog.resolveRelease(parsed.value.releaseSlugOrId);
+    const builtinGame = builtinRelease === null ? null : builtinCatalog.getGame(builtinRelease.gameSlug);
+    const uploadedRelease = builtinRelease === null
+      ? await repositories.resolveUploadedRelease(parsed.value.releaseSlugOrId)
+      : null;
+    const releaseId = builtinRelease?.releaseId ?? uploadedRelease?.releaseId;
+    const maxPlayers = builtinGame?.maxPlayers ?? uploadedRelease?.maxPlayers;
+    if (releaseId === undefined || maxPlayers === undefined) {
+      return jsonError(404, "release_not_found", "Release not found");
+    }
     const displayName = normalizeDisplayName(parsed.value.displayName, session?.user.name ?? "Host");
 
     for (let attempt = 0; attempt < 8; attempt += 1) {
@@ -207,8 +380,8 @@ export async function handlePlatformRequest(request: Request, env: Env): Promise
           joinCode,
           normalizedCode,
           parsed.value.visibility,
-          release.releaseId,
-          game.maxPlayers,
+          releaseId,
+          maxPlayers,
           now,
         ).run();
       } catch (error) {
@@ -217,7 +390,7 @@ export async function handlePlatformRequest(request: Request, env: Env): Promise
       }
 
       const room = env.ROOM.get(id);
-      const initialized = await room.init(roomId, joinCode, release.releaseId, game.maxPlayers);
+      const initialized = await room.init(roomId, joinCode, releaseId, maxPlayers);
       if (!initialized) {
         await deleteRoomIndex(env.DB, roomId);
         continue;
@@ -291,19 +464,22 @@ export async function handlePlatformRequest(request: Request, env: Env): Promise
        WHERE visibility = 'public' AND ended_at IS NULL
        ORDER BY created_at DESC LIMIT 100`,
     ).all<PublicRoomRow>();
-    const response: PublicRoomsResponse = {
-      rooms: result.results.flatMap((row) => {
-        const release = builtinCatalog.getRelease(row.release_id);
-        const game = release === null ? null : builtinCatalog.getGame(release.gameSlug);
-        return game === null ? [] : [{
-          joinCode: row.join_code,
-          gameTitle: game.title,
-          players: row.player_count,
-          maxPlayers: row.max_players,
-          createdAt: new Date(row.created_at).toISOString(),
-        }];
-      }),
-    };
+    const rooms: PublicRoomsResponse["rooms"] = [];
+    for (const row of result.results) {
+      const release = builtinCatalog.getRelease(row.release_id);
+      const builtinGame = release === null ? null : builtinCatalog.getGame(release.gameSlug);
+      const uploaded = release === null ? await repositories.getUploadedRelease(row.release_id) : null;
+      const title = builtinGame?.title ?? uploaded?.gameTitle;
+      if (title === undefined) continue;
+      rooms.push({
+        joinCode: row.join_code,
+        gameTitle: title,
+        players: row.player_count,
+        maxPlayers: row.max_players,
+        createdAt: new Date(row.created_at).toISOString(),
+      });
+    }
+    const response: PublicRoomsResponse = { rooms };
     return jsonResponse(response);
   }
 
@@ -311,9 +487,20 @@ export async function handlePlatformRequest(request: Request, env: Env): Promise
   if (request.method === "GET" && releaseMatch?.[1] !== undefined) {
     const releaseId = decodePathSegment(releaseMatch[1]);
     const release = releaseId === null ? null : builtinCatalog.getRelease(releaseId);
-    if (release === null) return jsonError(404, "not_found", "Release not found");
-    return jsonResponse(release.bundle, 200, {
+    const cacheHeaders = {
       "Cache-Control": "public, max-age=31536000, immutable",
+      "X-Content-Type-Options": "nosniff",
+    };
+    if (release !== null) return jsonResponse(release.bundle, 200, cacheHeaders);
+    if (releaseId === null || !hasDatabase(env)) return jsonError(404, "not_found", "Release not found");
+    const uploaded = await repositories.getUploadedRelease(releaseId);
+    if (uploaded === null || uploaded.status !== "ready") return jsonError(404, "not_found", "Release not found");
+    const bucket = releaseBucket(env);
+    if (bucket === null) return jsonError(503, "release_storage_unavailable", "Release storage is unavailable");
+    const object = await bucket.get(uploaded.bundleKey);
+    if (object === null) return jsonError(404, "not_found", "Release not found");
+    return new Response(object.body, {
+      headers: { ...cacheHeaders, "Content-Type": "application/json; charset=utf-8" },
     });
   }
 
@@ -349,7 +536,7 @@ export async function handlePlatformRequest(request: Request, env: Env): Promise
 }
 
 export function isCsrfSafe(request: Request): boolean {
-  if (request.headers.get(CUSTOM_HEADER) !== "1") return false;
+  if (request.headers.get(CSRF_HEADER) !== "1") return false;
   const origin = request.headers.get("Origin");
   return origin === null || origin === new URL(request.url).origin;
 }
@@ -417,6 +604,131 @@ async function readJson(request: Request): Promise<unknown> {
   } catch {
     return null;
   }
+}
+
+export async function readUploadJson(request: Request): Promise<{
+  value: unknown;
+  oversize: boolean;
+  parseError?: string;
+}> {
+  const declared = Number(request.headers.get("Content-Length") ?? "0");
+  if (Number.isFinite(declared) && declared > UPLOAD_BODY_LIMIT) {
+    return { value: null, oversize: true, parseError: "body was not parsed because it exceeds the size limit" };
+  }
+  if (request.body === null) return { value: null, oversize: false };
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  let oversize = false;
+  while (true) {
+    const next = await reader.read();
+    if (next.done) break;
+    const chunk = next.value;
+    if (length + chunk.byteLength > UPLOAD_BODY_LIMIT) {
+      const remaining = UPLOAD_BODY_LIMIT - length;
+      if (remaining > 0) chunks.push(chunk.slice(0, remaining));
+      oversize = true;
+      await reader.cancel();
+      break;
+    }
+    chunks.push(chunk);
+    length += chunk.byteLength;
+  }
+  const bytes = new Uint8Array(chunks.reduce((total, chunk) => total + chunk.byteLength, 0));
+  let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+  try {
+    return { value: JSON.parse(new TextDecoder().decode(bytes)) as unknown, oversize };
+  } catch (error) {
+    return { value: null, oversize, parseError: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+function markJsonParseFailure(report: UploadValidationReportItem[], detail: string | undefined): void {
+  if (detail === undefined) return;
+  const canonical = report.find((item) => item.check === "canonical_json");
+  if (canonical !== undefined) Object.assign(canonical, { ok: false, detail });
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function numberField(record: Record<string, unknown> | null, key: string): number {
+  const value = record?.[key];
+  return typeof value === "number" ? value : 0;
+}
+
+function reportItem(
+  check: UploadValidationReportItem["check"],
+  ok: boolean,
+  detail?: string,
+): UploadValidationReportItem {
+  return detail === undefined ? { check, ok } : { check, ok, detail };
+}
+
+function validationFailed(report: UploadValidationReportItem[]): Response {
+  return jsonResponse({
+    error: { code: "validation_failed", message: "The uploaded release did not pass validation" },
+    report,
+  }, 422);
+}
+
+async function consumeUploadRate(
+  repositories: D1Repositories,
+  userId: string,
+  now: number,
+): Promise<Response | null> {
+  const limiter = new FixedWindowRateLimiter(repositories, UPLOAD_USER_LIMIT, UPLOAD_RATE_WINDOW_MS);
+  const rate = await limiter.consume(`upload:user:${userId}`, now);
+  return rate.allowed ? null : jsonError(429, "rate_limited", "Too many uploads; try again later", {
+    "Retry-After": String(rate.retryAfterSeconds),
+  });
+}
+
+function uploadedGameSummary(game: UploadedGameRecord): GamesResponse["games"][number] {
+  return {
+    slug: game.slug,
+    title: game.title,
+    tagline: game.tagline,
+    minPlayers: game.minPlayers,
+    maxPlayers: game.maxPlayers,
+    builtin: false,
+    creatorHandle: game.creatorHandle,
+  };
+}
+
+function hasDatabase(env: Env): boolean {
+  return Reflect.get(env, "DB") !== undefined;
+}
+
+function releaseBucket(env: Env): R2Bucket | null {
+  const candidate = Reflect.get(env, "RELEASES");
+  return candidate === undefined ? null : candidate as R2Bucket;
+}
+
+function releaseObjectKey(releaseId: string): string {
+  return `releases/${releaseId}.json`;
+}
+
+async function putReleaseOnce(bucket: R2Bucket, key: string, body: string): Promise<void> {
+  const stored = await bucket.put(key, body, {
+    onlyIf: { etagDoesNotMatch: "*" },
+    httpMetadata: { contentType: "application/json" },
+  });
+  if (stored === null) throw new Error(`Release object already exists: ${key}`);
+}
+
+export async function writeReleaseThenCommit(
+  bucket: R2Bucket,
+  key: string,
+  body: string,
+  commit: () => Promise<void>,
+): Promise<void> {
+  await putReleaseOnce(bucket, key, body);
+  await commit();
 }
 
 function normalizeDisplayName(value: string | undefined, fallback: string): string {

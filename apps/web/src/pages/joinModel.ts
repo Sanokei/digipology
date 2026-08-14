@@ -1,5 +1,3 @@
-import type { ApiErrorCode } from "../api/types";
-
 export type JoinErrorKind = "not_found" | "full" | "ended" | "failed";
 
 export interface JoinErrorView {
@@ -9,7 +7,7 @@ export interface JoinErrorView {
   actionLabel: string;
 }
 
-export function joinErrorKind(code: ApiErrorCode): JoinErrorKind {
+export function joinErrorKind(code: string): JoinErrorKind {
   switch (code) {
     case "not_found": return "not_found";
     case "full": return "full";

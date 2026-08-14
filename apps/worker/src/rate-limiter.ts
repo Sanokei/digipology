@@ -1,5 +1,5 @@
 export interface RateLimitStore {
-  increment(key: string, windowStart: number): Promise<number>;
+  increment(key: string, windowStart: number, expiresAt: number, now: number): Promise<number>;
 }
 
 export interface RateLimitResult {
@@ -21,7 +21,7 @@ export class FixedWindowRateLimiter {
 
   async consume(key: string, now: number): Promise<RateLimitResult> {
     const windowStart = Math.floor(now / this.windowMs) * this.windowMs;
-    const count = await this.store.increment(key, windowStart);
+    const count = await this.store.increment(key, windowStart, windowStart + this.windowMs, now);
     return {
       allowed: count <= this.limit,
       limit: this.limit,
@@ -34,7 +34,7 @@ export class FixedWindowRateLimiter {
 export class MemoryRateLimitStore implements RateLimitStore {
   readonly #entries = new Map<string, { windowStart: number; count: number }>();
 
-  increment(key: string, windowStart: number): Promise<number> {
+  increment(key: string, windowStart: number, _expiresAt: number, _now: number): Promise<number> {
     const current = this.#entries.get(key);
     const count = current?.windowStart === windowStart ? current.count + 1 : 1;
     this.#entries.set(key, { windowStart, count });

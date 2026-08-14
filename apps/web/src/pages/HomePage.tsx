@@ -2,7 +2,7 @@ import { type FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { api } from "../api/client";
-import type { PublicRoomDto } from "../api/types";
+import type { PublicRoomDto } from "digipology-protocol/http";
 import { HostDialog } from "../components/HostDialog";
 import { SiteHeader } from "../components/SiteHeader";
 import { isJoinCode, normalizeJoinCode } from "../utils/joinCode";

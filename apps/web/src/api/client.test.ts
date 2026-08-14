@@ -43,6 +43,15 @@ describe("API client", () => {
       error: { code: "full", message: "Room is full", status: 409 },
     });
 
+    const validation = createApiClient(async () => Response.json({
+      error: { code: "validation_failed", message: "Invalid bundle" },
+      report: [{ check: "manifest_hash", ok: false, detail: "expected hash" }],
+    }, { status: 422 }));
+    expect(await validation.createRelease("demo", {} as never)).toMatchObject({
+      ok: false,
+      error: { code: "validation_failed", status: 422, report: [{ check: "manifest_hash", ok: false }] },
+    });
+
     const offline = createApiClient(async () => { throw new Error("offline"); });
     expect(await offline.me()).toMatchObject({ ok: false, error: { code: "network_error" } });
   });
@@ -55,12 +64,18 @@ describe("API client", () => {
       return Response.json({ user: null, games: [], rooms: [] });
     });
     await client.logout(); await client.me(); await client.patchMe("Ada");
-    await client.listGames(); await client.createRoom({ releaseSlugOrId: "demo", visibility: "private", displayName: "Ada" });
+    await client.listGames(); await client.listMyGames();
+    await client.createGame({ title: "Demo", tagline: "", minPlayers: 2, maxPlayers: 4, bundle: {} as never });
+    await client.createRelease("demo game", {} as never);
+    await client.updateGameVisibility("demo game", "unlisted");
+    await client.createRoom({ releaseSlugOrId: "demo", visibility: "private", displayName: "Ada" });
     await client.joinRoom({ code: "ABCD-EFGH", displayName: "Grace" }); await client.listPublicRooms();
     await client.getReleaseBundle("rel/1");
     expect(calls.map(({ path, init }) => [path, init?.method])).toEqual([
       ["/api/auth/logout", "POST"], ["/api/me", "GET"], ["/api/me", "PATCH"],
-      ["/api/games", "GET"], ["/api/rooms", "POST"], ["/api/rooms/join", "POST"],
+      ["/api/games", "GET"], ["/api/games/mine", "GET"], ["/api/games", "POST"],
+      ["/api/games/demo%20game/releases", "POST"], ["/api/games/demo%20game", "PATCH"],
+      ["/api/rooms", "POST"], ["/api/rooms/join", "POST"],
       ["/api/rooms/public", "GET"], ["/api/releases/rel%2F1/bundle", "GET"],
     ]);
     for (const { init } of calls) {
@@ -68,7 +83,7 @@ describe("API client", () => {
       expect(new Headers(init?.headers).has(CSRF_HEADER)).toBe(init?.method !== "GET");
     }
     expect(calls[2]?.init?.body).toBe(JSON.stringify({ name: "Ada" }));
-    expect(calls[4]?.init?.body).toBe(JSON.stringify({ releaseSlugOrId: "demo", visibility: "private", displayName: "Ada" }));
-    expect(calls[5]?.init?.body).toBe(JSON.stringify({ code: "ABCD-EFGH", displayName: "Grace" }));
+    expect(calls[8]?.init?.body).toBe(JSON.stringify({ releaseSlugOrId: "demo", visibility: "private", displayName: "Ada" }));
+    expect(calls[9]?.init?.body).toBe(JSON.stringify({ code: "ABCD-EFGH", displayName: "Grace" }));
   });
 });

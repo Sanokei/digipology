@@ -4,6 +4,7 @@ import type {
   GamesResponse,
   JoinRoomResponse,
 } from "digipology-protocol/http";
+import { CSRF_HEADER } from "digipology-protocol/http";
 
 const baseUrl = (Bun.env.WORKER_URL ?? "http://127.0.0.1:8787").replace(/\/$/, "");
 
@@ -95,7 +96,7 @@ async function jsonRequest<T>(path: string, body: object): Promise<T> {
 }
 
 function apiHeaders(): Record<string, string> {
-  return { "Content-Type": "application/json", "X-Digipology-CSRF": "1" };
+  return { "Content-Type": "application/json", [CSRF_HEADER]: "1" };
 }
 
 async function connect(wsUrl: string): Promise<WebSocket> {

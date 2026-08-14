@@ -36,7 +36,7 @@ describe("built-in game catalog", () => {
       fixtureHashes[fixture.initialSnapshot.releaseId] = fixture.initialSnapshot.stateHash;
     }
     for (const releaseId of Object.keys(fixtureHashes)) {
-      const bundle = builtinCatalog.getRelease(releaseId)?.bundle as {
+      const bundle = builtinCatalog.getRelease(releaseId)?.bundle as unknown as {
         initialSnapshot?: GameSnapshot;
       };
       const initialSnapshot = bundle.initialSnapshot;

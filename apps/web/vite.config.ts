@@ -15,6 +15,9 @@ export default defineConfig({
       "digipology-prng": fileURLToPath(
         new URL("../../packages/prng/src/index.ts", import.meta.url),
       ),
+      "digipology-protocol/http": fileURLToPath(
+        new URL("../../packages/protocol/src/http.ts", import.meta.url),
+      ),
       "digipology-protocol": fileURLToPath(
         new URL("../../packages/protocol/src/index.ts", import.meta.url),
       ),

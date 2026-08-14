@@ -2,7 +2,7 @@ import { type FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { api } from "../api/client";
-import type { GameDto } from "../api/types";
+import type { GameSummaryDto } from "digipology-protocol/http";
 import { useAuth } from "../auth/AuthContext";
 import { guestDisplayName, saveGuestDisplayName, saveRoomSession } from "../utils/roomSession";
 import type { SavedRoomSession } from "../utils/roomSession";
@@ -14,7 +14,7 @@ export function publicHostingAllowed(signedIn: boolean, visibility: "private" | 
 export function HostDialog({ onClose }: { onClose(): void }) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [games, setGames] = useState<GameDto[]>([]);
+  const [games, setGames] = useState<GameSummaryDto[]>([]);
   const [slug, setSlug] = useState("");
   const [visibility, setVisibility] = useState<"private" | "public">("private");
   const [name, setName] = useState(() => guestDisplayName() ?? "");
@@ -63,9 +63,9 @@ export function HostDialog({ onClose }: { onClose(): void }) {
         <button className="modal__close" type="button" onClick={onClose} aria-label="Close">×</button>
         <p className="eyebrow">New table</p><h2 id="host-title">{created === null ? "Host a game" : "Your table is ready"}</h2>
         {created === null ? <form className="stack-form" onSubmit={(event) => void create(event)}>
-          <label htmlFor="game">Built-in game</label>
+          <label htmlFor="game">Game</label>
           <select id="game" required value={slug} onChange={(event) => setSlug(event.currentTarget.value)}>
-            {games.map((game) => <option key={game.slug} value={game.slug}>{game.title} — {game.minPlayers}–{game.maxPlayers} players</option>)}
+            {games.map((game) => <option key={game.slug} value={game.slug}>{game.title}{game.creatorHandle === undefined ? "" : ` by ${game.creatorHandle}`} — {game.minPlayers}–{game.maxPlayers} players</option>)}
           </select>
           {user === null ? <><label htmlFor="host-name">Display name</label><input id="host-name" required maxLength={64} value={name} onChange={(event) => setName(event.currentTarget.value)} /></> : null}
           <fieldset className="segmented"><legend>Visibility</legend>

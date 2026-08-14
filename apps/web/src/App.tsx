@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext";
 import { CreatePage } from "./pages/CreatePage";
 import { GamesPage } from "./pages/GamesPage";
+import { GameDetailPage } from "./pages/GameDetailPage";
 import { HomePage } from "./pages/HomePage";
 import { JoinPage } from "./pages/JoinPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -20,6 +21,7 @@ export function AppRoutes() {
       <Route path="/join/:code" element={<JoinPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/games" element={<GamesPage />} />
+      <Route path="/games/:slug" element={<GameDetailPage />} />
       <Route path="/create" element={<CreatePage />} />
       <Route
         path="/table/:roomId"

@@ -10,7 +10,8 @@
       "digipology-canonical-json": ["../../packages/canonical-json/src/index.ts"],
       "digipology-kernel": ["../../packages/kernel/src/index.ts"],
       "digipology-prng": ["../../packages/prng/src/index.ts"],
-      "digipology-protocol": ["../../packages/protocol/src/index.ts"]
+      "digipology-protocol": ["../../packages/protocol/src/index.ts"],
+      "digipology-protocol/http": ["../../packages/protocol/src/http.ts"]
     },
     "types": ["vite/client", "bun"]
   },

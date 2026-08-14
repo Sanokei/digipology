@@ -7,7 +7,8 @@ import {
   type RoomEndedMessage,
   type ServerMessage,
 } from "digipology-protocol";
-import { snapshot, type GameSnapshot } from "digipology-kernel";
+import { loadSnapshot, snapshot, type GameSnapshot } from "digipology-kernel";
+import type { ReleaseBundleDto } from "digipology-protocol/http";
 import { hashSelector, sha256Hex, timingSafeHashEqual } from "./crypto";
 import {
   handleTextFrame,
@@ -234,12 +235,12 @@ export class RoomDO extends DurableObject<Env> {
     return {
       state,
       authenticate: (token: string): Promise<string | null> => this.authenticateRoomToken(token),
-      hello: (
+      hello: async (
         _playerId: string,
         lastSequence: number | null,
-      ): ServerMessage | readonly ServerMessage[] => {
+      ): Promise<ServerMessage | readonly ServerMessage[]> => {
         socket.serializeAttachment(state);
-        this.startIfNeeded();
+        await this.startIfNeeded();
         const room = this.requiredRoom();
         if (room.ended_reason !== null) {
           return { type: "room_ended", protocolVersion: PROTOCOL_VERSION, reason: room.ended_reason };
@@ -334,36 +335,66 @@ export class RoomDO extends DurableObject<Env> {
     });
   }
 
-  private startIfNeeded(): void {
+  private async startIfNeeded(): Promise<void> {
+    const before = this.requiredRoom();
+    if (before.started === 1) return;
+    const roster = this.playerRows().map((player) => ({
+      playerId: player.player_id,
+      displayName: player.display_name,
+    }));
+    const builtinState = createBuiltinInitialState(before.release_id, roster);
+    const baseSnapshot = builtinState === null
+      ? await this.uploadedInitialSnapshot(before.release_id)
+      : snapshot(builtinState);
     this.ctx.storage.transactionSync(() => {
       const room = this.requiredRoom();
       if (room.started === 1) return;
       if (room.last_sequence !== 0) {
         throw new Error("A legacy room with actions cannot be started canonically");
       }
-      const initialState = createBuiltinInitialState(
-        room.release_id,
-        this.playerRows().map((player) => ({
-          playerId: player.player_id,
-          displayName: player.display_name,
-        })),
-      );
-      if (initialState === null) throw new Error(`Unknown room release ${room.release_id}`);
-      const initialSnapshot = snapshot(initialState);
+      if (baseSnapshot.releaseId !== room.release_id) throw new Error("Room release snapshot mismatch");
+      const initialState = loadSnapshot(baseSnapshot);
       const core = this.loadCore(room);
       const started = core.sequenceSystem(
         { type: "system.game_start", payload: { settings: initialState.settings } },
         "game_start",
       );
       this.persistSystemAction(started.orderedAction);
+      if (builtinState === null) {
+        for (let index = 0; index < roster.length; index += 1) {
+          const player = roster[index]!;
+          const joined = core.sequenceSystem(
+            { type: "system.player_joined", payload: { playerId: player.playerId, name: player.displayName } },
+            `player_joined_${player.playerId}`,
+          );
+          this.persistSystemAction(joined.orderedAction);
+          const seated = core.sequenceSystem(
+            { type: "system.seat_assign", payload: { playerId: player.playerId, seatId: `seat_${index + 1}` } },
+            `seat_assign_${player.playerId}`,
+          );
+          this.persistSystemAction(seated.orderedAction);
+        }
+      }
       this.ctx.storage.sql.exec(
         `UPDATE room
          SET started = 1, initial_snapshot = ?, last_sequence = ?
          WHERE singleton = 1`,
-        JSON.stringify(initialSnapshot),
-        started.orderedAction.sequence,
+        JSON.stringify(baseSnapshot),
+        core.state.lastSequence,
       );
     });
+  }
+
+  private async uploadedInitialSnapshot(releaseId: string): Promise<GameSnapshot> {
+    const bucket = Reflect.get(this.env, "RELEASES") as R2Bucket | undefined;
+    if (bucket === undefined) throw new Error(`Unknown room release ${releaseId}`);
+    const object = await bucket.get(`releases/${releaseId}.json`);
+    if (object === null) throw new Error(`Unknown room release ${releaseId}`);
+    const bundle = await object.json<ReleaseBundleDto>();
+    if (bundle.releaseId !== releaseId) throw new Error("Stored release ID mismatch");
+    const candidate = bundle.initialSnapshot as unknown as GameSnapshot;
+    loadSnapshot(candidate);
+    return candidate;
   }
 
   private requiredInitialSnapshot(room: RoomMetadataRow): GameSnapshot {
