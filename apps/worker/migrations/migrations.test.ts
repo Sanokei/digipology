@@ -19,5 +19,29 @@ describe("D1 migrations", () => {
       .toContain("expires_at");
     db.close();
   });
-});
 
+  test("0003 applies after 0001 and 0002, preserves rows, and seeds metric homes", async () => {
+    const db = new Database(":memory:");
+    for (const name of [
+      "0001_platform_v1.sql",
+      "0002_uploaded_games_v1.sql",
+    ]) db.exec(await Bun.file(new URL(`./${name}`, import.meta.url)).text());
+    db.query(`INSERT INTO rooms_index
+      (room_id, join_code, join_code_normalized, visibility, release_id,
+       player_count, max_players, created_at, ended_at)
+      VALUES ('room_legacy', 'AAAA-2222', 'AAAA2222', 'public',
+              'builtin_first_deal_1', 2, 4, 1, NULL)`).run();
+    db.exec(await Bun.file(new URL("./0003_quickplay_metrics_covers.sql", import.meta.url)).text());
+
+    expect(db.query(`SELECT origin, last_heartbeat_at, game_slug
+      FROM rooms_index WHERE room_id = 'room_legacy'`).get()).toEqual({
+      origin: "hosted", last_heartbeat_at: null, game_slug: "first-deal",
+    });
+    expect(db.query(`SELECT slug, owner_user_id, visibility, total_plays, cover_version
+      FROM games WHERE builtin = 1 ORDER BY slug`).all()).toEqual([
+      { slug: "dice-dash", owner_user_id: null, visibility: "public", total_plays: 0, cover_version: 1 },
+      { slug: "first-deal", owner_user_id: null, visibility: "public", total_plays: 0, cover_version: 1 },
+    ]);
+    db.close();
+  });
+});

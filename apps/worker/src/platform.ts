@@ -1,5 +1,6 @@
 import type {
   CreateGameResponse,
+  CoverUploadResponse,
   CreateReleaseResponse,
   CreateRoomResponse,
   GameResponse,
@@ -8,6 +9,7 @@ import type {
   MeResponse,
   MyGamesResponse,
   PublicRoomsResponse,
+  QuickPlayResponse,
   UpdateGameResponse,
   UploadValidationReportItem,
   UserResponse,
@@ -22,6 +24,7 @@ import {
   validateCreateReleaseRequest,
   validateCreateRoomRequest,
   validateJoinRoomRequest,
+  validateQuickPlayRequest,
   validateRequestMagicLinkRequest,
   validateUpdateGameRequest,
   validateUpdateMeRequest,
@@ -42,11 +45,18 @@ import {
   SESSION_COOKIE_NAME,
 } from "./cookies";
 import { decryptDevelopmentToken, encryptDevelopmentToken, sha256Hex } from "./crypto";
-import { D1Repositories, type UploadedGameRecord } from "./d1-repositories";
+import { D1Repositories, type GameMetrics, type UploadedGameRecord } from "./d1-repositories";
 import { CloudflareEmailSender, DevelopmentEmailSender, type EmailSender } from "./email";
 import { FixedWindowRateLimiter } from "./rate-limiter";
 import { prepareUploadedBundle, validateUploadedBundle } from "./release-validation";
-import { generateJoinCode, isValidJoinCode, normalizeJoinCode } from "./random";
+import { generateGuestName, generateJoinCode, isValidJoinCode, normalizeJoinCode } from "./random";
+import { getBuiltinCover } from "./builtin-covers";
+import { COVER_BODY_LIMIT, validateCoverImage } from "./cover-image";
+import {
+  ROOM_HEARTBEAT_STALE_MS,
+  runQuickPlayMatchmaking,
+  type QuickPlayCandidate,
+} from "./quickplay";
 
 const HTTP_BODY_LIMIT = 4 * 1024;
 const MAGIC_EMAIL_LIMIT = 3;
@@ -56,6 +66,8 @@ const JOIN_IP_LIMIT = 30;
 const JOIN_RATE_WINDOW_MS = 60 * 1000;
 const UPLOAD_USER_LIMIT = 10;
 const UPLOAD_RATE_WINDOW_MS = 60 * 60 * 1000;
+const COVER_USER_LIMIT = 20;
+const COVER_RATE_WINDOW_MS = 60 * 60 * 1000;
 
 interface RoomIndexLookupRow {
   room_id: string;
@@ -67,6 +79,14 @@ interface PublicRoomRow {
   player_count: number;
   max_players: number;
   created_at: number;
+}
+
+interface QuickPlayCandidateRow {
+  room_id: string;
+  join_code: string;
+  player_count: number;
+  max_players: number;
+  last_heartbeat_at: number | null;
 }
 
 interface DevelopmentMagicLinkRow {
@@ -173,11 +193,16 @@ export async function handlePlatformRequest(request: Request, env: Env): Promise
   }
 
   if (request.method === "GET" && url.pathname === "/api/games") {
-    const uploaded = hasDatabase(env) ? await repositories.listPublicUploadedGames() : [];
+    const [uploaded, metrics] = hasDatabase(env)
+      ? await Promise.all([
+          repositories.listPublicUploadedGames(),
+          repositories.listGameMetrics(now - ROOM_HEARTBEAT_STALE_MS),
+        ])
+      : [[], new Map<string, GameMetrics>()] as const;
     const response: GamesResponse = {
       games: [
-        ...builtinCatalog.listGames().map(gameSummary),
-        ...uploaded.map(uploadedGameSummary),
+        ...builtinCatalog.listGames().map((game) => withMetrics(gameSummary(game), metrics.get(game.slug))),
+        ...uploaded.map((game) => uploadedGameSummary(game, metrics.get(game.slug))),
       ],
     };
     return jsonResponse(response);
@@ -299,6 +324,73 @@ export async function handlePlatformRequest(request: Request, env: Env): Promise
     return jsonResponse(response, 201, sessionCookieHeaders(session));
   }
 
+  const coverMatch = /^\/api\/games\/([^/]+)\/cover$/.exec(url.pathname);
+  if (coverMatch?.[1] !== undefined && request.method === "POST") {
+    const slug = decodePathSegment(coverMatch[1]);
+    if (slug === null) return jsonError(404, "not_found", "Game not found");
+    const session = await requestSession(request, repositories, env, now);
+    if (session === null) return jsonError(401, "authentication_required", "Sign in to upload a cover");
+    if (builtinCatalog.getGame(slug) !== null) {
+      return jsonError(403, "forbidden", "Built-in game covers cannot be changed");
+    }
+    const game = await repositories.getUploadedGame(slug);
+    if (game === null) return jsonError(404, "not_found", "Game not found");
+    if (game.ownerUserId !== session.user.id) {
+      return jsonError(403, "forbidden", "Only the game owner can upload a cover");
+    }
+    const limiter = new FixedWindowRateLimiter(repositories, COVER_USER_LIMIT, COVER_RATE_WINDOW_MS);
+    const rate = await limiter.consume(`cover:user:${session.user.id}`, now);
+    if (!rate.allowed) {
+      return jsonError(429, "rate_limited", "Too many cover uploads; try again later", {
+        "Retry-After": String(rate.retryAfterSeconds),
+      });
+    }
+    const body = await readCoverBody(request);
+    if (body.oversize) {
+      return jsonError(413, "body_too_large", `Cover body exceeds ${COVER_BODY_LIMIT} bytes`);
+    }
+    const validation = validateCoverImage(body.bytes, request.headers.get("Content-Type"));
+    if (!validation.ok) return jsonError(422, validation.code, validation.message);
+    const bucket = releaseBucket(env);
+    if (bucket === null) return jsonError(503, "cover_storage_unavailable", "Cover storage is unavailable");
+    await bucket.put(coverObjectKey(game.id), body.bytes, {
+      httpMetadata: { contentType: validation.contentType },
+    });
+    const updated = await env.DB.prepare(
+      `UPDATE games SET cover_version = COALESCE(cover_version, 0) + 1, updated_at = ?
+       WHERE id = ? AND owner_user_id = ? AND builtin = 0
+       RETURNING cover_version`,
+    ).bind(now, game.id, session.user.id).first<{ cover_version: number }>();
+    if (updated === null) return jsonError(403, "forbidden", "Only the game owner can upload a cover");
+    const response: CoverUploadResponse = { coverVersion: updated.cover_version };
+    return jsonResponse(response, 200, sessionCookieHeaders(session));
+  }
+
+  if (coverMatch?.[1] !== undefined && request.method === "GET") {
+    const slug = decodePathSegment(coverMatch[1]);
+    if (slug === null) return jsonError(404, "not_found", "Cover not found");
+    const builtinCover = getBuiltinCover(slug);
+    if (builtinCover !== null) {
+      return new Response(builtinCover.body, {
+        headers: coverResponseHeaders(url, builtinCover.contentType, builtinCover.version),
+      });
+    }
+    if (!hasDatabase(env)) return jsonError(404, "not_found", "Cover not found");
+    const game = await repositories.getUploadedGame(slug);
+    if (game === null || game.coverVersion === null) return jsonError(404, "not_found", "Cover not found");
+    const bucket = releaseBucket(env);
+    if (bucket === null) return jsonError(503, "cover_storage_unavailable", "Cover storage is unavailable");
+    const object = await bucket.get(coverObjectKey(game.id));
+    if (object === null) return jsonError(404, "not_found", "Cover not found");
+    const headers = coverResponseHeaders(
+      url,
+      object.httpMetadata?.contentType ?? "application/octet-stream",
+      game.coverVersion,
+    );
+    headers.set("ETag", object.httpEtag);
+    return new Response(object.body, { headers });
+  }
+
   const gameMatch = /^\/api\/games\/([^/]+)$/.exec(url.pathname);
   if (gameMatch?.[1] !== undefined && request.method === "PATCH") {
     const slug = decodePathSegment(gameMatch[1]);
@@ -324,7 +416,13 @@ export async function handlePlatformRequest(request: Request, env: Env): Promise
     if (game !== null) {
       const release = builtinCatalog.getRelease(game.latestReleaseId);
       if (release === null) return jsonError(404, "not_found", "Game release not found");
-      const response: GameResponse = { game: gameSummary(game), latestRelease: releaseSummary(release) };
+      const metrics = hasDatabase(env)
+        ? (await repositories.listGameMetrics(now - ROOM_HEARTBEAT_STALE_MS)).get(slug)
+        : undefined;
+      const response: GameResponse = {
+        game: withMetrics(gameSummary(game), metrics),
+        latestRelease: releaseSummary(release),
+      };
       return jsonResponse(response);
     }
     const uploaded = hasDatabase(env) ? await repositories.getUploadedGame(slug) : null;
@@ -332,7 +430,10 @@ export async function handlePlatformRequest(request: Request, env: Env): Promise
     const release = await repositories.getUploadedRelease(uploaded.latestReleaseId);
     if (release === null) return jsonError(404, "not_found", "Game release not found");
     const response: GameResponse = {
-      game: uploadedGameSummary(uploaded),
+      game: uploadedGameSummary(
+        uploaded,
+        (await repositories.listGameMetrics(now - ROOM_HEARTBEAT_STALE_MS)).get(slug),
+      ),
       latestRelease: {
         releaseId: release.releaseId,
         kernelVersion: release.kernelVersion,
@@ -342,6 +443,105 @@ export async function handlePlatformRequest(request: Request, env: Env): Promise
       },
     };
     return jsonResponse(response);
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/quickplay") {
+    const ipHash = await sha256Hex(clientIp(request));
+    const limiter = new FixedWindowRateLimiter(repositories, JOIN_IP_LIMIT, JOIN_RATE_WINDOW_MS);
+    const rate = await limiter.consume(`quickplay:ip:${ipHash}`, now);
+    if (!rate.allowed) {
+      return jsonError(429, "rate_limited", "Too many quick-play attempts; try again later", {
+        "Retry-After": String(rate.retryAfterSeconds),
+      });
+    }
+    const parsed = validateQuickPlayRequest(await readJson(request));
+    if (!parsed.ok) return invalidRequest(parsed.error.message);
+    const session = await requestSession(request, repositories, env, now);
+    const builtinGame = builtinCatalog.getGame(parsed.value.slug);
+    const builtinRelease = builtinGame === null ? null : builtinCatalog.getRelease(builtinGame.latestReleaseId);
+    const uploadedGame = builtinGame === null ? await repositories.getUploadedGame(parsed.value.slug) : null;
+    if (builtinRelease === null && (uploadedGame === null || uploadedGame.visibility !== "public")) {
+      return jsonError(404, "game_not_found", "Game not found");
+    }
+    const releaseId = builtinRelease?.releaseId ?? uploadedGame?.latestReleaseId;
+    const maxPlayers = builtinGame?.maxPlayers ?? uploadedGame?.maxPlayers;
+    if (releaseId === undefined || maxPlayers === undefined) {
+      return jsonError(404, "game_not_found", "Game not found");
+    }
+    const displayName = session !== null
+      ? normalizeDisplayName(session.user.name, session.user.name)
+      : normalizeDisplayName(parsed.value.displayName, generateGuestName());
+    const result = await runQuickPlayMatchmaking(now, {
+      select: async () => {
+        const rows = await env.DB.prepare(
+          `SELECT room_id, join_code, player_count, max_players, last_heartbeat_at
+           FROM rooms_index
+           WHERE release_id = ? AND visibility = 'public' AND ended_at IS NULL
+             AND last_heartbeat_at IS NOT NULL AND last_heartbeat_at >= ?
+             AND player_count < max_players
+           ORDER BY player_count DESC, created_at ASC LIMIT 12`,
+        ).bind(releaseId, now - ROOM_HEARTBEAT_STALE_MS).all<QuickPlayCandidateRow>();
+        return rows.results.map(quickPlayCandidate);
+      },
+      claim: async (candidate) => {
+        const claimed = await env.DB.prepare(
+          `UPDATE rooms_index SET player_count = player_count + 1
+           WHERE room_id = ? AND ended_at IS NULL AND player_count < max_players
+             AND last_heartbeat_at IS NOT NULL AND last_heartbeat_at >= ?`,
+        ).bind(candidate.roomId, now - ROOM_HEARTBEAT_STALE_MS).run();
+        return claimed.meta.changes > 0;
+      },
+      join: async (candidate) => {
+        try {
+          const id = env.ROOM.idFromString(candidate.roomId);
+          const joined = await env.ROOM.get(id).join(displayName);
+          return joined.status === "ok"
+            ? { status: "ok" as const, value: joined }
+            : { status: joined.status };
+        } catch {
+          return { status: "not_found" as const };
+        }
+      },
+      reconcile: async (candidate, outcome) => {
+        if (outcome === "full") {
+          await updatePlayerCount(env.DB, candidate.roomId, candidate.maxPlayers);
+        } else {
+          await markRoomEnded(env.DB, candidate.roomId, now);
+        }
+      },
+    });
+    if (result.decision === "joined") {
+      const response: QuickPlayResponse = {
+        roomId: result.candidate.roomId,
+        joinCode: result.candidate.joinCode,
+        playerId: result.value.playerId,
+        roomToken: result.value.roomToken,
+        wsUrl: websocketUrl(url, result.candidate.roomId),
+        releaseId: result.value.releaseId,
+      };
+      return jsonResponse(response, 200, sessionCookieHeaders(session));
+    }
+    const created = await allocateRoomForPlayer(env, {
+      releaseId,
+      gameSlug: parsed.value.slug,
+      maxPlayers,
+      visibility: "public",
+      origin: "quickplay",
+      displayName,
+      now,
+    });
+    if (created === null) {
+      return jsonError(503, "quickplay_unavailable", "Quick play is temporarily unavailable");
+    }
+    const response: QuickPlayResponse = {
+      roomId: created.roomId,
+      joinCode: created.joinCode,
+      playerId: created.playerId,
+      roomToken: created.roomToken,
+      wsUrl: websocketUrl(url, created.roomId),
+      releaseId: created.releaseId,
+    };
+    return jsonResponse(response, 200, sessionCookieHeaders(session));
   }
 
   if (request.method === "POST" && url.pathname === "/api/rooms") {
@@ -359,7 +559,8 @@ export async function handlePlatformRequest(request: Request, env: Env): Promise
       : null;
     const releaseId = builtinRelease?.releaseId ?? uploadedRelease?.releaseId;
     const maxPlayers = builtinGame?.maxPlayers ?? uploadedRelease?.maxPlayers;
-    if (releaseId === undefined || maxPlayers === undefined) {
+    const gameSlug = builtinGame?.slug ?? uploadedRelease?.gameSlug;
+    if (releaseId === undefined || maxPlayers === undefined || gameSlug === undefined) {
       return jsonError(404, "release_not_found", "Release not found");
     }
     const displayName = normalizeDisplayName(parsed.value.displayName, session?.user.name ?? "Host");
@@ -373,8 +574,9 @@ export async function handlePlatformRequest(request: Request, env: Env): Promise
         await env.DB.prepare(
           `INSERT INTO rooms_index
             (room_id, join_code, join_code_normalized, visibility, release_id,
-             player_count, max_players, created_at, ended_at)
-           VALUES (?, ?, ?, ?, ?, 0, ?, ?, NULL)`,
+             player_count, max_players, created_at, ended_at, origin,
+             last_heartbeat_at, game_slug)
+           VALUES (?, ?, ?, ?, ?, 0, ?, ?, NULL, 'hosted', ?, ?)`,
         ).bind(
           roomId,
           joinCode,
@@ -383,6 +585,8 @@ export async function handlePlatformRequest(request: Request, env: Env): Promise
           releaseId,
           maxPlayers,
           now,
+          now,
+          gameSlug,
         ).run();
       } catch (error) {
         if (isUniqueConstraint(error)) continue;
@@ -688,8 +892,11 @@ async function consumeUploadRate(
   });
 }
 
-function uploadedGameSummary(game: UploadedGameRecord): GamesResponse["games"][number] {
-  return {
+function uploadedGameSummary(
+  game: UploadedGameRecord,
+  metrics?: GameMetrics,
+): GamesResponse["games"][number] {
+  return withMetrics({
     slug: game.slug,
     title: game.title,
     tagline: game.tagline,
@@ -697,6 +904,21 @@ function uploadedGameSummary(game: UploadedGameRecord): GamesResponse["games"][n
     maxPlayers: game.maxPlayers,
     builtin: false,
     creatorHandle: game.creatorHandle,
+    currentPlayers: 0,
+    totalPlays: game.totalPlays ?? 0,
+    coverVersion: game.coverVersion ?? null,
+  }, metrics);
+}
+
+function withMetrics(
+  game: GamesResponse["games"][number],
+  metrics?: GameMetrics,
+): GamesResponse["games"][number] {
+  return metrics === undefined ? game : {
+    ...game,
+    currentPlayers: metrics.currentPlayers,
+    totalPlays: metrics.totalPlays,
+    coverVersion: metrics.coverVersion,
   };
 }
 
@@ -711,6 +933,21 @@ function releaseBucket(env: Env): R2Bucket | null {
 
 function releaseObjectKey(releaseId: string): string {
   return `releases/${releaseId}.json`;
+}
+
+function coverObjectKey(gameId: string): string {
+  return `covers/${gameId}`;
+}
+
+function coverResponseHeaders(url: URL, contentType: string, version: number): Headers {
+  const headers = new Headers({
+    "Content-Type": contentType,
+    "Cache-Control": url.searchParams.get("v") === String(version)
+      ? "public, max-age=31536000, immutable"
+      : "public, max-age=300, must-revalidate",
+    "X-Content-Type-Options": "nosniff",
+  });
+  return headers;
 }
 
 async function putReleaseOnce(bucket: R2Bucket, key: string, body: string): Promise<void> {
@@ -729,6 +966,119 @@ export async function writeReleaseThenCommit(
 ): Promise<void> {
   await putReleaseOnce(bucket, key, body);
   await commit();
+}
+
+export async function readCoverBody(request: Request): Promise<{
+  bytes: Uint8Array;
+  oversize: boolean;
+}> {
+  const declared = Number(request.headers.get("Content-Length") ?? "0");
+  if (Number.isFinite(declared) && declared > COVER_BODY_LIMIT) {
+    return { bytes: new Uint8Array(), oversize: true };
+  }
+  if (request.body === null) return { bytes: new Uint8Array(), oversize: false };
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  while (true) {
+    const next = await reader.read();
+    if (next.done) break;
+    if (length + next.value.byteLength > COVER_BODY_LIMIT) {
+      await reader.cancel();
+      return { bytes: new Uint8Array(), oversize: true };
+    }
+    chunks.push(next.value);
+    length += next.value.byteLength;
+  }
+  const bytes = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return { bytes, oversize: false };
+}
+
+interface RoomAllocationInput {
+  releaseId: string;
+  gameSlug: string;
+  maxPlayers: number;
+  visibility: "private" | "public";
+  origin: "hosted" | "quickplay";
+  displayName: string;
+  now: number;
+}
+
+interface RoomAllocationResult {
+  roomId: string;
+  joinCode: string;
+  playerId: string;
+  roomToken: string;
+  releaseId: string;
+}
+
+async function allocateRoomForPlayer(
+  env: Env,
+  input: RoomAllocationInput,
+): Promise<RoomAllocationResult | null> {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const joinCode = generateJoinCode();
+    const id = env.ROOM.newUniqueId();
+    const roomId = id.toString();
+    try {
+      await env.DB.prepare(
+        `INSERT INTO rooms_index
+          (room_id, join_code, join_code_normalized, visibility, release_id,
+           player_count, max_players, created_at, ended_at, origin,
+           last_heartbeat_at, game_slug)
+         VALUES (?, ?, ?, ?, ?, 0, ?, ?, NULL, ?, ?, ?)`,
+      ).bind(
+        roomId,
+        joinCode,
+        normalizeJoinCode(joinCode),
+        input.visibility,
+        input.releaseId,
+        input.maxPlayers,
+        input.now,
+        input.origin,
+        input.now,
+        input.gameSlug,
+      ).run();
+    } catch (error) {
+      if (isUniqueConstraint(error)) continue;
+      throw error;
+    }
+    const room = env.ROOM.get(id);
+    const initialized = await room.init(roomId, joinCode, input.releaseId, input.maxPlayers);
+    if (!initialized) {
+      await deleteRoomIndex(env.DB, roomId);
+      continue;
+    }
+    const joined = await room.join(input.displayName);
+    if (joined.status !== "ok") {
+      await deleteRoomIndex(env.DB, roomId);
+      continue;
+    }
+    await updatePlayerCount(env.DB, roomId, joined.playerCount);
+    return {
+      roomId,
+      joinCode,
+      playerId: joined.playerId,
+      roomToken: joined.roomToken,
+      releaseId: joined.releaseId,
+    };
+  }
+  return null;
+}
+
+function quickPlayCandidate(row: QuickPlayCandidateRow): QuickPlayCandidate {
+  return {
+    roomId: row.room_id,
+    joinCode: row.join_code,
+    playerCount: row.player_count,
+    maxPlayers: row.max_players,
+    lastHeartbeatAt: row.last_heartbeat_at,
+  };
 }
 
 function normalizeDisplayName(value: string | undefined, fallback: string): string {

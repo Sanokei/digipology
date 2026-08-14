@@ -38,6 +38,9 @@ const games: readonly CatalogGame[] = BUILTIN_GAMES.map((game: BuiltinGame) => (
   minPlayers: game.minPlayers,
   maxPlayers: game.maxPlayers,
   builtin: true,
+  currentPlayers: 0,
+  totalPlays: 0,
+  coverVersion: 1,
   latestReleaseId: game.latestReleaseId,
 }));
 
@@ -101,6 +104,9 @@ export function gameSummary(game: CatalogGame): GameSummaryDto {
     minPlayers: game.minPlayers,
     maxPlayers: game.maxPlayers,
     builtin: game.builtin,
+    currentPlayers: game.currentPlayers,
+    totalPlays: game.totalPlays,
+    coverVersion: game.coverVersion,
   };
 }
 

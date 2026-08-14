@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { JOIN_CODE_ALPHABET, JOIN_CODE_LENGTH, generateJoinCode, generateSessionToken, isValidJoinCode, normalizeJoinCode } from "./random";
+import { JOIN_CODE_ALPHABET, JOIN_CODE_LENGTH, generateGuestName, generateJoinCode, generateSessionToken, isValidJoinCode, normalizeJoinCode } from "./random";
 
 const deterministicCrypto = {
   getRandomValues<T extends ArrayBufferView | null>(array: T): T {
@@ -9,6 +9,10 @@ const deterministicCrypto = {
 } as Crypto;
 
 describe("random identifiers", () => {
+  test("generates guest names from four unambiguous join-code characters", () => {
+    expect(generateGuestName(deterministicCrypto)).toBe("Guest-27CH");
+  });
+
   test("join codes use eight characters from a 32-symbol alphabet (40 bits)", () => {
     // Eight independent symbols at log2(32) = 5 bits each yields 40 bits.
     expect(Math.log2(JOIN_CODE_ALPHABET.length ** JOIN_CODE_LENGTH)).toBe(40);

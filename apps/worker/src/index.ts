@@ -24,9 +24,10 @@ import {
   roomBootstrapMessages,
   type RoomCoreState,
 } from "./room-core";
+import { ROOM_HEARTBEAT_INTERVAL_MS } from "./quickplay";
+import { EMPTY_ROOM_TTL_MS, planRoomAlarm } from "./room-liveness";
 
 const DEFAULT_ROOM_CAPACITY = 8;
-const EMPTY_ROOM_TTL_MS = 30 * 60 * 1000;
 const DUMMY_HASH = "0".repeat(64);
 
 interface RoomMetadataRow extends Record<string, SqlStorageValue> {
@@ -38,6 +39,8 @@ interface RoomMetadataRow extends Record<string, SqlStorageValue> {
   last_sequence: number;
   started: number;
   initial_snapshot: string | null;
+  last_heartbeat_at: number | null;
+  empty_since_at: number | null;
 }
 
 interface PlayerRow extends Record<string, SqlStorageValue> {
@@ -119,6 +122,10 @@ export class RoomDO extends DurableObject<Env> {
         tokenSelector,
         tokenHash,
       );
+      this.ctx.storage.sql.exec(
+        "INSERT OR IGNORE INTO active_players (player_id) VALUES (?)",
+        playerId,
+      );
       if (room.started === 1) {
         const core = this.loadCore(room);
         orderedActions.push(core.sequenceSystem(
@@ -146,11 +153,14 @@ export class RoomDO extends DurableObject<Env> {
         playerId,
         roomToken,
         releaseId: room.release_id,
-        playerCount: count + 1,
+        playerCount: this.ctx.storage.sql.exec<{ count: number }>(
+          "SELECT COUNT(*) AS count FROM active_players",
+        ).one().count,
       };
     });
     if (result.status === "ok") {
       for (const ordered of orderedActions) this.broadcast(ordered);
+      this.scheduleIndexMetadataUpdate();
     }
     return result;
   }
@@ -164,9 +174,10 @@ export class RoomDO extends DurableObject<Env> {
       sendServerMessage(socket, message);
       socket.close(1000, "Room ended");
     }
+    this.ctx.waitUntil(this.flushPlayCounts());
     try {
       await this.env.DB.prepare(
-        "UPDATE rooms_index SET ended_at = ? WHERE room_id = ?",
+        "UPDATE rooms_index SET ended_at = ?, player_count = 0 WHERE room_id = ?",
       ).bind(Date.now(), room.room_id).run();
     } catch (error) {
       console.error(JSON.stringify({
@@ -197,7 +208,14 @@ export class RoomDO extends DurableObject<Env> {
     const server = pair[1];
     this.ctx.acceptWebSocket(server);
     server.serializeAttachment({ authenticated: false, playerId: null } satisfies SocketAttachment);
-    await this.ctx.storage.deleteAlarm();
+    const now = Date.now();
+    this.ctx.storage.sql.exec(
+      "UPDATE room SET empty_since_at = NULL, last_heartbeat_at = ? WHERE singleton = 1",
+      now,
+    );
+    await this.ctx.storage.setAlarm(now + ROOM_HEARTBEAT_INTERVAL_MS);
+    this.scheduleIndexMetadataUpdate();
+    this.ctx.waitUntil(this.flushPlayCounts());
     return new Response(null, { status: 101, webSocket: client });
   }
 
@@ -212,21 +230,35 @@ export class RoomDO extends DurableObject<Env> {
   }
 
   async webSocketClose(socket: WebSocket): Promise<void> {
-    if (this.room() !== null && this.ctx.getWebSockets().every((peer) => peer === socket)) {
-      await this.ctx.storage.setAlarm(Date.now() + EMPTY_ROOM_TTL_MS);
-    }
+    await this.handleSocketDeparture(socket);
   }
 
   async webSocketError(socket: WebSocket): Promise<void> {
-    if (this.room() !== null && this.ctx.getWebSockets().every((peer) => peer === socket)) {
-      await this.ctx.storage.setAlarm(Date.now() + EMPTY_ROOM_TTL_MS);
-    }
+    await this.handleSocketDeparture(socket);
   }
 
   async alarm(): Promise<void> {
-    if (this.room() !== null && this.ctx.getWebSockets().length === 0) {
+    const room = this.room();
+    if (room === null || room.ended_reason !== null) return;
+    const now = Date.now();
+    const plan = planRoomAlarm(now, {
+      connectionCount: this.ctx.getWebSockets().length,
+      lastHeartbeatAt: room.last_heartbeat_at,
+      emptySinceAt: room.empty_since_at,
+    });
+    if (plan.expiryDue) {
       await this.end("expired");
+      return;
     }
+    if (plan.heartbeatDue) {
+      this.ctx.storage.sql.exec(
+        "UPDATE room SET last_heartbeat_at = ? WHERE singleton = 1",
+        now,
+      );
+      await this.writeIndexMetadata();
+    }
+    await this.flushPlayCounts();
+    if (plan.nextAlarmAt !== null) await this.ctx.storage.setAlarm(plan.nextAlarmAt);
   }
 
   private messageContext(socket: WebSocket) {
@@ -268,6 +300,14 @@ export class RoomDO extends DurableObject<Env> {
           code: "malformed_message",
           message: "lastSequence is ahead of the room sequence",
         };
+      },
+      afterHelloSent: async (
+        playerId: string,
+        messages: readonly ServerMessage[],
+      ): Promise<void> => {
+        if (!messages.some((message) => message.type === "bootstrap" || message.type === "resume")) return;
+        this.markPlayerActive(playerId);
+        this.recordFirstBootstrap(playerId);
       },
       sequence: (playerId: string, request: ActionRequest) => this.sequence(playerId, request),
       broadcast: (message: ServerMessage): void => {
@@ -425,12 +465,127 @@ export class RoomDO extends DurableObject<Env> {
     }
   }
 
+  private markPlayerActive(playerId: string): void {
+    this.ctx.storage.sql.exec(
+      "INSERT OR IGNORE INTO active_players (player_id) VALUES (?)",
+      playerId,
+    );
+    this.ctx.storage.sql.exec(
+      "UPDATE room SET empty_since_at = NULL, last_heartbeat_at = ? WHERE singleton = 1",
+      Date.now(),
+    );
+    this.scheduleIndexMetadataUpdate();
+  }
+
+  private async handleSocketDeparture(socket: WebSocket): Promise<void> {
+    const room = this.room();
+    if (room === null || room.ended_reason !== null) return;
+    const state = socket.deserializeAttachment() as SocketAttachment | null;
+    const peers = this.ctx.getWebSockets().filter((peer) => peer !== socket);
+    if (state?.authenticated === true && state.playerId !== null) {
+      const samePlayerConnected = peers.some((peer) => {
+        const peerState = peer.deserializeAttachment() as SocketAttachment | null;
+        return peerState?.authenticated === true && peerState.playerId === state.playerId;
+      });
+      if (!samePlayerConnected) {
+        this.ctx.storage.sql.exec("DELETE FROM active_players WHERE player_id = ?", state.playerId);
+      }
+    }
+    const now = Date.now();
+    if (peers.length === 0) {
+      const emptySinceAt = room.empty_since_at ?? now;
+      this.ctx.storage.sql.exec(
+        `UPDATE room SET empty_since_at = COALESCE(empty_since_at, ?), last_heartbeat_at = ?
+         WHERE singleton = 1`,
+        now,
+        now,
+      );
+      await this.ctx.storage.setAlarm(emptySinceAt + EMPTY_ROOM_TTL_MS);
+    } else {
+      this.ctx.storage.sql.exec(
+        "UPDATE room SET empty_since_at = NULL, last_heartbeat_at = ? WHERE singleton = 1",
+        now,
+      );
+      await this.ctx.storage.setAlarm(now + ROOM_HEARTBEAT_INTERVAL_MS);
+    }
+    this.scheduleIndexMetadataUpdate();
+    this.ctx.waitUntil(this.flushPlayCounts());
+  }
+
+  private scheduleIndexMetadataUpdate(): void {
+    this.ctx.waitUntil(this.writeIndexMetadata());
+  }
+
+  private async writeIndexMetadata(): Promise<void> {
+    const room = this.room();
+    if (room === null) return;
+    const playerCount = this.ctx.storage.sql.exec<{ count: number }>(
+      "SELECT COUNT(*) AS count FROM active_players",
+    ).one().count;
+    const heartbeatAt = room.last_heartbeat_at ?? Date.now();
+    try {
+      await this.env.DB.prepare(
+        `UPDATE rooms_index SET player_count = ?, last_heartbeat_at = ?
+         WHERE room_id = ? AND ended_at IS NULL`,
+      ).bind(playerCount, heartbeatAt, room.room_id).run();
+    } catch (error) {
+      this.logMetadataFailure("liveness", room.room_id, error);
+    }
+  }
+
+  private recordFirstBootstrap(playerId: string): void {
+    this.ctx.storage.transactionSync(() => {
+      const exists = this.ctx.storage.sql.exec<{ count: number }>(
+        "SELECT COUNT(*) AS count FROM counted_players WHERE player_id = ?",
+        playerId,
+      ).one().count > 0;
+      if (exists) return;
+      this.ctx.storage.sql.exec(
+        "INSERT INTO counted_players (player_id, flushed) VALUES (?, 0)",
+        playerId,
+      );
+    });
+  }
+
+  private async flushPlayCounts(): Promise<void> {
+    const increment = this.ctx.storage.transactionSync(() => {
+      const count = this.ctx.storage.sql.exec<{ count: number }>(
+        "SELECT COUNT(*) AS count FROM counted_players WHERE flushed = 0",
+      ).one().count;
+      if (count > 0) this.ctx.storage.sql.exec("UPDATE counted_players SET flushed = 1 WHERE flushed = 0");
+      return count;
+    });
+    if (increment === 0) return;
+    const room = this.room();
+    if (room === null) return;
+    try {
+      await this.env.DB.prepare(
+        `UPDATE games SET total_plays = total_plays + ?
+         WHERE slug = (SELECT game_slug FROM rooms_index WHERE room_id = ?)`,
+      ).bind(increment, room.room_id).run();
+    } catch (error) {
+      // The local rows were marked flushed before the external write. A failed
+      // batch may be lost (allowed), but it can never be applied twice.
+      this.logMetadataFailure("total_plays", room.room_id, error);
+    }
+  }
+
+  private logMetadataFailure(field: string, roomId: string, error: unknown): void {
+    console.error(JSON.stringify({
+      level: "error",
+      message: "room metadata update failed",
+      field,
+      roomId,
+      error: error instanceof Error ? error.message : String(error),
+    }));
+  }
+
   private room(): RoomMetadataRow | null {
     if (!this.tableExists("room")) return null;
     this.ensureRoomSchema();
     return this.ctx.storage.sql.exec<RoomMetadataRow>(
       `SELECT room_id, join_code, release_id, capacity, ended_reason, last_sequence,
-              started, initial_snapshot
+              started, initial_snapshot, last_heartbeat_at, empty_since_at
        FROM room WHERE singleton = 1`,
     ).toArray()[0] ?? null;
   }
@@ -488,7 +643,9 @@ export class RoomDO extends DurableObject<Env> {
         ended_reason TEXT,
         last_sequence INTEGER NOT NULL DEFAULT 0,
         started INTEGER NOT NULL DEFAULT 0,
-        initial_snapshot TEXT
+        initial_snapshot TEXT,
+        last_heartbeat_at INTEGER,
+        empty_since_at INTEGER
       );
       CREATE TABLE players (
         player_id TEXT PRIMARY KEY,
@@ -509,6 +666,13 @@ export class RoomDO extends DurableObject<Env> {
         sequence INTEGER NOT NULL UNIQUE,
         body TEXT NOT NULL
       );
+      CREATE TABLE active_players (
+        player_id TEXT PRIMARY KEY
+      );
+      CREATE TABLE counted_players (
+        player_id TEXT PRIMARY KEY,
+        flushed INTEGER NOT NULL DEFAULT 0 CHECK (flushed IN (0, 1))
+      );
     `);
   }
 
@@ -526,6 +690,21 @@ export class RoomDO extends DurableObject<Env> {
     if (!columns.has("initial_snapshot")) {
       this.ctx.storage.sql.exec("ALTER TABLE room ADD COLUMN initial_snapshot TEXT");
     }
+    if (!columns.has("last_heartbeat_at")) {
+      this.ctx.storage.sql.exec("ALTER TABLE room ADD COLUMN last_heartbeat_at INTEGER");
+    }
+    if (!columns.has("empty_since_at")) {
+      this.ctx.storage.sql.exec("ALTER TABLE room ADD COLUMN empty_since_at INTEGER");
+    }
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS active_players (
+        player_id TEXT PRIMARY KEY
+      );
+      CREATE TABLE IF NOT EXISTS counted_players (
+        player_id TEXT PRIMARY KEY,
+        flushed INTEGER NOT NULL DEFAULT 0 CHECK (flushed IN (0, 1))
+      );
+    `);
   }
 }
 

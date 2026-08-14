@@ -24,6 +24,10 @@ export interface MessageHandlerContext {
     playerId: string,
     lastSequence: number | null,
   ): ServerMessage | readonly ServerMessage[] | Promise<ServerMessage | readonly ServerMessage[]>;
+  afterHelloSent?(
+    playerId: string,
+    messages: readonly ServerMessage[],
+  ): void | Promise<void>;
   sequence(playerId: string, message: Extract<ClientMessage, { type: "action_request" }>): {
     message: ServerMessage;
     duplicate: boolean;
@@ -87,10 +91,12 @@ async function handleHello(
   }
   context.state.authenticated = true;
   context.state.playerId = playerId;
-  const messages = await context.hello(playerId, lastSequence);
-  for (const message of Array.isArray(messages) ? messages : [messages]) {
+  const helloResult = await context.hello(playerId, lastSequence);
+  const messages = Array.isArray(helloResult) ? helloResult : [helloResult];
+  for (const message of messages) {
     sendServerMessage(socket, message);
   }
+  await context.afterHelloSent?.(playerId, messages);
 }
 
 export function sendServerMessage(socket: MessageSocket, message: ServerMessage): void {

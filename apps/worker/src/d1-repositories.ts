@@ -46,6 +46,14 @@ export interface UploadedGameRecord {
   creatorHandle: string;
   visibility: GameVisibility;
   latestReleaseId: string;
+  totalPlays: number;
+  coverVersion: number | null;
+}
+
+export interface GameMetrics {
+  currentPlayers: number;
+  totalPlays: number;
+  coverVersion: number | null;
 }
 
 export interface UploadedReleaseRecord extends UploadedReleaseSummaryDto {
@@ -70,6 +78,15 @@ interface GameRow {
   owner_name: string;
   visibility: GameVisibility;
   latest_release_id: string;
+  total_plays: number;
+  cover_version: number | null;
+}
+
+interface GameMetricsRow {
+  slug: string;
+  current_players: number;
+  total_plays: number;
+  cover_version: number | null;
 }
 
 interface ReleaseRow {
@@ -215,6 +232,25 @@ export class D1Repositories implements MagicLinkRepository, SessionRepository, R
     return rows.results.map(gameRecord);
   }
 
+  async listGameMetrics(freshAfter: number): Promise<Map<string, GameMetrics>> {
+    const rows = await this.db.prepare(
+      `SELECT g.slug, g.total_plays, g.cover_version,
+              COALESCE(SUM(r.player_count), 0) AS current_players
+       FROM games g
+       LEFT JOIN rooms_index r
+         ON r.game_slug = g.slug
+        AND r.ended_at IS NULL
+        AND r.last_heartbeat_at IS NOT NULL
+        AND r.last_heartbeat_at >= ?
+       GROUP BY g.id, g.slug, g.total_plays, g.cover_version`,
+    ).bind(freshAfter).all<GameMetricsRow>();
+    return new Map(rows.results.map((row) => [row.slug, {
+      currentPlayers: row.current_players,
+      totalPlays: row.total_plays,
+      coverVersion: row.cover_version,
+    }]));
+  }
+
   async getUploadedGame(slug: string): Promise<UploadedGameRecord | null> {
     const row = await this.db.prepare(gameSelect("WHERE g.builtin = 0 AND g.slug = ?"))
       .bind(slug).first<GameRow>();
@@ -256,6 +292,9 @@ export class D1Repositories implements MagicLinkRepository, SessionRepository, R
         maxPlayers: row.max_players,
         builtin: false,
         creatorHandle: row.owner_name,
+        currentPlayers: 0,
+        totalPlays: row.total_plays,
+        coverVersion: row.cover_version,
         visibility: row.visibility,
         latestReleaseId: row.latest_release_id,
         releases: releases.results.map((release) => ({
@@ -348,7 +387,8 @@ export class D1Repositories implements MagicLinkRepository, SessionRepository, R
 
 function gameSelect(where: string): string {
   return `SELECT g.id, g.slug, g.title, g.tagline, g.min_players, g.max_players,
-    g.owner_user_id, u.name AS owner_name, g.visibility, g.latest_release_id
+    g.owner_user_id, u.name AS owner_name, g.visibility, g.latest_release_id,
+    g.total_plays, g.cover_version
     FROM games g JOIN users u ON u.id = g.owner_user_id ${where}`;
 }
 
@@ -371,6 +411,8 @@ function gameRecord(row: GameRow): UploadedGameRecord {
     creatorHandle: row.owner_name,
     visibility: row.visibility,
     latestReleaseId: row.latest_release_id,
+    totalPlays: row.total_plays,
+    coverVersion: row.cover_version,
   };
 }
 
