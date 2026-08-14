@@ -85,7 +85,7 @@ async function jsonRequest<T>(path: string, body: object): Promise<T> {
 }
 
 function apiHeaders(): Record<string, string> {
-  return { "Content-Type": "application/json", "X-Digipology-Client": "1" };
+  return { "Content-Type": "application/json", "X-Digipology-CSRF": "1" };
 }
 
 async function connect(wsUrl: string): Promise<WebSocket> {

@@ -73,7 +73,8 @@ bun run dev
 
 The API listens on Wrangler's displayed local URL (normally
 `http://127.0.0.1:8787`). All non-GET API calls must include
-`X-Digipology-Client: 1`. In another terminal, run:
+`X-Digipology-CSRF: 1` (the header the `apps/web` client sends). In another
+terminal, run:
 
 ```sh
 cd apps/worker

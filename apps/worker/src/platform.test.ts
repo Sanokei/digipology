@@ -44,18 +44,18 @@ describe("same-origin custom-header CSRF check", () => {
   test("accepts a matching origin and rejects a cross origin", () => {
     expect(isCsrfSafe(new Request("https://play.digipology.com/api/me", {
       method: "PATCH",
-      headers: { "X-Digipology-Client": "1", Origin: "https://play.digipology.com" },
+      headers: { "X-Digipology-CSRF": "1", Origin: "https://play.digipology.com" },
     }))).toBe(true);
     expect(isCsrfSafe(new Request("https://play.digipology.com/api/me", {
       method: "PATCH",
-      headers: { "X-Digipology-Client": "1", Origin: "https://evil.example" },
+      headers: { "X-Digipology-CSRF": "1", Origin: "https://evil.example" },
     }))).toBe(false);
   });
 
   test("allows non-browser clients with the custom header and no Origin", () => {
     expect(isCsrfSafe(new Request("http://127.0.0.1:8787/api/rooms", {
       method: "POST",
-      headers: { "X-Digipology-Client": "1" },
+      headers: { "X-Digipology-CSRF": "1" },
     }))).toBe(true);
   });
 });

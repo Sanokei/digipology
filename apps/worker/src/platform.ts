@@ -40,7 +40,8 @@ const MAGIC_IP_LIMIT = 10;
 const MAGIC_RATE_WINDOW_MS = 15 * 60 * 1000;
 const JOIN_IP_LIMIT = 30;
 const JOIN_RATE_WINDOW_MS = 60 * 1000;
-const CUSTOM_HEADER = "X-Digipology-Client";
+// Must match CSRF_HEADER in apps/web/src/api/client.ts (the SPA already on main).
+const CUSTOM_HEADER = "X-Digipology-CSRF";
 
 interface RoomIndexLookupRow {
   room_id: string;
