@@ -19,6 +19,7 @@ You are working in the Digipology monorepo: a browser-native tabletop platform (
 - Package names: `digipology-<name>`, version `0.x` until stabilized, `"type": "module"`, exports map, `LICENSE` + `README.md` per package.
 - Commits: conventional (`feat:`, `fix:`, `docs:`, `chore:`, `test:`, `refactor:`). Reference issues (`#N`) in the PR body, not every commit.
 - Do not add dependencies without need; prefer zero-dep implementations for core logic.
+- If a PR changes dependencies, run `bun install` and commit the updated `bun.lock` in the same PR. On a `bun.lock` merge conflict, never hand-merge or accept either side: take the incoming `package.json` state, run `bun install`, commit the regenerated lockfile.
 - Do not touch unrelated packages in a PR. Keep PRs scoped to one issue.
 
 ## Commands
