@@ -1,0 +1,313 @@
+{
+  "initialSnapshot": {
+    "formatVersion": 1,
+    "kernelVersion": 1,
+    "releaseId": "scripted-zone-v1",
+    "sequence": 0,
+    "state": {
+      "schemaVersion": 1,
+      "sequence": 0,
+      "releaseId": "scripted-zone-v1",
+      "kernelVersion": 1,
+      "settings": {},
+      "rng": {
+        "algorithm": "sfc32-v1",
+        "state": [3766749674, 1304380130, 770383139, 3992198515],
+        "draws": 0
+      },
+      "players": {
+        "alice": { "id": "alice" }
+      },
+      "seats": {},
+      "entities": {
+        "button": {
+          "id": "button",
+          "components": { "button": { "enabled": true, "label": "Advance" } }
+        },
+        "explicit_piece": {
+          "id": "explicit_piece",
+          "components": {
+            "tags": { "values": ["red"] },
+            "transform": {
+              "position": { "x": 4, "y": 0, "z": 0 },
+              "rotation": { "x": 0, "y": 0, "z": 0, "w": 1 },
+              "scale": { "x": 1, "y": 1, "z": 1 }
+            }
+          }
+        },
+        "piece": {
+          "id": "piece",
+          "components": {
+            "transform": {
+              "position": { "x": 5, "y": 0, "z": 0 },
+              "rotation": { "x": 0, "y": 0, "z": 0, "w": 1 },
+              "scale": { "x": 1, "y": 1, "z": 1 }
+            },
+            "grabbable": { "enabled": true, "heldBy": null },
+            "lockable": { "locked": false },
+            "stackable": { "enabled": true },
+            "tags": { "values": ["red"] }
+          }
+        },
+        "snap_a": {
+          "id": "snap_a",
+          "components": {
+            "transform": {
+              "position": { "x": -1, "y": 0, "z": 0 },
+              "rotation": { "x": 0, "y": 0, "z": 0, "w": 1 },
+              "scale": { "x": 1, "y": 1, "z": 1 }
+            },
+            "snap-point": { "radius": 2, "capacity": 2, "tags": ["red"], "alignment": null }
+          }
+        },
+        "snap_b": {
+          "id": "snap_b",
+          "components": {
+            "transform": {
+              "position": { "x": 1, "y": 0, "z": 0 },
+              "rotation": { "x": 0, "y": 0, "z": 0, "w": 1 },
+              "scale": { "x": 1, "y": 1, "z": 1 }
+            },
+            "snap-point": { "radius": 2, "capacity": 2, "tags": ["red"], "alignment": null }
+          }
+        },
+        "source": {
+          "id": "source",
+          "components": {
+            "container": {
+              "items": ["transfer_item"],
+              "capacity": 2,
+              "ordering": "ordered",
+              "visibility": "public"
+            }
+          }
+        },
+        "stack_a": {
+          "id": "stack_a",
+          "components": {
+            "transform": {
+              "position": { "x": 20, "y": 0, "z": 0 },
+              "rotation": { "x": 0, "y": 0, "z": 0, "w": 1 },
+              "scale": { "x": 1, "y": 1, "z": 1 }
+            },
+            "stackable": { "enabled": true }
+          }
+        },
+        "stack_b": {
+          "id": "stack_b",
+          "components": {
+            "transform": {
+              "position": { "x": 22, "y": 0, "z": 0 },
+              "rotation": { "x": 0, "y": 0, "z": 0, "w": 1 },
+              "scale": { "x": 1, "y": 1, "z": 1 }
+            },
+            "stackable": { "enabled": true }
+          }
+        },
+        "stack_c": {
+          "id": "stack_c",
+          "components": {
+            "transform": {
+              "position": { "x": 24, "y": 0, "z": 0 },
+              "rotation": { "x": 0, "y": 0, "z": 0, "w": 1 },
+              "scale": { "x": 1, "y": 1, "z": 1 }
+            },
+            "stackable": { "enabled": true }
+          }
+        },
+        "stack_d": {
+          "id": "stack_d",
+          "components": {
+            "transform": {
+              "position": { "x": 26, "y": 0, "z": 0 },
+              "rotation": { "x": 0, "y": 0, "z": 0, "w": 1 },
+              "scale": { "x": 1, "y": 1, "z": 1 }
+            },
+            "stackable": { "enabled": true }
+          }
+        },
+        "stack_e": {
+          "id": "stack_e",
+          "components": {
+            "transform": {
+              "position": { "x": 28, "y": 0, "z": 0 },
+              "rotation": { "x": 0, "y": 0, "z": 0, "w": 1 },
+              "scale": { "x": 1, "y": 1, "z": 1 }
+            },
+            "stackable": { "enabled": true }
+          }
+        },
+        "target": {
+          "id": "target",
+          "components": {
+            "container": { "items": [], "capacity": 2, "ordering": "ordered", "visibility": "public" }
+          }
+        },
+        "text": {
+          "id": "text",
+          "components": { "text": { "value": "ready" } }
+        },
+        "transfer_item": {
+          "id": "transfer_item",
+          "components": {
+            "transform": {
+              "position": { "x": 10, "y": 0, "z": 0 },
+              "rotation": { "x": 0, "y": 0, "z": 0, "w": 1 },
+              "scale": { "x": 1, "y": 1, "z": 1 }
+            }
+          }
+        },
+        "zone": {
+          "id": "zone",
+          "components": {
+            "transform": {
+              "position": { "x": 0, "y": 0, "z": 0 },
+              "rotation": { "x": 0, "y": 0, "z": 0, "w": 1 },
+              "scale": { "x": 4, "y": 4, "z": 4 }
+            },
+            "zone": { "shape": "box", "acceptedTags": ["red"], "visibleInPlay": true }
+          }
+        }
+      },
+      "scriptState": {},
+      "prompts": {}
+    },
+    "stateHash": "sha256:d44c6c8159df28c6ed816ff9c59f5ed86aa388e6ada0383f3308e04300a98552"
+  },
+  "actions": [
+    {
+      "sequence": 1,
+      "actionId": "grab_piece",
+      "actor": { "type": "player", "playerId": "alice" },
+      "action": { "type": "entity.grab", "payload": { "entityId": "piece" } }
+    },
+    {
+      "sequence": 2,
+      "actionId": "drop_tie",
+      "actor": { "type": "player", "playerId": "alice" },
+      "action": {
+        "type": "entity.drop",
+        "payload": {
+          "entityId": "piece",
+          "transform": {
+            "position": { "x": 0, "y": 0, "z": 0 },
+            "rotation": { "x": 0, "y": 0, "z": 0, "w": 1 },
+            "scale": { "x": 1, "y": 1, "z": 1 }
+          }
+        }
+      }
+    },
+    {
+      "sequence": 3,
+      "actionId": "move_out",
+      "actor": { "type": "script", "scriptId": "game" },
+      "action": {
+        "type": "entity.move",
+        "payload": {
+          "entityId": "piece",
+          "transform": {
+            "position": { "x": 5, "y": 0, "z": 0 },
+            "rotation": { "x": 0, "y": 0, "z": 0, "w": 1 },
+            "scale": { "x": 1, "y": 1, "z": 1 }
+          }
+        }
+      }
+    },
+    {
+      "sequence": 4,
+      "actionId": "attach_explicit",
+      "actor": { "type": "script", "scriptId": "game" },
+      "action": { "type": "snap.attach", "payload": { "snapPointId": "snap_a", "entityId": "explicit_piece" } }
+    },
+    {
+      "sequence": 5,
+      "actionId": "stack_create_1",
+      "actor": { "type": "script", "scriptId": "game" },
+      "action": { "type": "stack.create", "payload": { "stackId": "stack_1", "items": ["stack_a", "stack_b"] } }
+    },
+    {
+      "sequence": 6,
+      "actionId": "stack_add",
+      "actor": { "type": "script", "scriptId": "game" },
+      "action": { "type": "stack.add", "payload": { "stackId": "stack_1", "entityId": "stack_e" } }
+    },
+    {
+      "sequence": 7,
+      "actionId": "stack_remove",
+      "actor": { "type": "player", "playerId": "alice" },
+      "action": { "type": "stack.remove_top", "payload": { "stackId": "stack_1" } }
+    },
+    {
+      "sequence": 8,
+      "actionId": "stack_create_2",
+      "actor": { "type": "script", "scriptId": "game" },
+      "action": { "type": "stack.create", "payload": { "stackId": "stack_2", "items": ["stack_c", "stack_d"] } }
+    },
+    {
+      "sequence": 9,
+      "actionId": "stack_merge",
+      "actor": { "type": "script", "scriptId": "game" },
+      "action": { "type": "stack.merge", "payload": { "targetStackId": "stack_1", "sourceStackId": "stack_2" } }
+    },
+    {
+      "sequence": 10,
+      "actionId": "stack_dissolve",
+      "actor": { "type": "script", "scriptId": "game" },
+      "action": { "type": "stack.dissolve", "payload": { "stackId": "stack_1" } }
+    },
+    {
+      "sequence": 11,
+      "actionId": "press",
+      "actor": { "type": "player", "playerId": "alice" },
+      "action": { "type": "button.press", "payload": { "entityId": "button" } }
+    },
+    {
+      "sequence": 12,
+      "actionId": "set_text",
+      "actor": { "type": "script", "scriptId": "game" },
+      "action": { "type": "text.set", "payload": { "entityId": "text", "value": "finished" } }
+    },
+    {
+      "sequence": 13,
+      "actionId": "lock",
+      "actor": { "type": "script", "scriptId": "game" },
+      "action": { "type": "entity.set_locked", "payload": { "entityId": "piece", "locked": true } }
+    },
+    {
+      "sequence": 14,
+      "actionId": "grab_locked",
+      "actor": { "type": "player", "playerId": "alice" },
+      "action": { "type": "entity.grab", "payload": { "entityId": "piece" } }
+    },
+    {
+      "sequence": 15,
+      "actionId": "container_transfer",
+      "actor": { "type": "script", "scriptId": "game" },
+      "action": {
+        "type": "container.move",
+        "payload": { "entity": "transfer_item", "from": "source", "to": "target", "index": 0 }
+      }
+    }
+  ],
+  "expectedFinalStateHash": "sha256:6a3b5552697b8e4a976d1589a4dc25a043d800fdb528c80b3cde61e5490a945d",
+  "expectedEventTypes": [
+    "entity.grabbed",
+    "snap.attached",
+    "zone.entered",
+    "entity.dropped",
+    "snap.detached",
+    "zone.left",
+    "snap.attached",
+    "stack.created",
+    "stack.changed",
+    "stack.changed",
+    "stack.created",
+    "stack.changed",
+    "stack.dissolved",
+    "stack.dissolved",
+    "button.pressed",
+    "text.changed",
+    "action.rejected",
+    "container.moved"
+  ]
+}

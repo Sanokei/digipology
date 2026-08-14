@@ -1,12 +1,16 @@
 import { canonicalStringify } from "digipology-canonical-json";
 import {
   canonicalizeTransform,
+  canonicalUtf8ByteLength,
   cloneCanonical,
+  TEXT_MAX_UTF8_BYTES,
   transformProblem,
 } from "./canonical";
 import type {
   ActionDefinition,
   ActionInstance,
+  ApplyContext,
+  ButtonComponent,
   CanonicalGameState,
   ContainerComponent,
   CounterComponent,
@@ -16,11 +20,19 @@ import type {
   FlippableComponent,
   GrabbableComponent,
   JsonValue,
+  LockableComponent,
   PlayerRecord,
   Reject,
   Settings,
+  SnapPointComponent,
+  StackId,
+  StackRecord,
+  StackableComponent,
+  TagsComponent,
+  TextComponent,
   TransformComponent,
   ValidationResult,
+  ZoneComponent,
 } from "./types";
 
 const OK: Readonly<{ ok: true }> = Object.freeze({ ok: true });
@@ -37,6 +49,25 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function onlyKeys(value: Record<string, unknown>, allowed: readonly string[]): boolean {
   const allowedSet = new Set(allowed);
   return Object.keys(value).every((key) => allowedSet.has(key));
+}
+
+function compareIds(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function sortedEntityIds(state: Readonly<CanonicalGameState>): string[] {
+  return Object.keys(state.entities).sort(compareIds);
+}
+
+function hasEntityComponent(
+  state: Readonly<CanonicalGameState>,
+  componentType: string,
+): boolean {
+  // This is only a presence fast-path; iteration order cannot affect the result.
+  for (const entityId of Object.keys(state.entities)) {
+    if (state.entities[entityId]?.components[componentType] !== undefined) return true;
+  }
+  return false;
 }
 
 function entityPayload(action: ActionInstance<unknown>):
@@ -75,6 +106,498 @@ function requireComponent<T>(
 
 function isReject(value: unknown): value is Reject {
   return isRecord(value) && typeof value.reason === "string";
+}
+
+interface ContainerTransfer {
+  entity: EntityId;
+  from: EntityId | null;
+  to: EntityId | null;
+  index: number;
+}
+
+interface PlacementLocation {
+  id: string;
+  index: number;
+}
+
+function containerContaining(
+  state: Readonly<CanonicalGameState>,
+  entityId: EntityId,
+): PlacementLocation | undefined {
+  if (!hasEntityComponent(state, "container")) return undefined;
+  for (const containerId of sortedEntityIds(state)) {
+    const container = state.entities[containerId]?.components.container as
+      | ContainerComponent
+      | undefined;
+    const index = container?.items.indexOf(entityId) ?? -1;
+    if (index >= 0) return { id: containerId, index };
+  }
+  return undefined;
+}
+
+function stackContaining(
+  state: Readonly<CanonicalGameState>,
+  entityId: EntityId,
+): PlacementLocation | undefined {
+  if (state.stacks === undefined) return undefined;
+  const stackIds = Object.keys(state.stacks ?? {}).sort(compareIds);
+  for (const stackId of stackIds) {
+    const index = state.stacks?.[stackId]?.items.indexOf(entityId) ?? -1;
+    if (index >= 0) return { id: stackId, index };
+  }
+  return undefined;
+}
+
+function snapContaining(
+  state: Readonly<CanonicalGameState>,
+  entityId: EntityId,
+): PlacementLocation | undefined {
+  if (!hasEntityComponent(state, "snap-point")) return undefined;
+  for (const snapPointId of sortedEntityIds(state)) {
+    const snapPoint = state.entities[snapPointId]?.components["snap-point"] as
+      | SnapPointComponent
+      | undefined;
+    const index = snapPoint?.attached?.indexOf(entityId) ?? -1;
+    if (index >= 0) return { id: snapPointId, index };
+  }
+  return undefined;
+}
+
+function exclusivePlacement(
+  state: Readonly<CanonicalGameState>,
+  entityId: EntityId,
+): { type: "container" | "stack" | "snap"; location: PlacementLocation } | undefined {
+  const container = containerContaining(state, entityId);
+  if (container !== undefined) return { type: "container", location: container };
+  const stack = stackContaining(state, entityId);
+  if (stack !== undefined) return { type: "stack", location: stack };
+  const snap = snapContaining(state, entityId);
+  return snap === undefined ? undefined : { type: "snap", location: snap };
+}
+
+function validateContainerTransfer(
+  state: Readonly<CanonicalGameState>,
+  transfer: ContainerTransfer,
+): ValidationResult {
+  if (getEntity(state, transfer.entity) === undefined) {
+    return reject(`Unknown entity: ${transfer.entity}`);
+  }
+  if (transfer.from === transfer.to) return reject("Source and target must differ");
+  if (!Number.isSafeInteger(transfer.index) || transfer.index < 0) {
+    return reject("index must be a non-negative safe integer");
+  }
+  const current = exclusivePlacement(state, transfer.entity);
+  if (transfer.from === null) {
+    if (current !== undefined) {
+      return reject(`Entity ${transfer.entity} is not in the world`);
+    }
+  } else {
+    const source = requireComponent<ContainerComponent>(state, transfer.from, "container");
+    if (isReject(source)) return source;
+    if (
+      current?.type !== "container" ||
+      current.location.id !== transfer.from
+    ) {
+      return reject(`Entity ${transfer.entity} is not in source container ${transfer.from}`);
+    }
+  }
+  if (transfer.to === null) {
+    return transfer.index === 0 ? OK : reject("World transfer index must equal 0");
+  }
+  const target = requireComponent<ContainerComponent>(state, transfer.to, "container");
+  if (isReject(target)) return target;
+  if (target.capacity !== null && target.items.length >= target.capacity) {
+    return reject("Target container has insufficient capacity");
+  }
+  if (transfer.index > target.items.length) {
+    return reject("index exceeds target container length");
+  }
+  return OK;
+}
+
+function applyContainerTransfer(
+  draft: CanonicalGameState,
+  transfer: ContainerTransfer,
+): { fromIndex: number | null; toIndex: number | null } {
+  let fromIndex: number | null = null;
+  if (transfer.from !== null) {
+    const source = draft.entities[transfer.from]?.components.container as
+      | ContainerComponent
+      | undefined;
+    if (source === undefined) throw new Error("Validated source container disappeared");
+    fromIndex = source.items.indexOf(transfer.entity);
+    if (fromIndex < 0) throw new Error("Validated source membership disappeared");
+    source.items.splice(fromIndex, 1);
+  }
+  let toIndex: number | null = null;
+  if (transfer.to !== null) {
+    const target = draft.entities[transfer.to]?.components.container as
+      | ContainerComponent
+      | undefined;
+    if (target === undefined) throw new Error("Validated target container disappeared");
+    toIndex = transfer.index;
+    target.items.splice(transfer.index, 0, transfer.entity);
+  }
+  return { fromIndex, toIndex };
+}
+
+function tagsForEntity(
+  state: Readonly<CanonicalGameState>,
+  entityId: EntityId,
+): readonly string[] {
+  const tags = state.entities[entityId]?.components.tags as TagsComponent | undefined;
+  return tags?.values ?? [];
+}
+
+function tagsCompatible(required: readonly string[], actual: readonly string[]): boolean {
+  return required.length === 0 || required.some((tag) => actual.includes(tag));
+}
+
+function inverseRotatePosition(
+  position: TransformComponent["position"],
+  center: TransformComponent["position"],
+  rotation: TransformComponent["rotation"],
+): TransformComponent["position"] {
+  const magnitude = Math.sqrt(
+    rotation.x * rotation.x +
+      rotation.y * rotation.y +
+      rotation.z * rotation.z +
+      rotation.w * rotation.w,
+  );
+  const qx = -rotation.x / magnitude;
+  const qy = -rotation.y / magnitude;
+  const qz = -rotation.z / magnitude;
+  const qw = rotation.w / magnitude;
+  const x = position.x - center.x;
+  const y = position.y - center.y;
+  const z = position.z - center.z;
+  const tx = 2 * (qy * z - qz * y);
+  const ty = 2 * (qz * x - qx * z);
+  const tz = 2 * (qx * y - qy * x);
+  return {
+    x: x + qw * tx + (qy * tz - qz * ty),
+    y: y + qw * ty + (qz * tx - qx * tz),
+    z: z + qw * tz + (qx * ty - qy * tx),
+  };
+}
+
+function entityIsInsideZone(
+  state: Readonly<CanonicalGameState>,
+  entityId: EntityId,
+  zoneId: EntityId,
+): boolean {
+  if (entityId === zoneId || containerContaining(state, entityId) !== undefined) {
+    return false;
+  }
+  const entityTransform = state.entities[entityId]?.components.transform as
+    | TransformComponent
+    | undefined;
+  const zoneEntity = state.entities[zoneId];
+  const zone = zoneEntity?.components.zone as ZoneComponent | undefined;
+  const zoneTransform = zoneEntity?.components.transform as TransformComponent | undefined;
+  if (entityTransform === undefined || zone === undefined || zoneTransform === undefined) {
+    return false;
+  }
+  if (!tagsCompatible(zone.acceptedTags, tagsForEntity(state, entityId))) {
+    return false;
+  }
+  const local = inverseRotatePosition(
+    entityTransform.position,
+    zoneTransform.position,
+    zoneTransform.rotation,
+  );
+  if (zone.shape === "box") {
+    return (
+      Math.abs(local.x) <= zoneTransform.scale.x / 2 &&
+      Math.abs(local.y) <= zoneTransform.scale.y / 2 &&
+      Math.abs(local.z) <= zoneTransform.scale.z / 2
+    );
+  }
+  const radius = Math.max(
+    zoneTransform.scale.x,
+    zoneTransform.scale.y,
+    zoneTransform.scale.z,
+  ) / 2;
+  return local.x * local.x + local.y * local.y + local.z * local.z <= radius * radius;
+}
+
+/**
+ * Recompute semantic zone membership in zone-ID then entity-ID order. Rendering
+ * frames never call this; only canonical placement transitions do.
+ */
+export function recomputeZoneMembership(
+  draft: CanonicalGameState,
+  entityIds: readonly EntityId[],
+  ctx: Pick<ApplyContext, "emit">,
+): void {
+  if (!hasEntityComponent(draft, "zone")) return;
+  const affected = [...new Set(entityIds)].sort(compareIds);
+  const zoneIds = sortedEntityIds(draft).filter(
+    (entityId) => draft.entities[entityId]?.components.zone !== undefined,
+  );
+  for (const zoneId of zoneIds) {
+    const zone = draft.entities[zoneId]?.components.zone as ZoneComponent | undefined;
+    if (zone === undefined) continue;
+    const members = new Set(zone.members ?? []);
+    let changed = false;
+    for (const entityId of affected) {
+      const wasMember = members.has(entityId);
+      const isMember = entityIsInsideZone(draft, entityId, zoneId);
+      if (wasMember === isMember) continue;
+      changed = true;
+      if (isMember) {
+        members.add(entityId);
+        ctx.emit("zone.entered", { zoneId, entityId });
+      } else {
+        members.delete(entityId);
+        ctx.emit("zone.left", { zoneId, entityId });
+      }
+    }
+    if (changed || zone.members !== undefined) {
+      zone.members = [...members].sort(compareIds);
+    }
+  }
+}
+
+function squaredDistance(
+  left: TransformComponent["position"],
+  right: TransformComponent["position"],
+): number {
+  const x = left.x - right.x;
+  const y = left.y - right.y;
+  const z = left.z - right.z;
+  return x * x + y * y + z * z;
+}
+
+function snapAcceptsEntity(
+  state: Readonly<CanonicalGameState>,
+  snapPointId: EntityId,
+  entityId: EntityId,
+): boolean {
+  const snapPoint = state.entities[snapPointId]?.components["snap-point"] as
+    | SnapPointComponent
+    | undefined;
+  if (snapPoint === undefined) return false;
+  const attached = snapPoint.attached ?? [];
+  const occupiesPoint = attached.includes(entityId);
+  return (
+    (occupiesPoint || attached.length < snapPoint.capacity) &&
+    tagsCompatible(snapPoint.tags, tagsForEntity(state, entityId))
+  );
+}
+
+function nearestSnapPoint(
+  state: Readonly<CanonicalGameState>,
+  entityId: EntityId,
+): EntityId | undefined {
+  if (!hasEntityComponent(state, "snap-point")) return undefined;
+  const transform = state.entities[entityId]?.components.transform as
+    | TransformComponent
+    | undefined;
+  if (transform === undefined) return undefined;
+  let selected: { id: EntityId; distance: number } | undefined;
+  for (const candidateId of sortedEntityIds(state)) {
+    if (candidateId === entityId) continue;
+    if (!snapAcceptsEntity(state, candidateId, entityId)) continue;
+    const candidate = state.entities[candidateId];
+    const snapPoint = candidate?.components["snap-point"] as
+      | SnapPointComponent
+      | undefined;
+    const candidateTransform = candidate?.components.transform as
+      | TransformComponent
+      | undefined;
+    if (snapPoint === undefined || candidateTransform === undefined) continue;
+    const distance = squaredDistance(transform.position, candidateTransform.position);
+    if (distance > snapPoint.radius * snapPoint.radius) continue;
+    if (
+      selected === undefined ||
+      distance < selected.distance ||
+      (distance === selected.distance && compareIds(candidateId, selected.id) < 0)
+    ) {
+      selected = { id: candidateId, distance };
+    }
+  }
+  return selected?.id;
+}
+
+function detachSnap(
+  draft: CanonicalGameState,
+  entityId: EntityId,
+  ctx: Pick<ApplyContext, "emit">,
+): boolean {
+  const location = snapContaining(draft, entityId);
+  if (location === undefined) return false;
+  const snapPoint = draft.entities[location.id]?.components["snap-point"] as
+    | SnapPointComponent
+    | undefined;
+  if (snapPoint?.attached === undefined) throw new Error("Snap attachment disappeared");
+  snapPoint.attached.splice(location.index, 1);
+  ctx.emit("snap.detached", { snapPointId: location.id, entityId });
+  return true;
+}
+
+function attachSnap(
+  draft: CanonicalGameState,
+  snapPointId: EntityId,
+  entityId: EntityId,
+  ctx: Pick<ApplyContext, "emit">,
+): void {
+  const snapPoint = draft.entities[snapPointId]?.components["snap-point"] as
+    | SnapPointComponent
+    | undefined;
+  if (snapPoint === undefined) throw new Error("Validated snap-point disappeared");
+  snapPoint.attached = [...(snapPoint.attached ?? []), entityId].sort(compareIds);
+  ctx.emit("snap.attached", { snapPointId, entityId });
+}
+
+function stacks(draft: CanonicalGameState): Record<StackId, StackRecord> {
+  if (draft.stacks === undefined) draft.stacks = {};
+  return draft.stacks;
+}
+
+function removeFromStack(
+  draft: CanonicalGameState,
+  entityId: EntityId,
+  ctx: Pick<ApplyContext, "emit">,
+): boolean {
+  const location = stackContaining(draft, entityId);
+  if (location === undefined) return false;
+  const stack = draft.stacks?.[location.id];
+  if (stack === undefined) throw new Error("Stack membership disappeared");
+  stack.items.splice(location.index, 1);
+  if (stack.items.length === 0) {
+    delete draft.stacks?.[location.id];
+    ctx.emit("stack.dissolved", { stackId: location.id, items: [] });
+  } else {
+    ctx.emit("stack.changed", {
+      stackId: location.id,
+      items: [...stack.items],
+      removed: entityId,
+    });
+  }
+  return true;
+}
+
+function detachExclusivePlacement(
+  draft: CanonicalGameState,
+  entityId: EntityId,
+  ctx: Pick<ApplyContext, "emit">,
+): void {
+  const container = containerContaining(draft, entityId);
+  if (container !== undefined) {
+    const moved = applyContainerTransfer(draft, {
+      entity: entityId,
+      from: container.id,
+      to: null,
+      index: 0,
+    });
+    ctx.emit("container.removed", {
+      containerId: container.id,
+      entityId,
+      index: moved.fromIndex as number,
+    });
+    return;
+  }
+  if (detachSnap(draft, entityId, ctx)) return;
+  removeFromStack(draft, entityId, ctx);
+}
+
+function canLeaveCurrentPlacement(
+  state: Readonly<CanonicalGameState>,
+  entityId: EntityId,
+): ValidationResult {
+  const location = stackContaining(state, entityId);
+  if (location === undefined) return OK;
+  const stack = state.stacks?.[location.id];
+  return location.index === (stack?.items.length ?? 0) - 1
+    ? OK
+    : reject("Only the canonical stack top can be moved");
+}
+
+function stackTarget(
+  state: Readonly<CanonicalGameState>,
+  entityId: EntityId,
+): EntityId | undefined {
+  const entity = state.entities[entityId];
+  const transform = entity?.components.transform as TransformComponent | undefined;
+  const stackable = entity?.components.stackable as StackableComponent | undefined;
+  if (transform === undefined || stackable?.enabled !== true) return undefined;
+  for (const candidateId of sortedEntityIds(state)) {
+    if (candidateId === entityId) continue;
+    const candidate = state.entities[candidateId];
+    const capability = candidate?.components.stackable as StackableComponent | undefined;
+    const candidateTransform = candidate?.components.transform as
+      | TransformComponent
+      | undefined;
+    if (capability?.enabled !== true || candidateTransform === undefined) continue;
+    if (squaredDistance(transform.position, candidateTransform.position) !== 0) continue;
+    const placement = exclusivePlacement(state, candidateId);
+    if (placement?.type === "container" || placement?.type === "snap") continue;
+    if (placement?.type === "stack") {
+      const stack = state.stacks?.[placement.location.id];
+      if (placement.location.index !== (stack?.items.length ?? 0) - 1) continue;
+    }
+    return candidateId;
+  }
+  return undefined;
+}
+
+function implicitStackId(state: Readonly<CanonicalGameState>, actionId: string): StackId {
+  const base = `stack_${actionId}`;
+  if (!hasOwn.call(state.stacks ?? {}, base)) return base;
+  let index = 1;
+  while (hasOwn.call(state.stacks ?? {}, `${base}_${index}`)) index += 1;
+  return `${base}_${index}`;
+}
+
+function resolveStackDrop(
+  draft: CanonicalGameState,
+  entityId: EntityId,
+  actionId: string,
+  ctx: Pick<ApplyContext, "emit">,
+): boolean {
+  const targetId = stackTarget(draft, entityId);
+  if (targetId === undefined) return false;
+  const targetStack = stackContaining(draft, targetId);
+  if (targetStack !== undefined) {
+    const stack = draft.stacks?.[targetStack.id];
+    if (stack === undefined) throw new Error("Stack target disappeared");
+    stack.items.push(entityId);
+    ctx.emit("stack.changed", {
+      stackId: stack.id,
+      items: [...stack.items],
+      added: entityId,
+    });
+    return true;
+  }
+  const stackId = implicitStackId(draft, actionId);
+  const stack: StackRecord = { id: stackId, items: [targetId, entityId] };
+  stacks(draft)[stackId] = stack;
+  ctx.emit("stack.created", { stackId, items: [...stack.items] });
+  return true;
+}
+
+/** Resolve public/owner container visibility without exposing hidden membership. */
+export function canPlayerViewContainer(
+  state: Readonly<CanonicalGameState>,
+  containerId: EntityId,
+  playerId: string,
+): boolean {
+  const entity = state.entities[containerId];
+  const container = entity?.components.container as ContainerComponent | undefined;
+  if (container === undefined) return false;
+  if (container.visibility === "public") return true;
+  let owner: string | undefined;
+  if (container.visibility === "owner") {
+    owner = (entity?.components.hand as { owner?: unknown } | undefined)?.owner as
+      | string
+      | undefined;
+  } else if (container.visibility.startsWith("owner:")) {
+    owner = container.visibility.slice("owner:".length);
+  }
+  if (owner === undefined || owner.length === 0) return false;
+  if (owner === playerId) return true;
+  return state.seats[owner]?.playerId === playerId;
 }
 
 function validateSettings(value: unknown): value is Settings {
@@ -303,6 +826,12 @@ const entityGrab: ActionDefinition<unknown> = {
     if (isReject(grabbable)) return grabbable;
     if (!grabbable.enabled) return reject("Entity is not grabbable");
     if (grabbable.heldBy !== null) return reject("Entity is already held");
+    const lockable = state.entities[payload.entityId]?.components.lockable as
+      | LockableComponent
+      | undefined;
+    if (lockable?.locked === true) return reject("Entity is locked");
+    const placement = canLeaveCurrentPlacement(state, payload.entityId);
+    if (isReject(placement)) return placement;
     return OK;
   },
   apply(draft, action, ctx) {
@@ -337,6 +866,8 @@ const entityDrop: ActionDefinition<unknown> = {
     if (isReject(grabbable)) return grabbable;
     const actorId = (action.actor as { playerId?: string }).playerId;
     if (grabbable.heldBy !== actorId) return reject("Actor does not hold entity");
+    const placement = canLeaveCurrentPlacement(state, action.payload.entityId);
+    if (isReject(placement)) return placement;
     const problem = transformProblem(action.payload.transform);
     return problem === undefined ? OK : reject(`Invalid transform: ${problem}`);
   },
@@ -350,26 +881,21 @@ const entityDrop: ActionDefinition<unknown> = {
     if (entity === undefined || grabbable === undefined) {
       throw new Error("Validated entity disappeared");
     }
+    detachExclusivePlacement(draft, payload.entityId, ctx);
     entity.components.transform = canonicalizeTransform(payload.transform);
     grabbable.heldBy = null;
-    const entityIds = Object.keys(draft.entities).sort((left, right) =>
-      left < right ? -1 : left > right ? 1 : 0,
-    );
-    for (const containerId of entityIds) {
-      const container = draft.entities[containerId]?.components.container as
-        | ContainerComponent
-        | undefined;
-      if (container === undefined) continue;
-      const index = container.items.indexOf(payload.entityId);
-      if (index >= 0) {
-        container.items.splice(index, 1);
-        ctx.emit("container.removed", {
-          containerId,
-          entityId: payload.entityId,
-          index,
-        });
-      }
+
+    // SPEC 02.4 canonical drop precedence is intentionally fixed because
+    // clients predict this action: snap -> stack -> zone recompute -> world.
+    // A successful earlier resolution prevents later exclusive placement,
+    // while zones remain semantic overlays on the resolved world position.
+    const snapPointId = nearestSnapPoint(draft, payload.entityId);
+    if (snapPointId !== undefined) {
+      attachSnap(draft, snapPointId, payload.entityId, ctx);
+    } else {
+      resolveStackDrop(draft, payload.entityId, action.actionId, ctx);
     }
+    recomputeZoneMembership(draft, [payload.entityId], ctx);
     ctx.emit("entity.dropped", {
       entityId: payload.entityId,
       transform: cloneCanonical(entity.components.transform) as unknown as JsonValue,
@@ -399,6 +925,429 @@ const entityFlip: ActionDefinition<unknown> = {
     if (flippable === undefined) throw new Error("Validated flippable disappeared");
     flippable.flipped = !flippable.flipped;
     ctx.emit("entity.flipped", { entityId, flipped: flippable.flipped });
+  },
+};
+
+function transferPayload(value: unknown): ContainerTransfer | Reject {
+  if (
+    !isRecord(value) ||
+    !onlyKeys(value, ["entity", "from", "to", "index"]) ||
+    typeof value.entity !== "string" ||
+    (value.from !== null && typeof value.from !== "string") ||
+    (value.to !== null && typeof value.to !== "string") ||
+    !Number.isSafeInteger(value.index)
+  ) {
+    return reject("Payload requires entity, from, to, and integer index");
+  }
+  return value as unknown as ContainerTransfer;
+}
+
+const containerMove: ActionDefinition<unknown> = {
+  type: "container.move",
+  version: 1,
+  sources: ["script"],
+  validate(state, action) {
+    const payload = transferPayload(action.payload);
+    return isReject(payload) ? payload : validateContainerTransfer(state, payload);
+  },
+  apply(draft, action, ctx) {
+    const payload = action.payload as unknown as ContainerTransfer;
+    const indices = applyContainerTransfer(draft, payload);
+    ctx.emit("container.moved", {
+      entity: payload.entity,
+      from: payload.from,
+      to: payload.to,
+      index: payload.index,
+      fromIndex: indices.fromIndex,
+    });
+    recomputeZoneMembership(draft, [payload.entity], ctx);
+  },
+};
+
+function movementPayload(
+  state: Readonly<CanonicalGameState>,
+  action: ActionInstance<unknown>,
+): { entityId: EntityId; transform: TransformComponent } | Reject {
+  if (
+    !isRecord(action.payload) ||
+    !onlyKeys(action.payload, ["entityId", "transform"]) ||
+    typeof action.payload.entityId !== "string"
+  ) {
+    return reject("Payload must contain entityId and transform");
+  }
+  const transform = requireComponent<TransformComponent>(
+    state,
+    action.payload.entityId,
+    "transform",
+  );
+  if (isReject(transform)) return transform;
+  const placement = canLeaveCurrentPlacement(state, action.payload.entityId);
+  if (isReject(placement)) return placement;
+  const problem = transformProblem(action.payload.transform);
+  if (problem !== undefined) return reject(`Invalid transform: ${problem}`);
+  return {
+    entityId: action.payload.entityId,
+    transform: action.payload.transform as unknown as TransformComponent,
+  };
+}
+
+const entityMove: ActionDefinition<unknown> = {
+  type: "entity.move",
+  version: 1,
+  sources: ["script", "system"],
+  validate(state, action) {
+    const payload = movementPayload(state, action);
+    return isReject(payload) ? payload : OK;
+  },
+  apply(draft, action, ctx) {
+    const payload = action.payload as {
+      entityId: EntityId;
+      transform: TransformComponent;
+    };
+    detachExclusivePlacement(draft, payload.entityId, ctx);
+    const entity = draft.entities[payload.entityId];
+    if (entity === undefined) throw new Error("Validated entity disappeared");
+    entity.components.transform = canonicalizeTransform(payload.transform);
+    recomputeZoneMembership(draft, [payload.entityId], ctx);
+  },
+};
+
+const entitySetLocked: ActionDefinition<unknown> = {
+  type: "entity.set_locked",
+  version: 1,
+  sources: ["player", "script"],
+  validate(state, action) {
+    if (
+      !isRecord(action.payload) ||
+      !onlyKeys(action.payload, ["entityId", "locked"]) ||
+      typeof action.payload.entityId !== "string" ||
+      typeof action.payload.locked !== "boolean"
+    ) {
+      return reject("Payload requires only entityId and locked");
+    }
+    const lockable = requireComponent<LockableComponent>(
+      state,
+      action.payload.entityId,
+      "lockable",
+    );
+    if (isReject(lockable)) return lockable;
+    if (action.actor.type === "player" && state.settings.sandbox !== true) {
+      return reject("Player locking requires sandbox permission");
+    }
+    return OK;
+  },
+  apply(draft, action) {
+    const payload = action.payload as { entityId: EntityId; locked: boolean };
+    const lockable = draft.entities[payload.entityId]?.components.lockable as
+      | LockableComponent
+      | undefined;
+    if (lockable === undefined) throw new Error("Validated lockable disappeared");
+    lockable.locked = payload.locked;
+  },
+};
+
+const buttonPress: ActionDefinition<unknown> = {
+  type: "button.press",
+  version: 1,
+  sources: ["player"],
+  validate(state, action, context) {
+    const payload = entityPayload(action);
+    if (isReject(payload)) return payload;
+    const button = requireComponent<ButtonComponent>(
+      state,
+      payload.entityId,
+      "button",
+    );
+    if (isReject(button)) return button;
+    if (!button.enabled) return reject("Button is disabled");
+    if (context !== undefined && !context.canPress(state, action, payload.entityId)) {
+      return reject("Button press denied by can_press guard");
+    }
+    return OK;
+  },
+  apply(_draft, action, ctx) {
+    const { entityId } = action.payload as { entityId: EntityId };
+    const playerId = (action.actor as { playerId: string }).playerId;
+    ctx.emit("button.pressed", { entityId, playerId });
+  },
+};
+
+const textSet: ActionDefinition<unknown> = {
+  type: "text.set",
+  version: 1,
+  sources: ["script"],
+  validate(state, action) {
+    if (
+      !isRecord(action.payload) ||
+      !onlyKeys(action.payload, ["entityId", "value"]) ||
+      typeof action.payload.entityId !== "string" ||
+      typeof action.payload.value !== "string"
+    ) {
+      return reject("Payload requires only entityId and string value");
+    }
+    const text = requireComponent<TextComponent>(
+      state,
+      action.payload.entityId,
+      "text",
+    );
+    if (isReject(text)) return text;
+    if (canonicalUtf8ByteLength(action.payload.value) > TEXT_MAX_UTF8_BYTES) {
+      return reject(`Text exceeds ${TEXT_MAX_UTF8_BYTES} UTF-8 bytes`);
+    }
+    return OK;
+  },
+  apply(draft, action, ctx) {
+    const payload = action.payload as { entityId: EntityId; value: string };
+    const text = draft.entities[payload.entityId]?.components.text as
+      | TextComponent
+      | undefined;
+    if (text === undefined) throw new Error("Validated text disappeared");
+    text.value = payload.value;
+    ctx.emit("text.changed", { entityId: payload.entityId, value: payload.value });
+  },
+};
+
+const snapAttach: ActionDefinition<unknown> = {
+  type: "snap.attach",
+  version: 1,
+  sources: ["script"],
+  validate(state, action) {
+    if (
+      !isRecord(action.payload) ||
+      !onlyKeys(action.payload, ["snapPointId", "entityId"]) ||
+      typeof action.payload.snapPointId !== "string" ||
+      typeof action.payload.entityId !== "string"
+    ) {
+      return reject("Payload requires only snapPointId and entityId");
+    }
+    if (action.payload.snapPointId === action.payload.entityId) {
+      return reject("A snap-point cannot attach itself");
+    }
+    const snapPoint = requireComponent<SnapPointComponent>(
+      state,
+      action.payload.snapPointId,
+      "snap-point",
+    );
+    if (isReject(snapPoint)) return snapPoint;
+    if (getEntity(state, action.payload.entityId) === undefined) {
+      return reject(`Unknown entity: ${action.payload.entityId}`);
+    }
+    if (snapContaining(state, action.payload.entityId)?.id === action.payload.snapPointId) {
+      return reject("Entity is already attached to snap-point");
+    }
+    const placement = canLeaveCurrentPlacement(state, action.payload.entityId);
+    if (isReject(placement)) return placement;
+    if (!snapAcceptsEntity(state, action.payload.snapPointId, action.payload.entityId)) {
+      return reject("Snap-point capacity or tag compatibility rejected entity");
+    }
+    return OK;
+  },
+  apply(draft, action, ctx) {
+    const payload = action.payload as { snapPointId: EntityId; entityId: EntityId };
+    detachExclusivePlacement(draft, payload.entityId, ctx);
+    attachSnap(draft, payload.snapPointId, payload.entityId, ctx);
+    recomputeZoneMembership(draft, [payload.entityId], ctx);
+  },
+};
+
+function stackIdPayload(
+  value: unknown,
+  allowed: readonly string[],
+): { stackId: StackId } | Reject {
+  if (
+    !isRecord(value) ||
+    !onlyKeys(value, allowed) ||
+    typeof value.stackId !== "string" ||
+    value.stackId.length === 0
+  ) {
+    return reject("Payload requires a non-empty stackId");
+  }
+  return { stackId: value.stackId };
+}
+
+function validateStackableEntity(
+  state: Readonly<CanonicalGameState>,
+  entityId: EntityId,
+  requireWorld: boolean,
+): ValidationResult {
+  const stackable = requireComponent<StackableComponent>(state, entityId, "stackable");
+  if (isReject(stackable)) return stackable;
+  if (!stackable.enabled) return reject(`Entity ${entityId} is not stackable`);
+  if (requireWorld && exclusivePlacement(state, entityId) !== undefined) {
+    return reject(`Entity ${entityId} already has an exclusive placement`);
+  }
+  return OK;
+}
+
+const stackCreate: ActionDefinition<unknown> = {
+  type: "stack.create",
+  version: 1,
+  sources: ["script"],
+  validate(state, action) {
+    if (
+      !isRecord(action.payload) ||
+      !onlyKeys(action.payload, ["stackId", "items"]) ||
+      typeof action.payload.stackId !== "string" ||
+      action.payload.stackId.length === 0 ||
+      !Array.isArray(action.payload.items) ||
+      action.payload.items.length < 2 ||
+      action.payload.items.some((item) => typeof item !== "string")
+    ) {
+      return reject("Payload requires stackId and at least two entity IDs");
+    }
+    if (hasOwn.call(state.stacks ?? {}, action.payload.stackId)) {
+      return reject(`Stack already exists: ${action.payload.stackId}`);
+    }
+    const items = action.payload.items as string[];
+    if (new Set(items).size !== items.length) return reject("Stack items must be unique");
+    for (const entityId of items) {
+      const result = validateStackableEntity(state, entityId, true);
+      if (isReject(result)) return result;
+    }
+    return OK;
+  },
+  apply(draft, action, ctx) {
+    const payload = action.payload as { stackId: StackId; items: EntityId[] };
+    const stack: StackRecord = { id: payload.stackId, items: [...payload.items] };
+    stacks(draft)[payload.stackId] = stack;
+    ctx.emit("stack.created", { stackId: payload.stackId, items: [...stack.items] });
+    recomputeZoneMembership(draft, stack.items, ctx);
+  },
+};
+
+const stackAdd: ActionDefinition<unknown> = {
+  type: "stack.add",
+  version: 1,
+  sources: ["script"],
+  validate(state, action) {
+    const payload = stackIdPayload(action.payload, ["stackId", "entityId"]);
+    if (isReject(payload)) return payload;
+    if (!isRecord(action.payload) || typeof action.payload.entityId !== "string") {
+      return reject("Payload requires stackId and entityId");
+    }
+    if (!hasOwn.call(state.stacks ?? {}, payload.stackId)) {
+      return reject(`Unknown stack: ${payload.stackId}`);
+    }
+    return validateStackableEntity(state, action.payload.entityId, true);
+  },
+  apply(draft, action, ctx) {
+    const payload = action.payload as { stackId: StackId; entityId: EntityId };
+    const stack = draft.stacks?.[payload.stackId];
+    if (stack === undefined) throw new Error("Validated stack disappeared");
+    stack.items.push(payload.entityId);
+    ctx.emit("stack.changed", {
+      stackId: payload.stackId,
+      items: [...stack.items],
+      added: payload.entityId,
+    });
+    recomputeZoneMembership(draft, [payload.entityId], ctx);
+  },
+};
+
+const stackRemoveTop: ActionDefinition<unknown> = {
+  type: "stack.remove_top",
+  version: 1,
+  sources: ["player", "script"],
+  validate(state, action) {
+    const payload = stackIdPayload(action.payload, ["stackId"]);
+    if (isReject(payload)) return payload;
+    const stack = state.stacks?.[payload.stackId];
+    return stack === undefined || stack.items.length === 0
+      ? reject(`Unknown or empty stack: ${payload.stackId}`)
+      : OK;
+  },
+  apply(draft, action, ctx) {
+    const { stackId } = action.payload as { stackId: StackId };
+    const stack = draft.stacks?.[stackId];
+    const entityId = stack?.items.pop();
+    if (stack === undefined || entityId === undefined) {
+      throw new Error("Validated stack disappeared");
+    }
+    if (stack.items.length === 0) {
+      delete draft.stacks?.[stackId];
+      ctx.emit("stack.dissolved", { stackId, items: [], removed: entityId });
+    } else {
+      ctx.emit("stack.changed", {
+        stackId,
+        items: [...stack.items],
+        removed: entityId,
+      });
+    }
+    recomputeZoneMembership(draft, [entityId], ctx);
+  },
+};
+
+const stackMerge: ActionDefinition<unknown> = {
+  type: "stack.merge",
+  version: 1,
+  sources: ["script"],
+  validate(state, action) {
+    if (
+      !isRecord(action.payload) ||
+      !onlyKeys(action.payload, ["targetStackId", "sourceStackId"]) ||
+      typeof action.payload.targetStackId !== "string" ||
+      typeof action.payload.sourceStackId !== "string" ||
+      action.payload.targetStackId.length === 0 ||
+      action.payload.sourceStackId.length === 0
+    ) {
+      return reject("Payload requires targetStackId and sourceStackId");
+    }
+    if (action.payload.targetStackId === action.payload.sourceStackId) {
+      return reject("Cannot merge a stack into itself");
+    }
+    if (!hasOwn.call(state.stacks ?? {}, action.payload.targetStackId)) {
+      return reject(`Unknown stack: ${action.payload.targetStackId}`);
+    }
+    if (!hasOwn.call(state.stacks ?? {}, action.payload.sourceStackId)) {
+      return reject(`Unknown stack: ${action.payload.sourceStackId}`);
+    }
+    return OK;
+  },
+  apply(draft, action, ctx) {
+    const payload = action.payload as {
+      targetStackId: StackId;
+      sourceStackId: StackId;
+    };
+    const target = draft.stacks?.[payload.targetStackId];
+    const source = draft.stacks?.[payload.sourceStackId];
+    if (target === undefined || source === undefined) {
+      throw new Error("Validated stack disappeared");
+    }
+    target.items.push(...source.items);
+    const dissolvedItems = [...source.items];
+    delete draft.stacks?.[payload.sourceStackId];
+    ctx.emit("stack.changed", {
+      stackId: payload.targetStackId,
+      items: [...target.items],
+      merged: payload.sourceStackId,
+    });
+    ctx.emit("stack.dissolved", {
+      stackId: payload.sourceStackId,
+      items: dissolvedItems,
+      mergedInto: payload.targetStackId,
+    });
+  },
+};
+
+const stackDissolve: ActionDefinition<unknown> = {
+  type: "stack.dissolve",
+  version: 1,
+  sources: ["script"],
+  validate(state, action) {
+    const payload = stackIdPayload(action.payload, ["stackId"]);
+    if (isReject(payload)) return payload;
+    return hasOwn.call(state.stacks ?? {}, payload.stackId)
+      ? OK
+      : reject(`Unknown stack: ${payload.stackId}`);
+  },
+  apply(draft, action, ctx) {
+    const { stackId } = action.payload as { stackId: StackId };
+    const stack = draft.stacks?.[stackId];
+    if (stack === undefined) throw new Error("Validated stack disappeared");
+    const items = [...stack.items];
+    delete draft.stacks?.[stackId];
+    ctx.emit("stack.dissolved", { stackId, items });
+    recomputeZoneMembership(draft, items, ctx);
   },
 };
 
@@ -501,9 +1450,14 @@ const deckDrawToContainer: ActionDefinition<unknown> = {
     }
     const drawn: string[] = [];
     for (let index = 0; index < payload.count; index += 1) {
-      const cardId = deck.items.pop();
+      const cardId = deck.items[deck.items.length - 1];
       if (cardId === undefined) throw new Error("Validated deck became insufficient");
-      target.items.push(cardId);
+      applyContainerTransfer(draft, {
+        entity: cardId,
+        from: payload.deckId,
+        to: payload.target,
+        index: target.items.length,
+      });
       drawn.push(cardId);
     }
     ctx.emit("deck.drawn", {
@@ -614,12 +1568,23 @@ export const builtInActions: ReadonlyArray<ActionDefinition<unknown>> = [
   seatAssign,
   entityGrab,
   entityDrop,
+  entityMove,
   entityFlip,
+  entitySetLocked,
+  containerMove,
   deckShuffle,
   deckDrawToContainer,
+  stackCreate,
+  stackAdd,
+  stackRemoveTop,
+  stackMerge,
+  stackDissolve,
   dieRoll,
   counterSet,
   counterAdd,
+  buttonPress,
+  textSet,
+  snapAttach,
 ];
 
 /** Add a new entity using the current action's deterministic allocation stream. */
@@ -635,19 +1600,35 @@ export function spawnEntity(
   return entity;
 }
 
-/** Permanently remove an entity and every canonical container membership. */
-export function destroyEntity(draft: CanonicalGameState, entityId: EntityId): void {
+/** Permanently remove an entity and every canonical placement membership. */
+export function destroyEntity(
+  draft: CanonicalGameState,
+  entityId: EntityId,
+  ctx?: Pick<ApplyContext, "emit">,
+): void {
   if (!hasOwn.call(draft.entities, entityId)) throw new Error(`Unknown entity: ${entityId}`);
-  const ids = Object.keys(draft.entities).sort((left, right) =>
-    left < right ? -1 : left > right ? 1 : 0,
-  );
-  for (const id of ids) {
-    const container = draft.entities[id]?.components.container as
-      | ContainerComponent
-      | undefined;
-    if (container !== undefined) {
-      container.items = container.items.filter((itemId) => itemId !== entityId);
+  const events = ctx ?? { emit: () => {} };
+  const entity = draft.entities[entityId];
+  const affected = [entityId];
+
+  const ownedContainer = entity?.components.container as ContainerComponent | undefined;
+  if (ownedContainer !== undefined) affected.push(...ownedContainer.items);
+  const ownedSnap = entity?.components["snap-point"] as SnapPointComponent | undefined;
+  if (ownedSnap?.attached !== undefined) {
+    for (const attachedId of [...ownedSnap.attached].sort(compareIds)) {
+      affected.push(attachedId);
+      events.emit("snap.detached", { snapPointId: entityId, entityId: attachedId });
     }
   }
+
+  const ownedZone = entity?.components.zone as ZoneComponent | undefined;
+  if (ownedZone?.members !== undefined) {
+    for (const memberId of [...ownedZone.members].sort(compareIds)) {
+      events.emit("zone.left", { zoneId: entityId, entityId: memberId });
+    }
+  }
+
+  detachExclusivePlacement(draft, entityId, events);
   delete draft.entities[entityId];
+  recomputeZoneMembership(draft, affected, events);
 }
