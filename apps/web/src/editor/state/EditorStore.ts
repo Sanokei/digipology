@@ -7,7 +7,7 @@ import { AUTO_SAVE_DEBOUNCE_MS, MAX_HISTORY_ENTRIES, MAX_LOG_ENTRIES } from "./c
 import * as ComponentActions from "./actions/components";
 import * as EntityActions from "./actions/entities";
 import { createHistoryFrame } from "./actions/history";
-import { createScript, deleteScript, renameScript, scriptContent, scriptFiles, updateScript } from "./scripts";
+import { createScript, deleteScript, renameScript, scriptContent, scriptFiles, scriptNameMatchesPath, updateScript } from "./scripts";
 import type {
   EditorDraft,
   EditorLogEntry,
@@ -146,6 +146,7 @@ export class EditorStore {
   renameSelectedScript(name: string): boolean {
     const current = this.selectedScriptPath;
     if (current === null) return false;
+    if (scriptNameMatchesPath(name, current)) return true;
     let path: string | null = null;
     const ok = this.applySceneCommand(`Renamed script ${current}`, (draft) => {
       path = renameScript(draft, current, name);
@@ -300,6 +301,7 @@ export class EditorStore {
   renameSelectedEntity(name: string): boolean {
     const id = this.selectedEntityId;
     if (id === null) return false;
+    if (name.trim() === id) return true;
     let renamed: string | null = null;
     const ok = this.applySceneCommand(`Renamed ${id}`, (draft) => {
       renamed = EntityActions.renameEntity(draft, id, name);

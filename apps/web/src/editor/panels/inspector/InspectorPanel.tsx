@@ -95,7 +95,13 @@ function prepareEditorFields(type: string, value: unknown): Record<string, unkno
   return component;
 }
 
-function normalizeEditorFields(type: string, component: Record<string, unknown>): void {
+export function resizeDieFaces(faces: readonly unknown[], sides: number): unknown[] {
+  const resized = faces.slice(0, sides);
+  while (resized.length < sides) resized.push(resized.length + 1);
+  return resized;
+}
+
+export function normalizeEditorFields(type: string, component: Record<string, unknown>): void {
   if (type === "transform") {
     Object.assign(component, canonicalizeTransform(component));
   } else if (type === "container") {
@@ -108,7 +114,7 @@ function normalizeEditorFields(type: string, component: Record<string, unknown>)
     delete component.minEditor; delete component.maxEditor;
   } else if (type === "die") {
     const sides = Math.round(Number(component.sidesEditor));
-    component.faces = Array.from({ length: sides }, (_, index) => index + 1);
+    component.faces = resizeDieFaces(Array.isArray(component.faces) ? component.faces : [], sides);
     if (typeof component.value === "string" && /^\d+$/.test(component.value)) component.value = Number(component.value);
     delete component.sidesEditor;
   } else if (type === "zone") {

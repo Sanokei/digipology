@@ -244,6 +244,34 @@ export class KernelStore {
     this.publish({ ...this.current, pendingRequestIds: pending });
   }
 
+  /**
+   * Drops requests tied to a dead transport. They are never resent, so keeping
+   * their optimistic effects would leave displayed state ahead of the server.
+   */
+  dropPendingRequests(requestIds: ReadonlySet<string> = this.current.pendingRequestIds): void {
+    if (requestIds.size === 0) return;
+    const dropped = this.current.predictionLedger.filter((prediction) => requestIds.has(prediction.requestId));
+    const candidates = this.current.predictionLedger.filter((prediction) => !requestIds.has(prediction.requestId));
+    const confirmed = this.current.state;
+    const replay = confirmed === null
+      ? { state: null, ledger: [] as PendingPrediction[], correction: null as PredictionCorrection | null }
+      : this.replayPredictions(confirmed, candidates);
+    const previousDisplayed = this.current.displayedState;
+    const visiblyRolledBack = dropped.length > 0 && previousDisplayed !== null && replay.state !== null &&
+      snapshot(previousDisplayed).stateHash !== snapshot(replay.state).stateHash;
+    const correction = replay.correction ?? (visiblyRolledBack ? this.makeCorrection(replay.state!, dropped[0]!) : null);
+    const pendingRequestIds = new Set(this.current.pendingRequestIds);
+    for (const requestId of requestIds) pendingRequestIds.delete(requestId);
+    this.publish({
+      ...this.current,
+      displayedState: replay.state,
+      pendingRequestIds,
+      predictionLedger: replay.ledger,
+      correction: correction ?? this.current.correction,
+      diagnostic: `Dropped ${requestIds.size} unconfirmed request${requestIds.size === 1 ? "" : "s"} after connection loss`,
+    });
+  }
+
   roomEnded(reason: RoomEndedMessage["reason"]): void {
     this.publish({
       ...this.current,

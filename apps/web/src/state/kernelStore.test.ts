@@ -207,6 +207,20 @@ describe("KernelStore", () => {
     expect(store.getSnapshot().displayedState).toBe(store.getSnapshot().state);
   });
 
+  it("drops lost pending predictions and surfaces a visible rollback as a correction", () => {
+    const store = predictionStore();
+    store.predictLocal({ requestId: "lost-flip", action: flip("token_a"), predictedAtSequence: 0 }, "alice");
+    expect(store.getSnapshot().displayedState?.entities.token_a?.components.flippable?.flipped).toBe(true);
+
+    store.dropPendingRequests();
+
+    expect(store.getSnapshot().predictionLedger).toHaveLength(0);
+    expect(store.getSnapshot().pendingRequestIds.size).toBe(0);
+    expect(store.getSnapshot().displayedState).toBe(store.getSnapshot().state);
+    expect(store.getSnapshot().displayedState?.entities.token_a?.components.flippable?.flipped).toBe(false);
+    expect(store.getSnapshot().correction?.message).toBe("The table changed before that action could finish.");
+  });
+
   it("revalidates predictions while applying a resume stream", () => {
     const store = predictionStore();
     store.predictLocal({ requestId: "alice-grab", action: grab("token_a"), predictedAtSequence: 0 }, "alice");
