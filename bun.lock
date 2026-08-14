@@ -53,6 +53,13 @@
         "wrangler": "^4.123.0",
       },
     },
+    "packages/ai": {
+      "name": "digipology-ai",
+      "version": "0.1.0",
+      "devDependencies": {
+        "@types/bun": "^1.3.0",
+      },
+    },
     "packages/canonical-json": {
       "name": "digipology-canonical-json",
       "version": "0.1.0",
@@ -561,6 +568,8 @@
     "devlop": ["devlop@1.1.0", "", { "dependencies": { "dequal": "^2.0.0" } }, "sha512-RWmIqhcFf1lRYBvNmr7qTNuyCt/7/ns2jbpp1+PalgE/rDQcBT0fioSMUpJ93irlUhC5hrg4cYqe6U+0ImW0rA=="],
 
     "diff": ["diff@8.0.4", "", {}, "sha512-DPi0FmjiSU5EvQV0++GFDOJ9ASQUVFh5kD+OzOnYdi7n3Wpm9hWWGfB/O2blfHcMVTL5WkQXSnRiK9makhrcnw=="],
+
+    "digipology-ai": ["digipology-ai@workspace:packages/ai"],
 
     "digipology-canonical-json": ["digipology-canonical-json@workspace:packages/canonical-json"],
 
