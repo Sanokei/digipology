@@ -12,6 +12,7 @@
   "dependencies": {
     "@babylonjs/core": "^7.54.3",
     "digipology-canonical-json": "workspace:*",
+    "digipology-covers": "workspace:*",
     "digipology-kernel": "workspace:*",
     "digipology-protocol": "workspace:*",
     "flexlayout-react": "^0.8.17",

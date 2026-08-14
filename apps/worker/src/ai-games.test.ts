@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { Database, type SQLQueryBindings } from "bun:sqlite";
 import { responseUsd, type DeepseekFetch, type DeepSeekRequest } from "digipology-ai";
+import { normalizeCoverSpec, seededSpec, type CoverSpec } from "digipology-covers";
 import type { ReleaseBundleDto } from "digipology-protocol/http";
 import { createSession } from "./auth";
 import { builtinCatalog } from "./catalog";
@@ -12,6 +13,7 @@ import {
   assembleAiGameDraft,
   authoringFromBundle,
 } from "./ai-games";
+import { COVER_GENERATION_TOOL } from "./cover-generation";
 
 const NOW = Date.UTC(2026, 7, 14, 12);
 const SESSION_SECRET = "test-session-secret-that-is-at-least-32-bytes";
@@ -230,6 +232,113 @@ describe("AI game budgets", () => {
   });
 });
 
+describe("cover generation route matrix", () => {
+  test("requires authentication and rejects a signed-in non-owner", async () => {
+    expect((await requestCoverRoute({} as Env, null, null)).status).toBe(401);
+    const fixture = await routeFixture("user_other");
+    const response = await requestCoverRoute(fixture.env, fixture.cookie, null);
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({ error: { code: "forbidden" } });
+  });
+
+  test("returns the identical four-candidate shape for keyless and capped requests", async () => {
+    const keyless = await routeFixture();
+    const keylessResponse = await requestCoverRoute(keyless.env, keyless.cookie, null);
+    expect(keylessResponse.status).toBe(200);
+    const keylessBody = await keylessResponse.json() as CoverResponse;
+    expect(keylessBody.source).toBe("procedural");
+    expect(keylessBody.candidates).toHaveLength(4);
+
+    const capped = await routeFixture();
+    capped.db.query("INSERT INTO deepseek_usage (user_id, day, usd) VALUES (?, ?, ?)")
+      .run("user_owner", "2026-08-14", 1);
+    let calls = 0;
+    const cappedResponse = await requestCoverRoute(capped.env, capped.cookie, async () => {
+      calls += 1;
+      return coverModelResponse(validCoverSpecs());
+    });
+    const cappedBody = await cappedResponse.json() as CoverResponse;
+    expect(cappedResponse.status).toBe(200);
+    expect(cappedBody.source).toBe("procedural");
+    expect(cappedBody.candidates).toHaveLength(4);
+    expect(calls).toBe(0);
+    expect(cappedBody.candidates.map(({ spec }) => spec))
+      .toEqual(Array.from({ length: 4 }, (_, index) => seededSpec(`owned-game:cover:${index}`)));
+  });
+
+  test("forces the cover tool and returns four normalized AI candidates", async () => {
+    const fixture = await routeFixture();
+    let captured: DeepSeekRequest | null = null;
+    const response = await requestCoverRoute(fixture.env, fixture.cookie, async (request) => {
+      captured = request;
+      return coverModelResponse(validCoverSpecs());
+    });
+    const body = await response.json() as CoverResponse;
+    expect(response.status).toBe(200);
+    expect(body.source).toBe("ai");
+    expect(body.candidates).toHaveLength(4);
+    expect(body.candidates.every(({ spec, svg }) => normalizeCoverSpec(spec) !== null && svg.includes('viewBox="0 0 336 504"'))).toBe(true);
+    const request = captured! as DeepSeekRequest;
+    expect(request.tool_choice).toEqual({ type: "function", function: { name: "emit_cover_specs" } });
+    expect(request.tools[0]?.function.parameters).toMatchObject({ additionalProperties: false });
+    expect(request.messages.at(-1)?.content).toContain("Owned Game");
+    expect(JSON.stringify(request)).not.toContain("response_format");
+    expect(COVER_GENERATION_TOOL.function.parameters).toMatchObject({ additionalProperties: false });
+    expect((fixture.db.query("SELECT usd FROM deepseek_usage WHERE user_id = ?")
+      .get("user_owner") as { usd: number }).usd).toBeGreaterThan(0);
+  });
+
+  test("replaces invalid emitted specs positionally and still returns four AI candidates", async () => {
+    const fixture = await routeFixture();
+    const emitted: unknown[] = validCoverSpecs();
+    emitted[1] = { ...emitted[1] as object, palette: ["red"] };
+    emitted[3] = { ...emitted[3] as object, motif: "external-image", seed: Number.NaN };
+    const response = await requestCoverRoute(fixture.env, fixture.cookie, async () => coverModelResponse(emitted));
+    const body = await response.json() as CoverResponse;
+    expect(body.source).toBe("ai");
+    expect(body.candidates).toHaveLength(4);
+    expect(body.candidates.every(({ spec }) => normalizeCoverSpec(spec) !== null)).toBe(true);
+    expect(body.candidates[0]?.spec).toEqual(validCoverSpecs()[0]);
+    expect(body.candidates[1]?.spec).toEqual(seededSpec("owned-game:cover-fallback:1"));
+    expect(body.candidates[3]?.spec).toEqual(seededSpec("owned-game:cover-fallback:3"));
+  });
+
+  test("records usage before parsing and degrades malformed model output procedurally", async () => {
+    const fixture = await routeFixture();
+    const malformed = {
+      choices: [{ message: { content: "not a forced tool payload" } }],
+      usage: { prompt_tokens: 500, completion_tokens: 250 },
+    };
+    const response = await requestCoverRoute(fixture.env, fixture.cookie, async () => malformed);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ source: "procedural", candidates: expect.any(Array) });
+    const usage = fixture.db.query("SELECT usd FROM deepseek_usage WHERE user_id = ?")
+      .get("user_owner") as { usd: number };
+    expect(usage.usd).toBeCloseTo(responseUsd(malformed), 12);
+  });
+});
+
+interface CoverResponse {
+  source: "ai" | "procedural";
+  candidates: Array<{ spec: CoverSpec; svg: string }>;
+}
+
+function validCoverSpecs(): CoverSpec[] {
+  return [
+    { palette: ["#101820", "#f2aa4c"], layout: "banded", motif: "cards", titleTreatment: "stacked", seed: 1 },
+    { palette: ["#0b132b", "#5bc0be", "#f7fff7"], layout: "diagonal", motif: "dice", titleTreatment: "boxed", seed: 2 },
+    { palette: ["#160f29", "#ff6b6b", "#ffe66d", "#f7fff7"], layout: "radial", motif: "meeples", titleTreatment: "underlined", seed: 3 },
+    { palette: ["#081c15", "#52b788", "#d8f3dc"], layout: "grid", motif: "abstract", titleTreatment: "minimal", seed: 4 },
+  ];
+}
+
+function coverModelResponse(candidates: unknown[]): unknown {
+  return {
+    choices: [{ message: { tool_calls: [{ function: { arguments: JSON.stringify({ candidates }) } }] } }],
+    usage: { prompt_tokens: 1_000, completion_tokens: 1_000 },
+  };
+}
+
 interface RouteFixture {
   db: Database;
   env: Env;
@@ -314,6 +423,19 @@ async function requestRoute(
     headers,
     body: JSON.stringify(route === "create" ? { prompt: "Make a quick dice game" } : { instruction: "Make scoring clearer" }),
   }), env, { deepseekFetch: fetch, now: NOW });
+}
+
+async function requestCoverRoute(
+  env: Env,
+  cookie: string | null,
+  fetch: DeepseekFetch | null,
+): Promise<Response> {
+  const headers = new Headers(CSRF);
+  if (cookie !== null) headers.set("Cookie", cookie);
+  return handlePlatformRequest(new Request(
+    "https://play.digipology.com/api/games/owned-game/covers/generate",
+    { method: "POST", headers },
+  ), env, { deepseekFetch: fetch, now: NOW });
 }
 
 function validModelResponse(): unknown {

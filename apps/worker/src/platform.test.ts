@@ -14,7 +14,7 @@ describe("catalog routes", () => {
       games: Array<{ slug: string; currentPlayers: number; totalPlays: number; coverVersion: number | null }>;
     };
     expect(gamesBody.games.map((game) => game.slug)).toEqual(["first-deal", "dice-dash"]);
-    expect(gamesBody.games[0]).toMatchObject({ currentPlayers: 0, totalPlays: 0, coverVersion: 1 });
+    expect(gamesBody.games[0]).toMatchObject({ currentPlayers: 0, totalPlays: 0, coverVersion: 2 });
 
     const gameResponse = await handlePlatformRequest(
       new Request("https://play.digipology.com/api/games/dice-dash"),

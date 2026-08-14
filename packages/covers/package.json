@@ -1,0 +1,45 @@
+{
+  "name": "digipology-covers",
+  "version": "0.1.0",
+  "description": "Deterministic, safe-by-construction CoverSpec rendering for Digipology.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "bun": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "bun run build",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sanokei/digipology.git",
+    "directory": "packages/covers"
+  },
+  "homepage": "https://digipology.com",
+  "bugs": {
+    "url": "https://github.com/Sanokei/digipology/issues"
+  },
+  "keywords": [
+    "covers",
+    "svg",
+    "deterministic",
+    "digipology"
+  ],
+  "devDependencies": {
+    "@types/bun": "^1.3.0"
+  }
+}

@@ -87,7 +87,7 @@ describe("built-in game catalog", () => {
       builtin: true,
       currentPlayers: 0,
       totalPlays: 0,
-      coverVersion: 1,
+      coverVersion: 2,
     });
     expect(releaseSummary(release)).toEqual({
       releaseId: "builtin_first_deal_1",
