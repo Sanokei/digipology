@@ -1,27 +1,41 @@
 import type {
   ApiError,
   ApiResult,
-  GameDto,
-  JoinRoomDto,
+  CreateGameRequest,
+  CreateGameResponse,
+  CreateReleaseResponse,
+  CreateRoomRequest,
+  CreateRoomResponse,
+  GameResponse,
+  GamesResponse,
+  JoinRoomRequest,
+  JoinRoomResponse,
+  MeResponse,
+  MyGamesResponse,
   PublicRoomDto,
   ReleaseBundleDto,
-  ReleaseSummaryDto,
-  RoomConnectionDto,
+  UpdateGameResponse,
   UserDto,
-} from "./types";
+  UserResponse,
+} from "digipology-protocol/http";
+import { CSRF_HEADER } from "digipology-protocol/http";
 
-export const CSRF_HEADER = "X-Digipology-CSRF";
+export { CSRF_HEADER } from "digipology-protocol/http";
 export type Fetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
 export interface ApiClient {
   requestLink(email: string): Promise<ApiResult<void>>;
   logout(): Promise<ApiResult<void>>;
-  me(): Promise<ApiResult<{ user: UserDto | null }>>;
-  patchMe(name: string): Promise<ApiResult<{ user: UserDto }>>;
-  listGames(): Promise<ApiResult<{ games: GameDto[] }>>;
-  getGame(slug: string): Promise<ApiResult<{ game: GameDto; latestRelease: ReleaseSummaryDto }>>;
-  createRoom(input: { releaseSlugOrId: string; visibility: "private" | "public"; displayName?: string }): Promise<ApiResult<RoomConnectionDto>>;
-  joinRoom(input: { code: string; displayName?: string }): Promise<ApiResult<JoinRoomDto>>;
+  me(): Promise<ApiResult<MeResponse>>;
+  patchMe(name: string): Promise<ApiResult<UserResponse>>;
+  listGames(): Promise<ApiResult<GamesResponse>>;
+  getGame(slug: string): Promise<ApiResult<GameResponse>>;
+  listMyGames(): Promise<ApiResult<MyGamesResponse>>;
+  createGame(input: CreateGameRequest): Promise<ApiResult<CreateGameResponse>>;
+  createRelease(slug: string, bundle: ReleaseBundleDto): Promise<ApiResult<CreateReleaseResponse>>;
+  updateGameVisibility(slug: string, visibility: "public" | "unlisted"): Promise<ApiResult<UpdateGameResponse>>;
+  createRoom(input: CreateRoomRequest): Promise<ApiResult<CreateRoomResponse>>;
+  joinRoom(input: JoinRoomRequest): Promise<ApiResult<JoinRoomResponse>>;
   listPublicRooms(): Promise<ApiResult<{ rooms: PublicRoomDto[] }>>;
   getReleaseBundle(id: string): Promise<ApiResult<ReleaseBundleDto>>;
 }
@@ -35,7 +49,13 @@ function mapError(value: unknown, status?: number): ApiError {
     const code = value.error.code;
     const message = value.error.message;
     if (typeof code === "string" && typeof message === "string") {
-      return status === undefined ? { code, message } : { code, message, status };
+      const mapped: ApiError = {
+        code,
+        message,
+        ...(status === undefined ? {} : { status }),
+      };
+      if (Array.isArray(value.report)) mapped.report = value.report as NonNullable<ApiError["report"]>;
+      return mapped;
     }
   }
   return {
@@ -92,6 +112,12 @@ export function createApiClient(fetcher: Fetcher = fetch): ApiClient {
     patchMe: (name) => request("/api/me", { method: "PATCH", body: JSON.stringify({ name }) }),
     listGames: () => request("/api/games"),
     getGame: (slug) => request(`/api/games/${encodeURIComponent(slug)}`),
+    listMyGames: () => request("/api/games/mine"),
+    createGame: (input) => post("/api/games", input),
+    createRelease: (slug, bundle) => post(`/api/games/${encodeURIComponent(slug)}/releases`, { bundle }),
+    updateGameVisibility: (slug, visibility) => request(`/api/games/${encodeURIComponent(slug)}`, {
+      method: "PATCH", body: JSON.stringify({ visibility }),
+    }),
     createRoom: (input) => post("/api/rooms", input),
     joinRoom: (input) => post("/api/rooms/join", input),
     listPublicRooms: () => request("/api/rooms/public"),

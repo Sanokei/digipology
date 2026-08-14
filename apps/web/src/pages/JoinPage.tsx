@@ -25,10 +25,10 @@ export function JoinPage() {
     if (displayName) saveGuestDisplayName(displayName);
     const result = await api.joinRoom({ code: normalizedCode, ...(displayName ? { displayName } : {}) });
     if (!result.ok) { setErrorKind(joinErrorKind(result.error.code)); setStep("error"); return; }
-    const inviteUrl = result.value.inviteUrl ?? `https://play.digipology.com/join/${normalizedCode}`;
+    const inviteUrl = `https://play.digipology.com/join/${normalizedCode}`;
     saveRoomSession({
       ...result.value,
-      joinCode: result.value.joinCode ?? normalizedCode,
+      joinCode: normalizedCode,
       inviteUrl,
       gameTitle: "Digipology table",
     });

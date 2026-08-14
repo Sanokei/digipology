@@ -22,6 +22,12 @@
       "migrations_dir": "migrations"
     }
   ],
+  "r2_buckets": [
+    {
+      "binding": "RELEASES",
+      "bucket_name": "digipology-releases"
+    }
+  ],
   // The sender domain must first be onboarded with
   // `wrangler email sending enable digipology.com`.
   "send_email": [{ "name": "EMAIL" }],

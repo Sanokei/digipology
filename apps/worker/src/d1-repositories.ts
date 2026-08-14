@@ -1,4 +1,9 @@
-import type { UserDto } from "digipology-protocol/http";
+import type {
+  GameVisibility,
+  OwnedGameDto,
+  UploadedReleaseSummaryDto,
+  UserDto,
+} from "digipology-protocol/http";
 import type {
   MagicLinkRecord,
   MagicLinkRepository,
@@ -28,6 +33,59 @@ interface SessionRow {
   user_id: string;
   user_name: string;
   user_email: string;
+}
+
+export interface UploadedGameRecord {
+  id: string;
+  slug: string;
+  title: string;
+  tagline: string;
+  minPlayers: number;
+  maxPlayers: number;
+  ownerUserId: string;
+  creatorHandle: string;
+  visibility: GameVisibility;
+  latestReleaseId: string;
+}
+
+export interface UploadedReleaseRecord extends UploadedReleaseSummaryDto {
+  gameId: string;
+  gameSlug: string;
+  gameTitle: string;
+  minPlayers: number;
+  maxPlayers: number;
+  manifestHash: string;
+  bundleKey: string;
+  status: string;
+}
+
+interface GameRow {
+  id: string;
+  slug: string;
+  title: string;
+  tagline: string;
+  min_players: number;
+  max_players: number;
+  owner_user_id: string;
+  owner_name: string;
+  visibility: GameVisibility;
+  latest_release_id: string;
+}
+
+interface ReleaseRow {
+  id: string;
+  game_id: string;
+  game_slug: string;
+  game_title: string;
+  min_players: number;
+  max_players: number;
+  release_number: number;
+  kernel_version: number;
+  lua_api_version: number;
+  manifest_hash: string;
+  bundle_key: string;
+  status: string;
+  created_at: number;
 }
 
 export class D1Repositories implements MagicLinkRepository, SessionRepository, RateLimitStore {
@@ -125,19 +183,145 @@ export class D1Repositories implements MagicLinkRepository, SessionRepository, R
     return result !== null;
   }
 
-  async increment(key: string, windowStart: number): Promise<number> {
-    const row = await this.db.prepare(
-      `INSERT INTO rate_limits (key, window_start, count) VALUES (?, ?, 1)
+  async increment(key: string, windowStart: number, expiresAt: number, now: number): Promise<number> {
+    const statements = await this.db.batch([
+      this.db.prepare("DELETE FROM rate_limits WHERE expires_at <= ?").bind(now),
+      this.db.prepare(
+      `INSERT INTO rate_limits (key, window_start, count, expires_at) VALUES (?, ?, 1, ?)
        ON CONFLICT(key) DO UPDATE SET
          count = CASE
            WHEN rate_limits.window_start = excluded.window_start THEN rate_limits.count + 1
            ELSE 1
          END,
-         window_start = excluded.window_start
+         window_start = excluded.window_start,
+         expires_at = ?
        RETURNING count`,
-    ).bind(key, windowStart).first<{ count: number }>();
+      ).bind(key, windowStart, expiresAt, expiresAt),
+    ]);
+    const row = statements[1]?.results[0] as { count: number } | undefined;
     if (row === null) throw new Error("D1 rate-limit increment returned no row");
+    if (row === undefined) throw new Error("D1 rate-limit increment returned no row");
     return row.count;
+  }
+
+  async uploadedSlugExists(slug: string): Promise<boolean> {
+    return (await this.db.prepare("SELECT id FROM games WHERE slug = ?").bind(slug).first()) !== null;
+  }
+
+  async listPublicUploadedGames(): Promise<UploadedGameRecord[]> {
+    const rows = await this.db.prepare(gameSelect(
+      "WHERE g.builtin = 0 AND g.visibility = 'public' AND g.latest_release_id IS NOT NULL ORDER BY g.created_at",
+    )).all<GameRow>();
+    return rows.results.map(gameRecord);
+  }
+
+  async getUploadedGame(slug: string): Promise<UploadedGameRecord | null> {
+    const row = await this.db.prepare(gameSelect("WHERE g.builtin = 0 AND g.slug = ?"))
+      .bind(slug).first<GameRow>();
+    return row === null ? null : gameRecord(row);
+  }
+
+  async getUploadedRelease(releaseId: string): Promise<UploadedReleaseRecord | null> {
+    const row = await this.db.prepare(releaseSelect("WHERE r.id = ? AND g.builtin = 0"))
+      .bind(releaseId).first<ReleaseRow>();
+    return row === null ? null : releaseRecord(row);
+  }
+
+  async resolveUploadedRelease(reference: string): Promise<UploadedReleaseRecord | null> {
+    const direct = await this.getUploadedRelease(reference);
+    if (direct !== null) return direct;
+    const row = await this.db.prepare(releaseSelect(
+      "WHERE g.slug = ? AND r.id = g.latest_release_id AND g.builtin = 0",
+    )).bind(reference).first<ReleaseRow>();
+    return row === null ? null : releaseRecord(row);
+  }
+
+  async listOwnedGames(userId: string): Promise<OwnedGameDto[]> {
+    const rows = await this.db.prepare(gameSelect(
+      "WHERE g.builtin = 0 AND g.owner_user_id = ? ORDER BY g.updated_at DESC",
+    )).bind(userId).all<GameRow>();
+    const result: OwnedGameDto[] = [];
+    for (const row of rows.results) {
+      const releases = await this.db.prepare(
+        `SELECT id, release_number, kernel_version, lua_api_version, created_at
+         FROM releases WHERE game_id = ? ORDER BY release_number DESC`,
+      ).bind(row.id).all<{
+        id: string; release_number: number; kernel_version: number; lua_api_version: number; created_at: number;
+      }>();
+      result.push({
+        slug: row.slug,
+        title: row.title,
+        tagline: row.tagline,
+        minPlayers: row.min_players,
+        maxPlayers: row.max_players,
+        builtin: false,
+        creatorHandle: row.owner_name,
+        visibility: row.visibility,
+        latestReleaseId: row.latest_release_id,
+        releases: releases.results.map((release) => ({
+          releaseId: release.id,
+          releaseNumber: release.release_number,
+          kernelVersion: release.kernel_version,
+          luaApiVersion: release.lua_api_version,
+          createdAt: new Date(release.created_at).toISOString(),
+        })),
+      });
+    }
+    return result;
+  }
+
+  async createUploadedGame(input: {
+    gameId: string; releaseId: string; ownerUserId: string; slug: string; title: string;
+    tagline: string; minPlayers: number; maxPlayers: number; manifestHash: string;
+    bundleKey: string; now: number;
+  }): Promise<void> {
+    await this.db.batch([
+      this.db.prepare(
+        `INSERT INTO games
+          (id, slug, title, tagline, min_players, max_players, builtin, latest_release_id,
+           created_at, updated_at, owner_user_id, visibility)
+         VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, 'public')`,
+      ).bind(
+        input.gameId, input.slug, input.title, input.tagline, input.minPlayers, input.maxPlayers,
+        input.releaseId, input.now, input.now, input.ownerUserId,
+      ),
+      this.db.prepare(
+        `INSERT INTO releases
+          (id, game_id, release_number, kernel_version, lua_api_version, manifest_hash,
+           status, created_at, format_version, network_protocol_version, bundle_key)
+         VALUES (?, ?, 1, 1, 1, ?, 'ready', ?, 1, 1, ?)`,
+      ).bind(input.releaseId, input.gameId, input.manifestHash, input.now, input.bundleKey),
+    ]);
+  }
+
+  async createUploadedRelease(input: {
+    gameId: string; releaseId: string; releaseNumber: number; manifestHash: string;
+    bundleKey: string; now: number;
+  }): Promise<void> {
+    await this.db.batch([
+      this.db.prepare(
+        `INSERT INTO releases
+          (id, game_id, release_number, kernel_version, lua_api_version, manifest_hash,
+           status, created_at, format_version, network_protocol_version, bundle_key)
+         VALUES (?, ?, ?, 1, 1, ?, 'ready', ?, 1, 1, ?)`,
+      ).bind(input.releaseId, input.gameId, input.releaseNumber, input.manifestHash, input.now, input.bundleKey),
+      this.db.prepare(
+        "UPDATE games SET latest_release_id = ?, updated_at = ? WHERE id = ?",
+      ).bind(input.releaseId, input.now, input.gameId),
+    ]);
+  }
+
+  async updateGameVisibility(
+    slug: string,
+    ownerUserId: string,
+    visibility: GameVisibility,
+    now: number,
+  ): Promise<boolean> {
+    const row = await this.db.prepare(
+      `UPDATE games SET visibility = ?, updated_at = ?
+       WHERE slug = ? AND owner_user_id = ? AND builtin = 0 RETURNING id`,
+    ).bind(visibility, now, slug, ownerUserId).first<{ id: string }>();
+    return row !== null;
   }
 
   async findOrCreateUser(email: string, now: number): Promise<UserDto> {
@@ -160,6 +344,52 @@ export class D1Repositories implements MagicLinkRepository, SessionRepository, R
        RETURNING id, name, email`,
     ).bind(name, now, userId).first<UserDto>();
   }
+}
+
+function gameSelect(where: string): string {
+  return `SELECT g.id, g.slug, g.title, g.tagline, g.min_players, g.max_players,
+    g.owner_user_id, u.name AS owner_name, g.visibility, g.latest_release_id
+    FROM games g JOIN users u ON u.id = g.owner_user_id ${where}`;
+}
+
+function releaseSelect(where: string): string {
+  return `SELECT r.id, r.game_id, g.slug AS game_slug, g.title AS game_title,
+    g.min_players, g.max_players, r.release_number, r.kernel_version, r.lua_api_version,
+    r.manifest_hash, r.bundle_key, r.status, r.created_at
+    FROM releases r JOIN games g ON g.id = r.game_id ${where}`;
+}
+
+function gameRecord(row: GameRow): UploadedGameRecord {
+  return {
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    tagline: row.tagline,
+    minPlayers: row.min_players,
+    maxPlayers: row.max_players,
+    ownerUserId: row.owner_user_id,
+    creatorHandle: row.owner_name,
+    visibility: row.visibility,
+    latestReleaseId: row.latest_release_id,
+  };
+}
+
+function releaseRecord(row: ReleaseRow): UploadedReleaseRecord {
+  return {
+    releaseId: row.id,
+    gameId: row.game_id,
+    gameSlug: row.game_slug,
+    gameTitle: row.game_title,
+    minPlayers: row.min_players,
+    maxPlayers: row.max_players,
+    releaseNumber: row.release_number,
+    kernelVersion: row.kernel_version,
+    luaApiVersion: row.lua_api_version,
+    manifestHash: row.manifest_hash,
+    bundleKey: row.bundle_key,
+    status: row.status,
+    createdAt: new Date(row.created_at).toISOString(),
+  };
 }
 
 function defaultName(email: string): string {

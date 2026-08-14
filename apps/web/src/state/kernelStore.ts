@@ -9,7 +9,7 @@ import {
 } from "digipology-kernel";
 import type { OrderedAction, PlayerInfo, ResumeMessage, RoomEndedMessage } from "digipology-protocol";
 
-import type { ReleaseBundleDto } from "../api/types";
+import type { ReleaseBundleDto } from "digipology-protocol/http";
 
 export interface KernelStoreSnapshot {
   state: CanonicalGameState | null;
@@ -26,12 +26,7 @@ export interface KernelStoreSnapshot {
 export type ApplyStreamResult = { ok: true } | { ok: false; expected: number; actual: number };
 
 function bundleSnapshot(bundle: ReleaseBundleDto): GameSnapshot {
-  const candidate = bundle.initialSnapshot ?? bundle.snapshot;
-  if (candidate === undefined) {
-    // TODO: align this adapter with the final release-bundle DTO from the platform worker PR.
-    throw new TypeError("Release bundle does not contain an initial snapshot");
-  }
-  return candidate;
+  return bundle.initialSnapshot as unknown as GameSnapshot;
 }
 
 function toKernelAction(message: OrderedAction): OrderedActionInput<unknown> {
@@ -68,7 +63,7 @@ export class KernelStore {
     this.publish({
       ...this.current,
       definitions: bundle.definitions ?? {},
-      gameTitle: bundle.title ?? bundle.game?.title ?? null,
+      gameTitle: bundle.title ?? null,
     });
   }
 

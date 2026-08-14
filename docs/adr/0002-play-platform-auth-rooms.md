@@ -46,6 +46,21 @@ WS    /api/rooms/:roomId/ws    (roomToken; speaks digipology-protocol v1)
 ```
 Errors: JSON `{error: {code, message}}`, stable `code` strings. All non-GET routes CSRF-safe by same-origin + SameSite cookie + custom header check.
 
+### 6. Uploaded games v1 (Issue #35 extension)
+
+The API v1 contract additionally includes:
+
+```
+POST  /api/games                {title,tagline,slug?,minPlayers,maxPlayers,bundle} -> 201 {game,release}
+POST  /api/games/:slug/releases {bundle} -> 201 {release}
+GET   /api/games/mine           -> {games}
+PATCH /api/games/:slug          {visibility:"public"|"unlisted"} -> {game}
+```
+
+Publishing requires authentication; release creation and visibility changes require ownership. Built-ins are unowned and cannot be changed. Public uploaded games join built-ins in `GET /api/games`; uploaded summaries include the creator handle. `GET /api/releases/:id/bundle` resolves both compiled-in and R2-backed releases and returns immutable cache headers.
+
+Validated canonical bundles are written once to `digipology-releases` at `releases/<releaseId>.json`. Artifact creation precedes the transactional release insert/latest pointer move. Releases have no update or delete route. MVP takedown changes game visibility to `unlisted`; pinned rooms and immutable release URLs continue to work. Validation failures are HTTP 422 with a structured report. The exact format and validation chain are documented in `docs/bundle-format.md`.
+
 ## Consequences
 - No OAuth until the owner creates provider apps (documented, schema-ready).
 - One worker per environment keeps ops simple; splitting API from assets later is a routing change, not an architecture change.
