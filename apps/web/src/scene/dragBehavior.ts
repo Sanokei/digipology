@@ -70,6 +70,9 @@ interface AttachDragBehaviorOptions {
   canvas: HTMLCanvasElement;
   mesh: Mesh;
   bounds: DragBounds;
+  onGrab?: () => void;
+  onDrop?: (position: Vector3Like) => void;
+  canInteract?: () => boolean;
 }
 
 const HOVER_COLOR = Color3.FromHexString("#f7d89b");
@@ -90,6 +93,9 @@ export function attachDragBehavior({
   canvas,
   mesh,
   bounds,
+  onGrab,
+  onDrop,
+  canInteract,
 }: AttachDragBehaviorOptions): () => void {
   const highlight = new HighlightLayer("grab-highlight", scene);
   const pickingRay = new Ray(Vector3.Zero(), Vector3.Down());
@@ -115,7 +121,7 @@ export function attachDragBehavior({
     setHighlight(hovered ? HOVER_COLOR : null);
   }
 
-  function finishDrag(pointerId?: number) {
+  function finishDrag(pointerId?: number, submit = true) {
     if (heldPointerId === null || (pointerId !== undefined && pointerId !== heldPointerId)) {
       return;
     }
@@ -129,6 +135,8 @@ export function attachDragBehavior({
     setHighlight(isHovered ? HOVER_COLOR : null);
     camera.attachControl(canvas, true);
 
+    if (submit) onDrop?.({ x: mesh.position.x, y: mesh.position.y, z: mesh.position.z });
+
     if (canvas.hasPointerCapture(capturedPointerId)) {
       canvas.releasePointerCapture(capturedPointerId);
     }
@@ -138,7 +146,7 @@ export function attachDragBehavior({
     const event = pointerInfo.event as PointerEvent;
 
     if (pointerInfo.type === PointerEventTypes.POINTERDOWN) {
-      if (event.button !== 0 || pointerInfo.pickInfo?.pickedMesh !== mesh) {
+      if (event.button !== 0 || pointerInfo.pickInfo?.pickedMesh !== mesh || canInteract?.() === false) {
         return;
       }
 
@@ -150,6 +158,7 @@ export function attachDragBehavior({
       canvas.setPointerCapture(event.pointerId);
       canvas.style.cursor = "grabbing";
       setHighlight(HELD_COLOR);
+      onGrab?.();
       return;
     }
 
@@ -198,7 +207,7 @@ export function attachDragBehavior({
   canvas.addEventListener("pointercancel", handlePointerCancel);
 
   return () => {
-    finishDrag();
+    finishDrag(undefined, false);
     scene.onPointerObservable.remove(pointerObserver);
     canvas.removeEventListener("lostpointercapture", handleLostPointerCapture);
     canvas.removeEventListener("pointercancel", handlePointerCancel);

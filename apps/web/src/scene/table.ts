@@ -14,16 +14,11 @@ export const TABLE_DEPTH = 7.2;
 export const TABLE_SURFACE_Y = 0;
 export const GRABBABLE_SIZE = 0.9;
 
-export interface TableGraph {
-  table: Mesh;
-  grabbable: Mesh;
-}
-
 export interface LightingGraph {
   shadows: ShadowGenerator;
 }
 
-export function buildTable(scene: Scene): TableGraph {
+export function buildTableSurface(scene: Scene): Mesh {
   const felt = new StandardMaterial("table-felt", scene);
   felt.diffuseColor = Color3.FromHexString("#173f32");
   felt.specularColor = Color3.FromHexString("#07130f");
@@ -39,21 +34,7 @@ export function buildTable(scene: Scene): TableGraph {
   table.receiveShadows = true;
   table.isPickable = false;
 
-  const cubeMaterial = new StandardMaterial("demo-piece-material", scene);
-  cubeMaterial.diffuseColor = Color3.FromHexString("#e4a951");
-  cubeMaterial.specularColor = Color3.FromHexString("#5c3d12");
-  cubeMaterial.roughness = 0.58;
-
-  const grabbable = MeshBuilder.CreateBox(
-    "demo-grabbable",
-    { size: GRABBABLE_SIZE },
-    scene,
-  );
-  grabbable.position.set(-1.2, TABLE_SURFACE_Y + GRABBABLE_SIZE / 2, 0.35);
-  grabbable.material = cubeMaterial;
-  grabbable.isPickable = true;
-
-  return { table, grabbable };
+  return table;
 }
 
 export function buildLighting(scene: Scene): LightingGraph {
