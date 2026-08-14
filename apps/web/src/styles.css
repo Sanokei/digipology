@@ -608,6 +608,8 @@ button.action-card { width: 100%; border-right: 0; border-left: 0; text-align: l
 }
 
 .players-panel, .diagnostics-panel, .dice-controls { position: absolute; z-index: 3; top: 94px; width: min(310px, calc(100vw - 32px)); border: 1px solid rgba(255,255,255,.12); background: #0a1511; box-shadow: 0 22px 60px rgba(0,0,0,.32); }
+.prediction-correction { position: absolute; z-index: 3; top: 94px; left: 50%; max-width: min(420px, calc(100vw - 32px)); padding: 11px 15px; translate: -50% 0; border: 1px solid rgba(240,200,107,.42); border-radius: 9px; background: rgba(30,25,13,.94); box-shadow: 0 16px 44px rgba(0,0,0,.36); color: #ffe5a8; font-size: .76rem; font-weight: 650; pointer-events: none; animation: correction-in 180ms ease-out; }
+@keyframes correction-in { from { opacity: 0; translate: -50% -7px; } }
 .players-panel { right: 12px; }
 .diagnostics-panel { left: 12px; padding-bottom: 12px; }
 .dice-controls { right: 12px; top: auto; bottom: 18px; display: flex; gap: 8px; align-items: center; padding: 10px; }
