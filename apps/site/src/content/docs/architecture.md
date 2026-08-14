@@ -5,7 +5,7 @@ description: A human-readable tour of Digipology's live play platform, determini
 
 Digipology treats a tabletop session as a shared, reproducible story. Everyone begins from the same snapshot, receives the same ordered actions, and runs those actions through the same versioned game kernel. If the clients are healthy, they arrive at the same state.
 
-That model now powers the first playable slice at [play.digipology.com](https://play.digipology.com): open a room, share its invite, and meet at the same browser-native table.
+That model now powers live play at [play.digipology.com](https://play.digipology.com): open a room, share its invite, and meet at the same browser-native table.
 
 ## Two front doors, one play origin
 

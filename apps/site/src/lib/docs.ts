@@ -14,9 +14,13 @@ export interface DocNavigation<T extends DocSummary> {
 
 export const featuredDocOrder = [
   "getting-started",
+  "playing",
+  "creator-guide",
+  "ai-features",
   "architecture",
   "lua-api",
   "actions",
+  "bundle-format",
 ] as const;
 
 const orderById = new Map<string, number>(

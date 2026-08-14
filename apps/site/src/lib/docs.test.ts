@@ -4,8 +4,12 @@ import { docPath, getDocNavigation, orderDocs } from "./docs";
 
 const docs = [
   {
+    id: "repository/ai-features",
+    data: { title: "AI features", description: "AI" },
+  },
+  {
     id: "repository/bundle-format",
-    data: { title: "Bundle format", description: "Future reference" },
+    data: { title: "Bundle format", description: "Bundle reference" },
   },
   {
     id: "repository/actions",
@@ -23,25 +27,46 @@ const docs = [
     id: "architecture",
     data: { title: "Architecture", description: "How it works" },
   },
+  {
+    id: "repository/creator-guide",
+    data: { title: "Creator guide", description: "Create" },
+  },
+  {
+    id: "repository/playing",
+    data: { title: "Playing", description: "Play" },
+  },
+  {
+    id: "repository/z-future",
+    data: { title: "Z future", description: "Unknown" },
+  },
+  {
+    id: "repository/a-future",
+    data: { title: "A future", description: "Unknown" },
+  },
 ] as const;
 
 describe("documentation navigation", () => {
   test("keeps featured pages in narrative order and appends future docs", () => {
     expect(orderDocs(docs).map((doc) => doc.id)).toEqual([
       "getting-started",
+      "repository/playing",
+      "repository/creator-guide",
+      "repository/ai-features",
       "architecture",
       "repository/lua-api",
       "repository/actions",
       "repository/bundle-format",
+      "repository/a-future",
+      "repository/z-future",
     ]);
   });
 
   test("provides neighboring pages without mutating its input", () => {
     const originalOrder = docs.map((doc) => doc.id);
-    const navigation = getDocNavigation(docs, "architecture");
+    const navigation = getDocNavigation(docs, "repository/creator-guide");
 
-    expect(navigation.previous?.id).toBe("getting-started");
-    expect(navigation.next?.id).toBe("repository/lua-api");
+    expect(navigation.previous?.id).toBe("repository/playing");
+    expect(navigation.next?.id).toBe("repository/ai-features");
     expect(docs.map((doc) => doc.id)).toEqual(originalOrder);
   });
 

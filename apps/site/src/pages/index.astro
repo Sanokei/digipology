@@ -9,6 +9,9 @@ const packages = [
   ["digipology-kernel", "Pure tabletop state and action engine"],
   ["digipology-protocol", "Shared multiplayer wire contracts"],
   ["digipology-lua", "Sandboxed creator scripting host"],
+  ["digipology-ai", "Zero-dependency DeepSeek transport and structured-output harness for Digipology."],
+  ["digipology-covers", "Deterministic, safe-by-construction CoverSpec rendering for Digipology."],
+  ["digipology-demo-games", "Immutable built-in demo game release bundles for Digipology."],
 ] as const;
 ---
 
@@ -38,12 +41,13 @@ const packages = [
     <aside class="status-docket" aria-label="Project status">
       <div class="docket-topline">
         <span>Status note</span>
-        <span>Issue 008</span>
+        <span>Issue 058</span>
       </div>
-      <p class="status-stamp">Early<br />access</p>
+      <p class="status-stamp">Loop<br />live</p>
       <p>
-        The first playable slice is live: host a built-in demo game and invite friends
-        with a join code. The creator pipeline is still being built in the open.
+        Build in the desktop browser editor, script in Lua, playtest, publish, and browse.
+        Quick Play with strangers or host and invite friends. AI-assisted drafting is
+        available when the server is configured for it.
       </p>
       <a href="https://play.digipology.com">Open the table <span aria-hidden="true">→</span></a>
     </aside>
@@ -141,18 +145,19 @@ const packages = [
   <section class="creator-section" aria-labelledby="creator-title">
     <div class="shell creator-grid">
       <div class="creator-copy">
-        <p class="eyebrow">Creator rules / Lua v1</p>
-        <h2 id="creator-title">Script the game,<br />not the browser.</h2>
+        <p class="eyebrow">Creator workspace / Lua v1</p>
+        <h2 id="creator-title">Build the table.<br />Script the rules.</h2>
         <p>
-          Lua gives creators tabletop vocabulary—decks, hands, dice, counters, zones,
-          players, prompts, and seeded random calls—inside a deterministic sandbox.
+          The desktop editor puts the table, hierarchy, component inspector, Lua IDE,
+          diagnostics, and an in-tab playtest in one docked workspace. AI can draft a game
+          or propose a reviewed edit when it is configured on the server.
         </p>
         <ul class="plain-checks">
-          <li>Documented API only</li>
-          <li>No network or filesystem escape</li>
-          <li>Bounded, atomic rule execution</li>
+          <li>Visual entities and component editing</li>
+          <li>Documented, sandboxed Lua API</li>
+          <li>Validated publish handoff</li>
         </ul>
-        <a class="button button-quiet" href="/docs/lua-api/">Read the Lua API</a>
+        <a class="button button-quiet" href="/docs/creator-guide/">Open the creator guide</a>
       </div>
 
       <figure class="code-sheet">

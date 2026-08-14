@@ -1,26 +1,30 @@
 ---
 title: Getting started
-description: What you can explore today, what is still being built, and where to follow Digipology's progress.
+description: Create, playtest, publish, discover, host, invite, and play Digipology games in the browser.
 ---
 
-Digipology is in **early access**. The first playable slice is live: you can open a room for a built-in game, share its invite, and play together in the browser. The creator and publishing tools are still being built in the open.
+Digipology's full creator-to-player loop is live in the browser: **create → playtest → publish → browse → host → invite → play**. Creators can work visually in the desktop editor, add rules in Lua, or start from an AI-generated draft when the server is configured for it. Players can browse published games, Quick Play into a public room, or join a private table from an invitation.
 
 ## What you can do today
 
-You can play today, follow the public engineering work, read the architecture decisions, and inspect the small `digipology-*` packages as they land.
+Open [Digipology Play](https://play.digipology.com) to use the shipped loop without installing native software.
 
-- [Open Digipology Play](https://play.digipology.com) to create or join a room.
-- [Browse the Digipology repository](https://github.com/Sanokei/digipology) for source, issues, and accepted architecture decisions.
-- [Find Digipology packages on npm](https://www.npmjs.com/search?q=digipology-) as reusable parts of the platform become available.
-- Read [the architecture overview](/docs/architecture/) to understand why the game kernel, renderer, and multiplayer service have separate jobs.
-- Read [the creator-facing Lua API v1 reference](/docs/lua-api/) that game rules use.
+- [Playing Digipology](/docs/playing/) explains Quick Play, hosting, invitations, guests, and reconnects.
+- The [creator guide](/docs/creator-guide/) walks through local drafts, the docked editor, Lua scripting, in-tab playtests, and the publish handoff.
+- [AI features](/docs/ai-features/) covers prompt-created drafts, editor-assisted changes, cover options, availability, and usage limits.
+- The [architecture overview](/docs/architecture/) explains why the deterministic kernel, renderer, and multiplayer service have separate jobs.
+- The [Lua API v1 reference](/docs/lua-api/) documents the creator-facing scripting contract.
 
-## The intended path
+## Create and publish
 
-The live room experience is one part of the intended loop. A creator will assemble a tabletop project in the browser, add rules with Lua when needed, playtest it, and publish an immutable release. A player can already open an invitation and join from the browser without installing native software; the creator path is the next part taking shape.
+Use the desktop editor to arrange entities and components, write Lua rules, and run an isolated playtest in the same tab. When the draft is ready, the editor hands it to the create page, where the standard validation report runs before an immutable release is published. AI can prepare a reviewable game draft or propose an edit, but it never publishes automatically.
+
+## Find a table
+
+The catalog lists built-in and community games. Quick Play joins the fullest fresh public room for the selected game or opens a new public room when no suitable seat is available. You can also host a private room and share its eight-character code or invite URL. Guests can play and host private rooms; accounts are required for publishing and public hosting.
 
 ## Want to contribute?
 
 Start with the repository's open issues and read the local contributor guidance before changing code. The specification is directional; accepted architecture decisions in `docs/adr/` explain how it is being implemented.
 
-Next: [see how the platform fits together](/docs/architecture/).
+Next: [learn how to play](/docs/playing/).
