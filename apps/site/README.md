@@ -4,7 +4,7 @@ Static landing and documentation site for [digipology.com](https://digipology.co
 
 ## Why Astro
 
-Issue #8 prefers Astro, and it fits this site directly: content collections validate the documentation frontmatter, markdown pages become individual static HTML routes, and Astro ships no client framework runtime by default. The only browser JavaScript here is the small inline theme toggle. That keeps the landing page fast while leaving a straightforward home for the future Lua API reference.
+Issue #8 prefers Astro, and it fits this site directly: content collections validate the documentation frontmatter, markdown pages become individual static HTML routes, and Astro ships no client framework runtime by default. The only browser JavaScript here is the small inline theme toggle. That keeps the landing page fast while leaving a straightforward home for the Lua API reference.
 
 ## Development
 
@@ -32,7 +32,20 @@ description: One-sentence page summary.
 ---
 ```
 
-Future Lua reference markdown can be added under `src/content/docs/` with that same contract. The three initial pages have an explicit narrative order; later pages are appended alphabetically until the navigation order is intentionally expanded.
+## Repository docs sync
+
+The site uses a build-time sync because the repository-root `docs/` files remain useful on GitHub while the site needs a small, deterministic presentation transform. `bun run docs:sync` discovers Markdown recursively, validates its frontmatter, strips the source H1 already supplied by the site layout, rewrites links to published Markdown as `/docs/.../`, and sends links to internal repository material to GitHub. It writes ignored output under `src/content/docs/repository/`; generated files must not be edited.
+
+This design makes `docs/` the single source of truth, removes checked-in copies, and leaves Astro's zod schema as a second build-time gate. A new publishable `docs/*.md` file needs only non-empty `title` and `description` frontmatter to gain a page and an alphabetically slotted navigation entry. No per-file registry is involved.
+
+The explicit non-public list lives in `src/lib/docs-sync.ts`:
+
+- `docs/adr/**`
+- `docs/runbooks/**`
+- `docs/spec/**`
+- `docs/releasing.md`
+
+Site-only reader guides such as Getting started and Architecture remain authored under `src/content/docs/`. The featured pages have an explicit narrative order; later synced pages are appended alphabetically until the navigation order is intentionally expanded.
 
 ## Cloudflare Workers static assets
 

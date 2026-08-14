@@ -4,10 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "astro dev",
-    "build": "astro build && bun run check:links",
+    "docs:sync": "bun scripts/sync-docs.ts",
+    "dev": "bun run docs:sync && astro dev",
+    "build": "bun run docs:sync && astro build && bun run check:links",
     "preview": "astro preview",
-    "typecheck": "astro check",
+    "typecheck": "bun run docs:sync && astro check",
     "test": "bun test",
     "check:links": "bun scripts/check-links.ts"
   },

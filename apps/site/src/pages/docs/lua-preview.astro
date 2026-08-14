@@ -1,0 +1,19 @@
+---
+const destination = "/docs/lua-api/";
+const canonicalURL = new URL(destination, Astro.site);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta http-equiv="refresh" content={`0;url=${destination}`} />
+    <meta name="robots" content="noindex" />
+    <link rel="canonical" href={canonicalURL} />
+    <title>Lua API v1 reference — Digipology docs</title>
+  </head>
+  <body>
+    <p>The Lua API preview has moved to the <a href={destination}>Lua API v1 reference</a>.</p>
+  </body>
+</html>
