@@ -33,3 +33,11 @@ export function generatePlayerId(random: Crypto = crypto): string {
     byte.toString(16).padStart(2, "0"),
   ).join("")}`;
 }
+
+export function generateGuestName(random: Crypto = crypto): string {
+  const bytes = new Uint8Array(4);
+  random.getRandomValues(bytes);
+  let suffix = "";
+  for (const byte of bytes) suffix += JOIN_CODE_ALPHABET[byte & 31];
+  return `Guest-${suffix}`;
+}

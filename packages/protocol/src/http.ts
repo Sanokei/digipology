@@ -41,6 +41,9 @@ export interface GameSummaryDto {
   maxPlayers: number;
   builtin: boolean;
   creatorHandle?: string;
+  currentPlayers: number;
+  totalPlays: number;
+  coverVersion: number | null;
 }
 
 export interface ReleaseSummaryDto {
@@ -135,6 +138,19 @@ export interface JoinRoomResponse {
   roomToken: string;
   wsUrl: string;
   releaseId: string;
+}
+
+export interface QuickPlayRequest {
+  slug: string;
+  displayName?: string;
+}
+
+export interface QuickPlayResponse extends JoinRoomResponse {
+  joinCode: string;
+}
+
+export interface CoverUploadResponse {
+  coverVersion: number;
 }
 
 export interface PublicRoomDto {
@@ -320,6 +336,84 @@ export function validateJoinRoomRequest(
   return {
     ok: true,
     value: { code, ...(displayName === undefined ? {} : { displayName }) },
+  };
+}
+
+export function validateQuickPlayRequest(
+  value: unknown,
+): HttpValidationResult<QuickPlayRequest> {
+  const object = exactObject(value, ["slug", "displayName"]);
+  if (!object.ok) return object;
+  const slug = object.value.slug;
+  if (typeof slug !== "string" || !isGameSlug(slug)) {
+    return invalid(
+      "$.slug",
+      `slug must be ${GAME_SLUG_MIN_LENGTH} to ${GAME_SLUG_MAX_LENGTH} lowercase letters, numbers, or hyphens`,
+    );
+  }
+  const displayName = object.value.displayName;
+  if (displayName !== undefined && (typeof displayName !== "string" || !isDisplayName(displayName))) {
+    return invalid("$.displayName", "displayName must contain 1 to 64 characters");
+  }
+  return {
+    ok: true,
+    value: { slug, ...(displayName === undefined ? {} : { displayName }) },
+  };
+}
+
+export function validateGameSummaryDto(
+  value: unknown,
+): HttpValidationResult<GameSummaryDto> {
+  const object = exactObject(value, [
+    "slug", "title", "tagline", "minPlayers", "maxPlayers", "builtin",
+    "creatorHandle", "currentPlayers", "totalPlays", "coverVersion",
+  ]);
+  if (!object.ok) return object;
+  if (typeof object.value.slug !== "string" || !isGameSlug(object.value.slug)) {
+    return invalid("$.slug", "slug is invalid");
+  }
+  if (typeof object.value.title !== "string" || !boundedTrimmedText(object.value.title, 1, GAME_TITLE_MAX_LENGTH)) {
+    return invalid("$.title", `title must contain 1 to ${GAME_TITLE_MAX_LENGTH} characters`);
+  }
+  if (typeof object.value.tagline !== "string" || !boundedTrimmedText(object.value.tagline, 0, GAME_TAGLINE_MAX_LENGTH)) {
+    return invalid("$.tagline", `tagline must contain at most ${GAME_TAGLINE_MAX_LENGTH} characters`);
+  }
+  if (!isPlayerCount(object.value.minPlayers)) {
+    return invalid("$.minPlayers", "minPlayers must be an integer from 1 to 64");
+  }
+  if (!isPlayerCount(object.value.maxPlayers) || object.value.minPlayers > object.value.maxPlayers) {
+    return invalid("$.maxPlayers", "maxPlayers must be an integer from 1 to 64 and at least minPlayers");
+  }
+  if (typeof object.value.builtin !== "boolean") return invalid("$.builtin", "builtin must be a boolean");
+  if (object.value.creatorHandle !== undefined &&
+      (typeof object.value.creatorHandle !== "string" || !isDisplayName(object.value.creatorHandle))) {
+    return invalid("$.creatorHandle", "creatorHandle must contain 1 to 64 characters");
+  }
+  if (!isNonNegativeInteger(object.value.currentPlayers)) {
+    return invalid("$.currentPlayers", "currentPlayers must be a non-negative integer");
+  }
+  if (!isNonNegativeInteger(object.value.totalPlays)) {
+    return invalid("$.totalPlays", "totalPlays must be a non-negative integer");
+  }
+  const coverVersion = object.value.coverVersion;
+  if (coverVersion !== null &&
+      (typeof coverVersion !== "number" || !Number.isSafeInteger(coverVersion) || coverVersion < 1)) {
+    return invalid("$.coverVersion", "coverVersion must be null or a positive integer");
+  }
+  return {
+    ok: true,
+    value: {
+      slug: object.value.slug,
+      title: object.value.title,
+      tagline: object.value.tagline,
+      minPlayers: object.value.minPlayers,
+      maxPlayers: object.value.maxPlayers,
+      builtin: object.value.builtin,
+      ...(object.value.creatorHandle === undefined ? {} : { creatorHandle: object.value.creatorHandle }),
+      currentPlayers: object.value.currentPlayers,
+      totalPlays: object.value.totalPlays,
+      coverVersion,
+    },
   };
 }
 
@@ -712,6 +806,10 @@ function isReleasePath(value: string): boolean {
 
 function isPlayerCount(value: unknown): value is number {
   return Number.isSafeInteger(value) && (value as number) >= 1 && (value as number) <= 64;
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return Number.isSafeInteger(value) && (value as number) >= 0;
 }
 
 function boundedTrimmedText(value: string, minimum: number, maximum: number): boolean {

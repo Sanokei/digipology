@@ -6,6 +6,8 @@ import {
   validateCreateReleaseRequest,
   validateCreateRoomRequest,
   validateJoinRoomRequest,
+  validateGameSummaryDto,
+  validateQuickPlayRequest,
   validateRequestMagicLinkRequest,
   validateReleaseBundle,
   validateUpdateGameRequest,
@@ -146,6 +148,39 @@ describe("HTTP v1 request validators", () => {
     ]) {
       expect(validateJoinRoomRequest(value).ok).toBe(false);
     }
+  });
+
+  test("validates quick-play requests with exact keys and bounded names", () => {
+    expect(validateQuickPlayRequest({ slug: "dice-dash" })).toEqual({
+      ok: true,
+      value: { slug: "dice-dash" },
+    });
+    expect(validateQuickPlayRequest({ slug: "first-deal", displayName: "Guest" }).ok).toBe(true);
+    for (const value of [
+      {},
+      { slug: "Bad Slug" },
+      { slug: "ab" },
+      { slug: "dice-dash", displayName: "" },
+      { slug: "dice-dash", displayName: "x".repeat(65) },
+      { slug: "dice-dash", releaseId: "spoofed" },
+    ]) expect(validateQuickPlayRequest(value).ok).toBe(false);
+  });
+
+  test("validates extended game summaries including metrics and cover signal", () => {
+    const summary = {
+      slug: "dice-dash", title: "Dice Dash", tagline: "Roll together",
+      minPlayers: 2, maxPlayers: 4, builtin: true,
+      currentPlayers: 3, totalPlays: 42, coverVersion: 1,
+    };
+    expect(validateGameSummaryDto(summary)).toEqual({ ok: true, value: summary });
+    expect(validateGameSummaryDto({ ...summary, coverVersion: null }).ok).toBe(true);
+    for (const value of [
+      { ...summary, currentPlayers: -1 },
+      { ...summary, totalPlays: 1.5 },
+      { ...summary, coverVersion: 0 },
+      { ...summary, coverVersion: "1" },
+      { ...summary, currentPlayers: 0, unknown: true },
+    ]) expect(validateGameSummaryDto(value).ok).toBe(false);
   });
 
   test("validates upload DTOs with caps, slugs, player limits, and exact keys", () => {

@@ -97,4 +97,17 @@ describe("protocol message handler", () => {
       "ordered_action",
     ]);
   });
+
+  test("records a play only after every bootstrap frame is sent", async () => {
+    const events: string[] = [];
+    const socket = new MockSocket();
+    const originalSend = socket.send.bind(socket);
+    socket.send = (wire) => { originalSend(wire); events.push("sent"); };
+    const ctx = context();
+    ctx.afterHelloSent = async () => { events.push("counted"); };
+    await handleTextFrame(socket, JSON.stringify({
+      type: "hello", protocolVersion: 1, sessionToken: "valid", lastSequence: null,
+    }), ctx);
+    expect(events).toEqual(["sent", "counted"]);
+  });
 });

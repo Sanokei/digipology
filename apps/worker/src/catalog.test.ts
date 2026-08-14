@@ -85,6 +85,9 @@ describe("built-in game catalog", () => {
       minPlayers: 2,
       maxPlayers: 4,
       builtin: true,
+      currentPlayers: 0,
+      totalPlays: 0,
+      coverVersion: 1,
     });
     expect(releaseSummary(release)).toEqual({
       releaseId: "builtin_first_deal_1",
