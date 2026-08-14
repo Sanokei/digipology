@@ -3,6 +3,8 @@ import type {
   BuiltinGame,
   ReleaseBundle as BuiltinReleaseBundle,
 } from "digipology-demo-games";
+import { snapshot } from "digipology-kernel";
+import { createBuiltinInitialState } from "./initial-state";
 import type {
   GameSummaryDto,
   ReleaseBundle as ProtocolReleaseBundle,
@@ -38,12 +40,21 @@ const games: readonly CatalogGame[] = BUILTIN_GAMES.map((game: BuiltinGame) => (
 const releases: readonly CatalogRelease[] = BUILTIN_GAMES.map((game: BuiltinGame) => {
   const release: BuiltinReleaseBundle | undefined = getBuiltinRelease(game.release.releaseId);
   if (release === undefined) throw new Error(`Missing built-in release ${game.release.releaseId}`);
+  const initialState = createBuiltinInitialState(release.releaseId);
+  if (initialState === null) throw new Error(`Missing initial state for ${game.release.releaseId}`);
+  // The served bundle carries the manifest plus the canonical starting snapshot
+  // every client loads before applying the ordered action stream (SPEC 05.11).
+  const bundle = Object.freeze({
+    ...release,
+    title: game.title,
+    initialSnapshot: snapshot(initialState),
+  });
   return {
     releaseId: release.releaseId,
     gameSlug: game.slug,
     kernelVersion: release.kernelVersion,
     luaApiVersion: release.luaApiVersion,
-    bundle: release as unknown as ProtocolReleaseBundle,
+    bundle: bundle as unknown as ProtocolReleaseBundle,
   };
 });
 

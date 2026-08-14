@@ -27,12 +27,20 @@ describe("catalog routes", () => {
       new Request("https://play.digipology.com/api/releases/builtin_dice_dash_1/bundle"),
       env,
     );
-    const bundle = await bundleResponse.json() as { releaseId: string; files: unknown[] };
-    expect(bundle).toEqual(
-      getBuiltinRelease("builtin_dice_dash_1") as unknown as typeof bundle,
+    const bundle = await bundleResponse.json() as {
+      releaseId: string;
+      files: unknown[];
+      title: string;
+      initialSnapshot: { sequence: number; stateHash: string };
+    };
+    expect(bundle).toMatchObject(
+      getBuiltinRelease("builtin_dice_dash_1") as unknown as Record<string, unknown>,
     );
     expect(bundle.releaseId).toBe("builtin_dice_dash_1");
     expect(bundle.files.length).toBeGreaterThan(0);
+    expect(bundle.title).toBe("Dice Dash");
+    expect(bundle.initialSnapshot.sequence).toBe(0);
+    expect(bundle.initialSnapshot.stateHash).toMatch(/^sha256:[0-9a-f]{64}$/);
   });
 });
 

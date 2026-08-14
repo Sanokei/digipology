@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "digipology-demo-games": "workspace:*",
+    "digipology-kernel": "workspace:*",
     "digipology-protocol": "workspace:*"
   },
   "devDependencies": {
