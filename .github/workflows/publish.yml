@@ -1,0 +1,285 @@
+# Requires the NPM_TOKEN repository secret (npm automation token for the sanokei
+# account). Creating the secret is an operator step, NOT part of this change.
+# Never commit an npm token or a generated .npmrc file.
+name: Publish npm package
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: "Workspace package directory name (e.g. canonical-json, prng, protocol, kernel, lua)"
+        required: true
+        type: choice
+        options:
+          - canonical-json
+          - prng
+          - protocol
+          - kernel
+          - lua
+      version:
+        description: "Exact version to publish (must match packages/<package>/package.json)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    name: Publish digipology-${{ inputs.package }}@${{ inputs.version }}
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_PACKAGE: ${{ inputs.package }}
+      RELEASE_VERSION: ${{ inputs.version }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: https://registry.npmjs.org
+
+      # Keep this before install so the not-yet-created kernel package fails with
+      # the actionable package error instead of an unrelated install error.
+      - name: Guard package directory exists
+        shell: bash
+        run: |
+          package_dir="packages/${RELEASE_PACKAGE}"
+          if [[ ! -d "$package_dir" ]]; then
+            echo "::error title=Package does not exist::Package directory '$package_dir' does not exist. Create the package before dispatching this workflow."
+            exit 1
+          fi
+          if [[ ! -f "$package_dir/package.json" ]]; then
+            echo "::error title=Package manifest missing::Package manifest '$package_dir/package.json' does not exist."
+            exit 1
+          fi
+
+      - name: Install workspace dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Guard package name and version
+        id: package_metadata
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          const path = require("node:path");
+
+          const selectedPackage = process.env.RELEASE_PACKAGE;
+          const requestedVersion = process.env.RELEASE_VERSION;
+          const manifestPath = path.join("packages", selectedPackage, "package.json");
+          const expectedName = `digipology-${selectedPackage}`;
+          let manifest;
+
+          try {
+            manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+          } catch (error) {
+            console.error(`::error title=Invalid package manifest::Could not read ${manifestPath}: ${error.message}`);
+            process.exit(1);
+          }
+
+          if (manifest.name !== expectedName) {
+            console.error(`::error title=Package name mismatch::Expected package name '${expectedName}', but ${manifestPath} contains '${manifest.name ?? "<missing>"}'.`);
+            process.exit(1);
+          }
+
+          if (manifest.version !== requestedVersion) {
+            console.error(`::error title=Version mismatch::Requested version '${requestedVersion}' does not match ${manifestPath} version '${manifest.version ?? "<missing>"}'. Bump and commit the package version before publishing.`);
+            process.exit(1);
+          }
+
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `name=${manifest.name}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${manifest.version}\n`);
+          console.log(`Validated ${manifest.name}@${manifest.version}.`);
+          NODE
+
+      - name: Guard version is not already published
+        shell: bash
+        env:
+          PACKAGE_NAME: ${{ steps.package_metadata.outputs.name }}
+        run: |
+          set +e
+          view_output="$(npm view "${PACKAGE_NAME}@${RELEASE_VERSION}" version --json --registry=https://registry.npmjs.org 2>&1)"
+          view_status=$?
+          set -e
+
+          if [[ $view_status -eq 0 ]]; then
+            echo "::error title=Version already published::${PACKAGE_NAME}@${RELEASE_VERSION} already exists on npm. Published npm versions are immutable; bump the version before retrying."
+            exit 1
+          fi
+
+          if ! grep -q "E404" <<<"$view_output"; then
+            echo "::error title=Registry check failed::Could not confirm that ${PACKAGE_NAME}@${RELEASE_VERSION} is unpublished. npm view failed with:"
+            printf '%s\n' "$view_output"
+            exit 1
+          fi
+
+          echo "Confirmed ${PACKAGE_NAME}@${RELEASE_VERSION} is not present on npm."
+
+      - name: Typecheck workspace
+        run: bun run typecheck
+
+      - name: Test workspace
+        run: bun test
+
+      - name: Build selected package when required
+        shell: bash
+        run: |
+          if node -e "const p=require('./packages/${RELEASE_PACKAGE}/package.json'); process.exit(p.scripts?.build ? 0 : 1)"; then
+            bun run --cwd "packages/${RELEASE_PACKAGE}" build
+          else
+            echo "No build script declared; nothing to build."
+          fi
+
+      - name: Guard dependency policy and prepare publish manifest
+        shell: bash
+        env:
+          EXPECTED_REPOSITORY: ${{ github.repository }}
+        run: |
+          node <<'NODE'
+          const childProcess = require("node:child_process");
+          const fs = require("node:fs");
+          const path = require("node:path");
+
+          const selectedPackage = process.env.RELEASE_PACKAGE;
+          const manifestPath = path.join("packages", selectedPackage, "package.json");
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+          const dependencies = manifest.dependencies ?? {};
+          const allowedDependencies = {
+            "canonical-json": [],
+            prng: [],
+            protocol: [],
+            kernel: ["digipology-canonical-json", "digipology-prng"],
+            lua: ["wasmoon"],
+          };
+
+          const fail = (title, message) => {
+            console.error(`::error title=${title}::${message}`);
+            process.exit(1);
+          };
+
+          if (dependencies === null || Array.isArray(dependencies) || typeof dependencies !== "object") {
+            fail("Invalid dependencies", `${manifestPath} dependencies must be an object.`);
+          }
+
+          const allowed = new Set(allowedDependencies[selectedPackage] ?? []);
+          const forbidden = Object.keys(dependencies).filter((name) => !allowed.has(name));
+          if (forbidden.length > 0) {
+            const policy = allowed.size === 0 ? "no runtime dependencies" : `only: ${[...allowed].join(", ")}`;
+            fail("Dependency policy violation", `${manifest.name} declares forbidden runtime dependencies: ${forbidden.join(", ")}. Policy allows ${policy}.`);
+          }
+
+          const workspaceManifests = new Map();
+          for (const entry of fs.readdirSync("packages", { withFileTypes: true })) {
+            if (!entry.isDirectory()) continue;
+            const candidatePath = path.join("packages", entry.name, "package.json");
+            if (!fs.existsSync(candidatePath)) continue;
+            const candidate = JSON.parse(fs.readFileSync(candidatePath, "utf8"));
+            if (candidate.name) workspaceManifests.set(candidate.name, candidate);
+          }
+
+          const verifiedVersions = new Set();
+          const dependencyFields = ["dependencies", "optionalDependencies", "peerDependencies", "devDependencies"];
+          for (const field of dependencyFields) {
+            const entries = manifest[field];
+            if (!entries || typeof entries !== "object" || Array.isArray(entries)) continue;
+
+            for (const [name, range] of Object.entries(entries)) {
+              if (typeof range !== "string" || !range.startsWith("workspace:")) continue;
+
+              const local = workspaceManifests.get(name);
+              if (!local?.version) {
+                fail("Workspace dependency missing", `${manifest.name} ${field} '${name}' has range '${range}', but no versioned package with that name exists under packages/.`);
+              }
+
+              const workspaceRange = range.slice("workspace:".length);
+              let replacement;
+              if (workspaceRange === "*") replacement = local.version;
+              else if (workspaceRange === "^") replacement = `^${local.version}`;
+              else if (workspaceRange === "~") replacement = `~${local.version}`;
+              else if (workspaceRange === local.version) replacement = local.version;
+              else if (workspaceRange === `^${local.version}` || workspaceRange === `~${local.version}`) replacement = workspaceRange;
+              else {
+                fail("Workspace version mismatch", `${manifest.name} ${field} '${name}' uses '${range}', but packages/${name.replace(/^digipology-/, "")}/package.json is version '${local.version}'.`);
+              }
+
+              const versionKey = `${name}@${local.version}`;
+              if (!verifiedVersions.has(versionKey)) {
+                try {
+                  const output = childProcess.execFileSync(
+                    "npm",
+                    ["view", versionKey, "version", "--json", "--registry=https://registry.npmjs.org"],
+                    { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+                  );
+                  if (JSON.parse(output) !== local.version) throw new Error(`registry returned ${output.trim()}`);
+                } catch (error) {
+                  fail("Workspace dependency unpublished", `${versionKey} must be published before ${manifest.name}. npm view did not return the matching version.`);
+                }
+                verifiedVersions.add(versionKey);
+              }
+
+              entries[name] = replacement;
+              console.log(`Rewrote ${field}.${name}: ${range} -> ${replacement}`);
+            }
+          }
+
+          for (const field of dependencyFields) {
+            for (const [name, range] of Object.entries(manifest[field] ?? {})) {
+              if (typeof range === "string" && range.startsWith("workspace:")) {
+                fail("Unresolved workspace dependency", `${field}.${name} still contains '${range}'.`);
+              }
+            }
+          }
+
+          const expectedRepositoryUrl = `git+https://github.com/${process.env.EXPECTED_REPOSITORY}.git`;
+          if (manifest.repository) {
+            const actualRepositoryUrl = typeof manifest.repository === "string" ? manifest.repository : manifest.repository.url;
+            if (actualRepositoryUrl !== expectedRepositoryUrl) {
+              fail("Repository metadata mismatch", `${manifestPath} repository must be '${expectedRepositoryUrl}' for npm provenance, but found '${actualRepositoryUrl ?? "<missing URL>"}'.`);
+            }
+          } else {
+            manifest.repository = {
+              type: "git",
+              url: expectedRepositoryUrl,
+              directory: `packages/${selectedPackage}`,
+            };
+            console.log(`Added repository metadata required for npm provenance.`);
+          }
+
+          fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+          console.log(`Dependency policy passed for ${manifest.name}.`);
+          NODE
+
+      - name: Publish package to npm
+        working-directory: packages/${{ inputs.package }}
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Write job summary
+        shell: bash
+        env:
+          PACKAGE_NAME: ${{ steps.package_metadata.outputs.name }}
+          PACKAGE_VERSION: ${{ steps.package_metadata.outputs.version }}
+        run: |
+          registry_url="https://www.npmjs.com/package/${PACKAGE_NAME}/v/${PACKAGE_VERSION}"
+          provenance_url="${registry_url}#provenance"
+          {
+            echo "## npm publish complete"
+            echo
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Package | \`${PACKAGE_NAME}\` |"
+            echo "| Version | \`${PACKAGE_VERSION}\` |"
+            echo "| Dist-tag | \`latest\` |"
+            echo "| Registry | [${registry_url}](${registry_url}) |"
+            echo "| Provenance | [View provenance on npm](${provenance_url}) |"
+          } >>"$GITHUB_STEP_SUMMARY"
