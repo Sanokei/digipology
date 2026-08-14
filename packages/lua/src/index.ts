@@ -59,6 +59,7 @@ const LUA_TUSERDATA = 7;
 const LUA_TTHREAD = 8;
 const CHUNK_NAME = "sandbox";
 const MAX_HOOK_INTERVAL = 100;
+const LUA_MEMORY_ERROR = "not enough memory";
 
 const LOCKDOWN = `
 local original = _G
@@ -86,7 +87,7 @@ debug.setmetatable("", { __index = safe_string, __metatable = "locked" })
 
 local function checked_results(results)
   if not results[1] and original.type(results[2]) == "string"
-      and original.string.find(results[2], "memory", 1, true) then
+      and results[2] == "${LUA_MEMORY_ERROR}" then
     memory_abort()
   end
   return unpack(results, 1, results.n)
@@ -355,7 +356,7 @@ export async function createSandbox(opts: SandboxOptions): Promise<Sandbox> {
         if (status !== LUA_OK) {
           const message = luaErrorMessage(api, state);
           const kind =
-            status === LUA_ERRMEM || isMemoryMessage(message)
+            status === LUA_ERRMEM
               ? "memory_exceeded"
               : status === LUA_ERRSYNTAX
                 ? "syntax"
@@ -722,8 +723,11 @@ function parseLine(message: string): number | undefined {
 }
 
 function isMemoryMessage(message: string): boolean {
-  const lower = message.toLowerCase();
-  return lower.includes("memory") || lower.includes("allocation");
+  // Wasmoon throws these strings on paths where it does not expose a Lua
+  // status code. Keep this list exact so user-authored error text is runtime.
+  return message === LUA_MEMORY_ERROR
+    || message === "lua_newstate returned a null pointer"
+    || message === "Global state could not be created (probably due to lack of memory)";
 }
 
 function errorMessage(value: unknown): string {
