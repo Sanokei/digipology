@@ -101,7 +101,7 @@ function animateTransform(scene: Scene, mesh: Mesh, transform: TransformComponen
   return () => scene.onBeforeRenderObservable.remove(observer);
 }
 
-export function useBabylonScene(canvasRef: RefObject<HTMLCanvasElement>, store: KernelStore, client: RoomClient, interactionsPaused: boolean): void {
+export function useBabylonScene(canvasRef: RefObject<HTMLCanvasElement>, store: KernelStore, client: RoomClient | null, interactionsPaused: boolean): void {
   const pausedRef = useRef(interactionsPaused);
   pausedRef.current = interactionsPaused;
   useEffect(() => {
@@ -113,6 +113,7 @@ export function useBabylonScene(canvasRef: RefObject<HTMLCanvasElement>, store: 
 
     function destroyPiece(piece: PieceGraph) { piece.detachDrag?.(); piece.cancelCorrection?.(); piece.label?.dispose(); piece.mesh.dispose(false, true); }
     function attachPieceDrag(piece: PieceGraph, entityId: string, bounds: PieceDragBounds): void {
+      if (client === null) return;
       piece.dragBounds = bounds;
       piece.detachDrag = attachDragBehavior({
         scene, camera, canvas: canvas as HTMLCanvasElement, mesh: piece.mesh, bounds,
@@ -140,7 +141,7 @@ export function useBabylonScene(canvasRef: RefObject<HTMLCanvasElement>, store: 
       mesh = MeshBuilder.CreateBox(`entity-${entity.id}`, { width, depth, height }, scene); mesh.metadata = { entityId: entity.id }; mesh.isPickable = true; mesh.material = material(scene, entity.id, color); applyTransform(mesh, components.transform, restingY);
       shadows.addShadowCaster(mesh);
       const graph: PieceGraph = { mesh, signature: displaySignature(entity), transformSignature: transformSignature(components.transform, restingY), restingY, ...(label ? { label: labelPlane(scene, mesh, label, width * 0.78, depth * 0.46, components.counter !== undefined) } : {}) };
-      if (components.grabbable?.enabled === true) attachPieceDrag(graph, entity.id, { minX: -TABLE_WIDTH / 2 + width / 2, maxX: TABLE_WIDTH / 2 - width / 2, minZ: -TABLE_DEPTH / 2 + depth / 2, maxZ: TABLE_DEPTH / 2 - depth / 2, restingY });
+      if (client !== null && components.grabbable?.enabled === true) attachPieceDrag(graph, entity.id, { minX: -TABLE_WIDTH / 2 + width / 2, maxX: TABLE_WIDTH / 2 - width / 2, minZ: -TABLE_DEPTH / 2 + depth / 2, maxZ: TABLE_DEPTH / 2 - depth / 2, restingY });
       return graph;
     }
     let lastDisplayedState: ReturnType<KernelStore["getSnapshot"]>["displayedState"] = null;
@@ -183,7 +184,7 @@ export function useBabylonScene(canvasRef: RefObject<HTMLCanvasElement>, store: 
     }
     const unsubscribe = store.subscribe(sync); sync();
     const pointer = scene.onPointerObservable.add((info) => {
-      if (pausedRef.current || (info.type !== PointerEventTypes.POINTERDOUBLETAP && !(info.type === PointerEventTypes.POINTERDOWN && (info.event as PointerEvent).button === 2))) return;
+      if (client === null || pausedRef.current || (info.type !== PointerEventTypes.POINTERDOUBLETAP && !(info.type === PointerEventTypes.POINTERDOWN && (info.event as PointerEvent).button === 2))) return;
       const entityId = (info.pickInfo?.pickedMesh?.metadata as { entityId?: unknown } | null)?.entityId;
       if (typeof entityId === "string") client.sendAction({ type: "entity.flip", payload: { entityId } });
     });

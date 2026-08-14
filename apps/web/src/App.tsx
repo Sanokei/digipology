@@ -15,6 +15,11 @@ const TablePage = lazy(async () => {
   return { default: module.TablePage };
 });
 
+const EditorRoute = lazy(async () => {
+  const module = await import("./pages/EditorRoute");
+  return { default: module.EditorRoute };
+});
+
 export function AppRoutes() {
   const location = useLocation();
   const state = location.state as { backgroundLocation?: Location } | null;
@@ -28,6 +33,14 @@ export function AppRoutes() {
         <Route path="/games" element={<GamesPage />} />
         <Route path="/games/:slug" element={<GameDetailPage />} />
         <Route path="/create" element={<CreatePage />} />
+        <Route
+          path="/edit/:draftId"
+          element={
+            <Suspense fallback={<div className="table-loading">Checking editor support…</div>}>
+              <EditorRoute />
+            </Suspense>
+          }
+        />
         <Route
           path="/table/:roomId"
           element={
