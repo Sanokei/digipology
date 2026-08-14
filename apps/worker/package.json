@@ -13,6 +13,7 @@
   "dependencies": {
     "digipology-ai": "workspace:*",
     "digipology-canonical-json": "workspace:*",
+    "digipology-covers": "workspace:*",
     "digipology-demo-games": "workspace:*",
     "digipology-kernel": "workspace:*",
     "digipology-protocol": "workspace:*"

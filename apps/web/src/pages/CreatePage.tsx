@@ -25,6 +25,7 @@ import {
   type AiCreatorEvent,
   type AiCreatorState,
 } from "./creatorModel";
+import { CoverPicker } from "./CoverPicker";
 
 export function ValidationReport({ report }: { report: UploadValidationReportItem[] }) {
   return <ul className="validation-report" aria-label="Upload validation report">
@@ -240,6 +241,7 @@ export function CreatePage() {
         const releaseDraft = releaseDrafts[game.slug];
         return <article className="my-game" key={game.slug}>
           <div><h3>{game.title}</h3><p>{game.tagline}</p><small>{game.visibility} · latest release {game.releases[0]?.releaseNumber}</small></div>
+          <CoverPicker game={game} onUploaded={() => { void loadGames(); }} />
           <div className="button-row"><button className="secondary-button" type="button" onClick={() => void toggle(game)}>{game.visibility === "public" ? "Make unlisted" : "Make public"}</button><button className="primary-button" type="button" onClick={() => void host(game)}>Host</button><label className="file-button">New release<input type="file" accept="application/json,.json" onChange={(event) => void publishRelease(game, event)} /></label></div>
           <form className="stack-form ai-edit-form" onSubmit={(event) => void editWithAi(game, event)}>
             <label htmlFor={`ai-edit-${game.slug}`}>Edit with AI</label>
