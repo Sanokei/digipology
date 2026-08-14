@@ -15,6 +15,8 @@ export interface DocNavigation<T extends DocSummary> {
 export const featuredDocOrder = [
   "getting-started",
   "architecture",
+  "lua-api",
+  "actions",
   "lua-preview",
 ] as const;
 
