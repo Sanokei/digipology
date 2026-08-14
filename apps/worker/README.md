@@ -5,6 +5,15 @@ for the `apps/web` SPA, HTTP API v1, and Room Durable Object WebSocket endpoint.
 The Room DO only authenticates room-scoped tokens and sequences protocol
 actions; clients remain responsible for game simulation.
 
+Room gameplay starts on the first authenticated WebSocket `hello`. At that
+point the DO builds and persists a sequence-0 snapshot from the release and all
+players that have joined so far, assigns `seat_1..seat_N` in HTTP join order,
+and sequences `system.game_start` exactly once as action 1. A full bootstrap
+sends the room snapshot before the retained ordered stream, so clients apply
+`game_start` themselves. Players admitted after start are represented by
+`system.player_joined` and `system.seat_assign`; WebSocket loss alone remains a
+transport condition and does not produce a canonical departure.
+
 ## Platform storage and routing
 
 `wrangler.jsonc` binds the `digipology` D1 database as `DB`, Email Service as

@@ -1,0 +1,424 @@
+{
+  "fixtureVersion": 1,
+  "initialSnapshot": {
+    "formatVersion": 1,
+    "kernelVersion": 1,
+    "releaseId": "builtin_dice_dash_2",
+    "sequence": 0,
+    "state": {
+      "entities": {
+        "die": {
+          "components": {
+            "die": {
+              "definitionId": "standard_d6",
+              "faces": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6
+              ],
+              "value": 1
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "die"
+        },
+        "score_seat_1": {
+          "components": {
+            "counter": {
+              "default": 0,
+              "max": 20,
+              "min": 0,
+              "value": 0
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "score_seat_1"
+        },
+        "score_seat_2": {
+          "components": {
+            "counter": {
+              "default": 0,
+              "max": 20,
+              "min": 0,
+              "value": 0
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 2,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "score_seat_2"
+        },
+        "score_seat_3": {
+          "components": {
+            "counter": {
+              "default": 0,
+              "max": 20,
+              "min": 0,
+              "value": 0
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 4,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "score_seat_3"
+        },
+        "score_seat_4": {
+          "components": {
+            "counter": {
+              "default": 0,
+              "max": 20,
+              "min": 0,
+              "value": 0
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 6,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "score_seat_4"
+        },
+        "winner": {
+          "components": {
+            "counter": {
+              "default": 0,
+              "max": 4,
+              "min": 0,
+              "value": 0
+            }
+          },
+          "id": "winner"
+        }
+      },
+      "kernelVersion": 1,
+      "players": {
+        "alice": {
+          "id": "alice",
+          "name": "Alice"
+        },
+        "bob": {
+          "id": "bob",
+          "name": "Bob"
+        }
+      },
+      "prompts": {},
+      "releaseId": "builtin_dice_dash_2",
+      "rng": {
+        "algorithm": "sfc32-v1",
+        "draws": 0,
+        "state": [
+          272407026,
+          249763150,
+          2700400486,
+          1540153423
+        ]
+      },
+      "schemaVersion": 1,
+      "scriptState": {
+        "gameOver": false
+      },
+      "seats": {
+        "seat_1": {
+          "id": "seat_1",
+          "playerId": "alice",
+          "scoreId": "score_seat_1"
+        },
+        "seat_2": {
+          "id": "seat_2",
+          "playerId": "bob",
+          "scoreId": "score_seat_2"
+        }
+      },
+      "sequence": 0,
+      "settings": {
+        "targetScore": 20
+      }
+    },
+    "stateHash": "sha256:ca27e7f2081768a0d27e84274921c83869e38dc785069ee1977581c1121e68b6"
+  },
+  "actions": [
+    {
+      "sequence": 1,
+      "actionId": "dd2_01",
+      "actor": {
+        "type": "system"
+      },
+      "action": {
+        "type": "system.game_start",
+        "payload": {
+          "settings": {
+            "targetScore": 20
+          }
+        }
+      }
+    },
+    {
+      "sequence": 2,
+      "actionId": "dd2_02",
+      "actor": {
+        "type": "system"
+      },
+      "action": {
+        "type": "system.player_joined",
+        "payload": {
+          "playerId": "carol",
+          "name": "Carol"
+        }
+      }
+    },
+    {
+      "sequence": 3,
+      "actionId": "dd2_03",
+      "actor": {
+        "type": "system"
+      },
+      "action": {
+        "type": "system.seat_assign",
+        "payload": {
+          "playerId": "carol",
+          "seatId": "seat_3"
+        }
+      }
+    },
+    {
+      "sequence": 4,
+      "actionId": "dd2_04",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "entity.grab",
+        "payload": {
+          "entityId": "die"
+        }
+      }
+    },
+    {
+      "sequence": 5,
+      "actionId": "dd2_05",
+      "actor": {
+        "type": "player",
+        "playerId": "bob"
+      },
+      "action": {
+        "type": "die.roll",
+        "payload": {
+          "entityId": "die"
+        }
+      }
+    },
+    {
+      "sequence": 6,
+      "actionId": "dd2_06",
+      "actor": {
+        "type": "system"
+      },
+      "action": {
+        "type": "system.player_left",
+        "payload": {
+          "playerId": "alice"
+        }
+      }
+    },
+    {
+      "sequence": 7,
+      "actionId": "dd2_07",
+      "actor": {
+        "type": "script",
+        "scriptId": "game"
+      },
+      "action": {
+        "type": "die.roll",
+        "payload": {
+          "entityId": "die"
+        }
+      }
+    },
+    {
+      "sequence": 8,
+      "actionId": "dd2_08",
+      "actor": {
+        "type": "script",
+        "scriptId": "game"
+      },
+      "action": {
+        "type": "counter.add",
+        "payload": {
+          "entityId": "score_seat_2",
+          "amount": 1
+        }
+      }
+    },
+    {
+      "sequence": 9,
+      "actionId": "dd2_09",
+      "actor": {
+        "type": "player",
+        "playerId": "bob"
+      },
+      "action": {
+        "type": "die.roll",
+        "payload": {
+          "entityId": "die"
+        }
+      }
+    },
+    {
+      "sequence": 10,
+      "actionId": "dd2_10",
+      "actor": {
+        "type": "script",
+        "scriptId": "game"
+      },
+      "action": {
+        "type": "counter.add",
+        "payload": {
+          "entityId": "score_seat_2",
+          "amount": 2
+        }
+      }
+    },
+    {
+      "sequence": 11,
+      "actionId": "dd2_11",
+      "actor": {
+        "type": "system"
+      },
+      "action": {
+        "type": "system.player_left",
+        "payload": {
+          "playerId": "carol"
+        }
+      }
+    }
+  ],
+  "luaExpectations": [
+    {
+      "beforeSequence": 7,
+      "callback": "on_roll",
+      "actionSequences": [
+        7
+      ],
+      "seatNumber": 2
+    },
+    {
+      "beforeSequence": 8,
+      "callback": "on_after_roll",
+      "actionSequences": [
+        8
+      ],
+      "seatNumber": 2
+    },
+    {
+      "beforeSequence": 10,
+      "callback": "on_after_roll",
+      "actionSequences": [
+        10
+      ],
+      "seatNumber": 2
+    }
+  ],
+  "expectedFinalStateHash": "sha256:758125f14496a98352c9a0d4ffb6435741ce1a34cd793f27a40ace6050cb0b35",
+  "expectedRejectionCount": 1
+}

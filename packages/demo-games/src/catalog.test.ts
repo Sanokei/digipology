@@ -4,6 +4,7 @@ import { defaultActionRegistry } from "digipology-kernel";
 import { createSandbox } from "digipology-lua";
 import firstDealFixture from "../fixtures/first-deal-replay-v1.json";
 import diceDashFixture from "../fixtures/dice-dash-replay-v1.json";
+import diceDashV2Fixture from "../fixtures/dice-dash-replay-v2.json";
 import packageJson from "../package.json";
 import { BUILTIN_GAMES, getBuiltinRelease } from "./index";
 import type { ReleaseBundle } from "./types";
@@ -69,8 +70,8 @@ function manifestHashInput(release: ReleaseBundle) {
 function validateManifestShape(release: ReleaseBundle): void {
   expect(release.formatVersion).toBe(1);
   expect(release.gameId).toMatch(/^builtin_[a-z_]+$/);
-  expect(release.releaseId).toMatch(/^builtin_[a-z_]+_1$/);
-  expect(release.releaseNumber).toBe(1);
+  expect(release.releaseId).toMatch(/^builtin_[a-z_]+_[1-9][0-9]*$/);
+  expect(release.releaseNumber).toBeGreaterThanOrEqual(1);
   expect(release.kernelVersion).toBe(1);
   expect(release.luaApiVersion).toBe(1);
   expect(release.networkProtocolVersion).toBe(1);
@@ -90,19 +91,36 @@ function validateManifestShape(release: ReleaseBundle): void {
 }
 
 describe("built-in catalog", () => {
-  test("exports exactly the two pinned releases", () => {
-    expect(BUILTIN_GAMES.map(({ slug, release }) => [slug, release.releaseId])).toEqual([
-      ["first-deal", "builtin_first_deal_1"],
-      ["dice-dash", "builtin_dice_dash_1"],
+  test("exports all immutable releases and points Dice Dash at v2", () => {
+    expect(
+      BUILTIN_GAMES.map(({ slug, latestReleaseId, releases }) => [
+        slug,
+        latestReleaseId,
+        releases.map((release) => release.releaseId),
+      ]),
+    ).toEqual([
+      ["first-deal", "builtin_first_deal_1", ["builtin_first_deal_1"]],
+      [
+        "dice-dash",
+        "builtin_dice_dash_2",
+        ["builtin_dice_dash_1", "builtin_dice_dash_2"],
+      ],
     ]);
     for (const game of BUILTIN_GAMES) {
-      expect(game.minPlayers).toBe(game.release.minPlayers);
-      expect(game.maxPlayers).toBe(game.release.maxPlayers);
-      expect(getBuiltinRelease(game.release.releaseId)).toBe(game.release);
+      const latest = getBuiltinRelease(game.latestReleaseId)!;
+      expect(game.minPlayers).toBe(latest.minPlayers);
+      expect(game.maxPlayers).toBe(latest.maxPlayers);
       expect(Object.isFrozen(game)).toBe(true);
-      expect(Object.isFrozen(game.release)).toBe(true);
-      expect(Object.isFrozen(game.release.files)).toBe(true);
+      expect(Object.isFrozen(game.releases)).toBe(true);
+      for (const release of game.releases) {
+        expect(getBuiltinRelease(release.releaseId)).toBe(release);
+        expect(Object.isFrozen(release)).toBe(true);
+        expect(Object.isFrozen(release.files)).toBe(true);
+      }
     }
+    expect(getBuiltinRelease("builtin_dice_dash_1")?.integrity.manifestHash).toBe(
+      "sha256:f672353e5b6df79aa7157e9bd8a4eb9802e30991b1cc1adf07a25a3e015e0b12",
+    );
     expect(getBuiltinRelease("missing_release")).toBeUndefined();
   });
 
@@ -118,47 +136,61 @@ describe("built-in catalog", () => {
 
 describe("release integrity", () => {
   for (const game of BUILTIN_GAMES) {
-    test(`${game.slug} validates and matches every committed hash`, () => {
-      validateManifestShape(game.release);
-      for (const file of game.release.files) {
-        expect(encodeUtf8(file.content)).toHaveLength(file.byteLength);
-        expect(rawHash(file.content)).toBe(file.contentHash);
-      }
-      expect(hashValue(manifestHashInput(game.release))).toBe(
-        game.release.integrity.manifestHash,
-      );
-    });
+    for (const release of game.releases) {
+      test(`${release.releaseId} validates and matches every committed hash`, () => {
+        validateManifestShape(release);
+        for (const file of release.files) {
+          expect(encodeUtf8(file.content)).toHaveLength(file.byteLength);
+          expect(rawHash(file.content)).toBe(file.contentHash);
+        }
+        expect(hashValue(manifestHashInput(release))).toBe(
+          release.integrity.manifestHash,
+        );
+      });
+    }
   }
 });
 
 describe("merged action and Lua surfaces", () => {
   test("every golden action type is in the real kernel registry", () => {
     const registered = new Set(defaultActionRegistry.types());
-    const used = [...firstDealFixture.actions, ...diceDashFixture.actions]
+    const used = [
+      ...firstDealFixture.actions,
+      ...diceDashFixture.actions,
+      ...diceDashV2Fixture.actions,
+    ]
       .map((ordered) => ordered.action.type);
     expect(registered).toEqual(new Set([
       "counter.add",
       "counter.set",
       "deck.draw_to_container",
       "deck.shuffle",
+      "die.roll",
       "entity.drop",
       "entity.flip",
       "entity.grab",
       "system.game_start",
+      "system.player_joined",
+      "system.player_left",
+      "system.seat_assign",
     ]));
     for (const type of used) expect(registered.has(type)).toBe(true);
   });
 
-  test("both committed Lua sources load in the real hostile-input sandbox", async () => {
+  test("all committed Lua sources load in the real hostile-input sandbox", async () => {
     for (const game of BUILTIN_GAMES) {
-      const source = game.release.files.find((file) => file.path === "scripts/game.lua")?.content;
-      expect(source).toBeDefined();
-      const lua = await createSandbox({
-        instructionBudget: 50_000,
-        memoryBudgetBytes: 512 * 1024,
-      });
-      expect(await lua.run(source!)).toEqual({});
-      lua.close();
+      for (const release of game.releases) {
+        const source = release.files.find(
+          (file) => file.path === "scripts/game.lua",
+        )?.content;
+        expect(source).toBeDefined();
+        const lua = await createSandbox({
+          instructionBudget: 50_000,
+          memoryBudgetBytes: 512 * 1024,
+        });
+        expect(await lua.run(source!)).toEqual({});
+        lua.close();
+      }
     }
   });
 });

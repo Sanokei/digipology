@@ -24,19 +24,29 @@ async function main(): Promise<void> {
 
   const a = await connect(created.wsUrl);
   const b = await connect(bob.wsUrl);
-  const bootstrapA = next(a);
-  const bootstrapB = next(b);
+  const startMessagesA = nextMany(a, 2);
+  const startMessagesB = nextMany(b, 2);
   a.send(JSON.stringify({ type: "hello", protocolVersion: 1, sessionToken: created.roomToken, lastSequence: null }));
   b.send(JSON.stringify({ type: "hello", protocolVersion: 1, sessionToken: bob.roomToken, lastSequence: null }));
-  pass("two WebSocket hellos", (await bootstrapA).type === "bootstrap" && (await bootstrapB).type === "bootstrap");
+  const [bootstrapA, gameStartA] = await startMessagesA;
+  const [bootstrapB, gameStartB] = await startMessagesB;
+  pass("two WebSocket hellos", bootstrapA?.type === "bootstrap" && bootstrapB?.type === "bootstrap");
+  pass(
+    "system game start",
+    gameStartA?.type === "ordered_action" &&
+      gameStartB?.type === "ordered_action" &&
+      gameStartA.sequence === 1 &&
+      gameStartA.actor.type === "system" &&
+      JSON.stringify(gameStartA) === JSON.stringify(gameStartB),
+  );
 
-  const action = { type: "action_request", protocolVersion: 1, requestId: "smoke_req_1", predictedAtSequence: 0, action: { type: "entity.grab", payload: { entityId: "ent_red_pawn" } } };
+  const action = { type: "action_request", protocolVersion: 1, requestId: "smoke_req_1", predictedAtSequence: 1, action: { type: "entity.grab", payload: { entityId: "ent_red_pawn" } } };
   const orderedAPromise = next(a);
   const orderedBPromise = next(b);
   a.send(JSON.stringify(action));
   const orderedA = await orderedAPromise;
   const orderedB = await orderedBPromise;
-  pass("shared ordered action", JSON.stringify(orderedA) === JSON.stringify(orderedB) && orderedA.type === "ordered_action" && orderedA.sequence === 1);
+  pass("shared ordered action", JSON.stringify(orderedA) === JSON.stringify(orderedB) && orderedA.type === "ordered_action" && orderedA.sequence === 2);
 
   const duplicatePromise = next(a);
   a.send(JSON.stringify(action));
@@ -46,9 +56,9 @@ async function main(): Promise<void> {
   a.close();
   const reconnected = await connect(created.wsUrl);
   const resumePromise = next(reconnected);
-  reconnected.send(JSON.stringify({ type: "hello", protocolVersion: 1, sessionToken: created.roomToken, lastSequence: 0 }));
+  reconnected.send(JSON.stringify({ type: "hello", protocolVersion: 1, sessionToken: created.roomToken, lastSequence: 1 }));
   const resume = await resumePromise;
-  pass("reconnect resume", resume.type === "resume" && resume.fromSequence === 1 && resume.actions.length === 1);
+  pass("reconnect resume", resume.type === "resume" && resume.fromSequence === 2 && resume.actions.length === 1);
 
   for (let index = 3; index <= game.maxPlayers; index += 1) {
     await join(created.joinCode, `Player ${index}`);
@@ -107,6 +117,31 @@ async function next(socket: WebSocket): Promise<ServerMessage> {
       if (!parsed.ok) return reject(new Error(parsed.error.detail));
       resolve(parsed.message);
     }, { once: true });
+  });
+}
+
+async function nextMany(socket: WebSocket, count: number): Promise<ServerMessage[]> {
+  return new Promise((resolve, reject) => {
+    const messages: ServerMessage[] = [];
+    const timeout = setTimeout(() => reject(new Error("Timed out waiting for WebSocket messages")), 5_000);
+    socket.addEventListener("message", (event) => {
+      if (typeof event.data !== "string") {
+        clearTimeout(timeout);
+        reject(new Error("Expected a text frame"));
+        return;
+      }
+      const parsed = parseServerMessage(event.data);
+      if (!parsed.ok) {
+        clearTimeout(timeout);
+        reject(new Error(parsed.error.detail));
+        return;
+      }
+      messages.push(parsed.message);
+      if (messages.length === count) {
+        clearTimeout(timeout);
+        resolve(messages);
+      }
+    });
   });
 }
 

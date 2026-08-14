@@ -5,6 +5,7 @@
     "declarationMap": false,
     "lib": ["ES2022", "WebWorker"],
     "noEmit": true,
+    "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
       "digipology-canonical-json": ["../../packages/canonical-json/src/index.ts"],

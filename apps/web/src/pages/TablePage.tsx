@@ -37,8 +37,6 @@ export function TablePage() {
     panels={<>
       {playersOpen ? <aside className="players-panel"><div className="panel-heading"><span>Players</span><button type="button" onClick={() => setPlayersOpen(false)}>×</button></div>{view.players.map((player) => <div className="player-row" key={player.playerId}><span className={player.connected ? "connection-dot connection-dot--online" : "connection-dot"} /><span><strong>{player.displayName}</strong><small>{player.seatId ?? "No seat"}</small></span><em>{player.connected ? "Connected" : "Away"}</em></div>)}</aside> : null}
       {dice.length > 0 ? <aside className="dice-controls"><span>Dice</span>{dice.map((entity) => <button type="button" disabled={status.state !== "connected"} key={entity.id} onClick={() => {
-        // TODO: the merged kernel does not yet register SPEC's die.roll action;
-        // keep this request canonical-only and do not synthesize a value here.
         client.sendAction({ type: "die.roll", payload: { entityId: entity.id } });
       }}>Roll {entity.id}</button>)}</aside> : null}
       {diagnosticsOpen ? <aside className="diagnostics-panel"><div className="panel-heading"><span>Diagnostics</span><button type="button" onClick={() => setDiagnosticsOpen(false)}>×</button></div><dl><dt>Sequence</dt><dd>{view.state?.sequence ?? "—"}</dd><dt>State hash</dt><dd>{view.stateHash ?? "—"}</dd><dt>Pending</dt><dd>{view.pendingRequestIds.size}</dd><dt>Transport</dt><dd>{status.state}</dd></dl><p>{view.diagnostic ?? "No diagnostics yet."}</p></aside> : null}

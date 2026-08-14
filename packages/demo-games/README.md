@@ -11,9 +11,10 @@ import { BUILTIN_GAMES, getBuiltinRelease } from "digipology-demo-games";
 const release = getBuiltinRelease("builtin_first_deal_1");
 ```
 
-`BUILTIN_GAMES` contains exactly `first-deal` and `dice-dash`. Release IDs and
-release number 1 are pinned; editing content requires a new release and new
-golden fixture rather than updating an existing hash.
+`BUILTIN_GAMES` contains exactly `first-deal` and `dice-dash`. Each game exposes
+its immutable `releases` and a `latestReleaseId`; editing released content
+requires a new release and golden fixture rather than updating an existing
+hash.
 
 ## First Deal
 
@@ -40,20 +41,21 @@ the implemented `flippable.flipped` field. There is no win condition.
 ## Dice Dash
 
 Dice Dash is a 2–4 player scripted race to the `targetScore` setting, which
-defaults to 20. Each seat has a score counter and movable table marker. A real
-kernel `deck.shuffle` randomizes a hidden six-token roll source; the token at
-the top supplies a value from 1 through 6. Lua receives that committed value
-in `on_after_shuffle` and returns `counter.add`. The first score to reach the
-target also produces `counter.set` on the canonical `winner` counter.
+defaults to 20. Release v2 uses the kernel's canonical `die.roll`; Lua observes
+the committed value in `on_after_roll` and returns `counter.add`. The first
+score to reach the target also produces `counter.set` on the canonical
+`winner` counter. Release v1 retains its hidden six-token shuffle
+implementation unchanged for pinned rooms and replay compatibility.
 
 Registered kernel actions used:
 
 - `system.game_start`
+- `die.roll`
 - `deck.shuffle`
 - `counter.add`
 - `counter.set`
 
-Kernel-v0 substitutions:
+Release-v1 substitutions (retained only for immutable v1 compatibility):
 
 - `die` exists only as a stub component and there is no die-roll action, so a
   six-token deck is the RNG source. The visible die remains presentation data.
@@ -85,10 +87,10 @@ integrity chain; there is intentionally no build step that rewrites hashes.
 
 ## Determinism fixtures
 
-`fixtures/first-deal-replay-v1.json` and
-`fixtures/dice-dash-replay-v1.json` each contain a real initial kernel snapshot,
-an ordered stream of at least 40 actions (including deliberate rejections), Lua
-callback expectations, a rejection count, and a pinned final state hash.
+The committed replay fixtures contain real initial kernel snapshots, ordered
+actions (including deliberate rejections), Lua callback expectations,
+rejection counts, and pinned final state hashes. Dice Dash v2's fixture also
+covers die rolling and player/seat lifecycle actions.
 
 The tests:
 

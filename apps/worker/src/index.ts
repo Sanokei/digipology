@@ -7,6 +7,7 @@ import {
   type RoomEndedMessage,
   type ServerMessage,
 } from "digipology-protocol";
+import { snapshot, type GameSnapshot } from "digipology-kernel";
 import { hashSelector, sha256Hex, timingSafeHashEqual } from "./crypto";
 import {
   handleTextFrame,
@@ -15,7 +16,13 @@ import {
 } from "./message-handler";
 import { handlePlatformRequest } from "./platform";
 import { generatePlayerId, generateSessionToken } from "./random";
-import { ACTION_RETENTION, RoomCore, type RoomCoreState } from "./room-core";
+import { createBuiltinInitialState } from "./initial-state";
+import {
+  ACTION_RETENTION,
+  RoomCore,
+  roomBootstrapMessages,
+  type RoomCoreState,
+} from "./room-core";
 
 const DEFAULT_ROOM_CAPACITY = 8;
 const EMPTY_ROOM_TTL_MS = 30 * 60 * 1000;
@@ -28,6 +35,8 @@ interface RoomMetadataRow extends Record<string, SqlStorageValue> {
   capacity: number;
   ended_reason: "host_ended" | "expired" | "moderation" | null;
   last_sequence: number;
+  started: number;
+  initial_snapshot: string | null;
 }
 
 interface PlayerRow extends Record<string, SqlStorageValue> {
@@ -91,7 +100,8 @@ export class RoomDO extends DurableObject<Env> {
     const roomToken = generateSessionToken();
     const tokenHash = await sha256Hex(roomToken);
     const tokenSelector = hashSelector(tokenHash);
-    return this.ctx.storage.transactionSync(() => {
+    const orderedActions: OrderedAction[] = [];
+    const result = this.ctx.storage.transactionSync((): JoinResult => {
       const room = this.room();
       if (room === null) return { status: "not_found" };
       if (room.ended_reason !== null) return { status: "ended" };
@@ -108,6 +118,28 @@ export class RoomDO extends DurableObject<Env> {
         tokenSelector,
         tokenHash,
       );
+      if (room.started === 1) {
+        const core = this.loadCore(room);
+        orderedActions.push(core.sequenceSystem(
+          {
+            type: "system.player_joined",
+            payload: { playerId, name: normalizeDisplayName(displayName) },
+          },
+          `player_joined_${playerId}`,
+        ).orderedAction);
+        orderedActions.push(core.sequenceSystem(
+          {
+            type: "system.seat_assign",
+            payload: { playerId, seatId: `seat_${count + 1}` },
+          },
+          `seat_assign_${playerId}`,
+        ).orderedAction);
+        for (const ordered of orderedActions) this.persistSystemAction(ordered);
+        this.ctx.storage.sql.exec(
+          "UPDATE room SET last_sequence = ? WHERE singleton = 1",
+          core.state.lastSequence,
+        );
+      }
       return {
         status: "ok",
         playerId,
@@ -116,6 +148,10 @@ export class RoomDO extends DurableObject<Env> {
         playerCount: count + 1,
       };
     });
+    if (result.status === "ok") {
+      for (const ordered of orderedActions) this.broadcast(ordered);
+    }
+    return result;
   }
 
   async end(reason: "host_ended" | "expired" | "moderation" = "host_ended"): Promise<boolean> {
@@ -198,19 +234,27 @@ export class RoomDO extends DurableObject<Env> {
     return {
       state,
       authenticate: (token: string): Promise<string | null> => this.authenticateRoomToken(token),
-      hello: (_playerId: string, lastSequence: number | null): ServerMessage => {
+      hello: (
+        _playerId: string,
+        lastSequence: number | null,
+      ): ServerMessage | readonly ServerMessage[] => {
         socket.serializeAttachment(state);
+        this.startIfNeeded();
         const room = this.requiredRoom();
         if (room.ended_reason !== null) {
           return { type: "room_ended", protocolVersion: PROTOCOL_VERSION, reason: room.ended_reason };
         }
         if (lastSequence === null) {
-          return {
-            type: "bootstrap",
-            protocolVersion: PROTOCOL_VERSION,
-            sequence: room.last_sequence,
-            players: this.players(),
-          };
+          const initialSnapshot = this.requiredInitialSnapshot(room);
+          const replay = this.loadCore(room).resumeAfter(initialSnapshot.sequence);
+          if (replay.type !== "resume") {
+            return { type: "resync_required", protocolVersion: PROTOCOL_VERSION };
+          }
+          return roomBootstrapMessages(
+            initialSnapshot,
+            this.players(),
+            replay.message.actions,
+          );
         }
         const result = this.loadCore(room).resumeAfter(lastSequence);
         if (result.type === "resume") return result.message;
@@ -226,10 +270,7 @@ export class RoomDO extends DurableObject<Env> {
       },
       sequence: (playerId: string, request: ActionRequest) => this.sequence(playerId, request),
       broadcast: (message: ServerMessage): void => {
-        for (const peer of this.ctx.getWebSockets()) {
-          const peerState = peer.deserializeAttachment() as SocketAttachment | null;
-          if (peerState?.authenticated === true) sendServerMessage(peer, message);
-        }
+        this.broadcast(message);
       },
     };
   }
@@ -293,10 +334,72 @@ export class RoomDO extends DurableObject<Env> {
     });
   }
 
+  private startIfNeeded(): void {
+    this.ctx.storage.transactionSync(() => {
+      const room = this.requiredRoom();
+      if (room.started === 1) return;
+      if (room.last_sequence !== 0) {
+        throw new Error("A legacy room with actions cannot be started canonically");
+      }
+      const initialState = createBuiltinInitialState(
+        room.release_id,
+        this.playerRows().map((player) => ({
+          playerId: player.player_id,
+          displayName: player.display_name,
+        })),
+      );
+      if (initialState === null) throw new Error(`Unknown room release ${room.release_id}`);
+      const initialSnapshot = snapshot(initialState);
+      const core = this.loadCore(room);
+      const started = core.sequenceSystem(
+        { type: "system.game_start", payload: { settings: initialState.settings } },
+        "game_start",
+      );
+      this.persistSystemAction(started.orderedAction);
+      this.ctx.storage.sql.exec(
+        `UPDATE room
+         SET started = 1, initial_snapshot = ?, last_sequence = ?
+         WHERE singleton = 1`,
+        JSON.stringify(initialSnapshot),
+        started.orderedAction.sequence,
+      );
+    });
+  }
+
+  private requiredInitialSnapshot(room: RoomMetadataRow): GameSnapshot {
+    if (room.initial_snapshot === null) throw new Error("Started room has no initial snapshot");
+    return JSON.parse(room.initial_snapshot) as GameSnapshot;
+  }
+
+  private persistSystemAction(ordered: OrderedAction): void {
+    const body = JSON.stringify(ordered);
+    this.ctx.storage.sql.exec(
+      `INSERT INTO actions (sequence, action_id, request_id, body)
+       VALUES (?, ?, ?, ?)`,
+      ordered.sequence,
+      ordered.actionId,
+      `system:${ordered.actionId}`,
+      body,
+    );
+    this.ctx.storage.sql.exec(
+      "DELETE FROM actions WHERE sequence <= ?",
+      ordered.sequence - ACTION_RETENTION,
+    );
+  }
+
+  private broadcast(message: ServerMessage): void {
+    for (const peer of this.ctx.getWebSockets()) {
+      const peerState = peer.deserializeAttachment() as SocketAttachment | null;
+      if (peerState?.authenticated === true) sendServerMessage(peer, message);
+    }
+  }
+
   private room(): RoomMetadataRow | null {
     if (!this.tableExists("room")) return null;
+    this.ensureRoomSchema();
     return this.ctx.storage.sql.exec<RoomMetadataRow>(
-      `SELECT room_id, join_code, release_id, capacity, ended_reason, last_sequence
+      `SELECT room_id, join_code, release_id, capacity, ended_reason, last_sequence,
+              started, initial_snapshot
        FROM room WHERE singleton = 1`,
     ).toArray()[0] ?? null;
   }
@@ -322,14 +425,18 @@ export class RoomDO extends DurableObject<Env> {
         return state?.authenticated === true && state.playerId !== null ? [state.playerId] : [];
       }),
     );
-    return this.ctx.storage.sql.exec<PlayerRow>(
-      "SELECT player_id, display_name FROM players ORDER BY rowid",
-    ).toArray().map((player) => ({
+    return this.playerRows().map((player, index) => ({
       playerId: player.player_id,
       displayName: player.display_name,
-      seatId: null,
+      seatId: `seat_${index + 1}`,
       connected: connected.has(player.player_id),
     }));
+  }
+
+  private playerRows(): PlayerRow[] {
+    return this.ctx.storage.sql.exec<PlayerRow>(
+      "SELECT player_id, display_name FROM players ORDER BY rowid",
+    ).toArray();
   }
 
   private tableExists(name: string): boolean {
@@ -348,7 +455,9 @@ export class RoomDO extends DurableObject<Env> {
         release_id TEXT NOT NULL,
         capacity INTEGER NOT NULL,
         ended_reason TEXT,
-        last_sequence INTEGER NOT NULL DEFAULT 0
+        last_sequence INTEGER NOT NULL DEFAULT 0,
+        started INTEGER NOT NULL DEFAULT 0,
+        initial_snapshot TEXT
       );
       CREATE TABLE players (
         player_id TEXT PRIMARY KEY,
@@ -370,6 +479,22 @@ export class RoomDO extends DurableObject<Env> {
         body TEXT NOT NULL
       );
     `);
+  }
+
+  private ensureRoomSchema(): void {
+    const columns = new Set(
+      this.ctx.storage.sql.exec<{ name: string }>("PRAGMA table_info(room)")
+        .toArray()
+        .map((column) => column.name),
+    );
+    if (!columns.has("started")) {
+      this.ctx.storage.sql.exec(
+        "ALTER TABLE room ADD COLUMN started INTEGER NOT NULL DEFAULT 0",
+      );
+    }
+    if (!columns.has("initial_snapshot")) {
+      this.ctx.storage.sql.exec("ALTER TABLE room ADD COLUMN initial_snapshot TEXT");
+    }
   }
 }
 

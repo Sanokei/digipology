@@ -21,6 +21,12 @@ Deck top is the last item in its container. Container membership is exclusive,
 and capacity, counter bounds, entity references, transforms, RNG state, and all
 JSON-like values are checked at every transaction boundary.
 
+`die.roll` selects from canonical `die.faces` with the kernel RNG; legacy
+`standard_d6` components without that optional field use faces 1 through 6.
+The system-only player/seat lifecycle actions maintain canonical roster and
+seat bindings, and voluntary departure releases held entities in sorted ID
+order.
+
 ## API sketch
 
 ```ts

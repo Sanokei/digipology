@@ -7,10 +7,10 @@ import {
   type RngState,
 } from "digipology-kernel";
 
-// Canonical starting states for the built-in releases, mirrored from the
-// golden replay fixtures in packages/demo-games/fixtures/*-replay-v1.json.
-// catalog.test.ts asserts the produced state hashes match those fixtures, so
-// any drift between this module and the demo-games wave fails the suite.
+export interface InitialStatePlayer {
+  readonly playerId: string;
+  readonly displayName: string;
+}
 
 const IDENTITY = Object.freeze({
   position: Object.freeze({ x: 0, y: 0, z: 0 }),
@@ -41,7 +41,18 @@ function releaseFile(releaseId: string, path: string): string {
   return file.content;
 }
 
-function createFirstDealInitialState(): CanonicalGameState {
+function playerRecords(players: readonly InitialStatePlayer[]): CanonicalGameState["players"] {
+  const records: CanonicalGameState["players"] = {};
+  for (const player of players) {
+    records[player.playerId] = { id: player.playerId, name: player.displayName };
+  }
+  return records;
+}
+
+function createFirstDealInitialState(
+  releaseId: string,
+  players: readonly InitialStatePlayer[],
+): CanonicalGameState {
   const runtime = JSON.parse(releaseFile("builtin_first_deal_1", "runtime/game.json")) as {
     cardIds: string[];
     deckId: string;
@@ -79,51 +90,56 @@ function createFirstDealInitialState(): CanonicalGameState {
     });
   }
   return createInitialState({
-    releaseId: "builtin_first_deal_1",
+    releaseId,
     rng: FIRST_DEAL_RNG,
     settings: runtime.settings,
-    players: {
-      alice: { id: "alice", name: "Alice" },
-      bob: { id: "bob", name: "Bob" },
-      carol: { id: "carol", name: "Carol" },
-    },
-    seats: {
-      seat_1: { id: "seat_1", playerId: "alice", handId: "hand_seat_1" },
-      seat_2: { id: "seat_2", playerId: "bob", handId: "hand_seat_2" },
-      seat_3: { id: "seat_3", playerId: "carol", handId: "hand_seat_3" },
-    },
+    players: playerRecords(players),
+    seats: Object.fromEntries(players.map((player, index) => {
+      const seatId = `seat_${index + 1}`;
+      return [seatId, { id: seatId, playerId: player.playerId, handId: `hand_${seatId}` }];
+    })),
     entities,
     scriptState: { phase: "setup" },
   });
 }
 
-function createDiceDashInitialState(): CanonicalGameState {
-  const runtime = JSON.parse(releaseFile("builtin_dice_dash_1", "runtime/game.json")) as {
+function createDiceDashInitialState(
+  releaseId: string,
+  players: readonly InitialStatePlayer[],
+): CanonicalGameState {
+  const runtime = JSON.parse(releaseFile(releaseId, "runtime/game.json")) as {
     dieId: string;
-    rollSource: { deckId: string; tokenIds: string[] };
+    dieFaces?: Array<number | string>;
+    rollSource?: { deckId: string; tokenIds: string[] };
     scoreIds: string[];
     settings: { targetScore: number };
     winnerId: string;
   };
   const entities: Record<string, EntityRecord> = {};
-  entities[runtime.rollSource.deckId] = entity(runtime.rollSource.deckId, {
-    container: {
-      items: [...runtime.rollSource.tokenIds],
-      capacity: 6,
-      ordering: "stack",
-      visibility: "hidden",
-    },
-    deck: { enabled: true },
-  });
-  for (let index = 0; index < runtime.rollSource.tokenIds.length; index += 1) {
-    const tokenId = runtime.rollSource.tokenIds[index]!;
-    const value = index + 1;
-    entities[tokenId] = entity(tokenId, {
-      counter: { value, default: value, min: value, max: value },
+  if (runtime.rollSource !== undefined) {
+    entities[runtime.rollSource.deckId] = entity(runtime.rollSource.deckId, {
+      container: {
+        items: [...runtime.rollSource.tokenIds],
+        capacity: 6,
+        ordering: "stack",
+        visibility: "hidden",
+      },
+      deck: { enabled: true },
     });
+    for (let index = 0; index < runtime.rollSource.tokenIds.length; index += 1) {
+      const tokenId = runtime.rollSource.tokenIds[index]!;
+      const value = index + 1;
+      entities[tokenId] = entity(tokenId, {
+        counter: { value, default: value, min: value, max: value },
+      });
+    }
   }
   entities[runtime.dieId] = entity(runtime.dieId, {
-    die: { definitionId: "standard_d6", value: 1 },
+    die: {
+      definitionId: "standard_d6",
+      value: 1,
+      ...(runtime.dieFaces === undefined ? {} : { faces: runtime.dieFaces }),
+    },
     grabbable: { enabled: true, heldBy: null },
     transform: IDENTITY,
   });
@@ -142,25 +158,29 @@ function createDiceDashInitialState(): CanonicalGameState {
     counter: { value: 0, default: 0, min: 0, max: 4 },
   });
   return createInitialState({
-    releaseId: "builtin_dice_dash_1",
+    releaseId,
     rng: DICE_DASH_RNG,
     settings: runtime.settings,
-    players: {
-      alice: { id: "alice", name: "Alice" },
-      bob: { id: "bob", name: "Bob" },
-    },
-    seats: {
-      seat_1: { id: "seat_1", playerId: "alice", scoreId: "score_seat_1" },
-      seat_2: { id: "seat_2", playerId: "bob", scoreId: "score_seat_2" },
-    },
+    players: playerRecords(players),
+    seats: Object.fromEntries(players.map((player, index) => {
+      const seatId = `seat_${index + 1}`;
+      return [seatId, { id: seatId, playerId: player.playerId, scoreId: `score_${seatId}` }];
+    })),
     entities,
     scriptState: { gameOver: false },
   });
 }
 
 /** Deterministic starting state for a built-in release, or null for unknown IDs. */
-export function createBuiltinInitialState(releaseId: string): CanonicalGameState | null {
-  if (releaseId === "builtin_first_deal_1") return createFirstDealInitialState();
-  if (releaseId === "builtin_dice_dash_1") return createDiceDashInitialState();
+export function createBuiltinInitialState(
+  releaseId: string,
+  players: readonly InitialStatePlayer[],
+): CanonicalGameState | null {
+  if (releaseId === "builtin_first_deal_1") {
+    return createFirstDealInitialState(releaseId, players);
+  }
+  if (releaseId === "builtin_dice_dash_1" || releaseId === "builtin_dice_dash_2") {
+    return createDiceDashInitialState(releaseId, players);
+  }
   return null;
 }

@@ -1,6 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import type { ActionRequest } from "digipology-protocol";
-import { ACTION_RETENTION, RoomCore, retentionFloor } from "./room-core";
+import { createBuiltinInitialState } from "./initial-state";
+import { snapshot } from "digipology-kernel";
+import {
+  ACTION_RETENTION,
+  RoomCore,
+  retentionFloor,
+  roomBootstrapMessages,
+} from "./room-core";
 
 function request(index: number, payload: unknown = { index }): ActionRequest {
   return {
@@ -80,5 +87,63 @@ describe("RoomCore sequencing", () => {
     const ordered = new RoomCore("abc").sequence(request(1, payload), "trusted_player").orderedAction;
     expect(ordered.actor).toEqual({ type: "player", playerId: "trusted_player" });
     expect(ordered.action.payload).toEqual(payload);
+  });
+
+  test("sequences a system game start first and deduplicates it after rebuild", () => {
+    const before = new RoomCore("abc");
+    const started = before.sequenceSystem(
+      { type: "system.game_start", payload: { settings: {} } },
+      "game_start",
+    );
+    expect(started.duplicate).toBe(false);
+    expect(started.orderedAction).toEqual({
+      type: "ordered_action",
+      protocolVersion: 1,
+      sequence: 1,
+      actionId: "sys_abc_game_start",
+      actor: { type: "system" },
+      action: { type: "system.game_start", payload: { settings: {} } },
+    });
+
+    const after = new RoomCore("abc", JSON.parse(JSON.stringify(before.state)));
+    const duplicate = after.sequenceSystem(
+      { type: "system.game_start", payload: { settings: { changed: true } } },
+      "game_start",
+    );
+    expect(duplicate.duplicate).toBe(true);
+    expect(duplicate.orderedAction).toEqual(started.orderedAction);
+    expect(after.state.lastSequence).toBe(1);
+  });
+
+  test("bootstraps the persisted room snapshot before system.game_start", () => {
+    const initial = createBuiltinInitialState("builtin_dice_dash_2", [
+      { playerId: "player_host", displayName: "Host" },
+      { playerId: "player_guest", displayName: "Guest" },
+    ])!;
+    const initialSnapshot = snapshot(initial);
+    const core = new RoomCore("abc");
+    const gameStart = core.sequenceSystem(
+      { type: "system.game_start", payload: { settings: initial.settings } },
+      "game_start",
+    ).orderedAction;
+    const messages = roomBootstrapMessages(
+      initialSnapshot,
+      [
+        { playerId: "player_host", displayName: "Host", seatId: "seat_1", connected: true },
+        { playerId: "player_guest", displayName: "Guest", seatId: "seat_2", connected: false },
+      ],
+      [gameStart],
+    );
+    expect(messages[0]).toMatchObject({
+      type: "bootstrap",
+      sequence: 0,
+      snapshot: initialSnapshot,
+    });
+    expect(messages[1]).toMatchObject({
+      type: "ordered_action",
+      sequence: 1,
+      actor: { type: "system" },
+      action: { type: "system.game_start" },
+    });
   });
 });

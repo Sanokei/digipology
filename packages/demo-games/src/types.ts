@@ -37,5 +37,6 @@ export interface BuiltinGame {
   readonly tagline: string;
   readonly minPlayers: number;
   readonly maxPlayers: number;
-  readonly release: ReleaseBundle;
+  readonly latestReleaseId: string;
+  readonly releases: ReadonlyArray<ReleaseBundle>;
 }
