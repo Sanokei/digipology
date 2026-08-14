@@ -1,0 +1,1260 @@
+{
+  "fixtureVersion": 1,
+  "initialSnapshot": {
+    "formatVersion": 1,
+    "kernelVersion": 1,
+    "releaseId": "builtin_dice_dash_1",
+    "sequence": 0,
+    "state": {
+      "entities": {
+        "die": {
+          "components": {
+            "die": {
+              "definitionId": "standard_d6",
+              "value": 1
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "die"
+        },
+        "roll_1": {
+          "components": {
+            "counter": {
+              "default": 1,
+              "max": 1,
+              "min": 1,
+              "value": 1
+            }
+          },
+          "id": "roll_1"
+        },
+        "roll_2": {
+          "components": {
+            "counter": {
+              "default": 2,
+              "max": 2,
+              "min": 2,
+              "value": 2
+            }
+          },
+          "id": "roll_2"
+        },
+        "roll_3": {
+          "components": {
+            "counter": {
+              "default": 3,
+              "max": 3,
+              "min": 3,
+              "value": 3
+            }
+          },
+          "id": "roll_3"
+        },
+        "roll_4": {
+          "components": {
+            "counter": {
+              "default": 4,
+              "max": 4,
+              "min": 4,
+              "value": 4
+            }
+          },
+          "id": "roll_4"
+        },
+        "roll_5": {
+          "components": {
+            "counter": {
+              "default": 5,
+              "max": 5,
+              "min": 5,
+              "value": 5
+            }
+          },
+          "id": "roll_5"
+        },
+        "roll_6": {
+          "components": {
+            "counter": {
+              "default": 6,
+              "max": 6,
+              "min": 6,
+              "value": 6
+            }
+          },
+          "id": "roll_6"
+        },
+        "roll_source": {
+          "components": {
+            "container": {
+              "capacity": 6,
+              "items": [
+                "roll_1",
+                "roll_2",
+                "roll_3",
+                "roll_4",
+                "roll_5",
+                "roll_6"
+              ],
+              "ordering": "stack",
+              "visibility": "hidden"
+            },
+            "deck": {
+              "enabled": true
+            }
+          },
+          "id": "roll_source"
+        },
+        "score_seat_1": {
+          "components": {
+            "counter": {
+              "default": 0,
+              "max": 20,
+              "min": 0,
+              "value": 0
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "score_seat_1"
+        },
+        "score_seat_2": {
+          "components": {
+            "counter": {
+              "default": 0,
+              "max": 20,
+              "min": 0,
+              "value": 0
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 2,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "score_seat_2"
+        },
+        "score_seat_3": {
+          "components": {
+            "counter": {
+              "default": 0,
+              "max": 20,
+              "min": 0,
+              "value": 0
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 4,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "score_seat_3"
+        },
+        "score_seat_4": {
+          "components": {
+            "counter": {
+              "default": 0,
+              "max": 20,
+              "min": 0,
+              "value": 0
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 6,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "score_seat_4"
+        },
+        "winner": {
+          "components": {
+            "counter": {
+              "default": 0,
+              "max": 4,
+              "min": 0,
+              "value": 0
+            }
+          },
+          "id": "winner"
+        }
+      },
+      "kernelVersion": 1,
+      "players": {
+        "alice": {
+          "id": "alice",
+          "name": "Alice"
+        },
+        "bob": {
+          "id": "bob",
+          "name": "Bob"
+        }
+      },
+      "prompts": {},
+      "releaseId": "builtin_dice_dash_1",
+      "rng": {
+        "algorithm": "sfc32-v1",
+        "draws": 0,
+        "state": [
+          272407026,
+          249763150,
+          2700400486,
+          1540153423
+        ]
+      },
+      "schemaVersion": 1,
+      "scriptState": {
+        "gameOver": false
+      },
+      "seats": {
+        "seat_1": {
+          "id": "seat_1",
+          "playerId": "alice",
+          "scoreId": "score_seat_1"
+        },
+        "seat_2": {
+          "id": "seat_2",
+          "playerId": "bob",
+          "scoreId": "score_seat_2"
+        }
+      },
+      "sequence": 0,
+      "settings": {
+        "targetScore": 20
+      }
+    },
+    "stateHash": "sha256:489317dbf4dc87923e25423dda55b5ca68461ab250028a53ca8883a3b0451cdd"
+  },
+  "actions": [
+    {
+      "sequence": 1,
+      "actionId": "dd_01",
+      "actor": {
+        "type": "system"
+      },
+      "action": {
+        "type": "system.game_start",
+        "payload": {
+          "settings": {
+            "targetScore": 20
+          }
+        }
+      }
+    },
+    {
+      "sequence": 2,
+      "actionId": "dd_02",
+      "actor": {
+        "type": "script",
+        "scriptId": "game"
+      },
+      "action": {
+        "type": "counter.add",
+        "payload": {
+          "entityId": "missing",
+          "amount": 1
+        }
+      }
+    },
+    {
+      "sequence": 3,
+      "actionId": "dd_03",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "entity.flip",
+        "payload": {
+          "entityId": "die"
+        }
+      }
+    },
+    {
+      "sequence": 4,
+      "actionId": "dd_04",
+      "actor": {
+        "type": "player",
+        "playerId": "bob"
+      },
+      "action": {
+        "type": "entity.grab",
+        "payload": {
+          "entityId": "missing"
+        }
+      }
+    },
+    {
+      "sequence": 5,
+      "actionId": "dd_05",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "entity.drop",
+        "payload": {
+          "entityId": "die",
+          "transform": {
+            "position": {
+              "x": 0,
+              "y": 0,
+              "z": 0
+            },
+            "rotation": {
+              "x": 0,
+              "y": 0,
+              "z": 0,
+              "w": 1
+            },
+            "scale": {
+              "x": 1,
+              "y": 1,
+              "z": 1
+            }
+          }
+        }
+      }
+    },
+    {
+      "sequence": 6,
+      "actionId": "dd_06",
+      "actor": {
+        "type": "script",
+        "scriptId": "game"
+      },
+      "action": {
+        "type": "counter.set",
+        "payload": {
+          "entityId": "roll_source",
+          "value": 1
+        }
+      }
+    },
+    {
+      "sequence": 7,
+      "actionId": "dd_07",
+      "actor": {
+        "type": "player",
+        "playerId": "bob"
+      },
+      "action": {
+        "type": "deck.shuffle",
+        "payload": {
+          "deckId": "missing"
+        }
+      }
+    },
+    {
+      "sequence": 8,
+      "actionId": "dd_08",
+      "actor": {
+        "type": "script",
+        "scriptId": "game"
+      },
+      "action": {
+        "type": "deck.draw_to_container",
+        "payload": {
+          "deckId": "roll_source",
+          "target": "roll_source",
+          "count": 1
+        }
+      }
+    },
+    {
+      "sequence": 9,
+      "actionId": "dd_09",
+      "actor": {
+        "type": "system"
+      },
+      "action": {
+        "type": "system.game_start",
+        "payload": {
+          "settings": {
+            "targetScore": 20
+          }
+        }
+      }
+    },
+    {
+      "sequence": 10,
+      "actionId": "dd_10",
+      "actor": {
+        "type": "script",
+        "scriptId": "game"
+      },
+      "action": {
+        "type": "counter.add",
+        "payload": {
+          "entityId": "missing",
+          "amount": 2
+        }
+      }
+    },
+    {
+      "sequence": 11,
+      "actionId": "dd_11",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "entity.flip",
+        "payload": {
+          "entityId": "score_seat_1"
+        }
+      }
+    },
+    {
+      "sequence": 12,
+      "actionId": "dd_12",
+      "actor": {
+        "type": "player",
+        "playerId": "bob"
+      },
+      "action": {
+        "type": "entity.grab",
+        "payload": {
+          "entityId": "winner"
+        }
+      }
+    },
+    {
+      "sequence": 13,
+      "actionId": "dd_13",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "entity.drop",
+        "payload": {
+          "entityId": "score_seat_1",
+          "transform": {
+            "position": {
+              "x": 1,
+              "y": 1,
+              "z": 0
+            },
+            "rotation": {
+              "x": 0,
+              "y": 0,
+              "z": 0,
+              "w": 1
+            },
+            "scale": {
+              "x": 1,
+              "y": 1,
+              "z": 1
+            }
+          }
+        }
+      }
+    },
+    {
+      "sequence": 14,
+      "actionId": "dd_14",
+      "actor": {
+        "type": "script",
+        "scriptId": "game"
+      },
+      "action": {
+        "type": "counter.set",
+        "payload": {
+          "entityId": "die",
+          "value": 6
+        }
+      }
+    },
+    {
+      "sequence": 15,
+      "actionId": "dd_15",
+      "actor": {
+        "type": "player",
+        "playerId": "bob"
+      },
+      "action": {
+        "type": "deck.shuffle",
+        "payload": {
+          "deckId": "die"
+        }
+      }
+    },
+    {
+      "sequence": 16,
+      "actionId": "dd_16",
+      "actor": {
+        "type": "script",
+        "scriptId": "game"
+      },
+      "action": {
+        "type": "deck.draw_to_container",
+        "payload": {
+          "deckId": "roll_source",
+          "target": "winner",
+          "count": 1
+        }
+      }
+    },
+    {
+      "sequence": 17,
+      "actionId": "dd_17",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "deck.shuffle",
+        "payload": {
+          "deckId": "roll_source"
+        }
+      }
+    },
+    {
+      "sequence": 18,
+      "actionId": "dd_18",
+      "actor": {
+        "type": "script",
+        "scriptId": "game"
+      },
+      "action": {
+        "type": "counter.add",
+        "payload": {
+          "entityId": "score_seat_1",
+          "amount": 1
+        }
+      }
+    },
+    {
+      "sequence": 19,
+      "actionId": "dd_19",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "entity.flip",
+        "payload": {
+          "entityId": "die"
+        }
+      }
+    },
+    {
+      "sequence": 20,
+      "actionId": "dd_20",
+      "actor": {
+        "type": "player",
+        "playerId": "bob"
+      },
+      "action": {
+        "type": "deck.shuffle",
+        "payload": {
+          "deckId": "roll_source"
+        }
+      }
+    },
+    {
+      "sequence": 21,
+      "actionId": "dd_21",
+      "actor": {
+        "type": "script",
+        "scriptId": "game"
+      },
+      "action": {
+        "type": "counter.add",
+        "payload": {
+          "entityId": "score_seat_2",
+          "amount": 4
+        }
+      }
+    },
+    {
+      "sequence": 22,
+      "actionId": "dd_22",
+      "actor": {
+        "type": "player",
+        "playerId": "bob"
+      },
+      "action": {
+        "type": "entity.flip",
+        "payload": {
+          "entityId": "die"
+        }
+      }
+    },
+    {
+      "sequence": 23,
+      "actionId": "dd_23",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "deck.shuffle",
+        "payload": {
+          "deckId": "roll_source"
+        }
+      }
+    },
+    {
+      "sequence": 24,
+      "actionId": "dd_24",
+      "actor": {
+        "type": "script",
+        "scriptId": "game"
+      },
+      "action": {
+        "type": "counter.add",
+        "payload": {
+          "entityId": "score_seat_1",
+          "amount": 4
+        }
+      }
+    },
+    {
+      "sequence": 25,
+      "actionId": "dd_25",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "entity.flip",
+        "payload": {
+          "entityId": "die"
+        }
+      }
+    },
+    {
+      "sequence": 26,
+      "actionId": "dd_26",
+      "actor": {
+        "type": "player",
+        "playerId": "bob"
+      },
+      "action": {
+        "type": "deck.shuffle",
+        "payload": {
+          "deckId": "roll_source"
+        }
+      }
+    },
+    {
+      "sequence": 27,
+      "actionId": "dd_27",
+      "actor": {
+        "type": "script",
+        "scriptId": "game"
+      },
+      "action": {
+        "type": "counter.add",
+        "payload": {
+          "entityId": "score_seat_2",
+          "amount": 4
+        }
+      }
+    },
+    {
+      "sequence": 28,
+      "actionId": "dd_28",
+      "actor": {
+        "type": "player",
+        "playerId": "bob"
+      },
+      "action": {
+        "type": "entity.flip",
+        "payload": {
+          "entityId": "die"
+        }
+      }
+    },
+    {
+      "sequence": 29,
+      "actionId": "dd_29",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "deck.shuffle",
+        "payload": {
+          "deckId": "roll_source"
+        }
+      }
+    },
+    {
+      "sequence": 30,
+      "actionId": "dd_30",
+      "actor": {
+        "type": "script",
+        "scriptId": "game"
+      },
+      "action": {
+        "type": "counter.add",
+        "payload": {
+          "entityId": "score_seat_1",
+          "amount": 4
+        }
+      }
+    },
+    {
+      "sequence": 31,
+      "actionId": "dd_31",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "entity.flip",
+        "payload": {
+          "entityId": "die"
+        }
+      }
+    },
+    {
+      "sequence": 32,
+      "actionId": "dd_32",
+      "actor": {
+        "type": "player",
+        "playerId": "bob"
+      },
+      "action": {
+        "type": "deck.shuffle",
+        "payload": {
+          "deckId": "roll_source"
+        }
+      }
+    },
+    {
+      "sequence": 33,
+      "actionId": "dd_33",
+      "actor": {
+        "type": "script",
+        "scriptId": "game"
+      },
+      "action": {
+        "type": "counter.add",
+        "payload": {
+          "entityId": "score_seat_2",
+          "amount": 3
+        }
+      }
+    },
+    {
+      "sequence": 34,
+      "actionId": "dd_34",
+      "actor": {
+        "type": "player",
+        "playerId": "bob"
+      },
+      "action": {
+        "type": "entity.flip",
+        "payload": {
+          "entityId": "die"
+        }
+      }
+    },
+    {
+      "sequence": 35,
+      "actionId": "dd_35",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "deck.shuffle",
+        "payload": {
+          "deckId": "roll_source"
+        }
+      }
+    },
+    {
+      "sequence": 36,
+      "actionId": "dd_36",
+      "actor": {
+        "type": "script",
+        "scriptId": "game"
+      },
+      "action": {
+        "type": "counter.add",
+        "payload": {
+          "entityId": "score_seat_1",
+          "amount": 3
+        }
+      }
+    },
+    {
+      "sequence": 37,
+      "actionId": "dd_37",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "entity.flip",
+        "payload": {
+          "entityId": "die"
+        }
+      }
+    },
+    {
+      "sequence": 38,
+      "actionId": "dd_38",
+      "actor": {
+        "type": "player",
+        "playerId": "bob"
+      },
+      "action": {
+        "type": "deck.shuffle",
+        "payload": {
+          "deckId": "roll_source"
+        }
+      }
+    },
+    {
+      "sequence": 39,
+      "actionId": "dd_39",
+      "actor": {
+        "type": "script",
+        "scriptId": "game"
+      },
+      "action": {
+        "type": "counter.add",
+        "payload": {
+          "entityId": "score_seat_2",
+          "amount": 4
+        }
+      }
+    },
+    {
+      "sequence": 40,
+      "actionId": "dd_40",
+      "actor": {
+        "type": "player",
+        "playerId": "bob"
+      },
+      "action": {
+        "type": "entity.flip",
+        "payload": {
+          "entityId": "die"
+        }
+      }
+    },
+    {
+      "sequence": 41,
+      "actionId": "dd_41",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "deck.shuffle",
+        "payload": {
+          "deckId": "roll_source"
+        }
+      }
+    },
+    {
+      "sequence": 42,
+      "actionId": "dd_42",
+      "actor": {
+        "type": "script",
+        "scriptId": "game"
+      },
+      "action": {
+        "type": "counter.add",
+        "payload": {
+          "entityId": "score_seat_1",
+          "amount": 6
+        }
+      }
+    },
+    {
+      "sequence": 43,
+      "actionId": "dd_43",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "entity.flip",
+        "payload": {
+          "entityId": "die"
+        }
+      }
+    },
+    {
+      "sequence": 44,
+      "actionId": "dd_44",
+      "actor": {
+        "type": "player",
+        "playerId": "bob"
+      },
+      "action": {
+        "type": "deck.shuffle",
+        "payload": {
+          "deckId": "roll_source"
+        }
+      }
+    },
+    {
+      "sequence": 45,
+      "actionId": "dd_45",
+      "actor": {
+        "type": "script",
+        "scriptId": "game"
+      },
+      "action": {
+        "type": "counter.add",
+        "payload": {
+          "entityId": "score_seat_2",
+          "amount": 1
+        }
+      }
+    },
+    {
+      "sequence": 46,
+      "actionId": "dd_46",
+      "actor": {
+        "type": "player",
+        "playerId": "bob"
+      },
+      "action": {
+        "type": "entity.flip",
+        "payload": {
+          "entityId": "die"
+        }
+      }
+    },
+    {
+      "sequence": 47,
+      "actionId": "dd_47",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "deck.shuffle",
+        "payload": {
+          "deckId": "roll_source"
+        }
+      }
+    },
+    {
+      "sequence": 48,
+      "actionId": "dd_48",
+      "actor": {
+        "type": "script",
+        "scriptId": "game"
+      },
+      "action": {
+        "type": "counter.add",
+        "payload": {
+          "entityId": "score_seat_1",
+          "amount": 1
+        }
+      }
+    },
+    {
+      "sequence": 49,
+      "actionId": "dd_49",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "entity.flip",
+        "payload": {
+          "entityId": "die"
+        }
+      }
+    },
+    {
+      "sequence": 50,
+      "actionId": "dd_50",
+      "actor": {
+        "type": "player",
+        "playerId": "bob"
+      },
+      "action": {
+        "type": "deck.shuffle",
+        "payload": {
+          "deckId": "roll_source"
+        }
+      }
+    },
+    {
+      "sequence": 51,
+      "actionId": "dd_51",
+      "actor": {
+        "type": "script",
+        "scriptId": "game"
+      },
+      "action": {
+        "type": "counter.add",
+        "payload": {
+          "entityId": "score_seat_2",
+          "amount": 2
+        }
+      }
+    },
+    {
+      "sequence": 52,
+      "actionId": "dd_52",
+      "actor": {
+        "type": "player",
+        "playerId": "bob"
+      },
+      "action": {
+        "type": "entity.flip",
+        "payload": {
+          "entityId": "die"
+        }
+      }
+    },
+    {
+      "sequence": 53,
+      "actionId": "dd_53",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "deck.shuffle",
+        "payload": {
+          "deckId": "roll_source"
+        }
+      }
+    },
+    {
+      "sequence": 54,
+      "actionId": "dd_54",
+      "actor": {
+        "type": "script",
+        "scriptId": "game"
+      },
+      "action": {
+        "type": "counter.add",
+        "payload": {
+          "entityId": "score_seat_1",
+          "amount": 6
+        }
+      }
+    },
+    {
+      "sequence": 55,
+      "actionId": "dd_55",
+      "actor": {
+        "type": "script",
+        "scriptId": "game"
+      },
+      "action": {
+        "type": "counter.set",
+        "payload": {
+          "entityId": "winner",
+          "value": 1
+        }
+      }
+    }
+  ],
+  "luaExpectations": [
+    {
+      "beforeSequence": 18,
+      "callback": "on_after_shuffle",
+      "actionSequences": [
+        18
+      ],
+      "seatNumber": 1
+    },
+    {
+      "beforeSequence": 21,
+      "callback": "on_after_shuffle",
+      "actionSequences": [
+        21
+      ],
+      "seatNumber": 2
+    },
+    {
+      "beforeSequence": 24,
+      "callback": "on_after_shuffle",
+      "actionSequences": [
+        24
+      ],
+      "seatNumber": 1
+    },
+    {
+      "beforeSequence": 27,
+      "callback": "on_after_shuffle",
+      "actionSequences": [
+        27
+      ],
+      "seatNumber": 2
+    },
+    {
+      "beforeSequence": 30,
+      "callback": "on_after_shuffle",
+      "actionSequences": [
+        30
+      ],
+      "seatNumber": 1
+    },
+    {
+      "beforeSequence": 33,
+      "callback": "on_after_shuffle",
+      "actionSequences": [
+        33
+      ],
+      "seatNumber": 2
+    },
+    {
+      "beforeSequence": 36,
+      "callback": "on_after_shuffle",
+      "actionSequences": [
+        36
+      ],
+      "seatNumber": 1
+    },
+    {
+      "beforeSequence": 39,
+      "callback": "on_after_shuffle",
+      "actionSequences": [
+        39
+      ],
+      "seatNumber": 2
+    },
+    {
+      "beforeSequence": 42,
+      "callback": "on_after_shuffle",
+      "actionSequences": [
+        42
+      ],
+      "seatNumber": 1
+    },
+    {
+      "beforeSequence": 45,
+      "callback": "on_after_shuffle",
+      "actionSequences": [
+        45
+      ],
+      "seatNumber": 2
+    },
+    {
+      "beforeSequence": 48,
+      "callback": "on_after_shuffle",
+      "actionSequences": [
+        48
+      ],
+      "seatNumber": 1
+    },
+    {
+      "beforeSequence": 51,
+      "callback": "on_after_shuffle",
+      "actionSequences": [
+        51
+      ],
+      "seatNumber": 2
+    },
+    {
+      "beforeSequence": 54,
+      "callback": "on_after_shuffle",
+      "actionSequences": [
+        54,
+        55
+      ],
+      "seatNumber": 1
+    }
+  ],
+  "expectedFinalStateHash": "sha256:0b857c4fb88ceb303e494975434451be888b5b795dbcfe90fb6fb001569743b2",
+  "expectedRejectionCount": 27
+}
+
