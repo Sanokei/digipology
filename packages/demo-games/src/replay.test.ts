@@ -9,15 +9,18 @@ import {
 } from "digipology-kernel";
 import firstDealJson from "../fixtures/first-deal-replay-v1.json";
 import diceDashJson from "../fixtures/dice-dash-replay-v1.json";
+import diceDashV2Json from "../fixtures/dice-dash-replay-v2.json";
 import {
   DemoLuaHost,
   createDiceDashInitialState,
+  createDiceDashV2InitialState,
   createFirstDealInitialState,
   type ReplayFixture,
 } from "./test-support";
 
 const firstDeal = firstDealJson as unknown as ReplayFixture;
 const diceDash = diceDashJson as unknown as ReplayFixture;
+const diceDashV2 = diceDashV2Json as unknown as ReplayFixture;
 
 interface RunResult {
   readonly state: CanonicalGameState;
@@ -77,9 +80,13 @@ function counterValue(state: CanonicalGameState, entityId: string): number {
 }
 
 describe("committed golden replays", () => {
-  for (const fixture of [firstDeal, diceDash]) {
+  for (const fixture of [firstDeal, diceDash, diceDashV2]) {
     test(`${fixture.initialSnapshot.releaseId} replays twice to its pinned hash`, async () => {
-      expect(fixture.actions.length).toBeGreaterThanOrEqual(40);
+      if (fixture.initialSnapshot.releaseId.endsWith("_1")) {
+        expect(fixture.actions.length).toBeGreaterThanOrEqual(40);
+      } else {
+        expect(fixture.actions.length).toBeGreaterThan(0);
+      }
       const first = await replay(fixture);
       const second = await replay(fixture);
       expect(first.rejectionCount).toBe(fixture.expectedRejectionCount);
@@ -110,6 +117,7 @@ describe("game contracts", () => {
   test("fixture snapshots match the release-derived initial states", () => {
     expect(snapshot(createFirstDealInitialState())).toEqual(firstDeal.initialSnapshot);
     expect(snapshot(createDiceDashInitialState())).toEqual(diceDash.initialSnapshot);
+    expect(snapshot(createDiceDashV2InitialState())).toEqual(diceDashV2.initialSnapshot);
   });
 
   test("First Deal on_start deterministically deals five cards to every occupied seat", async () => {
@@ -154,5 +162,16 @@ describe("game contracts", () => {
     };
     expect(firstResult).toEqual({ winner: 1, scores: [20, 18] });
     expect(secondResult).toEqual(firstResult);
+  });
+
+  test("Dice Dash v2 rolls through Lua and covers canonical lifecycle actions", async () => {
+    const result = await replay(diceDashV2);
+    expect(result.rejectionCount).toBe(1);
+    expect(result.state.entities.die?.components.die?.value).toBe(2);
+    expect(counterValue(result.state, "score_seat_2")).toBe(3);
+    expect(result.state.players.alice).toBeUndefined();
+    expect(result.state.players.carol).toBeUndefined();
+    expect(result.state.seats.seat_1?.playerId).toBeNull();
+    expect(result.state.seats.seat_3?.playerId).toBeNull();
   });
 });

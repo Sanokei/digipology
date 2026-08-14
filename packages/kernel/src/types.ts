@@ -84,6 +84,8 @@ export interface HandComponent {
 export interface DieComponent {
   definitionId: string;
   value: number | string;
+  /** Optional canonical face list. Legacy standard_d6 instances fall back to 1..6. */
+  faces?: Array<number | string>;
 }
 
 export interface ZoneComponent {

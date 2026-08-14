@@ -72,4 +72,29 @@ describe("protocol message handler", () => {
     expect(ctx.broadcasts).toHaveLength(1);
     expect(socket.sent.at(-1)).toEqual(ctx.broadcasts[0]);
   });
+
+  test("sends bootstrap before its ordered catch-up stream", async () => {
+    const socket = new MockSocket();
+    const ctx = context();
+    ctx.hello = () => [
+      { type: "bootstrap", protocolVersion: 1, sequence: 0, snapshot: {}, players: [] },
+      ctx.sequence("player_alice", {
+        type: "action_request",
+        protocolVersion: 1,
+        requestId: "start",
+        predictedAtSequence: 0,
+        action: { type: "system.game_start", payload: {} },
+      }).message,
+    ];
+    await handleTextFrame(socket, JSON.stringify({
+      type: "hello",
+      protocolVersion: 1,
+      sessionToken: "valid",
+      lastSequence: null,
+    }), ctx);
+    expect(socket.sent.map((message) => message.type)).toEqual([
+      "bootstrap",
+      "ordered_action",
+    ]);
+  });
 });

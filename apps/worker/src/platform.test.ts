@@ -21,7 +21,7 @@ describe("catalog routes", () => {
       latestRelease: { releaseId: string };
     };
     expect(gameBody.game.slug).toBe("dice-dash");
-    expect(gameBody.latestRelease.releaseId).toBe("builtin_dice_dash_1");
+    expect(gameBody.latestRelease.releaseId).toBe("builtin_dice_dash_2");
 
     const bundleResponse = await handlePlatformRequest(
       new Request("https://play.digipology.com/api/releases/builtin_dice_dash_1/bundle"),

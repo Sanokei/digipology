@@ -1,10 +1,14 @@
 import { BUILTIN_GAMES, getBuiltinRelease } from "digipology-demo-games";
+import fixtureRosters from "../../../packages/demo-games/fixtures/builtin-rosters.json";
 import type {
   BuiltinGame,
   ReleaseBundle as BuiltinReleaseBundle,
 } from "digipology-demo-games";
 import { snapshot } from "digipology-kernel";
-import { createBuiltinInitialState } from "./initial-state";
+import {
+  createBuiltinInitialState,
+  type InitialStatePlayer,
+} from "./initial-state";
 import type {
   GameSummaryDto,
   ReleaseBundle as ProtocolReleaseBundle,
@@ -34,29 +38,45 @@ const games: readonly CatalogGame[] = BUILTIN_GAMES.map((game: BuiltinGame) => (
   minPlayers: game.minPlayers,
   maxPlayers: game.maxPlayers,
   builtin: true,
-  latestReleaseId: game.release.releaseId,
+  latestReleaseId: game.latestReleaseId,
 }));
 
-const releases: readonly CatalogRelease[] = BUILTIN_GAMES.map((game: BuiltinGame) => {
-  const release: BuiltinReleaseBundle | undefined = getBuiltinRelease(game.release.releaseId);
-  if (release === undefined) throw new Error(`Missing built-in release ${game.release.releaseId}`);
-  const initialState = createBuiltinInitialState(release.releaseId);
-  if (initialState === null) throw new Error(`Missing initial state for ${game.release.releaseId}`);
-  // The served bundle carries the manifest plus the canonical starting snapshot
-  // every client loads before applying the ordered action stream (SPEC 05.11).
-  const bundle = Object.freeze({
-    ...release,
-    title: game.title,
-    initialSnapshot: snapshot(initialState),
-  });
-  return {
-    releaseId: release.releaseId,
-    gameSlug: game.slug,
-    kernelVersion: release.kernelVersion,
-    luaApiVersion: release.luaApiVersion,
-    bundle: bundle as unknown as ProtocolReleaseBundle,
-  };
-});
+const releases: readonly CatalogRelease[] = BUILTIN_GAMES.flatMap(
+  (game: BuiltinGame) => game.releases.map((candidate) => {
+    const release: BuiltinReleaseBundle | undefined = getBuiltinRelease(
+      candidate.releaseId,
+    );
+    if (release === undefined) {
+      throw new Error(`Missing built-in release ${candidate.releaseId}`);
+    }
+    const initialState = createBuiltinInitialState(
+      release.releaseId,
+      fixtureRoster(release.releaseId),
+    );
+    if (initialState === null) {
+      throw new Error(`Missing initial state for ${candidate.releaseId}`);
+    }
+    // Bundles keep the fixture snapshot as their immutable integrity artifact.
+    const bundle = Object.freeze({
+      ...release,
+      title: game.title,
+      initialSnapshot: snapshot(initialState),
+    });
+    return {
+      releaseId: release.releaseId,
+      gameSlug: game.slug,
+      kernelVersion: release.kernelVersion,
+      luaApiVersion: release.luaApiVersion,
+      bundle: bundle as unknown as ProtocolReleaseBundle,
+    };
+  }),
+);
+
+function fixtureRoster(releaseId: string): readonly InitialStatePlayer[] {
+  const roster = (fixtureRosters as Record<string, InitialStatePlayer[]>)[releaseId];
+  if (roster === undefined) throw new Error(`Missing fixture roster for ${releaseId}`);
+  return roster;
+}
 
 /** Adapter over the immutable `digipology-demo-games` built-in catalog. */
 export const builtinCatalog: GameCatalog = {

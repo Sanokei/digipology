@@ -12,7 +12,7 @@ import { getBuiltinRelease } from "./catalog";
 
 export interface LuaExpectation {
   readonly beforeSequence: number;
-  readonly callback: "on_start" | "on_after_shuffle";
+  readonly callback: "on_start" | "on_after_shuffle" | "on_roll" | "on_after_roll";
   readonly actionSequences: ReadonlyArray<number>;
   readonly seatNumber?: number;
 }
@@ -117,32 +117,47 @@ export function createFirstDealInitialState(): CanonicalGameState {
 }
 
 export function createDiceDashInitialState(): CanonicalGameState {
-  const runtime = JSON.parse(releaseFile("builtin_dice_dash_1", "runtime/game.json")) as {
+  return createDiceDashState("builtin_dice_dash_1");
+}
+
+export function createDiceDashV2InitialState(): CanonicalGameState {
+  return createDiceDashState("builtin_dice_dash_2");
+}
+
+function createDiceDashState(releaseId: string): CanonicalGameState {
+  const runtime = JSON.parse(releaseFile(releaseId, "runtime/game.json")) as {
     dieId: string;
-    rollSource: { deckId: string; tokenIds: string[] };
+    dieFaces?: Array<number | string>;
+    rollSource?: { deckId: string; tokenIds: string[] };
     scoreIds: string[];
     settings: { targetScore: number };
     winnerId: string;
   };
   const entities: Record<string, EntityRecord> = {};
-  entities[runtime.rollSource.deckId] = entity(runtime.rollSource.deckId, {
-    container: {
-      items: [...runtime.rollSource.tokenIds],
-      capacity: 6,
-      ordering: "stack",
-      visibility: "hidden",
-    },
-    deck: { enabled: true },
-  });
-  for (let index = 0; index < runtime.rollSource.tokenIds.length; index += 1) {
-    const tokenId = runtime.rollSource.tokenIds[index]!;
-    const value = index + 1;
-    entities[tokenId] = entity(tokenId, {
-      counter: { value, default: value, min: value, max: value },
+  if (runtime.rollSource !== undefined) {
+    entities[runtime.rollSource.deckId] = entity(runtime.rollSource.deckId, {
+      container: {
+        items: [...runtime.rollSource.tokenIds],
+        capacity: 6,
+        ordering: "stack",
+        visibility: "hidden",
+      },
+      deck: { enabled: true },
     });
+    for (let index = 0; index < runtime.rollSource.tokenIds.length; index += 1) {
+      const tokenId = runtime.rollSource.tokenIds[index]!;
+      const value = index + 1;
+      entities[tokenId] = entity(tokenId, {
+        counter: { value, default: value, min: value, max: value },
+      });
+    }
   }
   entities[runtime.dieId] = entity(runtime.dieId, {
-    die: { definitionId: "standard_d6", value: 1 },
+    die: {
+      definitionId: "standard_d6",
+      value: 1,
+      ...(runtime.dieFaces === undefined ? {} : { faces: runtime.dieFaces }),
+    },
     grabbable: { enabled: true, heldBy: null },
     transform: IDENTITY,
   });
@@ -161,7 +176,7 @@ export function createDiceDashInitialState(): CanonicalGameState {
     counter: { value: 0, default: 0, min: 0, max: 4 },
   });
   return createInitialState({
-    releaseId: "builtin_dice_dash_1",
+    releaseId,
     rng: DICE_DASH_RNG,
     settings: runtime.settings,
     players: {
@@ -227,21 +242,32 @@ export class DemoLuaHost {
 
     const seatNumber = expectation.seatNumber;
     if (seatNumber === undefined) throw new TypeError("Dice callback needs seatNumber");
-    const rollSource = state.entities.roll_source?.components.container;
-    if (rollSource === undefined) throw new TypeError("Missing roll source container");
-    const topToken = rollSource.items[rollSource.items.length - 1];
-    if (topToken === undefined) throw new TypeError("Roll source is empty");
-    const rollCounter = state.entities[topToken]?.components.counter;
+    const rollCounter = this.releaseId === "builtin_dice_dash_1"
+      ? (() => {
+          const rollSource = state.entities.roll_source?.components.container;
+          if (rollSource === undefined) throw new TypeError("Missing roll source container");
+          const topToken = rollSource.items[rollSource.items.length - 1];
+          if (topToken === undefined) throw new TypeError("Roll source is empty");
+          return state.entities[topToken]?.components.counter;
+        })()
+      : undefined;
+    const die = state.entities.die?.components.die;
     const scoreId = `score_seat_${seatNumber}`;
     const score = state.entities[scoreId]?.components.counter;
     const winner = state.entities.winner?.components.counter;
-    if (rollCounter === undefined || score === undefined || winner === undefined) {
+    if (
+      (this.releaseId === "builtin_dice_dash_1" && rollCounter === undefined) ||
+      (this.releaseId === "builtin_dice_dash_2" && die === undefined) ||
+      score === undefined ||
+      winner === undefined
+    ) {
       throw new TypeError("Dice callback state is incomplete");
     }
     return scriptActions(await this.lua.run(this.source, {
       callback: expectation.callback,
       current_score: score.value,
-      roll_value: rollCounter.value,
+      die_id: "die",
+      roll_value: this.releaseId === "builtin_dice_dash_1" ? rollCounter!.value : die!.value,
       score_id: scoreId,
       seat_number: seatNumber,
       target_score: state.settings.targetScore,

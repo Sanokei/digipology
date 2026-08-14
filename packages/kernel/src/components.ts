@@ -14,7 +14,7 @@ export const componentRegistry: Readonly<Record<string, ComponentDefinition>> =
     deck: { type: "deck", behavior: "implemented", requires: ["container"] },
     counter: { type: "counter", behavior: "implemented", requires: [] },
     hand: { type: "hand", behavior: "stub", requires: ["container"] },
-    die: { type: "die", behavior: "stub", requires: ["transform"] },
+    die: { type: "die", behavior: "implemented", requires: ["transform"] },
     zone: { type: "zone", behavior: "stub", requires: ["transform"] },
     "snap-point": {
       type: "snap-point",

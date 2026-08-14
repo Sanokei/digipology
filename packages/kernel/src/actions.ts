@@ -10,11 +10,13 @@ import type {
   CanonicalGameState,
   ContainerComponent,
   CounterComponent,
+  DieComponent,
   EntityId,
   EntityRecord,
   FlippableComponent,
   GrabbableComponent,
   JsonValue,
+  PlayerRecord,
   Reject,
   Settings,
   TransformComponent,
@@ -109,6 +111,180 @@ const gameStart: ActionDefinition<unknown> = {
     const payload = action.payload as { settings?: Settings };
     if (payload.settings !== undefined) draft.settings = cloneCanonical(payload.settings);
     ctx.emit("game.started", { settings: cloneCanonical(draft.settings) });
+  },
+};
+
+const STANDARD_D6_FACES: ReadonlyArray<number | string> = Object.freeze([
+  1, 2, 3, 4, 5, 6,
+]);
+
+function dieFaces(die: DieComponent): ReadonlyArray<number | string> | Reject {
+  if (die.faces === undefined) {
+    return die.definitionId === "standard_d6"
+      ? STANDARD_D6_FACES
+      : reject(`Die definition ${die.definitionId} has no configured faces`);
+  }
+  if (
+    !Array.isArray(die.faces) ||
+    die.faces.length === 0 ||
+    die.faces.some(
+      (face) =>
+        (typeof face !== "number" || !Number.isFinite(face)) &&
+        typeof face !== "string",
+    )
+  ) {
+    return reject("Die faces must be a non-empty array of finite numbers or strings");
+  }
+  return die.faces;
+}
+
+const dieRoll: ActionDefinition<unknown> = {
+  type: "die.roll",
+  version: 1,
+  sources: ["player", "script"],
+  validate(state, action) {
+    const payload = entityPayload(action);
+    if (isReject(payload)) return payload;
+    const die = requireComponent<DieComponent>(state, payload.entityId, "die");
+    if (isReject(die)) return die;
+    const faces = dieFaces(die);
+    if (isReject(faces)) return faces;
+    const grabbable = state.entities[payload.entityId]?.components.grabbable as
+      | GrabbableComponent
+      | undefined;
+    if (grabbable?.heldBy !== null && grabbable?.heldBy !== undefined) {
+      const actorPlayerId =
+        action.actor.type === "player" ? action.actor.playerId : undefined;
+      if (grabbable.heldBy !== actorPlayerId) {
+        return reject("Die is held by another player");
+      }
+    }
+    return OK;
+  },
+  apply(draft, action, ctx) {
+    const { entityId } = action.payload as { entityId: string };
+    const die = draft.entities[entityId]?.components.die as DieComponent | undefined;
+    if (die === undefined) throw new Error("Validated die disappeared");
+    const faces = dieFaces(die);
+    if (isReject(faces)) throw new Error("Validated die faces disappeared");
+    const value = faces[ctx.rng.int(0, faces.length - 1)];
+    if (value === undefined) throw new Error("Validated die has no faces");
+    die.value = value;
+    ctx.emit("die.rolled", { entityId, value });
+  },
+};
+
+function playerPayload(action: ActionInstance<unknown>):
+  | { playerId: string; name?: string }
+  | Reject {
+  if (
+    !isRecord(action.payload) ||
+    !onlyKeys(action.payload, ["playerId", "name"]) ||
+    typeof action.payload.playerId !== "string" ||
+    action.payload.playerId.length === 0 ||
+    (hasOwn.call(action.payload, "name") && typeof action.payload.name !== "string")
+  ) {
+    return reject("Payload requires playerId and optional name strings");
+  }
+  return {
+    playerId: action.payload.playerId,
+    ...(typeof action.payload.name === "string" ? { name: action.payload.name } : {}),
+  };
+}
+
+const playerJoined: ActionDefinition<unknown> = {
+  type: "system.player_joined",
+  version: 1,
+  sources: ["system"],
+  validate(state, action) {
+    const payload = playerPayload(action);
+    if (isReject(payload)) return payload;
+    if (hasOwn.call(state.players, payload.playerId)) {
+      return reject(`Player already exists: ${payload.playerId}`);
+    }
+    return OK;
+  },
+  apply(draft, action, ctx) {
+    const payload = action.payload as { playerId: string; name?: string };
+    const player: PlayerRecord = {
+      id: payload.playerId,
+      ...(payload.name === undefined ? {} : { name: payload.name }),
+    };
+    draft.players[payload.playerId] = player;
+    ctx.emit("player.joined", { player: cloneCanonical(player) });
+  },
+};
+
+const playerLeft: ActionDefinition<unknown> = {
+  type: "system.player_left",
+  version: 1,
+  sources: ["system"],
+  validate(state, action) {
+    const payload = playerPayload(action);
+    if (isReject(payload) || payload.name !== undefined) {
+      return isReject(payload)
+        ? payload
+        : reject("Payload must contain only playerId");
+    }
+    return hasOwn.call(state.players, payload.playerId)
+      ? OK
+      : reject(`Unknown player: ${payload.playerId}`);
+  },
+  apply(draft, action, ctx) {
+    const { playerId } = action.payload as { playerId: string };
+    const entityIds = Object.keys(draft.entities).sort((left, right) =>
+      left < right ? -1 : left > right ? 1 : 0,
+    );
+    for (const entityId of entityIds) {
+      const grabbable = draft.entities[entityId]?.components.grabbable as
+        | GrabbableComponent
+        | undefined;
+      if (grabbable?.heldBy !== playerId) continue;
+      grabbable.heldBy = null;
+      ctx.emit("entity.dropped", { entityId, playerId, reason: "player_left" });
+    }
+    const seatIds = Object.keys(draft.seats).sort((left, right) =>
+      left < right ? -1 : left > right ? 1 : 0,
+    );
+    for (const seatId of seatIds) {
+      const seat = draft.seats[seatId];
+      if (seat?.playerId !== playerId) continue;
+      seat.playerId = null;
+      ctx.emit("seat.left", { playerId, seatId });
+    }
+    delete draft.players[playerId];
+    ctx.emit("player.left", { playerId });
+  },
+};
+
+const seatAssign: ActionDefinition<unknown> = {
+  type: "system.seat_assign",
+  version: 1,
+  sources: ["system"],
+  validate(state, action) {
+    if (
+      !isRecord(action.payload) ||
+      !onlyKeys(action.payload, ["playerId", "seatId"]) ||
+      typeof action.payload.playerId !== "string" ||
+      action.payload.playerId.length === 0 ||
+      typeof action.payload.seatId !== "string" ||
+      action.payload.seatId.length === 0
+    ) {
+      return reject("Payload requires only non-empty playerId and seatId strings");
+    }
+    return hasOwn.call(state.players, action.payload.playerId)
+      ? OK
+      : reject(`Unknown player: ${action.payload.playerId}`);
+  },
+  apply(draft, action, ctx) {
+    const { playerId, seatId } = action.payload as {
+      playerId: string;
+      seatId: string;
+    };
+    const seat = draft.seats[seatId];
+    draft.seats[seatId] =
+      seat === undefined ? { id: seatId, playerId } : { ...seat, playerId };
+    ctx.emit("seat.assigned", { playerId, seatId });
   },
 };
 
@@ -433,11 +609,15 @@ const counterAdd: ActionDefinition<unknown> = {
 
 export const builtInActions: ReadonlyArray<ActionDefinition<unknown>> = [
   gameStart,
+  playerJoined,
+  playerLeft,
+  seatAssign,
   entityGrab,
   entityDrop,
   entityFlip,
   deckShuffle,
   deckDrawToContainer,
+  dieRoll,
   counterSet,
   counterAdd,
 ];
