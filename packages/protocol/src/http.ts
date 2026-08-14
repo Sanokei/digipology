@@ -104,6 +104,14 @@ export interface CreateReleaseResponse {
   release: UploadedReleaseSummaryDto;
 }
 
+export interface CreateAiGameRequest {
+  prompt: string;
+}
+
+export interface EditAiGameRequest {
+  instruction: string;
+}
+
 export interface UpdateGameRequest {
   visibility: GameVisibility;
 }
@@ -218,6 +226,27 @@ export interface UploadValidationReportItem {
   check: UploadValidationCheck;
   ok: boolean;
   detail?: string;
+}
+
+/** Wire-compatible with digipology-ai's StructuredTaskTelemetry. */
+export interface StructuredTaskTelemetryDto {
+  attempts: number;
+  firstTryValid: boolean;
+  retries: number;
+  fallback: boolean;
+  violations: Array<{ code: string; message: string }>;
+}
+
+export interface AiGameDraftResponse {
+  draft: ReleaseBundleDto;
+  validationReport: UploadValidationReportItem[];
+  telemetry: StructuredTaskTelemetryDto;
+}
+
+export interface AiGameGenerationErrorResponse extends ApiErrorResponse {
+  error: { code: "ai_generation_failed"; message: string };
+  validationReport: UploadValidationReportItem[];
+  telemetry: StructuredTaskTelemetryDto;
 }
 
 export interface UploadValidationErrorResponse extends ApiErrorResponse {
@@ -465,6 +494,31 @@ export function validateCreateReleaseRequest(
   if (!object.ok) return object;
   if (!isJsonObject(object.value.bundle)) return invalid("$.bundle", "bundle must be an object");
   return { ok: true, value: { bundle: object.value.bundle as unknown as ReleaseBundleDto } };
+}
+
+export function validateCreateAiGameRequest(
+  value: unknown,
+): HttpValidationResult<CreateAiGameRequest> {
+  return validateAiInstruction(value, "prompt");
+}
+
+export function validateEditAiGameRequest(
+  value: unknown,
+): HttpValidationResult<EditAiGameRequest> {
+  return validateAiInstruction(value, "instruction");
+}
+
+function validateAiInstruction<K extends "prompt" | "instruction">(
+  value: unknown,
+  key: K,
+): HttpValidationResult<Record<K, string>> {
+  const object = exactObject(value, [key]);
+  if (!object.ok) return object;
+  const text = object.value[key];
+  if (typeof text !== "string" || !boundedTrimmedText(text, 1, 8_000)) {
+    return invalid(`$.${key}`, `${key} must contain 1 to 8000 characters`);
+  }
+  return { ok: true, value: { [key]: text } as Record<K, string> };
 }
 
 export function validateUpdateGameRequest(

@@ -57,6 +57,10 @@ import {
   runQuickPlayMatchmaking,
   type QuickPlayCandidate,
 } from "./quickplay";
+import {
+  handleAiGameRequest,
+  type AiGameDependencies,
+} from "./ai-games";
 
 const HTTP_BODY_LIMIT = 4 * 1024;
 const MAGIC_EMAIL_LIMIT = 3;
@@ -94,14 +98,22 @@ interface DevelopmentMagicLinkRow {
   dev_token_iv: string;
 }
 
-export async function handlePlatformRequest(request: Request, env: Env): Promise<Response> {
+export interface PlatformDependencies extends AiGameDependencies {
+  now?: number;
+}
+
+export async function handlePlatformRequest(
+  request: Request,
+  env: Env,
+  dependencies: PlatformDependencies = {},
+): Promise<Response> {
   const url = new URL(request.url);
   if (request.method !== "GET" && url.pathname.startsWith("/api/") && !isCsrfSafe(request)) {
     return jsonError(403, "csrf_rejected", `Same-origin requests must include ${CSRF_HEADER}: 1`);
   }
 
   const repositories = new D1Repositories(env.DB);
-  const now = Date.now();
+  const now = dependencies.now ?? Date.now();
 
   if (request.method === "POST" && url.pathname === "/api/auth/request-link") {
     const body = await readJson(request);
@@ -213,6 +225,34 @@ export async function handlePlatformRequest(request: Request, env: Env): Promise
     if (session === null) return jsonError(401, "authentication_required", "Sign in to view your games");
     const response: MyGamesResponse = { games: await repositories.listOwnedGames(session.user.id) };
     return sessionResponse(response, session);
+  }
+
+  const aiEditMatch = /^\/api\/ai\/games\/([^/]+)\/edit$/.exec(url.pathname);
+  if (
+    request.method === "POST" &&
+    (url.pathname === "/api/ai/games" || aiEditMatch?.[1] !== undefined)
+  ) {
+    const session = await requestSession(request, repositories, env, now);
+    if (session === null) {
+      return jsonError(401, "authentication_required", "Sign in to create or edit a game with AI");
+    }
+    const slug = aiEditMatch?.[1] === undefined ? undefined : decodePathSegment(aiEditMatch[1]);
+    if (aiEditMatch?.[1] !== undefined && slug === null) {
+      return jsonError(404, "not_found", "Game not found");
+    }
+    const aiDependencies = Object.prototype.hasOwnProperty.call(dependencies, "deepseekFetch")
+      ? { deepseekFetch: dependencies.deepseekFetch ?? null }
+      : undefined;
+    return handleAiGameRequest({
+      request,
+      env,
+      repositories,
+      session,
+      now,
+      mode: aiEditMatch?.[1] === undefined ? "create" : "edit",
+      ...(slug === undefined || slug === null ? {} : { slug }),
+      ...(aiDependencies === undefined ? {} : { dependencies: aiDependencies }),
+    });
   }
 
   if (request.method === "POST" && url.pathname === "/api/games") {

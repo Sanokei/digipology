@@ -1,4 +1,11 @@
-import { type ChangeEvent, type FormEvent, useCallback, useEffect, useState } from "react";
+import {
+  type ChangeEvent,
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useReducer,
+  useState,
+} from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { OwnedGameDto, UploadValidationReportItem } from "digipology-protocol/http";
 
@@ -7,7 +14,17 @@ import { useAuth } from "../auth/AuthContext";
 import { SiteHeader } from "../components/SiteHeader";
 import { prevalidateCreateGame, prevalidateRelease } from "../releaseValidation";
 import { saveRoomSession } from "../utils/roomSession";
-import { nextVisibility, ownedGameRoomSession } from "./creatorModel";
+import {
+  aiCreatePrefill,
+  aiReleasePrefill,
+  aiSubmitIntent,
+  initialAiCreatorState,
+  nextVisibility,
+  ownedGameRoomSession,
+  reduceAiCreator,
+  type AiCreatorEvent,
+  type AiCreatorState,
+} from "./creatorModel";
 
 export function ValidationReport({ report }: { report: UploadValidationReportItem[] }) {
   return <ul className="validation-report" aria-label="Upload validation report">
@@ -17,6 +34,7 @@ export function ValidationReport({ report }: { report: UploadValidationReportIte
     </li>)}
   </ul>;
 }
+
 export function CreatePage() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -31,6 +49,11 @@ export function CreatePage() {
   const [games, setGames] = useState<OwnedGameDto[]>([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiState, dispatchAi] = useReducer(reduceAiCreator, initialAiCreatorState);
+  const [editInstructions, setEditInstructions] = useState<Record<string, string>>({});
+  const [editStates, setEditStates] = useState<Record<string, AiCreatorState>>({});
+  const [releaseDrafts, setReleaseDrafts] = useState<Record<string, string>>({});
 
   const loadGames = useCallback(async () => {
     if (user === null) return;
@@ -50,6 +73,34 @@ export function CreatePage() {
     return result;
   }
 
+  async function generateWithAi(event: FormEvent) {
+    event.preventDefault();
+    const intent = aiSubmitIntent(user, aiPrompt);
+    if (intent === "sign_in") { signIn(); return; }
+    if (intent === "ignore") return;
+    dispatchAi({ type: "requested" });
+    const result = await api.createAiGame(aiPrompt.trim());
+    if (!result.ok) {
+      dispatchAi({
+        type: "failed",
+        code: result.error.code,
+        message: result.error.message,
+        ...(result.error.report === undefined ? {} : { report: result.error.report }),
+      });
+      return;
+    }
+    dispatchAi({ type: "succeeded", response: result.value });
+    const prefill = aiCreatePrefill(result.value, aiPrompt);
+    setTitle(prefill.title);
+    setTagline(prefill.tagline);
+    setSlug("");
+    setMinPlayers(prefill.minPlayers);
+    setMaxPlayers(prefill.maxPlayers);
+    setBundleText(prefill.bundleText);
+    setReport(result.value.validationReport);
+    setMessage("AI draft loaded below. Review every field, then publish through the normal upload flow.");
+  }
+
   async function publish(event: FormEvent) {
     event.preventDefault();
     if (user === null) { signIn(); return; }
@@ -65,6 +116,7 @@ export function CreatePage() {
     }
     setMessage(`${result.value.game.title} release 1 is published.`);
     setTitle(""); setTagline(""); setSlug(""); setBundleText(""); setReport([]);
+    dispatchAi({ type: "reset" });
     await loadGames();
   }
 
@@ -96,7 +148,12 @@ export function CreatePage() {
     if (user === null) { event.currentTarget.value = ""; signIn(); return; }
     const file = event.currentTarget.files?.[0];
     if (file === undefined) return;
-    const checked = prevalidateRelease(await file.text(), game.minPlayers, game.maxPlayers);
+    await publishReleaseText(game, await file.text());
+  }
+
+  async function publishReleaseText(game: OwnedGameDto, text: string) {
+    if (user === null) { signIn(); return; }
+    const checked = prevalidateRelease(text, game.minPlayers, game.maxPlayers);
     setReport(checked.report);
     if (checked.bundle === null) { setMessage("The release failed client-side validation."); return; }
     const result = await api.createRelease(game.slug, checked.bundle);
@@ -106,10 +163,60 @@ export function CreatePage() {
       return;
     }
     setMessage(`${game.title} release ${result.value.release.releaseNumber} is published.`);
+    setReleaseDrafts((current) => {
+      const next = { ...current };
+      delete next[game.slug];
+      return next;
+    });
     await loadGames();
   }
 
+  function updateEditState(slugValue: string, event: AiCreatorEvent) {
+    setEditStates((current) => ({
+      ...current,
+      [slugValue]: reduceAiCreator(current[slugValue] ?? initialAiCreatorState, event),
+    }));
+  }
+
+  async function editWithAi(game: OwnedGameDto, event: FormEvent) {
+    event.preventDefault();
+    const instruction = editInstructions[game.slug] ?? "";
+    const intent = aiSubmitIntent(user, instruction);
+    if (intent === "sign_in") { signIn(); return; }
+    if (intent === "ignore") return;
+    updateEditState(game.slug, { type: "requested" });
+    const result = await api.editAiGame(game.slug, instruction.trim());
+    if (!result.ok) {
+      updateEditState(game.slug, {
+        type: "failed",
+        code: result.error.code,
+        message: result.error.message,
+        ...(result.error.report === undefined ? {} : { report: result.error.report }),
+      });
+      return;
+    }
+    updateEditState(game.slug, { type: "succeeded", response: result.value });
+    setReleaseDrafts((current) => ({ ...current, [game.slug]: aiReleasePrefill(result.value.draft) }));
+    setReport(result.value.validationReport);
+  }
+
   return <div className="site-page"><SiteHeader /><main className="creator-page">
+    <section className="creator-panel ai-creator-panel" aria-labelledby="ai-create-title">
+      <p className="eyebrow">AI draft studio</p><h2 id="ai-create-title">Describe your game</h2>
+      <p>Turn an idea into a reviewable release draft. AI never publishes; the draft still uses the normal upload checks and publish button.</p>
+      <form className="stack-form" onSubmit={(event) => void generateWithAi(event)}>
+        <label htmlFor="ai-game-prompt">Game description</label>
+        <textarea id="ai-game-prompt" rows={6} maxLength={8000} required value={aiPrompt}
+          placeholder="A cooperative two-player dice game about repairing a moon base…"
+          onChange={(event) => { setAiPrompt(event.currentTarget.value); if (aiState.phase !== "busy") dispatchAi({ type: "reset" }); }} />
+        <button className="primary-button" type="submit" disabled={aiState.phase === "busy"}>
+          {aiState.phase === "busy" ? "Creating and validating…" : aiState.phase === "failed" ? "Retry AI draft" : "Create draft with AI"}
+        </button>
+      </form>
+      {aiState.message === null ? null : <p className={`form-notice ai-state-${aiState.phase}`} role="status">{aiState.message}</p>}
+      {aiState.report.length === 0 ? null : <ValidationReport report={aiState.report} />}
+    </section>
+
     <section className="creator-panel">
       <p className="eyebrow">Creator upload</p><h1>Publish a game</h1>
       <p>Choose a release JSON file or paste the same JSON below. Validation runs locally before upload.</p>
@@ -125,13 +232,42 @@ export function CreatePage() {
       {message === null ? null : <p className="form-notice" role="status">{message}</p>}
       {report.length === 0 ? null : <ValidationReport report={report} />}
     </section>
+
     <section className="creator-panel" id="my-games" aria-labelledby="my-games-title">
       <p className="eyebrow">Library</p><h2 id="my-games-title">My games</h2>
-      {user === null ? <><p>Sign in to keep published games with your account and manage their visibility.</p><button className="secondary-button" type="button" onClick={signIn}>Sign in for My Games</button></> : games.length === 0 ? <p>No uploads yet.</p> : games.map((game) => <article className="my-game" key={game.slug}>
-        <div><h3>{game.title}</h3><p>{game.tagline}</p><small>{game.visibility} · latest release {game.releases[0]?.releaseNumber}</small></div>
-        <div className="button-row"><button className="secondary-button" type="button" onClick={() => void toggle(game)}>{game.visibility === "public" ? "Make unlisted" : "Make public"}</button><button className="primary-button" type="button" onClick={() => void host(game)}>Host</button><label className="file-button">New release<input type="file" accept="application/json,.json" onChange={(event) => void publishRelease(game, event)} /></label></div>
-        <ol className="release-list">{game.releases.map((release) => <li key={release.releaseId}><strong>Release {release.releaseNumber}</strong><span>{new Date(release.createdAt).toLocaleDateString()}</span><code>{release.releaseId}</code></li>)}</ol>
-      </article>)}
+      {user === null ? <><p>Sign in to keep published games with your account and manage their visibility.</p><button className="secondary-button" type="button" onClick={signIn}>Sign in for My Games</button></> : games.length === 0 ? <p>No uploads yet.</p> : games.map((game) => {
+        const editState = editStates[game.slug] ?? initialAiCreatorState;
+        const releaseDraft = releaseDrafts[game.slug];
+        return <article className="my-game" key={game.slug}>
+          <div><h3>{game.title}</h3><p>{game.tagline}</p><small>{game.visibility} · latest release {game.releases[0]?.releaseNumber}</small></div>
+          <div className="button-row"><button className="secondary-button" type="button" onClick={() => void toggle(game)}>{game.visibility === "public" ? "Make unlisted" : "Make public"}</button><button className="primary-button" type="button" onClick={() => void host(game)}>Host</button><label className="file-button">New release<input type="file" accept="application/json,.json" onChange={(event) => void publishRelease(game, event)} /></label></div>
+          <form className="stack-form ai-edit-form" onSubmit={(event) => void editWithAi(game, event)}>
+            <label htmlFor={`ai-edit-${game.slug}`}>Edit with AI</label>
+            <textarea id={`ai-edit-${game.slug}`} rows={3} maxLength={8000} required
+              placeholder="Add a six-sided die and reset the score at 20…"
+              value={editInstructions[game.slug] ?? ""}
+              onChange={(event) => setEditInstructions((current) => ({ ...current, [game.slug]: event.currentTarget.value }))} />
+            <button className="secondary-button" type="submit" disabled={editState.phase === "busy"}>
+              {editState.phase === "busy" ? "Editing and validating…" : editState.phase === "failed" ? "Retry AI edit" : "Create edited draft"}
+            </button>
+          </form>
+          {editState.message === null ? null : <p className={`form-notice ai-state-${editState.phase}`} role="status">{editState.message}</p>}
+          {editState.report.length === 0 ? null : <ValidationReport report={editState.report} />}
+          {releaseDraft === undefined ? null : <div className="stack-form release-draft-review">
+            <label htmlFor={`release-draft-${game.slug}`}>Review new release JSON</label>
+            <textarea id={`release-draft-${game.slug}`} rows={10} value={releaseDraft}
+              onChange={(event) => setReleaseDrafts((current) => ({ ...current, [game.slug]: event.currentTarget.value }))} />
+            <div className="button-row">
+              <button className="secondary-button" type="button" onClick={() => {
+                const checked = prevalidateRelease(releaseDraft, game.minPlayers, game.maxPlayers);
+                setReport(checked.report);
+              }}>Validate draft</button>
+              <button className="primary-button" type="button" onClick={() => void publishReleaseText(game, releaseDraft)}>Publish reviewed release</button>
+            </div>
+          </div>}
+          <ol className="release-list">{game.releases.map((release) => <li key={release.releaseId}><strong>Release {release.releaseNumber}</strong><span>{new Date(release.createdAt).toLocaleDateString()}</span><code>{release.releaseId}</code></li>)}</ol>
+        </article>;
+      })}
     </section>
   </main></div>;
 }

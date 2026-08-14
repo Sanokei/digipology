@@ -2,10 +2,12 @@ import { describe, expect, test } from "bun:test";
 import {
   rawContentHash,
   releaseManifestHash,
+  validateCreateAiGameRequest,
   validateCreateGameRequest,
   validateCreateReleaseRequest,
   validateCreateRoomRequest,
   validateJoinRoomRequest,
+  validateEditAiGameRequest,
   validateGameSummaryDto,
   validateQuickPlayRequest,
   validateRequestMagicLinkRequest,
@@ -201,6 +203,18 @@ describe("HTTP v1 request validators", () => {
     ]) expect(validateCreateGameRequest(value).ok).toBe(false);
     expect(validateCreateReleaseRequest({ bundle, releaseNumber: 2 }).ok).toBe(false);
     expect(validateUpdateGameRequest({ visibility: "private" }).ok).toBe(false);
+  });
+
+  test("validates exact bounded AI prompt and edit instruction bodies", () => {
+    expect(validateCreateAiGameRequest({ prompt: "Build a dice game" })).toEqual({
+      ok: true, value: { prompt: "Build a dice game" },
+    });
+    expect(validateEditAiGameRequest({ instruction: "Add another die" })).toEqual({
+      ok: true, value: { instruction: "Add another die" },
+    });
+    expect(validateCreateAiGameRequest({ prompt: "" }).ok).toBe(false);
+    expect(validateEditAiGameRequest({ instruction: " padded " }).ok).toBe(false);
+    expect(validateCreateAiGameRequest({ prompt: "valid", bundle: {} }).ok).toBe(false);
   });
 
   test("aggregates release integrity failures", () => {

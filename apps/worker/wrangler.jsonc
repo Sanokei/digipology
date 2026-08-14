@@ -8,11 +8,14 @@
   "routes": [
     { "pattern": "play.digipology.com", "custom_domain": true }
   ],
-  // SESSION_SECRET is a Wrangler secret and must be configured out of band:
-  // `wrangler secret put SESSION_SECRET`. Never add it to `vars`.
+  // SESSION_SECRET and DEEPSEEK_API_KEY are Wrangler secrets configured out of band:
+  // `wrangler secret put SESSION_SECRET` and `wrangler secret put DEEPSEEK_API_KEY`.
+  // Never add either secret to `vars`.
   "vars": {
     "PUBLIC_ORIGIN": "https://play.digipology.com",
-    "EMAIL_FROM": "noreply@digipology.com"
+    "EMAIL_FROM": "noreply@digipology.com",
+    "AI_DAILY_USD_CAP": "1",
+    "DEEPSEEK_MODEL": "deepseek-v4-flash"
   },
   "d1_databases": [
     {
