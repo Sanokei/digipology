@@ -4,6 +4,10 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-08-13",
   "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "routes": [
+    { "pattern": "play.digipology.com", "custom_domain": true }
+  ],
   // SESSION_SECRET is a Wrangler secret and must be configured out of band:
   // `wrangler secret put SESSION_SECRET`. Never add it to `vars`.
   "vars": {
@@ -14,6 +18,7 @@
     {
       "binding": "DB",
       "database_name": "digipology",
+      "database_id": "07fcc483-3234-4f58-96f6-00f0cc864281",
       "migrations_dir": "migrations"
     }
   ],
