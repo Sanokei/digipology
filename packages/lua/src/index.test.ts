@@ -227,6 +227,56 @@ describe("instruction budget", () => {
 });
 
 describe("memory budget", () => {
+  test("does not classify user memory or allocation errors as allocator failures", async () => {
+    const lua = await sandbox();
+    for (const message of ["out of memory lol", "allocation failed by user"]) {
+      await expect(lua.run(`error(${JSON.stringify(message)}, 0)`)).rejects.toMatchObject({
+        kind: "runtime",
+        message,
+      });
+    }
+  });
+
+  test("keeps user memory and allocation errors catchable by pcall and xpcall", async () => {
+    const lua = await sandbox();
+    expect(await lua.run(`
+      local results = {}
+      for index, message in ipairs({ "out of memory lol", "allocation failed by user" }) do
+        local pcall_ok, pcall_error = pcall(function()
+          error(message, 0)
+        end)
+        local xpcall_ok, xpcall_error = xpcall(function()
+          error(message, 0)
+        end, function(caught)
+          return caught
+        end)
+        results[index] = {
+          message = message,
+          pcall_ok = pcall_ok,
+          pcall_error = pcall_error,
+          xpcall_ok = xpcall_ok,
+          xpcall_error = xpcall_error,
+        }
+      end
+      return results
+    `)).toEqual([
+      {
+        message: "out of memory lol",
+        pcall_ok: false,
+        pcall_error: "out of memory lol",
+        xpcall_ok: false,
+        xpcall_error: "out of memory lol",
+      },
+      {
+        message: "allocation failed by user",
+        pcall_ok: false,
+        pcall_error: "allocation failed by user",
+        xpcall_ok: false,
+        xpcall_error: "allocation failed by user",
+      },
+    ]);
+  });
+
   test("controls a string.rep bomb", async () => {
     const lua = await sandbox(50_000, 64 * 1024);
     await expect(lua.run("return string.rep('x', 2^30)"))
@@ -240,6 +290,16 @@ describe("memory budget", () => {
     await expect(lua.run(`
       while true do
         local ok = pcall(string.rep, "x", 2^30)
+        if not ok then local marker = 1 end
+      end
+    `)).rejects.toMatchObject({ kind: "memory_exceeded" });
+    await expect(lua.run(`
+      while true do
+        local ok = xpcall(function()
+          return string.rep("x", 2^30)
+        end, function(message)
+          return message
+        end)
         if not ok then local marker = 1 end
       end
     `)).rejects.toMatchObject({ kind: "memory_exceeded" });
