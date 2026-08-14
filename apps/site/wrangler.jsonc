@@ -9,8 +9,7 @@
   },
   "workers_dev": true,
 
-  // Production custom domain — enable only after the DNS prerequisites in README.md:
-  // "routes": [
-  //   { "pattern": "digipology.com", "custom_domain": true }
-  // ]
+  "routes": [
+    { "pattern": "digipology.com", "custom_domain": true }
+  ]
 }
