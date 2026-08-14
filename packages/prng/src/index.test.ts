@@ -1,4 +1,10 @@
 import { describe, expect, test } from "bun:test";
+import {
+  canonicalBytes,
+  canonicalStringify,
+  hashValue,
+} from "digipology-canonical-json";
+import canonicalStateFixture from "../fixtures/canonical-json-rng-state.json";
 import shuffleFixtures from "../fixtures/sfc32-v1-shuffles.json";
 import referenceFixtures from "../fixtures/sfc32-v1-vectors.json";
 import {
@@ -8,7 +14,7 @@ import {
   createRng,
   fromState,
   type RngState,
-} from "./index.ts";
+} from "./index";
 
 function draws(seed: string | number, count: number): number[] {
   const rng = createRng(seed);
@@ -52,6 +58,45 @@ describe("sfc32-v1 reference contract", () => {
 });
 
 describe("state snapshots", () => {
+  test("has canonical bytes and hashes stable across save/restore", () => {
+    const fixture = canonicalStateFixture as unknown as {
+      readonly seed: string;
+      readonly advanceDraws: number;
+      readonly state: RngState;
+      readonly canonical: string;
+      readonly canonicalBytes: readonly number[];
+      readonly hash: string;
+    };
+    const original = createRng(fixture.seed);
+    for (let index = 0; index < fixture.advanceDraws; index += 1) {
+      original.next();
+    }
+
+    const snapshot = original.state();
+    expect(snapshot).toEqual(fixture.state);
+    expect(canonicalStringify(snapshot)).toBe(fixture.canonical);
+    expect(canonicalBytes(snapshot)).toEqual(
+      Uint8Array.from(fixture.canonicalBytes),
+    );
+    expect(hashValue(snapshot)).toBe(fixture.hash);
+
+    const restoredState = JSON.parse(fixture.canonical) as RngState;
+    const restored = fromState(restoredState);
+    expect(canonicalStringify(restored.state())).toBe(fixture.canonical);
+    expect(canonicalBytes(restored.state())).toEqual(
+      Uint8Array.from(fixture.canonicalBytes),
+    );
+    expect(hashValue(restored.state())).toBe(fixture.hash);
+
+    const originalContinuation = Array.from({ length: 128 }, () => original.next());
+    const restoredContinuation = Array.from({ length: 128 }, () => restored.next());
+    expect(restoredContinuation).toEqual(originalContinuation);
+    expect(canonicalStringify(restored.state())).toBe(
+      canonicalStringify(original.state()),
+    );
+    expect(hashValue(restored.state())).toBe(hashValue(original.state()));
+  });
+
   test("resumes the second half of a 1000-draw stream exactly", () => {
     const straight = draws("resume-fixture", 1_000);
     const split = createRng("resume-fixture");

@@ -9,7 +9,7 @@ import {
   CanonicalizationError,
   hashValue,
   sha256,
-} from "./index.ts";
+} from "./index";
 
 interface GoldenFixture {
   readonly name: string;
@@ -38,7 +38,7 @@ function toHex(bytes: Uint8Array): string {
   const alphabet = "0123456789abcdef";
   let result = "";
   for (const byte of bytes) {
-    result += alphabet[byte >>> 4] + alphabet[byte & 0x0f];
+    result += alphabet.charAt(byte >>> 4) + alphabet.charAt(byte & 0x0f);
   }
   return result;
 }

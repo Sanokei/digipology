@@ -8,19 +8,38 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "bun": "./src/index.ts",
+      "default": "./dist/index.js"
     }
   },
   "files": [
     "dist",
+    "src",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "prepack": "bun run build",
     "typecheck": "tsc --noEmit",
     "test": "bun test"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sanokei/digipology.git",
+    "directory": "packages/lua"
+  },
+  "homepage": "https://digipology.com",
+  "bugs": {
+    "url": "https://github.com/Sanokei/digipology/issues"
+  },
+  "keywords": [
+    "lua",
+    "sandbox",
+    "deterministic",
+    "wasm",
+    "digipology"
+  ],
   "dependencies": {
     "wasmoon": "1.16.0"
   },
