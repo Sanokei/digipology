@@ -1,0 +1,40 @@
+---
+import { getCollection } from "astro:content";
+
+import { docPath, orderDocs } from "../../lib/docs";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+const docs = orderDocs(await getCollection("docs"));
+---
+
+<BaseLayout
+  title="Documentation — Digipology"
+  description="Field notes on Digipology's browser-native tabletop platform, architecture, and creator-facing Lua API."
+  pageClass="docs-index-page"
+>
+  <section class="docs-index shell">
+    <header class="docs-index-intro">
+      <p class="eyebrow">Field guide / v0</p>
+      <h1>Read the rules<br />before the first move.</h1>
+      <p>
+        Digipology is early. These notes explain what is real today, how the platform is
+        being assembled, and the creator API taking shape.
+      </p>
+    </header>
+
+    <ol class="docs-index-list">
+      {docs.map((doc, index) => (
+        <li>
+          <a href={docPath(doc.id)}>
+            <span class="docs-number" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+            <span>
+              <strong>{doc.data.title}</strong>
+              <small>{doc.data.description}</small>
+            </span>
+            <span class="text-arrow" aria-hidden="true">→</span>
+          </a>
+        </li>
+      ))}
+    </ol>
+  </section>
+</BaseLayout>
