@@ -9,11 +9,18 @@ const game: CatalogGameSummaryDto = {
   minPlayers: 2,
   maxPlayers: 4,
   builtin: true,
+  currentPlayers: 0,
+  totalPlays: 0,
+  coverVersion: null,
 };
 
 describe("#43 game summary adapter", () => {
-  it("degrades absent and invalid optional metrics", () => {
-    expect(gameMetrics(game)).toEqual({ currentPlayers: 0, totalPlays: 0, coverVersion: null });
+  it("degrades absent and invalid metrics from older server payloads", () => {
+    const legacy = { ...game } as Partial<CatalogGameSummaryDto>;
+    delete legacy.currentPlayers;
+    delete legacy.totalPlays;
+    delete legacy.coverVersion;
+    expect(gameMetrics(legacy as CatalogGameSummaryDto)).toEqual({ currentPlayers: 0, totalPlays: 0, coverVersion: null });
     expect(gameMetrics({ ...game, currentPlayers: -4, totalPlays: Number.NaN })).toEqual({
       currentPlayers: 0,
       totalPlays: 0,

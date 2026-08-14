@@ -1,11 +1,8 @@
 import type { GameSummaryDto } from "digipology-protocol/http";
 
-// TODO(#43): replace these mirrors with digipology-protocol/http DTOs once #43 merges.
-export interface CatalogGameSummaryDto extends GameSummaryDto {
-  currentPlayers?: number;
-  totalPlays?: number;
-  coverVersion?: number | null;
-}
+// #43 merged: the protocol DTO now carries the quickplay metrics directly.
+// gameMetrics stays defensive at runtime because responses are not validated client-side.
+export type CatalogGameSummaryDto = GameSummaryDto;
 
 export interface CatalogGamesResponse {
   games: CatalogGameSummaryDto[];
