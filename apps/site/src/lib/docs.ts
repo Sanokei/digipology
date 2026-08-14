@@ -17,7 +17,6 @@ export const featuredDocOrder = [
   "architecture",
   "lua-api",
   "actions",
-  "lua-preview",
 ] as const;
 
 const orderById = new Map<string, number>(
@@ -26,8 +25,8 @@ const orderById = new Map<string, number>(
 
 export function orderDocs<T extends DocSummary>(docs: readonly T[]): T[] {
   return [...docs].sort((left, right) => {
-    const leftOrder = orderById.get(left.id) ?? Number.MAX_SAFE_INTEGER;
-    const rightOrder = orderById.get(right.id) ?? Number.MAX_SAFE_INTEGER;
+    const leftOrder = orderById.get(docId(left.id)) ?? Number.MAX_SAFE_INTEGER;
+    const rightOrder = orderById.get(docId(right.id)) ?? Number.MAX_SAFE_INTEGER;
 
     return (
       leftOrder - rightOrder ||
@@ -56,5 +55,9 @@ export function getDocNavigation<T extends DocSummary>(
 }
 
 export function docPath(id: string): string {
-  return `/docs/${id}/`;
+  return `/docs/${docId(id)}/`;
+}
+
+export function docId(collectionId: string): string {
+  return collectionId.replace(/^repository\//, "");
 }

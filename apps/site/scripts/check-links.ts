@@ -38,6 +38,19 @@ if (!existsSync(outputRoot)) {
   throw new Error(`Static output not found: ${outputRoot}`);
 }
 
+const luaPreviewRedirect = routeToFile("/docs/lua-preview/");
+if (!existsSync(luaPreviewRedirect)) {
+  throw new Error("Lua preview redirect artifact is missing.");
+}
+const luaPreviewHtml = readFileSync(luaPreviewRedirect, "utf8");
+if (
+  !luaPreviewHtml.includes('http-equiv="refresh"') ||
+  !luaPreviewHtml.includes("url=/docs/lua-api/") ||
+  !luaPreviewHtml.includes('href="https://digipology.com/docs/lua-api/"')
+) {
+  throw new Error("Lua preview redirect does not target the canonical Lua API page.");
+}
+
 const failures = new Set<string>();
 const anchorPattern = /<a\b[^>]*\bhref\s*=\s*(["'])(.*?)\1/gi;
 
