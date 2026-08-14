@@ -21,6 +21,12 @@ export function TablePage() {
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
 
   useEffect(() => { client?.start(); return () => client?.stop(); }, [client]);
+  useEffect(() => {
+    if (view.correction === null) return;
+    const id = view.correction.id;
+    const timer = setTimeout(() => store.clearCorrection(id), 2_600);
+    return () => clearTimeout(timer);
+  }, [store, view.correction]);
 
   if (session === null || client === null) return (
     <div className="join-status"><p className="eyebrow">Table session missing</p><h1>Use an invite to enter</h1><p>This tab does not have a room token. Return home and join with a code.</p><Link className="button-link" to="/">Go home</Link></div>
@@ -35,6 +41,7 @@ export function TablePage() {
     store={store} client={client} interactionsPaused={status.state !== "connected"}
     topBar={<TableTopBar gameTitle={gameTitle} playerCount={view.players.length} joinCode={session.joinCode} inviteUrl={session.inviteUrl} onPlayers={() => setPlayersOpen((value) => !value)} onDiagnostics={() => setDiagnosticsOpen((value) => !value)} />}
     panels={<>
+      {view.correction === null ? null : <div key={view.correction.id} className="prediction-correction" role="status">{view.correction.message}</div>}
       {playersOpen ? <aside className="players-panel"><div className="panel-heading"><span>Players</span><button type="button" onClick={() => setPlayersOpen(false)}>×</button></div>{view.players.map((player) => <div className="player-row" key={player.playerId}><span className={player.connected ? "connection-dot connection-dot--online" : "connection-dot"} /><span><strong>{player.displayName}</strong><small>{player.seatId ?? "No seat"}</small></span><em>{player.connected ? "Connected" : "Away"}</em></div>)}</aside> : null}
       {dice.length > 0 ? <aside className="dice-controls"><span>Dice</span>{dice.map((entity) => <button type="button" disabled={status.state !== "connected"} key={entity.id} onClick={() => {
         client.sendAction({ type: "die.roll", payload: { entityId: entity.id } });

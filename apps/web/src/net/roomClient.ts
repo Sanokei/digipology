@@ -2,7 +2,7 @@ import { PROTOCOL_VERSION, parseServerMessage, type ActionRequest, type ClientMe
 
 import { api, type ApiClient } from "../api/client";
 import type { SavedRoomSession } from "../utils/roomSession";
-import type { KernelStore } from "../state/kernelStore";
+import { isPredictableAction, type KernelStore } from "../state/kernelStore";
 
 export type RoomConnectionState = "connecting" | "loading_release" | "starting" | "connected" | "reconnecting" | "ended" | "error";
 
@@ -43,7 +43,15 @@ export class RoomClient {
     if (this.socket?.readyState !== WebSocket.OPEN || sequence === undefined) return null;
     const requestId = crypto.randomUUID();
     const request: ActionRequest = { type: "action_request", protocolVersion: PROTOCOL_VERSION, requestId, predictedAtSequence: sequence, action };
-    this.store.trackRequest(requestId);
+    if (isPredictableAction(action)) {
+      const accepted = this.store.predictLocal(
+        { requestId, action, predictedAtSequence: sequence },
+        this.session.playerId,
+      );
+      if (!accepted) return null;
+    } else {
+      this.store.trackRequest(requestId);
+    }
     this.send(request);
     return requestId;
   }
