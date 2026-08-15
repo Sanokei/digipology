@@ -19,5 +19,5 @@
     ],
     "types": ["bun"]
   },
-  "include": ["smoke-play.ts", "smoke-quickplay.ts"]
+  "include": ["smoke-play.ts", "smoke-quickplay.ts", "smoke-zone-runner.ts"]
 }
