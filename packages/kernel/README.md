@@ -27,6 +27,30 @@ The system-only player/seat lifecycle actions maintain canonical roster and
 seat bindings, and voluntary departure releases held entities in sorted ID
 order.
 
+## Tabletop semantics
+
+Hands use ordinary Container membership. `hand.owner` may name a player or a
+seat, and `owner:<id>` container visibility resolves through that canonical
+owner; `canonicalOrder: false` leaves visual sorting local-only.
+
+Gameplay tags live in `entity.components.tags.values`. Zones use their
+quantized Transform as the shape origin: box scale is full width/height/depth,
+and sphere radius is half the largest scale axis. Zone membership is recomputed
+only by semantic placement actions and is stored in ascending EntityId order.
+Snap points filter by capacity, tag overlap, and radius, then select by distance
+and ascending snap-point EntityId on an exact tie. Drop resolution is fixed as
+snap, then stack, then zone recomputation, then world fallback.
+
+Stacks are optional top-level canonical records whose last item is the top.
+Container, stack, and snap placement are mutually exclusive. The v1 stack
+surface supports create, add, remove-top, merge, and dissolve; middle removal is
+not a player operation. `container.move` is the shared atomic transfer primitive.
+
+`button.press` uses an injectable read-only `canPress` validation guard. The
+default registry allows enabled buttons. `text.set` is limited to 4096 canonical
+UTF-8 bytes. Player `entity.set_locked` requires `settings.sandbox === true`;
+script locking is always allowed, and locked entities reject player grabs.
+
 ## API sketch
 
 ```ts

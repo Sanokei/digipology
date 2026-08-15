@@ -161,6 +161,8 @@ describe("merged action and Lua surfaces", () => {
     ]
       .map((ordered) => ordered.action.type);
     expect(registered).toEqual(new Set([
+      "button.press",
+      "container.move",
       "counter.add",
       "counter.set",
       "deck.draw_to_container",
@@ -169,10 +171,19 @@ describe("merged action and Lua surfaces", () => {
       "entity.drop",
       "entity.flip",
       "entity.grab",
+      "entity.move",
+      "entity.set_locked",
+      "snap.attach",
+      "stack.add",
+      "stack.create",
+      "stack.dissolve",
+      "stack.merge",
+      "stack.remove_top",
       "system.game_start",
       "system.player_joined",
       "system.player_left",
       "system.seat_assign",
+      "text.set",
     ]));
     for (const type of used) expect(registered.has(type)).toBe(true);
   });
