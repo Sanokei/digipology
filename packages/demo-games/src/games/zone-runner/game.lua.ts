@@ -30,6 +30,15 @@ function on_prompt(ctx)
   refs.status:set(ctx.player.name .. " chose " .. ctx.response)
 end
 
+-- Live rooms start when the host enters; guests who join afterwards enter the
+-- rotation behind the current player instead of being locked out of scoring.
+function on_player_join(ctx)
+  if props.role ~= "game" or state.winner_id ~= nil then return end
+  scores:set(ctx.player, 0)
+  local current = turns:current()
+  if current ~= nil then turns:start(current) end
+end
+
 function turn_timeout(ctx)
   if state.winner_id ~= nil then return end
   state.timeouts = state.timeouts + 1

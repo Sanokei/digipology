@@ -129,8 +129,8 @@ const ZONE_RUNNER_RELEASE = frozenRelease({
     }),
     frozenFile({
       path: "scripts/game.lua",
-      contentHash: "sha256:61cd5cd89dbf8ee8722f1cd61bce8aedb9f0665979cd1b4018286989b3bbed2d",
-      byteLength: 1799,
+      contentHash: "sha256:938a20e78d2cf0e9e0b6e4a7e9ff48c3c620379a9c502ff9194ffc5dd2918606",
+      byteLength: 2170,
       content: ZONE_RUNNER_LUA,
     }),
   ],
@@ -141,7 +141,7 @@ const ZONE_RUNNER_RELEASE = frozenRelease({
     status: "status",
   }),
   integrity: Object.freeze({
-    manifestHash: "sha256:4e2bb17e8f29aefedb42823f87a9cac31106c3d943580e74457b2e68b7112b2d",
+    manifestHash: "sha256:5b9d3ecc68a79acdd3e6a981a8f6cb5ddedf5c4d82c3b3a688100fb9b056eadc",
   }),
 });
 

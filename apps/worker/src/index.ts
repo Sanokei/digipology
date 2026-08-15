@@ -25,6 +25,7 @@ import {
   replayCheckpoint,
   RoomCore,
   roomBootstrapFromSnapshots,
+  timerFireDedupKey,
   type RoomCoreState,
 } from "./room-core";
 import { nextRoomAlarmAt, planRoomAlarm } from "./room-liveness";
@@ -210,40 +211,44 @@ export class RoomDO extends DurableObject<Env> {
     return true;
   }
 
-  /** Store canonical timer metadata only. Lua remains entirely client-side. */
+  /**
+   * Store canonical timer metadata only. Lua remains entirely client-side.
+   * Every scripted client reports the same timer id with its own wall-clock
+   * delay, so a repeat registration is accepted and the first writer wins.
+   */
   async registerCanonicalTimer(timerId: string, dueAt: number): Promise<boolean> {
     if (typeof timerId !== "string" || timerId.length === 0 || timerId.length > 256 ||
       !Number.isSafeInteger(dueAt) || dueAt < 0) return false;
     if (this.room() === null) return false;
-    const inserted = this.ctx.storage.sql.exec(
+    // `rowsWritten` is not a reliable "inserted" signal on the SQLite cursor, so
+    // the alarm is always re-planned; it is idempotent over the scheduled set.
+    this.ctx.storage.sql.exec(
       `INSERT OR IGNORE INTO canonical_timers (timer_id, due_at, status)
        VALUES (?, ?, 'scheduled')`,
       timerId,
       dueAt,
-    ).rowsWritten === 1;
-    if (!inserted) {
-      const existing = this.ctx.storage.sql.exec<TimerMetadataRow>(
-        "SELECT timer_id, due_at, status FROM canonical_timers WHERE timer_id = ?",
-        timerId,
-      ).one();
-      if (existing.timer_id !== timerId) return false;
-    }
+    );
     await this.rescheduleAlarm(Date.now());
     return true;
   }
 
+  /**
+   * Cancel is idempotent over the timer's lifecycle: a timer that already fired
+   * or was canceled by another client is reported as accepted (it will not fire
+   * again either way). Only an unknown timer id is rejected.
+   */
   async cancelCanonicalTimer(timerId: string): Promise<boolean> {
     if (typeof timerId !== "string" || timerId.length === 0 || this.room() === null) return false;
-    const changed = this.ctx.storage.sql.exec(
+    this.ctx.storage.sql.exec(
       "UPDATE canonical_timers SET status = 'canceled' WHERE timer_id = ? AND status = 'scheduled'",
       timerId,
-    ).rowsWritten === 1;
-    const accepted = changed || this.ctx.storage.sql.exec<TimerMetadataRow>(
+    );
+    const known = this.ctx.storage.sql.exec<TimerMetadataRow>(
       "SELECT timer_id, due_at, status FROM canonical_timers WHERE timer_id = ?",
       timerId,
-    ).toArray()[0]?.status === "canceled";
-    await this.rescheduleAlarm(Date.now());
-    return accepted;
+    ).toArray().length === 1;
+    if (known) await this.rescheduleAlarm(Date.now());
+    return known;
   }
 
   async scheduleCanonicalTimer(
@@ -328,7 +333,7 @@ export class RoomDO extends DurableObject<Env> {
         for (const timer of due) {
           const sequenced = core.sequenceSystem(
             { type: "system.timer_fire", payload: { timerId: timer.timer_id } },
-            `timer_fire_${timer.timer_id}`,
+            timerFireDedupKey(timer.timer_id),
           );
           this.ctx.storage.sql.exec(
             "UPDATE canonical_timers SET status = 'fired' WHERE timer_id = ? AND status = 'scheduled'",

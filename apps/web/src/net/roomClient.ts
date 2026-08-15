@@ -165,12 +165,23 @@ export class RoomClient {
     }
   }
 
+  /**
+   * Timer metadata is best-effort: the room only stores due times and the first
+   * writer wins, so a rejected or failed report must never tear down the ordered
+   * stream (another client may already have registered the same timer).
+   */
   private async reportCanonicalTimerEvents(): Promise<void> {
     for (const event of this.store.getSnapshot().events) {
+      let input: Parameters<TimerMetadataReporter>[0] | null = null;
       if (event.type === "timer.registered" && typeof event.data.timerId === "string" && typeof event.data.delay === "number") {
-        await this.reportTimerMetadata({ operation: "register", timerId: event.data.timerId, delay: event.data.delay });
+        input = { operation: "register", timerId: event.data.timerId, delay: event.data.delay };
       } else if (event.type === "timer.canceled" && typeof event.data.timerId === "string") {
-        await this.reportTimerMetadata({ operation: "cancel", timerId: event.data.timerId });
+        input = { operation: "cancel", timerId: event.data.timerId };
+      }
+      if (input === null) continue;
+      try { await this.reportTimerMetadata(input); }
+      catch (error) {
+        this.store.setDiagnostic(`Timer ${input.operation} for ${input.timerId} was not recorded: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
   }

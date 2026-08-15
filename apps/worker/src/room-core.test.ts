@@ -19,6 +19,7 @@ import {
   roomBootstrapFromSnapshots,
   retentionFloor,
   roomBootstrapMessages,
+  timerFireDedupKey,
 } from "./room-core";
 
 function request(
@@ -148,17 +149,39 @@ describe("RoomCore sequencing", () => {
     const before = new RoomCore("timers");
     const fired = before.sequenceSystem(
       { type: "system.timer_fire", payload: { timerId: "timer_1" } },
-      "timer_fire_timer_1",
+      timerFireDedupKey("timer_1"),
     );
     expect(fired.duplicate).toBe(false);
     const after = new RoomCore("timers", JSON.parse(JSON.stringify(before.state)));
     const retried = after.sequenceSystem(
       { type: "system.timer_fire", payload: { timerId: "timer_1" } },
-      "timer_fire_timer_1",
+      timerFireDedupKey("timer_1"),
     );
     expect(retried.duplicate).toBe(true);
     expect(retried.orderedAction).toEqual(fired.orderedAction);
     expect(after.state.lastSequence).toBe(1);
+  });
+
+  test("timer_fire dedup keys stay bounded when a callback re-arms its own timer", () => {
+    // Kernel timer ids derive from the firing action id: timer_<actionId>_<n>.
+    const core = new RoomCore("abcd1234");
+    let timerId = "timer_sys_abcd1234_game_start_0";
+    const seen = new Set<string>();
+    for (let hop = 0; hop < 200; hop += 1) {
+      const key = timerFireDedupKey(timerId);
+      expect(key).toMatch(/^timer_fire_[0-9a-f]{32}$/);
+      expect(key).toBe(timerFireDedupKey(timerId));
+      expect(seen.has(key)).toBe(false);
+      seen.add(key);
+      const fired = core.sequenceSystem(
+        { type: "system.timer_fire", payload: { timerId } },
+        key,
+      );
+      expect(fired.duplicate).toBe(false);
+      timerId = `timer_${fired.orderedAction.actionId}_0`;
+      expect(timerId.length).toBeLessThanOrEqual(256);
+    }
+    expect(timerFireDedupKey("timer_a")).not.toBe(timerFireDedupKey("timer_b"));
   });
 
   test("bootstraps the persisted room snapshot before system.game_start", () => {

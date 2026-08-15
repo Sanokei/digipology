@@ -226,4 +226,39 @@ describe("game contracts", () => {
       timeouts: 1,
     });
   }, 20_000);
+
+  test("Zone Runner seats a guest who joins after the live room started into the rotation", async () => {
+    // Live rooms sequence system.game_start when the host enters; later guests
+    // arrive as system.player_joined + system.seat_assign (worker join path).
+    const runtime = await createBuiltinCreatorRuntime("builtin_zone_runner_1");
+    try {
+      let state = loadSnapshot(zoneRunner.initialSnapshot as GameSnapshot);
+      const started = await applyOrderedWithScripts(state, zoneRunner.actions[0]!, { runtime });
+      state = started.state;
+      const joined = await applyOrderedWithScripts(state, {
+        sequence: 2,
+        actionId: "zr-carol-joined",
+        actor: { type: "system" },
+        action: { type: "system.player_joined", payload: { playerId: "carol", name: "Carol" } },
+      }, { runtime });
+      expect(joined.rejection).toBeUndefined();
+      const seated = await applyOrderedWithScripts(joined.state, {
+        sequence: 3,
+        actionId: "zr-carol-seated",
+        actor: { type: "system" },
+        action: { type: "system.seat_assign", payload: { playerId: "carol", seatId: "seat_3" } },
+      }, { runtime });
+      expect(seated.rejection).toBeUndefined();
+      const stdlib = seated.state.scriptState.__stdlib as {
+        turns: { active: boolean; order: string[]; index: number };
+        scores: Record<string, number>;
+      };
+      expect(stdlib.turns.active).toBe(true);
+      expect([...stdlib.turns.order].sort()).toEqual(["alice", "bob", "carol"]);
+      expect(stdlib.turns.order[stdlib.turns.index - 1]).toBe("alice");
+      expect(stdlib.scores.carol).toBe(0);
+    } finally {
+      runtime.close();
+    }
+  }, 20_000);
 });
