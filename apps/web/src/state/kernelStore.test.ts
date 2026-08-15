@@ -22,6 +22,29 @@ function loaded(value = 1): KernelStore {
   return store;
 }
 
+function canceledTimerStore(): KernelStore {
+  const store = new KernelStore();
+  const state = createInitialState({
+    releaseId: "release_timer",
+    rng: { algorithm: "sfc32-v1", state: [1, 2, 3, 4], draws: 0 },
+    timers: {
+      timer_canceled: {
+        id: "timer_canceled",
+        delay: 5,
+        callback: "advance_turn",
+        scriptId: "scripts/game.lua",
+        bindingId: "rules",
+        status: "canceled",
+      },
+    },
+  });
+  store.loadRelease({
+    releaseId: "release_timer",
+    initialSnapshot: snapshot(state),
+  } as unknown as Parameters<KernelStore["loadRelease"]>[0]);
+  return store;
+}
+
 const PLAYERS: PlayerInfo[] = [
   { playerId: "alice", displayName: "Alice", seatId: null, connected: true },
   { playerId: "bob", displayName: "Bob", seatId: null, connected: true },
@@ -85,6 +108,45 @@ function drop(entityId: string, x: number, z: number): PredictionAction {
 }
 
 describe("KernelStore", () => {
+  it("records a stale system timer fire without presenting it as an error", () => {
+    const store = canceledTimerStore();
+    const beforeHash = store.getSnapshot().stateHash;
+    expect(store.applyOrdered({
+      type: "ordered_action",
+      protocolVersion: 1,
+      sequence: 1,
+      actionId: "stale-timer-fire",
+      actor: { type: "system" },
+      action: { type: "system.timer_fire", payload: { timerId: "timer_canceled" } },
+    })).toEqual({ ok: true });
+    expect(store.getSnapshot().diagnostic).toBe(
+      "Sequence 1: stale timer fire ignored (canceled before delivery)",
+    );
+    expect(store.getSnapshot().diagnostic).not.toContain("rejected by kernel");
+    expect(store.getSnapshot().state?.sequence).toBe(1);
+    expect(store.getSnapshot().stateHash).not.toBe(beforeHash);
+    expect(store.getSnapshot().events).toEqual([{
+      type: "action.rejected",
+      sequence: 1,
+      actionId: "stale-timer-fire",
+      data: {
+        actionType: "system.timer_fire",
+        reason: "Timer has already fired or was canceled",
+      },
+    }]);
+  });
+
+  it("still presents an ordinary kernel rejection as an error", () => {
+    const store = loaded();
+    store.applyOrdered({
+      ...ordered(1),
+      action: { type: "counter.add", payload: { entityId: "missing", amount: 1 } },
+    });
+    expect(store.getSnapshot().diagnostic).toBe(
+      "Sequence 1 rejected by kernel: Unknown entity: missing",
+    );
+  });
+
   it("does not activate the creator runtime for immutable legacy Lua without script bindings", async () => {
     const store = loaded();
     await store.loadScriptRuntime({

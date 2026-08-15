@@ -12,6 +12,7 @@ import firstDealJson from "../fixtures/first-deal-replay-v1.json";
 import diceDashJson from "../fixtures/dice-dash-replay-v1.json";
 import diceDashV2Json from "../fixtures/dice-dash-replay-v2.json";
 import zoneRunnerJson from "../fixtures/zone-runner-replay-v1.json";
+import zoneRunnerV2Json from "../fixtures/zone-runner-replay-v2.json";
 import {
   DemoLuaHost,
   createBuiltinCreatorRuntime,
@@ -19,6 +20,7 @@ import {
   createDiceDashV2InitialState,
   createFirstDealInitialState,
   createZoneRunnerInitialState,
+  createZoneRunnerV2InitialState,
   type ReplayFixture,
 } from "./test-support";
 
@@ -26,6 +28,7 @@ const firstDeal = firstDealJson as unknown as ReplayFixture;
 const diceDash = diceDashJson as unknown as ReplayFixture;
 const diceDashV2 = diceDashV2Json as unknown as ReplayFixture;
 const zoneRunner = zoneRunnerJson as unknown as ReplayFixture;
+const zoneRunnerV2 = zoneRunnerV2Json as unknown as ReplayFixture;
 
 interface RunResult {
   readonly state: CanonicalGameState;
@@ -42,7 +45,9 @@ async function runRange(
   let state = start;
   let rejectionCount = 0;
   const eventTypes: string[] = [];
-  if (fixture.initialSnapshot.releaseId === "builtin_zone_runner_1") {
+  if (["builtin_zone_runner_1", "builtin_zone_runner_2"].includes(
+    fixture.initialSnapshot.releaseId,
+  )) {
     const runtime = await createBuiltinCreatorRuntime(fixture.initialSnapshot.releaseId);
     try {
       for (let index = fromIndex; index < toIndex; index += 1) {
@@ -103,7 +108,7 @@ function counterValue(state: CanonicalGameState, entityId: string): number {
 }
 
 describe("committed golden replays", () => {
-  for (const fixture of [firstDeal, diceDash, diceDashV2, zoneRunner]) {
+  for (const fixture of [firstDeal, diceDash, diceDashV2, zoneRunner, zoneRunnerV2]) {
     test(`${fixture.initialSnapshot.releaseId} replays twice to its pinned hash`, async () => {
       if (["builtin_first_deal_1", "builtin_dice_dash_1"].includes(fixture.initialSnapshot.releaseId)) {
         expect(fixture.actions.length).toBeGreaterThanOrEqual(40);
@@ -148,6 +153,7 @@ describe("game contracts", () => {
     expect(snapshot(createDiceDashInitialState())).toEqual(diceDash.initialSnapshot);
     expect(snapshot(createDiceDashV2InitialState())).toEqual(diceDashV2.initialSnapshot);
     expect(snapshot(createZoneRunnerInitialState())).toEqual(zoneRunner.initialSnapshot);
+    expect(snapshot(createZoneRunnerV2InitialState())).toEqual(zoneRunnerV2.initialSnapshot);
   });
 
   test("First Deal on_start deterministically deals five cards to every occupied seat", async () => {
@@ -219,6 +225,18 @@ describe("game contracts", () => {
     expect(result.state.entities.slot_2?.components["snap-point"]?.attached).toEqual([
       "runner_seat_1_b",
     ]);
+    expect(result.state.entities.score_seat_1?.components.counter?.value).toBe(2);
+    expect(result.state.scriptState).toMatchObject({
+      winner_id: "alice",
+      opening_choice: "run",
+      timeouts: 1,
+    });
+  }, 20_000);
+
+  test("Zone Runner v2 preserves the golden game flow with a human turn limit", async () => {
+    const result = await replay(zoneRunnerV2);
+    expect(zoneRunnerV2.initialSnapshot.state.settings.turnSeconds).toBe(20);
+    expect(result.eventTypes).toEqual(zoneRunner.expectedEventTypes!);
     expect(result.state.entities.score_seat_1?.components.counter?.value).toBe(2);
     expect(result.state.scriptState).toMatchObject({
       winner_id: "alice",

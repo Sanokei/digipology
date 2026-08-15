@@ -5,7 +5,9 @@ import { DICE_DASH_V2_RUNTIME_JSON } from "./games/dice-dash/runtime-v2";
 import { FIRST_DEAL_LUA } from "./games/first-deal/game.lua";
 import { FIRST_DEAL_RUNTIME_JSON } from "./games/first-deal/runtime";
 import { ZONE_RUNNER_LUA } from "./games/zone-runner/game.lua";
+import { ZONE_RUNNER_V2_LUA } from "./games/zone-runner/game-v2.lua";
 import { ZONE_RUNNER_RUNTIME_JSON } from "./games/zone-runner/runtime";
+import { ZONE_RUNNER_V2_RUNTIME_JSON } from "./games/zone-runner/runtime-v2";
 import type { BuiltinGame, ReleaseBundle, ReleaseFile } from "./types";
 
 function frozenFile(file: ReleaseFile): ReleaseFile {
@@ -145,6 +147,43 @@ const ZONE_RUNNER_RELEASE = frozenRelease({
   }),
 });
 
+const ZONE_RUNNER_RELEASE_V2 = frozenRelease({
+  formatVersion: 1,
+  gameId: "builtin_zone_runner",
+  releaseId: "builtin_zone_runner_2",
+  releaseNumber: 2,
+  kernelVersion: 1,
+  luaApiVersion: 1,
+  luaStdlibVersion: 1,
+  networkProtocolVersion: 1,
+  interactionMode: "scripted",
+  minPlayers: 2,
+  maxPlayers: 4,
+  files: [
+    frozenFile({
+      path: "runtime/game.json",
+      contentHash: "sha256:76cc1e256d588d79b9d28b391b03767278f7e318e60d87958b4f9ae22e653a11",
+      byteLength: 576,
+      content: ZONE_RUNNER_V2_RUNTIME_JSON,
+    }),
+    frozenFile({
+      path: "scripts/game.lua",
+      contentHash: "sha256:65845fd593b3b9c9df3a325b1b853c12f757658039548a8e16acdab70b62b6df",
+      byteLength: 2170,
+      content: ZONE_RUNNER_V2_LUA,
+    }),
+  ],
+  definitions: Object.freeze({
+    runner: Object.freeze({ label: "Runner", color: "#f3a53b" }),
+  }),
+  refs: Object.freeze({
+    status: "status",
+  }),
+  integrity: Object.freeze({
+    manifestHash: "sha256:df7d80b6d1a6f7d94bc04b02cc0aa9ac4bc8ecc98bb0364597eaee95f41d04a4",
+  }),
+});
+
 export const BUILTIN_GAMES: ReadonlyArray<BuiltinGame> = Object.freeze([
   Object.freeze({
     slug: "first-deal",
@@ -170,8 +209,8 @@ export const BUILTIN_GAMES: ReadonlyArray<BuiltinGame> = Object.freeze([
     tagline: "Race pieces into scoring zones before the turn timer runs out.",
     minPlayers: 2,
     maxPlayers: 4,
-    latestReleaseId: ZONE_RUNNER_RELEASE.releaseId,
-    releases: Object.freeze([ZONE_RUNNER_RELEASE]),
+    latestReleaseId: ZONE_RUNNER_RELEASE_V2.releaseId,
+    releases: Object.freeze([ZONE_RUNNER_RELEASE, ZONE_RUNNER_RELEASE_V2]),
   }),
 ]);
 
