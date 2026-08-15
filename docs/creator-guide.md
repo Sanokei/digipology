@@ -38,7 +38,9 @@ Dragging an Inspector number scrubber previews each intermediate value but recor
 
 ## Add rules with Lua
 
-Create a `.lua` file in the Scripts panel, select it, and write the rules in the Lua IDE. Scripts run inside Digipology's sandbox against the documented creator API, not against browser or Node.js APIs. The [Lua API v1 reference](./lua-api.md) covers callbacks, entities, players, prompts, timers, deterministic random calls, and the available standard-library surface.
+Create a `.lua` file in the Scripts panel, select it, and write the rules in the Lua IDE. Attach it through an entity's `script` component so the playtest runtime can discover its stable binding and props. Scripts run inside Digipology's sandbox against the documented creator API, not against browser or Node.js APIs.
+
+Lua standard library v1 includes [`turns`](./lua-api.md#turns) for deterministic player rotation and [`scores`](./lua-api.md#scores) for canonical scoring and stable tie-breaking. The [Lua API v1 reference](./lua-api.md) also covers [callbacks and read-only guards](./lua-api.md#7-callbacks-and-guards), [prompts and named timers](./lua-api.md#6-timers-and-prompts), semantic proxies, and deterministic random calls. Releases pin the stdlib separately with [`luaStdlibVersion`](./bundle-format.md).
 
 ## Playtest in the editor tab
 
