@@ -1,12 +1,13 @@
 import { useEffect, useRef, type RefObject } from "react";
 import { Engine } from "@babylonjs/core/Engines/engine";
-import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
+import { PointerEventTypes } from "@babylonjs/core/Events/pointerEvents";
 import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
+import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
+import { CreateBox } from "@babylonjs/core/Meshes/Builders/boxBuilder";
+import { CreatePlane } from "@babylonjs/core/Meshes/Builders/planeBuilder";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
-import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
-import { PointerEventTypes } from "@babylonjs/core/Events/pointerEvents";
 import { Scene } from "@babylonjs/core/scene";
 import type { EntityRecord, TransformComponent } from "digipology-kernel";
 
@@ -14,7 +15,7 @@ import type { TableActionSender } from "./TableScene";
 import type { KernelStore } from "../state/kernelStore";
 import { attachDragBehavior, type AttachedDragBehavior } from "./dragBehavior";
 import { createDragActionCallbacks } from "./dragActions";
-import { hardwareScalingLevel } from "./rendererPolicy";
+import { classifyRendererTier, hardwareScalingLevel } from "./rendererPolicy";
 import { TABLE_DEPTH, TABLE_SURFACE_Y, TABLE_WIDTH, buildCamera, buildLighting, buildTableSurface } from "./table";
 import { TouchGestureMachine, type TouchGestureDecision } from "./touchGestures";
 
@@ -63,7 +64,7 @@ function labelPlane(scene: Scene, parent: Mesh, text: string, width: number, hei
   const texture = new DynamicTexture(`${parent.name}-label`, { width: 512, height: 256 }, scene, false);
   texture.hasAlpha = true; texture.drawText(text.slice(0, 28), null, 150, "bold 54px Manrope", "#102018", "transparent", true, true);
   const mat = new StandardMaterial(`${parent.name}-label-material`, scene); mat.diffuseTexture = texture; mat.opacityTexture = texture; mat.emissiveColor = Color3.FromHexString("#dce8d8");
-  const plane = MeshBuilder.CreatePlane(`${parent.name}-label-plane`, { width, height }, scene); plane.parent = parent; plane.position.y = billboard ? 0.68 : 0.052; plane.rotation.x = billboard ? 0 : Math.PI / 2; plane.billboardMode = billboard ? Mesh.BILLBOARDMODE_ALL : Mesh.BILLBOARDMODE_NONE; plane.material = mat; plane.isPickable = false;
+  const plane = CreatePlane(`${parent.name}-label-plane`, { width, height }, scene); plane.parent = parent; plane.position.y = billboard ? 0.68 : 0.052; plane.rotation.x = billboard ? 0 : Math.PI / 2; plane.billboardMode = billboard ? Mesh.BILLBOARDMODE_ALL : Mesh.BILLBOARDMODE_NONE; plane.material = mat; plane.isPickable = false;
   return texture;
 }
 
@@ -128,7 +129,18 @@ export function useBabylonScene(
   useEffect(() => {
     const currentCanvas = canvasRef.current; if (currentCanvas === null) return;
     const canvas: HTMLCanvasElement = currentCanvas;
-    const engine = new Engine(canvas, true, { preserveDrawingBuffer: false, stencil: true });
+    const deviceNavigator = navigator as Navigator & {
+      deviceMemory?: number;
+      userAgentData?: { mobile?: boolean };
+    };
+    const rendererTier = classifyRendererTier({
+      deviceMemory: deviceNavigator.deviceMemory,
+      hardwareConcurrency: deviceNavigator.hardwareConcurrency,
+      userAgent: deviceNavigator.userAgent,
+      mobile: deviceNavigator.userAgentData?.mobile,
+    });
+    const highQuality = rendererTier === "default";
+    const engine = new Engine(canvas, highQuality, { preserveDrawingBuffer: false, stencil: true });
     let dprQuery: MediaQueryList | null = null;
     const handleDprChange = () => {
       dprQuery?.removeEventListener("change", handleDprChange);
@@ -139,7 +151,7 @@ export function useBabylonScene(
     };
     handleDprChange();
     const scene = new Scene(engine); scene.clearColor = Color4.FromHexString("#08110eff");
-    const camera = buildCamera(scene, canvas); const table = buildTableSurface(scene); const { shadows } = buildLighting(scene); table.receiveShadows = true;
+    const camera = buildCamera(scene, canvas); const table = buildTableSurface(scene); const { shadows } = buildLighting(scene, highQuality); table.receiveShadows = shadows !== null;
     const pieces = new Map<string, PieceGraph>();
     let selectedEntityId: string | null = null;
 
@@ -171,8 +183,8 @@ export function useBabylonScene(
       else if (components.counter !== undefined) { width = depth = 0.72; height = 0.2; label = String(components.counter.value); color = "#d5ff76"; }
       else return null;
       const restingY = TABLE_SURFACE_Y + height / 2;
-      mesh = MeshBuilder.CreateBox(`entity-${entity.id}`, { width, depth, height }, scene); mesh.metadata = { entityId: entity.id }; mesh.isPickable = true; mesh.material = material(scene, entity.id, color); applyTransform(mesh, components.transform, restingY);
-      shadows.addShadowCaster(mesh);
+      mesh = CreateBox(`entity-${entity.id}`, { width, depth, height }, scene); mesh.metadata = { entityId: entity.id }; mesh.isPickable = true; mesh.material = material(scene, entity.id, color); applyTransform(mesh, components.transform, restingY);
+      shadows?.addShadowCaster(mesh);
       const graph: PieceGraph = { mesh, signature: displaySignature(entity), transformSignature: transformSignature(components.transform, restingY), restingY, ...(label ? { label: labelPlane(scene, mesh, label, width * 0.78, depth * 0.46, components.counter !== undefined) } : {}) };
       if (client !== null && components.grabbable?.enabled === true) attachPieceDrag(graph, entity.id, { minX: -TABLE_WIDTH / 2 + width / 2, maxX: TABLE_WIDTH / 2 - width / 2, minZ: -TABLE_DEPTH / 2 + depth / 2, maxZ: TABLE_DEPTH / 2 - depth / 2, restingY });
       graph.drag?.setTouchSelected(entity.id === selectedEntityId);
