@@ -7,6 +7,7 @@ export {
   canonicalizeTransform,
   canonicalUtf8ByteLength,
   cloneCanonical,
+  snapshotRequiresScripts,
   transformProblem,
   validateCanonicalGameState,
 } from "./canonical";

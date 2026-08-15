@@ -162,6 +162,72 @@ describe("canonical room timer metadata", () => {
   });
 });
 
+describe("scripted checkpoint attestation route", () => {
+  test("forwards a size-bounded authenticated attestation to the Room DO", async () => {
+    const roomId = "b".repeat(64);
+    const calls: unknown[][] = [];
+    const room = {
+      async attestCheckpoint(...args: unknown[]) {
+        calls.push(args);
+        return { status: "confirmed" as const };
+      },
+    };
+    const env = {
+      ROOM: { idFromString: (value: string) => value, get: () => room },
+    } as unknown as Env;
+    const snapshot = {
+      formatVersion: 1, kernelVersion: 1, releaseId: "release_test", sequence: 200,
+      state: { sequence: 200 }, stateHash: `sha256:${"1".repeat(64)}`,
+    };
+    const response = await handlePlatformRequest(new Request(
+      `https://play.digipology.com/api/rooms/${roomId}/checkpoints`,
+      {
+        method: "POST",
+        headers: { "X-Digipology-CSRF": "1", "Content-Type": "application/json" },
+        body: JSON.stringify({ roomToken: "room-token", sequence: 200, stateHash: snapshot.stateHash, snapshot }),
+      },
+    ), env);
+    expect(response.status).toBe(204);
+    expect(calls).toEqual([["room-token", {
+      sequence: 200,
+      stateHash: snapshot.stateHash,
+      snapshot,
+    }]]);
+  });
+
+  test("maps unauthenticated, divergent, rate-limited, and oversized reports", async () => {
+    const roomId = "c".repeat(64);
+    const statuses = ["unauthorized", "divergent", "rate_limited"] as const;
+    let call = 0;
+    const env = {
+      ROOM: {
+        idFromString: (value: string) => value,
+        get: () => ({ attestCheckpoint: async () => ({ status: statuses[call++] }) }),
+      },
+    } as unknown as Env;
+    const headers = { "X-Digipology-CSRF": "1", "Content-Type": "application/json" };
+    const body = JSON.stringify({ roomToken: "bad", sequence: 200, stateHash: "hash", snapshot: {} });
+    const responses = [];
+    for (let index = 0; index < statuses.length; index += 1) {
+      responses.push(await handlePlatformRequest(new Request(
+        `https://play.digipology.com/api/rooms/${roomId}/checkpoints`,
+        { method: "POST", headers, body },
+      ), env));
+    }
+    expect(responses.map((response) => response.status)).toEqual([403, 409, 429]);
+
+    const oversized = await handlePlatformRequest(new Request(
+      `https://play.digipology.com/api/rooms/${roomId}/checkpoints`,
+      {
+        method: "POST",
+        headers: { ...headers, "Content-Length": String(1024 * 1024 + 1) },
+        body: "{}",
+      },
+    ), env);
+    expect(oversized.status).toBe(413);
+  });
+});
+
 describe("upload body cap", () => {
   test("uses a 1 MiB route-specific limit without changing existing API bodies", async () => {
     const within = JSON.stringify({ bundle: "x".repeat(8 * 1024) });

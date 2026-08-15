@@ -10,6 +10,7 @@ import {
 } from "digipology-kernel";
 import {
   ACTION_RETENTION,
+  attestCheckpointCandidate,
   assertCheckpointConnectsToTail,
   checkpointBaseConnects,
   checkpointIsDue,
@@ -20,6 +21,7 @@ import {
   retentionFloor,
   roomBootstrapMessages,
   timerFireDedupKey,
+  validateCheckpointAttestationSnapshot,
 } from "./room-core";
 
 function request(
@@ -320,5 +322,136 @@ describe("RoomCore sequencing", () => {
       ...initialSnapshot,
       sequence: retentionFloor(core.state) - 1,
     }, [])).toThrow("metadata does not match");
+  });
+});
+
+describe("scripted checkpoint attestations", () => {
+  const attestation = (playerId: string, stateHash = "sha256:matching") => ({
+    sequence: CHECKPOINT_INTERVAL,
+    stateHash,
+    snapshotJson: `{"stateHash":"${stateHash}"}`,
+    playerId,
+  });
+
+  test("confirms two matching healthy players and ignores duplicate attestations", () => {
+    const first = attestCheckpointCandidate(null, attestation("alice"), ["alice", "bob"]);
+    expect(first.status).toBe("recorded");
+    const duplicate = attestCheckpointCandidate(first.candidate, attestation("alice"), ["alice", "bob"]);
+    expect(duplicate.status).toBe("duplicate");
+    expect(duplicate.candidate.attesters.size).toBe(1);
+    const confirmed = attestCheckpointCandidate(duplicate.candidate, attestation("bob"), ["alice", "bob"]);
+    expect(confirmed.status).toBe("confirmed");
+    expect(confirmed.candidate.attesters).toEqual(new Set(["alice", "bob"]));
+  });
+
+  test("lets the sole healthy player self-confirm", () => {
+    expect(attestCheckpointCandidate(null, attestation("alice"), ["alice"]).status)
+      .toBe("confirmed");
+  });
+
+  test("marks a divergent sequence conflicted and never confirms it", () => {
+    const first = attestCheckpointCandidate(null, attestation("alice", "sha256:first"), ["alice", "bob"]);
+    const mismatch = attestCheckpointCandidate(
+      first.candidate,
+      attestation("bob", "sha256:second"),
+      ["alice", "bob"],
+    );
+    expect(mismatch.status).toBe("divergent");
+    expect(mismatch.candidate.conflicted).toBe(true);
+    expect(attestCheckpointCandidate(
+      mismatch.candidate,
+      attestation("bob", "sha256:first"),
+      ["alice", "bob"],
+    ).status).toBe("divergent");
+  });
+
+  test("validates attested hash, release, cadence, and retained-window sequence", () => {
+    const initial = checkpointInitialSnapshot();
+    const core = new RoomCore("attestation-validation");
+    for (let sequence = 1; sequence <= 250; sequence += 1) {
+      core.sequence(request(sequence), "alice");
+    }
+    const valid = snapshot({ ...loadSnapshot(initial), sequence: CHECKPOINT_INTERVAL });
+    expect(() => validateCheckpointAttestationSnapshot(
+      { sequence: valid.sequence, stateHash: valid.stateHash, snapshot: valid },
+      valid.releaseId,
+      core.state,
+    )).not.toThrow();
+    expect(() => validateCheckpointAttestationSnapshot(
+      { sequence: valid.sequence, stateHash: valid.stateHash, snapshot: valid },
+      "another_release",
+      core.state,
+    )).toThrow("does not match the room");
+    const badHash = { ...valid, stateHash: `sha256:${"0".repeat(64)}` };
+    expect(() => validateCheckpointAttestationSnapshot(
+      { sequence: badHash.sequence, stateHash: badHash.stateHash, snapshot: badHash },
+      valid.releaseId,
+      core.state,
+    )).toThrow("hash");
+    expect(() => validateCheckpointAttestationSnapshot(
+      {
+        sequence: CHECKPOINT_INTERVAL + 1,
+        stateHash: valid.stateHash,
+        snapshot: { ...valid, sequence: CHECKPOINT_INTERVAL + 1 },
+      },
+      valid.releaseId,
+      core.state,
+    )).toThrow("cadence");
+
+    const stale = new RoomCore("attestation-stale");
+    for (let sequence = 1; sequence <= ACTION_RETENTION + CHECKPOINT_INTERVAL + 1; sequence += 1) {
+      stale.sequence(request(sequence), "alice");
+    }
+    expect(() => validateCheckpointAttestationSnapshot(
+      { sequence: valid.sequence, stateHash: valid.stateHash, snapshot: valid },
+      valid.releaseId,
+      stale.state,
+    )).toThrow("outside the retained window");
+  });
+
+  test("selects initial, then attested, then full-log fallback for scripted rooms", () => {
+    const initialState = createInitialState({
+      releaseId: "release_scripted_checkpoint",
+      rng: { algorithm: "sfc32-v1", state: [1, 2, 3, 4], draws: 0 },
+      entities: {
+        rules: {
+          id: "rules",
+          components: {
+            script: { scriptId: "scripts/game.lua", bindingId: "rules", props: {} },
+          },
+        },
+      },
+    });
+    const initial = snapshot(initialState);
+    const short = new RoomCore("scripted-short");
+    const shortActions = [short.sequence(request(1), "alice").orderedAction];
+    expect(roomBootstrapFromSnapshots(short, initial, null, [], {
+      scripted: true,
+      fullActions: shortActions,
+    })[0]).toMatchObject({ type: "bootstrap", sequence: 0 });
+
+    const long = new RoomCore("scripted-long");
+    const allActions = [];
+    for (let sequence = 1; sequence <= ACTION_RETENTION + 1; sequence += 1) {
+      allActions.push(long.sequence(request(sequence), "alice").orderedAction);
+    }
+    const fallback = roomBootstrapFromSnapshots(long, initial, null, [], {
+      scripted: true,
+      fullActions: allActions,
+    });
+    expect(fallback[0]).toMatchObject({ type: "bootstrap", sequence: 0 });
+    expect(fallback).toHaveLength(ACTION_RETENTION + 2);
+
+    const checkpoint = snapshot({ ...initialState, sequence: CHECKPOINT_INTERVAL * 2 });
+    const attested = roomBootstrapFromSnapshots(long, initial, checkpoint, [], {
+      scripted: true,
+      fullActions: allActions,
+    });
+    expect(attested[0]).toMatchObject({
+      type: "bootstrap",
+      sequence: CHECKPOINT_INTERVAL * 2,
+      snapshot: checkpoint,
+    });
+    expect(attested).toHaveLength(1 + long.state.lastSequence - checkpoint.sequence);
   });
 });

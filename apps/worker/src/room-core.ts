@@ -6,6 +6,7 @@ import {
   type ResumeMessage,
   type ServerMessage,
 } from "digipology-protocol";
+import { CHECKPOINT_ATTESTATION_INTERVAL } from "digipology-protocol/http";
 import {
   applyOrdered,
   loadSnapshot,
@@ -26,7 +27,7 @@ export const ACTION_RETENTION = 500;
 export function timerFireDedupKey(timerId: string): string {
   return `timer_fire_${hashValue(timerId).slice("sha256:".length, "sha256:".length + 32)}`;
 }
-export const CHECKPOINT_INTERVAL = 200;
+export const CHECKPOINT_INTERVAL = CHECKPOINT_ATTESTATION_INTERVAL;
 
 if (CHECKPOINT_INTERVAL >= ACTION_RETENTION) {
   throw new Error("CHECKPOINT_INTERVAL must be less than ACTION_RETENTION");
@@ -45,6 +46,26 @@ export type ResumeResult =
   | { type: "resume"; message: ResumeMessage }
   | { type: "resync_required" }
   | { type: "invalid_sequence" };
+
+export interface CheckpointCandidate {
+  sequence: number;
+  stateHash: string;
+  snapshotJson: string;
+  attesters: Set<string>;
+  conflicted: boolean;
+}
+
+export interface CheckpointAttestation {
+  sequence: number;
+  stateHash: string;
+  snapshotJson: string;
+  playerId: string;
+}
+
+export type CheckpointAttestationResult = {
+  status: "recorded" | "duplicate" | "divergent" | "confirmed";
+  candidate: CheckpointCandidate;
+};
 
 export class RoomCore {
   readonly #roomShortId: string;
@@ -185,6 +206,71 @@ export function checkpointIsDue(
   return lastSequence - checkpointSequence >= CHECKPOINT_INTERVAL;
 }
 
+/** Validate an attested snapshot at the worker's rule-free trust boundary. */
+export function validateCheckpointAttestationSnapshot(
+  attestation: { sequence: number; stateHash: string; snapshot: GameSnapshot },
+  releaseId: string,
+  state: RoomCoreState,
+): void {
+  if (!Number.isSafeInteger(attestation.sequence) || attestation.sequence <= 0 ||
+    attestation.sequence % CHECKPOINT_INTERVAL !== 0 || typeof attestation.stateHash !== "string") {
+    throw new TypeError("Checkpoint cadence metadata is invalid");
+  }
+  loadSnapshot(attestation.snapshot);
+  if (attestation.snapshot.releaseId !== releaseId ||
+    attestation.snapshot.sequence !== attestation.sequence ||
+    attestation.snapshot.stateHash !== attestation.stateHash) {
+    throw new TypeError("Checkpoint metadata does not match the room");
+  }
+  if (!checkpointBaseConnects(attestation.sequence, state)) {
+    throw new RangeError("Checkpoint sequence is outside the retained window");
+  }
+}
+
+/**
+ * Friendly-mode checkpoint consensus. Two distinct connected players are
+ * required when available; a room with one connected player self-confirms.
+ */
+export function attestCheckpointCandidate(
+  existing: CheckpointCandidate | null,
+  attestation: CheckpointAttestation,
+  connectedPlayerIds: readonly string[],
+): CheckpointAttestationResult {
+  const connected = new Set(connectedPlayerIds);
+  if (!connected.has(attestation.playerId)) {
+    throw new Error("Checkpoint attester is not connected");
+  }
+  if (existing !== null && existing.sequence !== attestation.sequence) {
+    throw new Error("Checkpoint candidate sequence does not match attestation");
+  }
+
+  const duplicate = existing?.attesters.has(attestation.playerId) ?? false;
+  const candidate: CheckpointCandidate = existing === null
+    ? {
+        sequence: attestation.sequence,
+        stateHash: attestation.stateHash,
+        snapshotJson: attestation.snapshotJson,
+        attesters: new Set([attestation.playerId]),
+        conflicted: false,
+      }
+    : {
+        ...existing,
+        attesters: new Set(existing.attesters),
+      };
+
+  if (candidate.conflicted || candidate.stateHash !== attestation.stateHash) {
+    candidate.conflicted = true;
+    return { status: "divergent", candidate };
+  }
+
+  candidate.attesters.add(attestation.playerId);
+  const healthyAttesters = [...candidate.attesters]
+    .filter((playerId) => connected.has(playerId)).length;
+  const required = connected.size === 1 ? 1 : 2;
+  if (healthyAttesters >= required) return { status: "confirmed", candidate };
+  return { status: duplicate ? "duplicate" : "recorded", candidate };
+}
+
 /** Mechanically replay a contiguous retained tail into a hash-verified snapshot. */
 export function replayCheckpoint(
   baseSnapshot: GameSnapshot,
@@ -231,6 +317,11 @@ export function roomBootstrapFromSnapshots(
   initialSnapshot: GameSnapshot,
   checkpointSnapshot: GameSnapshot | null,
   players: PlayerInfo[],
+  options?: {
+    scripted: true;
+    /** Complete stored log after the initial or last confirmed checkpoint. */
+    fullActions: readonly OrderedAction[];
+  },
 ): readonly ServerMessage[] {
   const initialReplay = core.resumeAfter(initialSnapshot.sequence);
   if (initialReplay.type === "resume") {
@@ -238,6 +329,15 @@ export function roomBootstrapFromSnapshots(
   }
   if (initialReplay.type === "invalid_sequence") {
     throw new Error("Initial snapshot sequence is ahead of the room sequence");
+  }
+  if (options?.scripted === true) {
+    const base = checkpointSnapshot ?? initialSnapshot;
+    loadSnapshot(base);
+    if (base.releaseId !== initialSnapshot.releaseId) {
+      throw new Error("Room checkpoint release does not match the initial snapshot");
+    }
+    const actions = contiguousActionsAfter(base.sequence, core.state.lastSequence, options.fullActions);
+    return roomBootstrapMessages(base, players, actions);
   }
   if (checkpointSnapshot === null) {
     throw new Error("Room action window requires a checkpoint snapshot");
@@ -256,6 +356,29 @@ export function roomBootstrapFromSnapshots(
     players,
     checkpointReplay.message.actions,
   );
+}
+
+function contiguousActionsAfter(
+  baseSequence: number,
+  lastSequence: number,
+  actions: readonly OrderedAction[],
+): readonly OrderedAction[] {
+  const later = actions.filter((action) => action.sequence > baseSequence);
+  let expected = baseSequence + 1;
+  for (const action of later) {
+    if (action.sequence !== expected) {
+      throw new Error(
+        `Scripted bootstrap log is not contiguous: expected ${expected}, received ${action.sequence}`,
+      );
+    }
+    expected += 1;
+  }
+  if (expected !== lastSequence + 1) {
+    throw new Error(
+      `Scripted bootstrap log ended at ${expected - 1}, expected ${lastSequence}`,
+    );
+  }
+  return later;
 }
 
 function cloneState(state: RoomCoreState): RoomCoreState {

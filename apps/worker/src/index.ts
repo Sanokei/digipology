@@ -7,8 +7,13 @@ import {
   type RoomEndedMessage,
   type ServerMessage,
 } from "digipology-protocol";
-import { loadSnapshot, snapshot, type GameSnapshot } from "digipology-kernel";
-import type { ReleaseBundleDto } from "digipology-protocol/http";
+import {
+  loadSnapshot,
+  snapshot,
+  snapshotRequiresScripts,
+  type GameSnapshot,
+} from "digipology-kernel";
+import type { CheckpointAttestationRequest, ReleaseBundleDto } from "digipology-protocol/http";
 import { hashSelector, sha256Hex, timingSafeHashEqual } from "./crypto";
 import {
   handleTextFrame,
@@ -20,12 +25,16 @@ import { generatePlayerId, generateSessionToken } from "./random";
 import { createBuiltinInitialState } from "./initial-state";
 import {
   ACTION_RETENTION,
+  attestCheckpointCandidate,
   checkpointBaseConnects,
   checkpointIsDue,
+  CHECKPOINT_INTERVAL,
   replayCheckpoint,
+  retentionFloor,
   RoomCore,
   roomBootstrapFromSnapshots,
   timerFireDedupKey,
+  validateCheckpointAttestationSnapshot,
   type RoomCoreState,
 } from "./room-core";
 import { nextRoomAlarmAt, planRoomAlarm } from "./room-liveness";
@@ -44,6 +53,8 @@ interface RoomMetadataRow extends Record<string, SqlStorageValue> {
   initial_snapshot: string | null;
   checkpoint_snapshot: string | null;
   checkpoint_sequence: number | null;
+  checkpoint_attested: number;
+  scripted: number | null;
   quickplay_joinable: number;
   last_heartbeat_at: number | null;
   empty_since_at: number | null;
@@ -68,6 +79,30 @@ interface TimerMetadataRow extends Record<string, SqlStorageValue> {
   due_at: number;
   status: "scheduled" | "fired" | "canceled";
 }
+
+interface CheckpointCandidateRow extends Record<string, SqlStorageValue> {
+  sequence: number;
+  state_hash: string;
+  snapshot_json: string;
+  conflicted: number;
+}
+
+export type CheckpointAttestationStatus =
+  | "accepted"
+  | "confirmed"
+  | "duplicate"
+  | "divergent"
+  | "unauthorized"
+  | "rate_limited"
+  | "rejected";
+
+export interface CheckpointAttestationOutcome {
+  status: CheckpointAttestationStatus;
+  reason?: string;
+}
+
+const CHECKPOINT_ATTESTATION_RATE_LIMIT = 12;
+const CHECKPOINT_ATTESTATION_RATE_WINDOW_MS = 60_000;
 
 type SocketAttachment = ConnectionState;
 
@@ -268,6 +303,133 @@ export class RoomDO extends DurableObject<Env> {
     return this.cancelCanonicalTimer(timerId);
   }
 
+  /** Validate and store a client-authored checkpoint without simulating rules. */
+  async attestCheckpoint(
+    roomToken: string,
+    input: Omit<CheckpointAttestationRequest, "roomToken">,
+  ): Promise<CheckpointAttestationOutcome> {
+    const playerId = await this.authenticateRoomToken(roomToken);
+    if (playerId === null) return { status: "unauthorized" };
+
+    const room = this.requiredRoom();
+    if (!this.roomIsScripted(room)) {
+      return { status: "rejected", reason: "Room does not require scripted checkpoints" };
+    }
+    const connectedPlayerIds = this.connectedPlayerIds();
+    if (!connectedPlayerIds.includes(playerId)) {
+      return { status: "rejected", reason: "Checkpoint attester is not connected" };
+    }
+    const candidateSnapshot = input.snapshot as unknown as GameSnapshot;
+    const core = this.loadCore(room);
+    if (!Number.isSafeInteger(input.sequence) || input.sequence <= 0 ||
+      input.sequence % CHECKPOINT_INTERVAL !== 0 ||
+      !checkpointBaseConnects(input.sequence, core.state)) {
+      return { status: "rejected", reason: "Checkpoint sequence is outside the attestation window" };
+    }
+    if (room.checkpoint_sequence !== null && input.sequence <= room.checkpoint_sequence) {
+      return { status: "duplicate" };
+    }
+    if (!this.consumeCheckpointAttestationRate(playerId, Date.now())) {
+      return { status: "rate_limited" };
+    }
+    try {
+      validateCheckpointAttestationSnapshot(
+        { sequence: input.sequence, stateHash: input.stateHash, snapshot: candidateSnapshot },
+        room.release_id,
+        core.state,
+      );
+    } catch (error) {
+      return {
+        status: "rejected",
+        reason: error instanceof Error ? error.message : "Checkpoint was not accepted",
+      };
+    }
+    const snapshotJson = JSON.stringify(candidateSnapshot);
+    const result = this.ctx.storage.transactionSync(() => {
+      const floor = retentionFloor(core.state);
+      this.ctx.storage.sql.exec(
+        "DELETE FROM checkpoint_attesters WHERE sequence < ?",
+        floor,
+      );
+      this.ctx.storage.sql.exec(
+        "DELETE FROM checkpoint_candidates WHERE sequence < ?",
+        floor,
+      );
+      const row = this.ctx.storage.sql.exec<CheckpointCandidateRow>(
+        `SELECT sequence, state_hash, snapshot_json, conflicted
+         FROM checkpoint_candidates WHERE sequence = ?`,
+        input.sequence,
+      ).toArray()[0];
+      const attesters = row === undefined ? [] : this.ctx.storage.sql.exec<{ player_id: string }>(
+        "SELECT player_id FROM checkpoint_attesters WHERE sequence = ? ORDER BY player_id",
+        input.sequence,
+      ).toArray().map((item) => item.player_id);
+      const recorded = attestCheckpointCandidate(
+        row === undefined ? null : {
+          sequence: row.sequence,
+          stateHash: row.state_hash,
+          snapshotJson: row.snapshot_json,
+          attesters: new Set(attesters),
+          conflicted: row.conflicted === 1,
+        },
+        { sequence: input.sequence, stateHash: input.stateHash, snapshotJson, playerId },
+        connectedPlayerIds,
+      );
+      this.ctx.storage.sql.exec(
+        `INSERT INTO checkpoint_candidates (sequence, state_hash, snapshot_json, conflicted)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(sequence) DO UPDATE SET conflicted = excluded.conflicted`,
+        recorded.candidate.sequence,
+        recorded.candidate.stateHash,
+        recorded.candidate.snapshotJson,
+        recorded.candidate.conflicted ? 1 : 0,
+      );
+      if (recorded.status !== "divergent") {
+        this.ctx.storage.sql.exec(
+          "INSERT OR IGNORE INTO checkpoint_attesters (sequence, player_id) VALUES (?, ?)",
+          input.sequence,
+          playerId,
+        );
+      }
+      if (recorded.status === "confirmed") {
+        this.ctx.storage.sql.exec(
+          `UPDATE room SET checkpoint_snapshot = ?, checkpoint_sequence = ?, checkpoint_attested = 1
+           WHERE singleton = 1 AND (checkpoint_sequence IS NULL OR checkpoint_sequence < ?)`,
+          recorded.candidate.snapshotJson,
+          recorded.candidate.sequence,
+          recorded.candidate.sequence,
+        );
+        this.ctx.storage.sql.exec(
+          "DELETE FROM actions WHERE sequence <= ?",
+          Math.max(0, recorded.candidate.sequence - ACTION_RETENTION),
+        );
+        this.ctx.storage.sql.exec(
+          "DELETE FROM checkpoint_attesters WHERE sequence <= ?",
+          recorded.candidate.sequence,
+        );
+        this.ctx.storage.sql.exec(
+          "DELETE FROM checkpoint_candidates WHERE sequence <= ?",
+          recorded.candidate.sequence,
+        );
+      }
+      return recorded;
+    });
+
+    if (result.status === "divergent") {
+      console.warn(JSON.stringify({
+        level: "warn",
+        message: "scripted checkpoint hash divergence",
+        roomId: room.room_id,
+        sequence: input.sequence,
+        candidateHash: result.candidate.stateHash,
+        submittedHash: input.stateHash,
+        playerId,
+      }));
+      return { status: "divergent", reason: "Checkpoint hash diverges from another client" };
+    }
+    return { status: result.status === "recorded" ? "accepted" : result.status };
+  }
+
   async fetch(request: Request): Promise<Response> {
     if (this.room() === null) {
       return Response.json(
@@ -409,14 +571,30 @@ export class RoomDO extends DurableObject<Env> {
         if (lastSequence === null) {
           const initialSnapshot = this.requiredInitialSnapshot(room);
           const core = this.loadCore(room);
-          const checkpoint = core.resumeAfter(initialSnapshot.sequence).type === "resync_required"
-            ? this.storedCheckpoint(room)
+          const scripted = this.roomIsScripted(room);
+          const needsRecoveryBase = core.resumeAfter(initialSnapshot.sequence).type === "resync_required";
+          const checkpoint = needsRecoveryBase
+            ? this.storedCheckpoint(room, scripted)
             : null;
+          const fullActions = scripted ? this.loadFullActions() : [];
+          if (scripted && needsRecoveryBase && checkpoint === null) {
+            const storedCharacters = this.ctx.storage.sql.exec<{ size: number }>(
+              "SELECT COALESCE(SUM(LENGTH(body)), 0) AS size FROM actions",
+            ).one().size;
+            console.info(JSON.stringify({
+              level: "info",
+              message: "scripted checkpoint bootstrap using full action log",
+              roomId: room.room_id,
+              actionCount: fullActions.length,
+              storedCharacters,
+            }));
+          }
           return roomBootstrapFromSnapshots(
             core,
             initialSnapshot,
             checkpoint,
             this.players(),
+            scripted ? { scripted: true, fullActions } : undefined,
           );
         }
         const result = this.loadCore(room).resumeAfter(lastSequence);
@@ -502,10 +680,7 @@ export class RoomDO extends DurableObject<Env> {
         result.orderedAction.sequence,
         body,
       );
-      this.ctx.storage.sql.exec(
-        "DELETE FROM actions WHERE sequence <= ?",
-        result.orderedAction.sequence - ACTION_RETENTION,
-      );
+      this.trimActionsAfterPersistence(room, result.orderedAction.sequence);
       this.advanceCheckpointIfNeeded(room, core);
       return {
         message: result.orderedAction,
@@ -570,10 +745,11 @@ export class RoomDO extends DurableObject<Env> {
       }
       this.ctx.storage.sql.exec(
         `UPDATE room
-         SET started = 1, initial_snapshot = ?, last_sequence = ?
+         SET started = 1, initial_snapshot = ?, last_sequence = ?, scripted = ?
          WHERE singleton = 1`,
         JSON.stringify(baseSnapshot),
         core.state.lastSequence,
+        snapshotRequiresScripts(baseSnapshot) ? 1 : 0,
       );
     });
   }
@@ -597,7 +773,8 @@ export class RoomDO extends DurableObject<Env> {
     return candidate;
   }
 
-  private storedCheckpoint(room: RoomMetadataRow): GameSnapshot | null {
+  private storedCheckpoint(room: RoomMetadataRow, requireAttested = false): GameSnapshot | null {
+    if (requireAttested && room.checkpoint_attested !== 1) return null;
     if (room.checkpoint_snapshot === null && room.checkpoint_sequence === null) return null;
     if (room.checkpoint_snapshot === null || room.checkpoint_sequence === null) {
       throw new Error("Room checkpoint metadata is incomplete");
@@ -611,6 +788,7 @@ export class RoomDO extends DurableObject<Env> {
   }
 
   private advanceCheckpointIfNeeded(room: RoomMetadataRow, core: RoomCore): void {
+    if (this.roomIsScripted(room)) return;
     const baseSequence = room.checkpoint_sequence ?? 0;
     if (!checkpointIsDue(baseSequence, core.state.lastSequence)) return;
     const stored = this.storedCheckpoint(room);
@@ -627,7 +805,7 @@ export class RoomDO extends DurableObject<Env> {
       throw new Error("Checkpoint replay did not reach the room sequence");
     }
     this.ctx.storage.sql.exec(
-      `UPDATE room SET checkpoint_snapshot = ?, checkpoint_sequence = ?
+      `UPDATE room SET checkpoint_snapshot = ?, checkpoint_sequence = ?, checkpoint_attested = 0
        WHERE singleton = 1`,
       JSON.stringify(next),
       next.sequence,
@@ -670,9 +848,14 @@ export class RoomDO extends DurableObject<Env> {
       `system:${ordered.actionId}`,
       body,
     );
+    this.trimActionsAfterPersistence(this.requiredRoom(), ordered.sequence);
+  }
+
+  private trimActionsAfterPersistence(room: RoomMetadataRow, sequence: number): void {
+    if (room.initial_snapshot !== null && this.roomIsScripted(room)) return;
     this.ctx.storage.sql.exec(
       "DELETE FROM actions WHERE sequence <= ?",
-      ordered.sequence - ACTION_RETENTION,
+      sequence - ACTION_RETENTION,
     );
   }
 
@@ -825,7 +1008,7 @@ export class RoomDO extends DurableObject<Env> {
     return this.ctx.storage.sql.exec<RoomMetadataRow>(
       `SELECT room_id, join_code, release_id, capacity, ended_reason, last_sequence,
               started, initial_snapshot, checkpoint_snapshot, checkpoint_sequence,
-              quickplay_joinable, last_heartbeat_at, empty_since_at
+              checkpoint_attested, scripted, quickplay_joinable, last_heartbeat_at, empty_since_at
        FROM room WHERE singleton = 1`,
     ).toArray()[0] ?? null;
   }
@@ -838,19 +1021,21 @@ export class RoomDO extends DurableObject<Env> {
 
   private loadCore(room: RoomMetadataRow): RoomCore {
     const actions = this.ctx.storage.sql.exec<ActionRow>(
-      "SELECT body FROM actions ORDER BY sequence",
+      "SELECT body FROM actions WHERE sequence > ? ORDER BY sequence",
+      room.last_sequence - ACTION_RETENTION,
     ).toArray().map((row) => JSON.parse(row.body) as OrderedAction);
     const state: RoomCoreState = { lastSequence: room.last_sequence, actions };
     return new RoomCore(room.room_id.slice(-8), state);
   }
 
+  private loadFullActions(): OrderedAction[] {
+    return this.ctx.storage.sql.exec<ActionRow>(
+      "SELECT body FROM actions ORDER BY sequence",
+    ).toArray().map((row) => JSON.parse(row.body) as OrderedAction);
+  }
+
   private players(): PlayerInfo[] {
-    const connected = new Set(
-      this.ctx.getWebSockets().flatMap((socket) => {
-        const state = socket.deserializeAttachment() as SocketAttachment | null;
-        return state?.authenticated === true && state.playerId !== null ? [state.playerId] : [];
-      }),
-    );
+    const connected = new Set(this.connectedPlayerIds());
     return this.playerRows().map((player, index) => ({
       playerId: player.player_id,
       displayName: player.display_name,
@@ -863,6 +1048,50 @@ export class RoomDO extends DurableObject<Env> {
     return this.ctx.storage.sql.exec<PlayerRow>(
       "SELECT player_id, display_name FROM players ORDER BY rowid",
     ).toArray();
+  }
+
+  private connectedPlayerIds(): string[] {
+    return [...new Set(this.ctx.getWebSockets().flatMap((socket) => {
+      const state = socket.deserializeAttachment() as SocketAttachment | null;
+      return state?.authenticated === true && state.playerId !== null ? [state.playerId] : [];
+    }))].sort();
+  }
+
+  private roomIsScripted(room: RoomMetadataRow): boolean {
+    if (room.scripted !== null) return room.scripted === 1;
+    if (room.initial_snapshot === null) return false;
+    const scripted = snapshotRequiresScripts(this.requiredInitialSnapshot(room));
+    this.ctx.storage.sql.exec(
+      "UPDATE room SET scripted = ? WHERE singleton = 1 AND scripted IS NULL",
+      scripted ? 1 : 0,
+    );
+    return scripted;
+  }
+
+  private consumeCheckpointAttestationRate(playerId: string, now: number): boolean {
+    return this.ctx.storage.transactionSync(() => {
+      const row = this.ctx.storage.sql.exec<{ window_started_at: number; count: number }>(
+        `SELECT window_started_at, count FROM checkpoint_attestation_rates
+         WHERE player_id = ?`,
+        playerId,
+      ).toArray()[0];
+      if (row === undefined || now - row.window_started_at >= CHECKPOINT_ATTESTATION_RATE_WINDOW_MS) {
+        this.ctx.storage.sql.exec(
+          `INSERT INTO checkpoint_attestation_rates (player_id, window_started_at, count)
+           VALUES (?, ?, 1)
+           ON CONFLICT(player_id) DO UPDATE SET window_started_at = excluded.window_started_at, count = 1`,
+          playerId,
+          now,
+        );
+        return true;
+      }
+      if (row.count >= CHECKPOINT_ATTESTATION_RATE_LIMIT) return false;
+      this.ctx.storage.sql.exec(
+        "UPDATE checkpoint_attestation_rates SET count = count + 1 WHERE player_id = ?",
+        playerId,
+      );
+      return true;
+    });
   }
 
   private tableExists(name: string): boolean {
@@ -886,6 +1115,8 @@ export class RoomDO extends DurableObject<Env> {
         initial_snapshot TEXT,
         checkpoint_snapshot TEXT,
         checkpoint_sequence INTEGER,
+        checkpoint_attested INTEGER NOT NULL DEFAULT 0 CHECK (checkpoint_attested IN (0, 1)),
+        scripted INTEGER CHECK (scripted IN (0, 1)),
         quickplay_joinable INTEGER NOT NULL DEFAULT 0 CHECK (quickplay_joinable IN (0, 1)),
         last_heartbeat_at INTEGER,
         empty_since_at INTEGER
@@ -921,6 +1152,22 @@ export class RoomDO extends DurableObject<Env> {
         due_at INTEGER NOT NULL,
         status TEXT NOT NULL CHECK (status IN ('scheduled', 'fired', 'canceled'))
       );
+      CREATE TABLE checkpoint_candidates (
+        sequence INTEGER PRIMARY KEY,
+        state_hash TEXT NOT NULL,
+        snapshot_json TEXT NOT NULL,
+        conflicted INTEGER NOT NULL DEFAULT 0 CHECK (conflicted IN (0, 1))
+      );
+      CREATE TABLE checkpoint_attesters (
+        sequence INTEGER NOT NULL,
+        player_id TEXT NOT NULL,
+        PRIMARY KEY (sequence, player_id)
+      );
+      CREATE TABLE checkpoint_attestation_rates (
+        player_id TEXT PRIMARY KEY,
+        window_started_at INTEGER NOT NULL,
+        count INTEGER NOT NULL
+      );
     `);
   }
 
@@ -943,6 +1190,16 @@ export class RoomDO extends DurableObject<Env> {
     }
     if (!columns.has("checkpoint_sequence")) {
       this.ctx.storage.sql.exec("ALTER TABLE room ADD COLUMN checkpoint_sequence INTEGER");
+    }
+    if (!columns.has("checkpoint_attested")) {
+      this.ctx.storage.sql.exec(
+        "ALTER TABLE room ADD COLUMN checkpoint_attested INTEGER NOT NULL DEFAULT 0 CHECK (checkpoint_attested IN (0, 1))",
+      );
+    }
+    if (!columns.has("scripted")) {
+      this.ctx.storage.sql.exec(
+        "ALTER TABLE room ADD COLUMN scripted INTEGER CHECK (scripted IN (0, 1))",
+      );
     }
     if (!columns.has("quickplay_joinable")) {
       this.ctx.storage.sql.exec(
@@ -967,6 +1224,22 @@ export class RoomDO extends DurableObject<Env> {
         timer_id TEXT PRIMARY KEY,
         due_at INTEGER NOT NULL,
         status TEXT NOT NULL CHECK (status IN ('scheduled', 'fired', 'canceled'))
+      );
+      CREATE TABLE IF NOT EXISTS checkpoint_candidates (
+        sequence INTEGER PRIMARY KEY,
+        state_hash TEXT NOT NULL,
+        snapshot_json TEXT NOT NULL,
+        conflicted INTEGER NOT NULL DEFAULT 0 CHECK (conflicted IN (0, 1))
+      );
+      CREATE TABLE IF NOT EXISTS checkpoint_attesters (
+        sequence INTEGER NOT NULL,
+        player_id TEXT NOT NULL,
+        PRIMARY KEY (sequence, player_id)
+      );
+      CREATE TABLE IF NOT EXISTS checkpoint_attestation_rates (
+        player_id TEXT PRIMARY KEY,
+        window_started_at INTEGER NOT NULL,
+        count INTEGER NOT NULL
       );
     `);
   }

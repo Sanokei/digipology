@@ -5,6 +5,7 @@ import type {
   ContainerComponent,
   CounterComponent,
   EntityRecord,
+  GameSnapshot,
   HandComponent,
   JsonValue,
   Quaternion,
@@ -46,6 +47,14 @@ function sortedKeys(value: object): string[] {
 export function cloneCanonical<T>(value: T): T {
   canonicalStringify(value);
   return cloneKnownCanonical(value) as T;
+}
+
+/** True when canonical gameplay requires the release's script bindings. */
+export function snapshotRequiresScripts(snapshot: GameSnapshot): boolean {
+  for (const entityId of sortedKeys(snapshot.state.entities)) {
+    if (snapshot.state.entities[entityId]?.components.script !== undefined) return true;
+  }
+  return false;
 }
 
 function cloneKnownCanonical(value: unknown): JsonValue {
