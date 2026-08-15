@@ -645,7 +645,7 @@ button.action-card { width: 100%; border-right: 0; border-left: 0; text-align: l
 .object-menu button:last-child { border-bottom: 0; }
 .object-menu button:hover, .object-menu button:focus-visible { background: #17261f; }
 
-.players-panel, .diagnostics-panel, .dice-controls { position: absolute; z-index: 3; top: 94px; width: min(310px, calc(100vw - 32px)); border: 1px solid rgba(255,255,255,.12); background: #0a1511; box-shadow: 0 22px 60px rgba(0,0,0,.32); }
+.players-panel, .diagnostics-panel, .dice-controls, .prompt-panel { position: absolute; z-index: 3; top: 94px; width: min(310px, calc(100vw - 32px)); border: 1px solid rgba(255,255,255,.12); background: #0a1511; box-shadow: 0 22px 60px rgba(0,0,0,.32); }
 .prediction-correction { position: absolute; z-index: 3; top: 94px; left: 50%; max-width: min(420px, calc(100vw - 32px)); padding: 11px 15px; translate: -50% 0; border: 1px solid rgba(240,200,107,.42); border-radius: 9px; background: rgba(30,25,13,.94); box-shadow: 0 16px 44px rgba(0,0,0,.36); color: #ffe5a8; font-size: .76rem; font-weight: 650; pointer-events: none; animation: correction-in 180ms ease-out; }
 @keyframes correction-in { from { opacity: 0; translate: -50% -7px; } }
 .players-panel { right: 12px; }
@@ -653,6 +653,11 @@ button.action-card { width: 100%; border-right: 0; border-left: 0; text-align: l
 .dice-controls { right: 12px; top: auto; bottom: 18px; display: flex; gap: 8px; align-items: center; padding: 10px; }
 .dice-controls > span { margin-right: auto; color: var(--muted); font-family: "DM Mono", monospace; font-size: .62rem; text-transform: uppercase; }
 .dice-controls button { min-height: 40px; padding: 8px 12px; border: 1px solid var(--line); background: #17261f; cursor: pointer; font-size: .68rem; }
+.prompt-panel { left: 50%; top: auto; bottom: 94px; display: grid; gap: 10px; padding: 14px; transform: translateX(-50%); }
+.prompt-panel > span { color: var(--accent); font-family: "DM Mono", monospace; font-size: .62rem; text-transform: uppercase; }
+.prompt-panel > div, .prompt-panel > form { display: flex; gap: 8px; }
+.prompt-panel button, .prompt-panel input { min-height: 40px; padding: 8px 12px; border: 1px solid var(--line); background: #17261f; }
+.prompt-panel button { cursor: pointer; text-transform: capitalize; }
 .panel-heading { display: flex; align-items: center; justify-content: space-between; min-height: 46px; padding: 0 14px; border-bottom: 1px solid var(--line); color: var(--muted); font-family: "DM Mono", monospace; font-size: .62rem; letter-spacing: .08em; text-transform: uppercase; }
 .panel-heading button { min-width: 40px; min-height: 40px; border: 0; background: transparent; cursor: pointer; font-size: 1rem; }
 .player-row { display: grid; grid-template-columns: 8px 1fr auto; gap: 10px; align-items: center; padding: 13px 14px; border-bottom: 1px solid var(--line); }

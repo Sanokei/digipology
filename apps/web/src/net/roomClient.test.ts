@@ -16,6 +16,14 @@ class MockSocket extends EventTarget {
 
 const session = { roomId: "room", joinCode: "ABCD-EFGH", inviteUrl: "https://play.digipology.com/join/ABCD-EFGH", playerId: "p1", roomToken: "token", wsUrl: "wss://example.test/ws", releaseId: "release_test", gameTitle: "Test" };
 
+async function waitFor(predicate: () => boolean): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  throw new Error("Timed out waiting for RoomClient state");
+}
+
 describe("RoomClient", () => {
   it("loads the release, sends hello, and submits unpredicted actions", async () => {
     const initial = createInitialState({ releaseId: "release_test", rng: { algorithm: "sfc32-v1", state: [1, 2, 3, 4], draws: 0 } });
@@ -103,4 +111,120 @@ describe("RoomClient", () => {
     expect(store.getSnapshot().correction).not.toBeNull();
     client.stop();
   });
+
+  it("runs release Lua for ordered live actions and reports canonical timer metadata", async () => {
+    const initial = createInitialState({
+      releaseId: "release_test",
+      rng: { algorithm: "sfc32-v1", state: [1, 2, 3, 4], draws: 0 },
+      players: { p1: { id: "p1", name: "Alice" } },
+      seats: { seat_1: { id: "seat_1", playerId: "p1" } },
+      entities: {
+        rules: { id: "rules", components: { script: { scriptId: "scripts/game.lua", bindingId: "rules", props: {} } } },
+        score: { id: "score", components: { counter: { value: 0, default: 0, min: 0, max: 10 } } },
+      },
+    });
+    const source = `function on_start(ctx)
+  ui:confirm(players:get("p1"), { id = "ready", title = "Ready?" })
+  timer:after(2, "timeout")
+end
+function on_prompt(ctx)
+  if ctx.response then refs.score:add(1) end
+end
+function timeout(ctx) refs.score:add(2) end
+return {}`;
+    const bundle = {
+      releaseId: "release_test",
+      initialSnapshot: snapshot(initial),
+      files: [{ path: "scripts/game.lua", content: source, byteLength: source.length, contentHash: `sha256:${"0".repeat(64)}` }],
+      refs: { score: "score" },
+    };
+    const api = createApiClient(async () => Response.json(bundle));
+    const socket = new MockSocket();
+    const store = new KernelStore();
+    const timers: Array<{ operation: string; timerId: string; delay?: number }> = [];
+    const client = new RoomClient(
+      session,
+      store,
+      () => undefined,
+      api,
+      () => socket as unknown as WebSocket,
+      async (input) => { timers.push(input); },
+    );
+    client.start();
+    socket.open();
+    await waitFor(() => socket.sent.length > 0);
+    socket.message({ type: "bootstrap", protocolVersion: 1, sequence: 0, players: [] });
+    socket.message({
+      type: "ordered_action", protocolVersion: 1, sequence: 1, actionId: "start",
+      actor: { type: "system" }, action: { type: "system.game_start", payload: { settings: {} } },
+    });
+    await waitFor(() => store.getSnapshot().state?.prompts.ready?.status === "open");
+    expect(store.getSnapshot().state?.prompts.ready?.status).toBe("open");
+    expect(timers).toEqual([{ operation: "register", timerId: "timer_start_0", delay: 2 }]);
+
+    socket.message({
+      type: "ordered_action", protocolVersion: 1, sequence: 2, actionId: "respond",
+      requestId: "request-ready", actor: { type: "player", playerId: "p1" },
+      action: { type: "prompt.respond", payload: { promptId: "ready", response: true } },
+    });
+    await waitFor(() => store.getSnapshot().state?.sequence === 2);
+    expect(store.getSnapshot().state?.entities.score?.components.counter?.value).toBe(1);
+    client.stop();
+  }, 20_000);
+
+  it("keeps the ordered stream connected when timer metadata is rejected", async () => {
+    const initial = createInitialState({
+      releaseId: "release_test",
+      rng: { algorithm: "sfc32-v1", state: [1, 2, 3, 4], draws: 0 },
+      players: { p1: { id: "p1", name: "Alice" } },
+      seats: { seat_1: { id: "seat_1", playerId: "p1" } },
+      entities: {
+        rules: { id: "rules", components: { script: { scriptId: "scripts/game.lua", bindingId: "rules", props: {} } } },
+        score: { id: "score", components: { counter: { value: 0, default: 0, min: 0, max: 10 } } },
+      },
+    });
+    const source = `function on_start(ctx)
+  timer:after(2, "timeout")
+end
+function timeout(ctx) refs.score:add(2) end
+return {}`;
+    const bundle = {
+      releaseId: "release_test",
+      initialSnapshot: snapshot(initial),
+      files: [{ path: "scripts/game.lua", content: source, byteLength: source.length, contentHash: `sha256:${"0".repeat(64)}` }],
+      refs: { score: "score" },
+    };
+    const api = createApiClient(async () => Response.json(bundle));
+    const socket = new MockSocket();
+    const store = new KernelStore();
+    const statuses: string[] = [];
+    let reports = 0;
+    const client = new RoomClient(
+      session,
+      store,
+      (status) => statuses.push(status.state),
+      api,
+      () => socket as unknown as WebSocket,
+      async () => { reports += 1; throw new Error("Canonical timer metadata was not accepted"); },
+    );
+    client.start();
+    socket.open();
+    await waitFor(() => socket.sent.length > 0);
+    socket.message({ type: "bootstrap", protocolVersion: 1, sequence: 0, players: [] });
+    socket.message({
+      type: "ordered_action", protocolVersion: 1, sequence: 1, actionId: "start",
+      actor: { type: "system" }, action: { type: "system.game_start", payload: { settings: {} } },
+    });
+    await waitFor(() => reports === 1);
+    await waitFor(() => store.getSnapshot().diagnostic?.includes("was not recorded") === true);
+    socket.message({
+      type: "ordered_action", protocolVersion: 1, sequence: 2, actionId: "fire",
+      actor: { type: "system" }, action: { type: "system.timer_fire", payload: { timerId: "timer_start_0" } },
+    });
+    await waitFor(() => store.getSnapshot().state?.sequence === 2);
+    expect(store.getSnapshot().state?.entities.score?.components.counter?.value).toBe(2);
+    expect(socket.readyState).toBe(WebSocket.OPEN);
+    expect(statuses).not.toContain("reconnecting");
+    client.stop();
+  }, 20_000);
 });

@@ -776,6 +776,28 @@ export async function handlePlatformRequest(
     });
   }
 
+  const roomTimerMatch = /^\/api\/rooms\/([0-9a-f]{64})\/timers$/.exec(url.pathname);
+  if (request.method === "POST" && roomTimerMatch?.[1] !== undefined) {
+    const body = asRecord(await readJson(request));
+    if (body === null || typeof body.roomToken !== "string" ||
+      typeof body.timerId !== "string" ||
+      (body.operation !== "register" && body.operation !== "cancel") ||
+      (body.operation === "register" && typeof body.delay !== "number")) {
+      return invalidRequest("Timer metadata is invalid");
+    }
+    try {
+      const room = env.ROOM.get(env.ROOM.idFromString(roomTimerMatch[1]));
+      const accepted = body.operation === "register"
+        ? await room.scheduleCanonicalTimer(body.roomToken, body.timerId, body.delay as number)
+        : await room.cancelCanonicalTimerForPlayer(body.roomToken, body.timerId);
+      return accepted
+        ? new Response(null, { status: 204 })
+        : jsonError(403, "timer_rejected", "Timer metadata was not accepted");
+    } catch {
+      return jsonError(404, "not_found", "Room not found");
+    }
+  }
+
   const websocketMatch = /^\/api\/rooms\/([0-9a-f]{64})\/ws$/.exec(url.pathname);
   if (request.method === "GET" && websocketMatch?.[1] !== undefined) {
     try {

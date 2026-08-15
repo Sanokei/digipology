@@ -12,8 +12,20 @@ import {
   snapshot,
   type GameSnapshot,
 } from "digipology-kernel";
+import { hashValue } from "digipology-canonical-json";
 
 export const ACTION_RETENTION = 500;
+
+/**
+ * Dedup key for a `system.timer_fire` sequenced by the room alarm. The kernel
+ * derives new timer ids from the firing action's id (`timer_<actionId>_<n>`), so
+ * a callback that re-arms its own timer would otherwise grow the id by one hop
+ * per fire until it exceeds the canonical timer id limit. Hashing keeps every
+ * hop the same length while staying idempotent per timer id.
+ */
+export function timerFireDedupKey(timerId: string): string {
+  return `timer_fire_${hashValue(timerId).slice("sha256:".length, "sha256:".length + 32)}`;
+}
 export const CHECKPOINT_INTERVAL = 200;
 
 if (CHECKPOINT_INTERVAL >= ACTION_RETENTION) {

@@ -21,10 +21,17 @@ export const BUILTIN_COVER_SPECS: Readonly<Record<string, CoverSpec>> = Object.f
     titleTreatment: "boxed",
     seed: 4_204_202,
   },
+  "zone-runner": {
+    palette: ["#0b0b0f", "#f3a53b", "#38bdf8", "#f3f3f5"],
+    layout: "radial",
+    motif: "meeples",
+    titleTreatment: "stacked",
+    seed: 6_600_166,
+  },
 });
 
 /** Bumped whenever committed builtin cover art changes, so `?v=` immutable caches roll over. */
-export const BUILTIN_COVER_VERSION = 2;
+export const BUILTIN_COVER_VERSION = 3;
 
 const coverText: Readonly<Record<string, { title: string; tagline: string }>> = Object.freeze({
   "first-deal": {
@@ -34,6 +41,10 @@ const coverText: Readonly<Record<string, { title: string; tagline: string }>> = 
   "dice-dash": {
     title: "Dice Dash",
     tagline: "Race to 20 on deterministic rolls from the shared table.",
+  },
+  "zone-runner": {
+    title: "Zone Runner",
+    tagline: "Race pieces into scoring zones before the turn timer runs out.",
   },
 });
 

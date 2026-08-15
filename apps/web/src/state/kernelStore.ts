@@ -1,12 +1,19 @@
 import {
   applyOrdered,
+  applyOrderedWithScripts as applyOrderedWithCreatorScripts,
   loadSnapshot,
   snapshot,
   type CanonicalGameState,
   type GameSnapshot,
   type KernelEvent,
   type OrderedActionInput,
+  type ApplyOrderedResult,
 } from "digipology-kernel";
+import {
+  createCreatorScriptRuntime,
+  scriptsFromReleaseFiles,
+  type CreatorScriptRuntime,
+} from "digipology-lua";
 import type { OrderedAction, PlayerInfo, ResumeMessage, RoomEndedMessage } from "digipology-protocol";
 
 import type { ReleaseBundleDto } from "digipology-protocol/http";
@@ -96,6 +103,7 @@ export class KernelStore {
   private initialSnapshot: GameSnapshot | null = null;
   private predictionPlayerId: string | null = null;
   private correctionId = 0;
+  private scriptRuntime: CreatorScriptRuntime | null = null;
 
   getSnapshot = (): KernelStoreSnapshot => this.current;
   subscribe = (listener: () => void): (() => void) => {
@@ -116,6 +124,33 @@ export class KernelStore {
       definitions: bundle.definitions ?? {},
       gameTitle: bundle.title ?? null,
     });
+  }
+
+  async loadScriptRuntime(bundle: ReleaseBundleDto): Promise<void> {
+    this.scriptRuntime?.close();
+    this.scriptRuntime = null;
+    const files = Array.isArray(bundle.files) ? bundle.files : [];
+    if (!files.some((file) => file.path.startsWith("scripts/") && file.path.endsWith(".lua"))) return;
+    const initial = loadSnapshot(bundleSnapshot(bundle));
+    if (!Object.values(initial.entities).some((entity) => entity.components.script !== undefined)) return;
+    const entityRefs = Object.fromEntries(Object.keys(initial.entities).sort().map((id) => [id, id]));
+    this.scriptRuntime = await createCreatorScriptRuntime({
+      scripts: scriptsFromReleaseFiles(files),
+      refs: { ...entityRefs, ...(bundle.refs ?? {}) },
+      definitions: bundle.definitions ?? {},
+      instructionBudget: 50_000,
+      memoryBudgetBytes: 512 * 1024,
+    });
+  }
+
+  hasScriptRuntime(): boolean {
+    return this.scriptRuntime !== null;
+  }
+
+  dispose(): void {
+    this.scriptRuntime?.close();
+    this.scriptRuntime = null;
+    this.listeners.clear();
   }
 
   resetToRelease(): void {
@@ -157,6 +192,28 @@ export class KernelStore {
     if (message.sequence !== expected) return this.gap(expected, message.sequence);
 
     const confirmedResult = applyOrdered(confirmed, toKernelAction(message));
+    return this.commitOrdered(message, confirmedResult);
+  }
+
+  async applyOrderedWithScriptRuntime(message: OrderedAction): Promise<ApplyStreamResult> {
+    const runtime = this.scriptRuntime;
+    if (runtime === null) return this.applyOrdered(message);
+    const confirmed = this.current.state;
+    if (confirmed === null) return this.gap(0, message.sequence);
+    const expected = confirmed.sequence + 1;
+    if (message.sequence !== expected) return this.gap(expected, message.sequence);
+    const confirmedResult = await applyOrderedWithCreatorScripts(
+      confirmed,
+      toKernelAction(message),
+      { runtime },
+    );
+    return this.commitOrdered(message, confirmedResult);
+  }
+
+  private commitOrdered(
+    message: OrderedAction,
+    confirmedResult: ApplyOrderedResult,
+  ): ApplyStreamResult {
     const pendingRequestIds = new Set(this.current.pendingRequestIds);
     if (message.requestId !== undefined) pendingRequestIds.delete(message.requestId);
 

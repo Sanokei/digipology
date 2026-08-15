@@ -85,6 +85,16 @@ function drop(entityId: string, x: number, z: number): PredictionAction {
 }
 
 describe("KernelStore", () => {
+  it("does not activate the creator runtime for immutable legacy Lua without script bindings", async () => {
+    const store = loaded();
+    await store.loadScriptRuntime({
+      releaseId: "release_test",
+      initialSnapshot: snapshot(initial()),
+      files: [{ path: "scripts/game.lua", content: "return {}" }],
+    } as unknown as Parameters<KernelStore["loadScriptRuntime"]>[0]);
+    expect(store.hasScriptRuntime()).toBe(false);
+  });
+
   it("applies ordered actions strictly in order", () => {
     const store = loaded();
     expect(store.applyOrdered(ordered(1))).toEqual({ ok: true });

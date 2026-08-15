@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { HandStrip } from "../components/HandStrip";
 import { TableTopBar } from "../components/TableTopBar";
 import { playersPanelOpenByDefault } from "./TablePage";
+import { openPromptsForPlayer } from "./TablePage";
 
 test("375px table chrome exposes compact controls and the thumb hand tray", async () => {
   const html = renderToStaticMarkup(
@@ -33,4 +34,15 @@ test("empty hand remains visible but does not intercept the table", () => {
   const html = renderToStaticMarkup(<HandStrip items={[]} />);
   expect(html).toContain("hand-strip--empty");
   expect(html).toContain("Your hand is empty");
+});
+
+test("only exposes the local player's open canonical prompts", () => {
+  const state = {
+    prompts: {
+      mine: { id: "mine", kind: "choice", playerId: "p1", title: "Choose", status: "open", choices: ["run"] },
+      theirs: { id: "theirs", kind: "confirm", playerId: "p2", title: "Ready?", status: "open" },
+      done: { id: "done", kind: "confirm", playerId: "p1", title: "Done", status: "resolved" },
+    },
+  } as unknown as import("digipology-kernel").CanonicalGameState;
+  expect(openPromptsForPlayer(state, "p1").map((prompt) => prompt.id)).toEqual(["mine"]);
 });

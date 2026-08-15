@@ -26,10 +26,10 @@ export const PLAYTEST_SEAT_ID = "playtest-seat";
 export const PLAYTEST_INSTRUCTION_BUDGET = 50_000;
 export const PLAYTEST_MEMORY_BUDGET_BYTES = 512 * 1024;
 
-const INTERACTION_ACTIONS = new Set([
+export const PLAYTEST_INTERACTION_ACTIONS = new Set([
   "entity.grab", "entity.drop", "entity.flip", "die.roll", "button.press",
   "deck.shuffle", "deck.draw_to_container", "counter.set", "counter.add",
-  "prompt.respond",
+  "entity.set_locked", "stack.remove_top", "prompt.respond",
 ]);
 const REGISTERED_ACTIONS = new Set(builtInActions.map((definition) => definition.type));
 
@@ -86,7 +86,7 @@ export class PlaytestRuntime {
   getSnapshot() { return snapshot(this.state); }
 
   async dispatchInteraction(type: string, payload: JsonValue): Promise<void> {
-    if (!INTERACTION_ACTIONS.has(type)) throw new TypeError(`Playtest interaction is not registered: ${type}`);
+    if (!PLAYTEST_INTERACTION_ACTIONS.has(type)) throw new TypeError(`Playtest interaction is not registered: ${type}`);
     await this.apply(type, payload, { type: "player", playerId: PLAYTEST_PLAYER_ID });
   }
 

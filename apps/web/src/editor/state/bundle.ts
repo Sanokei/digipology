@@ -12,7 +12,22 @@ import {
 
 import { prevalidateRelease } from "../../releaseValidation";
 import type { EditorDraft } from "./types";
-import { createScript } from "./scripts";
+import { createScript, updateScript } from "./scripts";
+
+export type EditorTemplateId = "blank" | "card" | "dice" | "zone";
+
+export const EDITOR_TEMPLATES = Object.freeze([
+  { id: "blank" as const, title: "Blank Table", description: "An empty sandbox with one editable game script." },
+  { id: "card" as const, title: "Card Game", description: "A deck, player hand, and working deal/draw loop." },
+  { id: "dice" as const, title: "Dice Game", description: "A rollable die that adds each result to a score." },
+  { id: "zone" as const, title: "Zone Game", description: "A draggable piece, snap slot, and scoring zone." },
+]);
+
+const TEMPLATE_IDENTITY = {
+  position: { x: 0, y: 0, z: 0 },
+  rotation: { x: 0, y: 0, z: 0, w: 1 },
+  scale: { x: 1, y: 1, z: 1 },
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -78,6 +93,226 @@ export function createEmptyEditorDraft(id: string, now = new Date().toISOString(
   createScript(draft, "game.lua", "");
   bundle.integrity.manifestHash = releaseManifestHash(bundle, hashValue);
   return draft;
+}
+
+function prepareTemplate(
+  id: string,
+  now: string,
+  title: string,
+  tagline: string,
+): { draft: EditorDraft; state: CanonicalGameState } {
+  const draft = createEmptyEditorDraft(id, now);
+  draft.title = title;
+  draft.tagline = tagline;
+  draft.slug = "";
+  draft.minPlayers = 1;
+  draft.maxPlayers = 4;
+  draft.bundle.interactionMode = "scripted";
+  draft.bundle.title = title;
+  const state = draft.bundle.initialSnapshot.state as CanonicalGameState;
+  state.seats = {
+    "playtest-seat": { id: "playtest-seat", playerId: null },
+  };
+  return { draft, state };
+}
+
+export function createCardGameEditorDraft(
+  id: string,
+  now = new Date().toISOString(),
+): EditorDraft {
+  const { draft, state } = prepareTemplate(
+    id,
+    now,
+    "Card Game",
+    "Deal a card, then press Draw to keep the hand growing.",
+  );
+  state.seats["playtest-seat"] = {
+    id: "playtest-seat",
+    playerId: null,
+    handId: "player_hand",
+  };
+  state.entities = {
+    card_rules: {
+      id: "card_rules",
+      components: {
+        script: { scriptId: "scripts/game.lua", bindingId: "card_game_rules", props: { role: "game" } },
+      },
+    },
+    draw_button: {
+      id: "draw_button",
+      components: {
+        button: { enabled: true, label: "Draw" },
+        script: { scriptId: "scripts/game.lua", bindingId: "card_draw_button", props: { role: "draw" } },
+        transform: { ...TEMPLATE_IDENTITY, position: { x: 2, y: 0, z: 0 } },
+      },
+    },
+    main_deck: {
+      id: "main_deck",
+      components: {
+        container: {
+          items: ["card_1", "card_2", "card_3", "card_4"],
+          capacity: 12,
+          ordering: "stack",
+          visibility: "public",
+        },
+        deck: { enabled: true },
+        transform: { ...TEMPLATE_IDENTITY, position: { x: -2, y: 0, z: 0 } },
+      },
+    },
+    player_hand: {
+      id: "player_hand",
+      components: {
+        container: { items: [], capacity: 8, ordering: "canonical", visibility: "owner:playtest-seat" },
+        hand: { owner: "playtest-seat", canonicalOrder: true },
+      },
+    },
+  };
+  for (let index = 1; index <= 4; index += 1) {
+    const cardId = `card_${index}`;
+    state.entities[cardId] = {
+      id: cardId,
+      components: {
+        card: { definitionId: `starter_card_${index}`, faceUp: false },
+        flippable: { flipped: false },
+        grabbable: { enabled: true, heldBy: null },
+        transform: { ...TEMPLATE_IDENTITY, position: { x: -2, y: index * 0.25, z: 0 } },
+      },
+    };
+  }
+  draft.bundle.refs = { main_deck: "main_deck", player_hand: "player_hand" };
+  draft.bundle.definitions = Object.fromEntries(Array.from({ length: 4 }, (_, index) => [
+    `starter_card_${index + 1}`,
+    { label: `Starter Card ${index + 1}`, color: index % 2 === 0 ? "#f3a53b" : "#8b5cf6" },
+  ]));
+  updateScript(draft, "scripts/game.lua", `function on_start(ctx)
+  if props.role ~= "game" then return end
+  refs.main_deck:shuffle()
+  for _, player in ipairs(players:list()) do
+    if player.hand then refs.main_deck:draw_to(player.hand, 1) end
+  end
+end
+
+function on_press(ctx)
+  if props.role ~= "draw" or refs.main_deck.count == 0 then return end
+  local player = players:list()[1]
+  if player and player.hand then refs.main_deck:draw_to(player.hand, 1) end
+end
+
+function on_player_join(ctx)
+  if props.role == "game" and refs.main_deck.count > 0 then
+    refs.main_deck:draw_to(refs.player_hand, 1)
+  end
+end
+
+return {}
+`);
+  rebuildDraftIntegrity(draft);
+  return draft;
+}
+
+export function createDiceGameEditorDraft(
+  id: string,
+  now = new Date().toISOString(),
+): EditorDraft {
+  const { draft, state } = prepareTemplate(
+    id,
+    now,
+    "Dice Game",
+    "Roll the die and watch its canonical result add to the score.",
+  );
+  state.entities = {
+    die: {
+      id: "die",
+      components: {
+        die: { definitionId: "starter_d6", value: 1, faces: [1, 2, 3, 4, 5, 6] },
+        grabbable: { enabled: true, heldBy: null },
+        script: { scriptId: "scripts/game.lua", bindingId: "dice_game_die", props: {} },
+        transform: TEMPLATE_IDENTITY,
+      },
+    },
+    score: {
+      id: "score",
+      components: {
+        counter: { value: 0, default: 0, min: 0, max: 99 },
+        transform: { ...TEMPLATE_IDENTITY, position: { x: 2, y: 0, z: 0 } },
+      },
+    },
+  };
+  draft.bundle.refs = { score: "score" };
+  draft.bundle.definitions = { starter_d6: { label: "Starter D6", color: "#22c55e" } };
+  updateScript(draft, "scripts/game.lua", `function on_roll(ctx)
+  refs.score:add(self.value)
+end
+
+return {}
+`);
+  rebuildDraftIntegrity(draft);
+  return draft;
+}
+
+export function createZoneGameEditorDraft(
+  id: string,
+  now = new Date().toISOString(),
+): EditorDraft {
+  const { draft, state } = prepareTemplate(
+    id,
+    now,
+    "Zone Game",
+    "Drop the runner onto the board slot to score.",
+  );
+  state.entities = {
+    runner: {
+      id: "runner",
+      components: {
+        grabbable: { enabled: true, heldBy: null },
+        tags: { values: ["runner"] },
+        transform: { ...TEMPLATE_IDENTITY, position: { x: 0, y: 0, z: 3 } },
+      },
+    },
+    scoring_zone: {
+      id: "scoring_zone",
+      components: {
+        zone: { shape: "box", acceptedTags: ["runner"], visibleInPlay: true, members: [] },
+        script: { scriptId: "scripts/game.lua", bindingId: "zone_game_scoring", props: {} },
+        transform: { ...TEMPLATE_IDENTITY, scale: { x: 4, y: 2, z: 4 } },
+      },
+    },
+    board_slot: {
+      id: "board_slot",
+      components: {
+        "snap-point": { radius: 1, capacity: 1, tags: ["runner"], alignment: null, attached: [] },
+        transform: TEMPLATE_IDENTITY,
+      },
+    },
+    score: {
+      id: "score",
+      components: {
+        counter: { value: 0, default: 0, min: 0, max: 10 },
+        transform: { ...TEMPLATE_IDENTITY, position: { x: 3, y: 0, z: 0 } },
+      },
+    },
+  };
+  draft.bundle.refs = { score: "score" };
+  draft.bundle.definitions = { runner: { label: "Runner", color: "#38bdf8" } };
+  updateScript(draft, "scripts/game.lua", `function on_enter(ctx)
+  refs.score:add(1)
+end
+
+return {}
+`);
+  rebuildDraftIntegrity(draft);
+  return draft;
+}
+
+export function createEditorDraftFromTemplate(
+  templateId: EditorTemplateId,
+  id: string,
+  now = new Date().toISOString(),
+): EditorDraft {
+  if (templateId === "card") return createCardGameEditorDraft(id, now);
+  if (templateId === "dice") return createDiceGameEditorDraft(id, now);
+  if (templateId === "zone") return createZoneGameEditorDraft(id, now);
+  return createEmptyEditorDraft(id, now);
 }
 
 export function normalizeReleaseBundle(value: unknown): ReleaseBundleDto {
