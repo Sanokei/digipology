@@ -139,6 +139,38 @@ end` },
     }
   });
 
+  test("Card.is_face_up follows canonical flippable state, not the authored card default", async () => {
+    const runtime = await createCreatorScriptRuntime({
+      scripts: { rules: `
+function on_start()
+  state.was_face_up = refs.card.is_face_up
+  refs.card:set_face_up(true)
+end` },
+      refs: { card: "card" },
+      instructionBudget: 50_000,
+    });
+    const initial = createInitialState({
+      releaseId: "face-up",
+      rng: RNG,
+      entities: {
+        card: {
+          id: "card",
+          components: {
+            transform: { position: { x: 0, y: 0, z: 0 }, rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: { x: 1, y: 1, z: 1 } },
+            card: { definitionId: "ace", faceUp: true },
+            flippable: { flipped: false },
+            script: { scriptId: "rules", bindingId: "rules", props: {} },
+          },
+        },
+      },
+    });
+    const result = await applyOrderedWithScripts(initial, action(initial, "system.game_start", { settings: {} }, { type: "system" }), { runtime });
+    expect(result.rejection).toBeUndefined();
+    expect((result.state.scriptState as { was_face_up?: boolean }).was_face_up).toBe(false);
+    expect(result.state.entities.card?.components.flippable?.flipped).toBe(true);
+    runtime.close();
+  });
+
   test("prompt, timer reconstruction, turns, and scores double-replay identically", async () => {
     const source = `
 function on_start()
@@ -176,6 +208,9 @@ end`;
     const first = await replay();
     const second = await replay();
     expect(first.stateHash).toBe(second.stateHash);
+    // Pinned stdlib v1 determinism hash: prompt + timer + turns/scores over a fresh VM per action.
+    // Changing this value means the Lua stdlib or the canonical state it produces changed shape.
+    expect(first.stateHash).toBe("sha256:7531016d794e95936ccc80cefea2032d9cbdbe6005bb80d247082048935ccc44");
     expect((first.state.scriptState as { leader?: string }).leader).toBe("b");
   }, 20_000);
 });

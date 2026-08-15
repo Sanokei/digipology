@@ -117,7 +117,7 @@ local function entity_proxy(id)
   proxy_cache[id] = proxy
 
   if spec.card then
-    proxy.is_face_up = spec.flippable and spec.flippable.flipped or spec.card.faceUp
+    if spec.flippable ~= nil then proxy.is_face_up = spec.flippable.flipped else proxy.is_face_up = spec.card.faceUp end
     proxy.definition_id = spec.card.definitionId
     proxy.definition = definitions[spec.card.definitionId]
     proxy.flip = function() host_queue("entity.flip", { entityId = id }) end
