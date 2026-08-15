@@ -25,10 +25,15 @@ import {
   replayCheckpoint,
   RoomCore,
   roomBootstrapFromSnapshots,
+  TIMER_CANCEL_GRACE_MS,
   timerFireDedupKey,
   type RoomCoreState,
 } from "./room-core";
-import { nextRoomAlarmAt, planRoomAlarm } from "./room-liveness";
+import {
+  nextRoomAlarmAt,
+  planCanonicalTimerAlarm,
+  planRoomAlarm,
+} from "./room-liveness";
 
 const DEFAULT_ROOM_CAPACITY = 8;
 const DUMMY_HASH = "0".repeat(64);
@@ -47,6 +52,7 @@ interface RoomMetadataRow extends Record<string, SqlStorageValue> {
   quickplay_joinable: number;
   last_heartbeat_at: number | null;
   empty_since_at: number | null;
+  last_action_at: number | null;
 }
 
 interface PlayerRow extends Record<string, SqlStorageValue> {
@@ -67,6 +73,7 @@ interface TimerMetadataRow extends Record<string, SqlStorageValue> {
   timer_id: string;
   due_at: number;
   status: "scheduled" | "fired" | "canceled";
+  deferred_once: number;
 }
 
 type SocketAttachment = ConnectionState;
@@ -223,8 +230,8 @@ export class RoomDO extends DurableObject<Env> {
     // `rowsWritten` is not a reliable "inserted" signal on the SQLite cursor, so
     // the alarm is always re-planned; it is idempotent over the scheduled set.
     this.ctx.storage.sql.exec(
-      `INSERT OR IGNORE INTO canonical_timers (timer_id, due_at, status)
-       VALUES (?, ?, 'scheduled')`,
+      `INSERT OR IGNORE INTO canonical_timers (timer_id, due_at, status, deferred_once)
+       VALUES (?, ?, 'scheduled', 0)`,
       timerId,
       dueAt,
     );
@@ -244,7 +251,7 @@ export class RoomDO extends DurableObject<Env> {
       timerId,
     );
     const known = this.ctx.storage.sql.exec<TimerMetadataRow>(
-      "SELECT timer_id, due_at, status FROM canonical_timers WHERE timer_id = ?",
+      "SELECT timer_id, due_at, status, deferred_once FROM canonical_timers WHERE timer_id = ?",
       timerId,
     ).toArray().length === 1;
     if (known) await this.rescheduleAlarm(Date.now());
@@ -320,31 +327,57 @@ export class RoomDO extends DurableObject<Env> {
     if (room === null || room.ended_reason !== null) return;
     const now = Date.now();
     const timerActions: OrderedAction[] = [];
+    let deferredTimerCount = 0;
     if (this.ctx.getWebSockets().length > 0) {
       this.ctx.storage.transactionSync(() => {
         const current = this.requiredRoom();
         const core = this.loadCore(current);
         const due = this.ctx.storage.sql.exec<TimerMetadataRow>(
-          `SELECT timer_id, due_at, status FROM canonical_timers
+          `SELECT timer_id, due_at, status, deferred_once FROM canonical_timers
            WHERE status = 'scheduled' AND due_at <= ?
            ORDER BY due_at, timer_id`,
           now,
         ).toArray();
         for (const timer of due) {
+          // A cancel report can land after the alarm was armed. Re-read the row
+          // at the last possible point inside this transaction before sequencing.
+          const latest = this.ctx.storage.sql.exec<TimerMetadataRow>(
+            `SELECT timer_id, due_at, status, deferred_once
+             FROM canonical_timers WHERE timer_id = ?`,
+            timer.timer_id,
+          ).toArray()[0];
+          if (latest === undefined) continue;
+          const plan = planCanonicalTimerAlarm(now, {
+            status: latest.status,
+            dueAt: latest.due_at,
+            deferredOnce: latest.deferred_once === 1,
+            lastActionAt: current.last_action_at,
+          });
+          if (plan.type === "defer") {
+            this.ctx.storage.sql.exec(
+              `UPDATE canonical_timers SET due_at = ?, deferred_once = 1
+               WHERE timer_id = ? AND status = 'scheduled' AND deferred_once = 0`,
+              plan.nextAttemptAt,
+              timer.timer_id,
+            );
+            deferredTimerCount += 1;
+            continue;
+          }
+          if (plan.type !== "fire") continue;
           const sequenced = core.sequenceSystem(
             { type: "system.timer_fire", payload: { timerId: timer.timer_id } },
             timerFireDedupKey(timer.timer_id),
           );
-          this.ctx.storage.sql.exec(
-            "UPDATE canonical_timers SET status = 'fired' WHERE timer_id = ? AND status = 'scheduled'",
-            timer.timer_id,
-          );
           if (!sequenced.duplicate) {
             this.persistSystemAction(sequenced.orderedAction);
+            this.ctx.storage.sql.exec(
+              "UPDATE canonical_timers SET status = 'fired' WHERE timer_id = ? AND status = 'scheduled'",
+              timer.timer_id,
+            );
             timerActions.push(sequenced.orderedAction);
           }
         }
-        if (due.length > 0) {
+        if (timerActions.length > 0) {
           this.advanceCheckpointIfNeeded(current, core);
           this.ctx.storage.sql.exec(
             "UPDATE room SET last_sequence = ? WHERE singleton = 1",
@@ -352,6 +385,15 @@ export class RoomDO extends DurableObject<Env> {
           );
         }
       });
+    }
+    if (deferredTimerCount > 0) {
+      console.log(JSON.stringify({
+        level: "info",
+        message: "canonical timer fires deferred for cancel grace",
+        roomId: room.room_id,
+        deferralCount: deferredTimerCount,
+        graceMs: TIMER_CANCEL_GRACE_MS,
+      }));
     }
     for (const action of timerActions) this.broadcast(action);
     const plan = planRoomAlarm(now, {
@@ -481,8 +523,11 @@ export class RoomDO extends DurableObject<Env> {
       const core = this.loadCore(room);
       const result = core.sequence(request, playerId);
       this.ctx.storage.sql.exec(
-        "UPDATE room SET last_sequence = ?, quickplay_joinable = 0 WHERE singleton = 1",
+        `UPDATE room
+         SET last_sequence = ?, quickplay_joinable = 0, last_action_at = ?
+         WHERE singleton = 1`,
         result.orderedAction.sequence,
+        Date.now(),
       );
       const body = JSON.stringify(result.orderedAction);
       this.ctx.storage.sql.exec(
@@ -674,6 +719,10 @@ export class RoomDO extends DurableObject<Env> {
       "DELETE FROM actions WHERE sequence <= ?",
       ordered.sequence - ACTION_RETENTION,
     );
+    this.ctx.storage.sql.exec(
+      "UPDATE room SET last_action_at = ? WHERE singleton = 1",
+      Date.now(),
+    );
   }
 
   private broadcast(message: ServerMessage): void {
@@ -825,7 +874,7 @@ export class RoomDO extends DurableObject<Env> {
     return this.ctx.storage.sql.exec<RoomMetadataRow>(
       `SELECT room_id, join_code, release_id, capacity, ended_reason, last_sequence,
               started, initial_snapshot, checkpoint_snapshot, checkpoint_sequence,
-              quickplay_joinable, last_heartbeat_at, empty_since_at
+              quickplay_joinable, last_heartbeat_at, empty_since_at, last_action_at
        FROM room WHERE singleton = 1`,
     ).toArray()[0] ?? null;
   }
@@ -888,7 +937,8 @@ export class RoomDO extends DurableObject<Env> {
         checkpoint_sequence INTEGER,
         quickplay_joinable INTEGER NOT NULL DEFAULT 0 CHECK (quickplay_joinable IN (0, 1)),
         last_heartbeat_at INTEGER,
-        empty_since_at INTEGER
+        empty_since_at INTEGER,
+        last_action_at INTEGER
       );
       CREATE TABLE players (
         player_id TEXT PRIMARY KEY,
@@ -919,7 +969,8 @@ export class RoomDO extends DurableObject<Env> {
       CREATE TABLE canonical_timers (
         timer_id TEXT PRIMARY KEY,
         due_at INTEGER NOT NULL,
-        status TEXT NOT NULL CHECK (status IN ('scheduled', 'fired', 'canceled'))
+        status TEXT NOT NULL CHECK (status IN ('scheduled', 'fired', 'canceled')),
+        deferred_once INTEGER NOT NULL DEFAULT 0 CHECK (deferred_once IN (0, 1))
       );
     `);
   }
@@ -955,6 +1006,9 @@ export class RoomDO extends DurableObject<Env> {
     if (!columns.has("empty_since_at")) {
       this.ctx.storage.sql.exec("ALTER TABLE room ADD COLUMN empty_since_at INTEGER");
     }
+    if (!columns.has("last_action_at")) {
+      this.ctx.storage.sql.exec("ALTER TABLE room ADD COLUMN last_action_at INTEGER");
+    }
     this.ctx.storage.sql.exec(`
       CREATE TABLE IF NOT EXISTS active_players (
         player_id TEXT PRIMARY KEY
@@ -966,9 +1020,21 @@ export class RoomDO extends DurableObject<Env> {
       CREATE TABLE IF NOT EXISTS canonical_timers (
         timer_id TEXT PRIMARY KEY,
         due_at INTEGER NOT NULL,
-        status TEXT NOT NULL CHECK (status IN ('scheduled', 'fired', 'canceled'))
+        status TEXT NOT NULL CHECK (status IN ('scheduled', 'fired', 'canceled')),
+        deferred_once INTEGER NOT NULL DEFAULT 0 CHECK (deferred_once IN (0, 1))
       );
     `);
+    const timerColumns = new Set(
+      this.ctx.storage.sql.exec<{ name: string }>("PRAGMA table_info(canonical_timers)")
+        .toArray()
+        .map((column) => column.name),
+    );
+    if (!timerColumns.has("deferred_once")) {
+      this.ctx.storage.sql.exec(
+        `ALTER TABLE canonical_timers
+         ADD COLUMN deferred_once INTEGER NOT NULL DEFAULT 0 CHECK (deferred_once IN (0, 1))`,
+      );
+    }
   }
 }
 

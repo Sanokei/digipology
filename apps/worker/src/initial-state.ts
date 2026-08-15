@@ -273,7 +273,7 @@ export function createBuiltinInitialState(
   if (releaseId === "builtin_dice_dash_1" || releaseId === "builtin_dice_dash_2") {
     return createDiceDashInitialState(releaseId, players);
   }
-  if (releaseId === "builtin_zone_runner_1") {
+  if (releaseId === "builtin_zone_runner_1" || releaseId === "builtin_zone_runner_2") {
     return createZoneRunnerInitialState(releaseId, players);
   }
   return null;

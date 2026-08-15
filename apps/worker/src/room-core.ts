@@ -27,6 +27,7 @@ export function timerFireDedupKey(timerId: string): string {
   return `timer_fire_${hashValue(timerId).slice("sha256:".length, "sha256:".length + 32)}`;
 }
 export const CHECKPOINT_INTERVAL = 200;
+export const TIMER_CANCEL_GRACE_MS = 350;
 
 if (CHECKPOINT_INTERVAL >= ACTION_RETENTION) {
   throw new Error("CHECKPOINT_INTERVAL must be less than ACTION_RETENTION");

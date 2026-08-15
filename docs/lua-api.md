@@ -616,6 +616,8 @@ end
 
 Per ARCH-007, the Room Durable Object schedules due delivery but never executes game rules. It contributes `system.timer_fire` to the ordered stream; the kernel atomically changes the timer from `scheduled` to `fired` and invokes only the stored binding's named callback. A duplicate fire, or a fire after `timer:cancel(state.advance_timer)`, rejects. This is the exactly-once kernel boundary; service restart durability belongs to the room scheduler.
 
+A `system.timer_fire` can be sequenced just before the room learns that an ordered action ran `timer:cancel(state.advance_timer)`. Every client then rejects that fire identically; this is expected and benign, and the named callback simply does not run. Scripts must not treat that rejected delivery as an error path. The room scheduler applies one short grace period when an action was just sequenced so an in-flight cancel report can arrive, and the web client labels any remaining stale-fire rejection as ignored instead of showing it as a kernel error in Diagnostics.
+
 Do not pass an anonymous closure: `timer:after` accepts a callback name string, and a fresh VM reloads that name from immutable release code. Store future-relevant values in `state`, not captured locals. Prompt IDs are creator-supplied `schema.id` values and must be unique for the canonical state's lifetime; there is no shipped `ui` cancellation method even though the kernel has a script/system `prompt.cancel` command.
 
 ## 7. Callbacks and guards

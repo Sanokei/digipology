@@ -1,4 +1,5 @@
 import { ROOM_HEARTBEAT_INTERVAL_MS } from "./quickplay";
+import { TIMER_CANCEL_GRACE_MS } from "./room-core";
 
 export const EMPTY_ROOM_TTL_MS = 30 * 60 * 1000;
 
@@ -12,6 +13,38 @@ export interface RoomAlarmPlan {
   heartbeatDue: boolean;
   expiryDue: boolean;
   nextAlarmAt: number | null;
+}
+
+export interface CanonicalTimerAlarmState {
+  status: "scheduled" | "fired" | "canceled";
+  dueAt: number;
+  deferredOnce: boolean;
+  lastActionAt: number | null;
+}
+
+export type CanonicalTimerAlarmPlan =
+  | { type: "skip" }
+  | { type: "wait" }
+  | { type: "defer"; nextAttemptAt: number }
+  | { type: "fire" };
+
+/** Pure per-row plan used after the alarm transaction re-reads timer status. */
+export function planCanonicalTimerAlarm(
+  now: number,
+  state: CanonicalTimerAlarmState,
+): CanonicalTimerAlarmPlan {
+  if (state.status !== "scheduled") return { type: "skip" };
+  if (state.dueAt > now) return { type: "wait" };
+  const actionAge = state.lastActionAt === null ? null : now - state.lastActionAt;
+  if (
+    !state.deferredOnce &&
+    actionAge !== null &&
+    actionAge >= 0 &&
+    actionAge < TIMER_CANCEL_GRACE_MS
+  ) {
+    return { type: "defer", nextAttemptAt: now + TIMER_CANCEL_GRACE_MS };
+  }
+  return { type: "fire" };
 }
 
 export function planRoomAlarm(now: number, state: RoomAlarmState): RoomAlarmPlan {

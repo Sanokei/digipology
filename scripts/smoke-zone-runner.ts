@@ -35,10 +35,11 @@ import type {
 } from "digipology-protocol/http";
 
 const NETWORK_TIMEOUT_MS = 7_000;
-const FRAME_TIMEOUT_MS = 15_000;
+const FRAME_TIMEOUT_MS = 30_000;
 const MAX_FRAMES_PER_STEP = 60;
 const SCORE_ATTEMPTS = 3;
 const SLUG = "zone-runner";
+const EXPECTED_RELEASE_ID = "builtin_zone_runner_2";
 const JSON_HEADERS = { "Content-Type": "application/json", "X-Digipology-CSRF": "1" };
 const origin = parseOrigin(Bun.argv[2] ?? "http://127.0.0.1:8787");
 const sockets = new Set<WebSocket>();
@@ -123,6 +124,10 @@ async function runChecks(): Promise<void> {
       );
       expect(first.value.playerId !== second.value.playerId, "both quickplay joins received the same playerId");
       expect(first.value.releaseId === second.value.releaseId, "quickplay pair disagrees on releaseId");
+      expect(
+        first.value.releaseId === EXPECTED_RELEASE_ID,
+        `quickplay selected ${first.value.releaseId}, expected ${EXPECTED_RELEASE_ID}`,
+      );
       return { first: first.value, second: second.value };
     },
     (value) => `room ${value.first.joinCode}`,
@@ -188,7 +193,7 @@ async function runChecks(): Promise<void> {
       if (scoreAfter === scoreBefore + 1) {
         return `${actor.name} scored ${scoreBefore} -> ${scoreAfter} on attempt ${attempt}`;
       }
-      // The 2s turn timer can hand the turn over between grab and drop; retry with the new current player.
+      // A turn timer can still hand the turn over between grab and drop; retry with the new current player.
       lastDetail = `attempt ${attempt}: ${actor.name} dropped ${runner} but score stayed ${scoreAfter} (turn index ${turnBefore} -> ${turnState(actor).index})`;
     }
     throw new Error(lastDetail);
