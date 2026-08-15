@@ -80,14 +80,14 @@
     },
     {
       "label": "Card.definition",
-      "signature": "Card.definition: packaged card definition (shape unspecified)",
-      "documentation": "Reads immutable definition data.",
+      "signature": "Card.definition: CanonicalValue or nil",
+      "documentation": "Reads the matching value from the release's definitions map. VM-local edits are neither persisted nor canonical.",
       "kind": "field",
       "owner": "Card"
     },
     {
       "label": "Card.definition_id",
-      "signature": "Card.definition_id: stable definition ID (serialized type unspecified)",
+      "signature": "string",
       "documentation": "Identifies the authored card definition.",
       "kind": "field",
       "owner": "Card"
@@ -95,14 +95,14 @@
     {
       "label": "Card.is_face_up",
       "signature": "boolean",
-      "documentation": "Current canonical face orientation.",
+      "documentation": "Current flippable.flipped value when present, otherwise the authored card faceUp value.",
       "kind": "field",
       "owner": "Card"
     },
     {
       "label": "container:add",
       "signature": "container:add(entity: Entity, index?: number)",
-      "documentation": "Atomically transfers an entity into this container. Default index is unspecified.",
+      "documentation": "Atomically transfers an entity into this container. index is zero-based and defaults to current length.",
       "kind": "method",
       "owner": "Container"
     },
@@ -123,14 +123,14 @@
     {
       "label": "container:move_to",
       "signature": "container:move_to(entity: Entity, target: Container, index?: number)",
-      "documentation": "Atomically transfers an entity from this container to the target.",
+      "documentation": "Atomically transfers from this container to target; the zero-based index defaults to the target's current length.",
       "kind": "method",
       "owner": "Container"
     },
     {
       "label": "container:remove",
       "signature": "container:remove(entity: Entity)",
-      "documentation": "Atomically removes an entity; destination/world encoding is unspecified.",
+      "documentation": "Atomically removes an entity to world using to = nil, index = 0.",
       "kind": "method",
       "owner": "Container"
     },
@@ -179,14 +179,14 @@
     {
       "label": "data",
       "signature": "data",
-      "documentation": "| Member | Parameters | Return | Determinism and status | | --- | --- | --- | --- | | data | — | Not specified | surface only. SPEC 04.1 exposes packaged release data but defines no v1 lookup members. Data must come from the immutable packaged Release, never network or filesystem access. |",
+      "documentation": "An empty namespace reserved for packaged release data; surface only (spec) in creator API v1.",
       "kind": "namespace",
       "owner": "data"
     },
     {
       "label": "deck:draw_to",
       "signature": "deck:draw_to(target: Container, count?: number)",
-      "documentation": "Draws canonical top card identity/identities to a container. Optionality/default for count is not stated by SPEC 04.",
+      "documentation": "Draws canonical top card identity/identities to a container; count defaults to 1.",
       "kind": "method",
       "owner": "Deck"
     },
@@ -228,14 +228,14 @@
     {
       "label": "game",
       "signature": "game",
-      "documentation": "| Member | Parameters | Return | Determinism and status | | --- | --- | --- | --- | | game | — | Not specified | surface only. SPEC 04.1 exposes the namespace but defines no v1 members. | | game:end(...) | Not specified | Not specified | SPEC 10.10 says this produces shared canonical results, but SPEC 04 does not include it in the v1 callable surface or define a registry action. It is therefore not stabilized here. |",
+      "documentation": "An empty namespace reserved by SPEC 04; surface only (spec) in creator API v1.",
       "kind": "namespace",
       "owner": "game"
     },
     {
       "label": "hand:add",
       "signature": "hand:add(entity: Entity, index?: number)",
-      "documentation": "Transfers an entity into the hand. Default index is unspecified.",
+      "documentation": "Transfers an entity into the hand. index is a zero-based insertion index and defaults to the current length (append).",
       "kind": "method",
       "owner": "Hand"
     },
@@ -256,7 +256,7 @@
     {
       "label": "hand:remove",
       "signature": "hand:remove(entity: Entity)",
-      "documentation": "Removes an entity from the hand. The registry's world/no-container encoding is unspecified.",
+      "documentation": "Removes an entity to world using to = nil, index = 0.",
       "kind": "method",
       "owner": "Hand"
     },
@@ -319,7 +319,7 @@
     {
       "label": "on_player_join",
       "signature": "on_player_join(ctx)",
-      "documentation": "A player lifecycle join.",
+      "documentation": "After player.joined; ctx.player contains the joined canonical player record and ctx.actor is the system actor.",
       "kind": "callback",
       "owner": "Game callbacks"
     },
@@ -333,7 +333,7 @@
     {
       "label": "on_prompt",
       "signature": "on_prompt(ctx)",
-      "documentation": "Canonical prompt processing; exact context schema is unspecified.",
+      "documentation": "After a valid prompt.respond; context contains promptId, playerId, response, actor, and the responding Player proxy as ctx.player.",
       "kind": "callback",
       "owner": "Game callbacks"
     },
@@ -347,7 +347,7 @@
     {
       "label": "on_start",
       "signature": "on_start(ctx)",
-      "documentation": "Canonical game initialization.",
+      "documentation": "After game.started; context contains canonical settings and actor.",
       "kind": "callback",
       "owner": "Game callbacks"
     },
@@ -368,161 +368,161 @@
     {
       "label": "Player.name",
       "signature": "string",
-      "documentation": "Player-facing name.",
+      "documentation": "Canonical player name, falling back to PlayerId when absent.",
       "kind": "field",
       "owner": "Player"
     },
     {
       "label": "Player.seat",
-      "signature": "nil",
-      "documentation": "Canonical seat assignment. SPEC 04.9 demonstrates player.seat.id.",
+      "signature": "Player.seat: read-only seat record or nil",
+      "documentation": "Canonical seat assignment shaped as { id = SeatId }.",
       "kind": "field",
       "owner": "Player"
     },
     {
       "label": "players",
       "signature": "players",
-      "documentation": "#### players:list()",
+      "documentation": "Canonical player lookup and deterministic player ordering; implemented (kernel v1, #65 / PR #74).",
       "kind": "namespace",
       "owner": "players"
     },
     {
       "label": "players:by_seat",
       "signature": "players:by_seat(seat_id)",
-      "documentation": "- Parameters: seat_id: SeatId. - Returns: the player assigned to that seat, or nil. - Determinism: canonical seat assignment lookup.",
+      "documentation": "- Status: implemented (kernel v1, #65 / PR #74). - Parameters: seat_id: SeatId. - Returns: the player assigned to that seat, or nil. - Determinism: canonical seat assignment lookup.",
       "kind": "method",
       "owner": "players"
     },
     {
       "label": "players:count",
       "signature": "players:count()",
-      "documentation": "- Parameters: none. - Returns: the canonical player count as an integer. - Determinism: counts records in canonical players state.",
+      "documentation": "- Status: implemented (kernel v1, #65 / PR #74). - Parameters: none. - Returns: the canonical player count as an integer. - Determinism: counts records in canonical players state.",
       "kind": "method",
       "owner": "players"
     },
     {
       "label": "players:get",
       "signature": "players:get(id)",
-      "documentation": "- Parameters: id: PlayerId. - Returns: the matching Player proxy, or nil. - Determinism: stable identity lookup.",
+      "documentation": "- Status: implemented (kernel v1, #65 / PR #74). - Parameters: id: PlayerId. - Returns: the matching Player proxy, or nil. - Determinism: stable identity lookup.",
       "kind": "method",
       "owner": "players"
     },
     {
       "label": "players:list",
       "signature": "players:list()",
-      "documentation": "- Parameters: none. - Returns: an array of Player proxies. - Determinism: seated players use stable seat order; unseated participants follow in PlayerId order. This order is the basis for deterministic loops such as dealing.",
+      "documentation": "- Status: implemented (kernel v1, #65 / PR #74). - Parameters: none. - Returns: an array of Player proxies. - Determinism: seated players use ascending SeatId order; unseated participants follow in ascending PlayerId order. Duplicate seat assignments include a player only at the first SeatId. This order is the basis for deterministic loops such as dealing.",
       "kind": "method",
       "owner": "players"
     },
     {
       "label": "random",
       "signature": "random",
-      "documentation": "All methods consume the versioned canonical PRNG stored in game state. They never use Lua entropy, Math.random, the browser, wall-clock time, or presentation randomness. A transaction that aborts discards its uncommitted RNG state along with its other gameplay mutations.",
+      "documentation": "Versioned canonical PRNG utilities; implemented (kernel v1, #65 / PR #74). All methods consume RNG stored in game state. They never use Lua entropy, browser time, or presentation randomness. An aborted transaction discards uncommitted RNG state.",
       "kind": "namespace",
       "owner": "random"
     },
     {
       "label": "random:choice",
       "signature": "random:choice(list)",
-      "documentation": "- Parameters: list: table used as an ordered array. - Returns: one deterministic member, or nil for an empty list. - Determinism: selection depends on canonical RNG and the supplied array order. Never build the list from unordered table-key iteration.",
+      "documentation": "- Status: implemented (kernel v1, #65 / PR #74). - Parameters: list: table used as an ordered array. - Returns: one deterministic member, or nil for an empty list. - Determinism: selection depends on canonical RNG and the supplied array order. Never build the list from unordered table-key iteration.",
       "kind": "method",
       "owner": "random"
     },
     {
       "label": "random:float",
       "signature": "random:float()",
-      "documentation": "- Parameters: none. - Returns: the canonical PRNG's deterministic finite value in [0,1). - Determinism: consumes canonical RNG; callers must not assume unstated numeric bounds.",
+      "documentation": "- Status: implemented (kernel v1, #65 / PR #74). - Parameters: none. - Returns: the canonical PRNG's deterministic finite value in [0,1). - Determinism: consumes canonical RNG and returns [0,1).",
       "kind": "method",
       "owner": "random"
     },
     {
       "label": "random:int",
       "signature": "random:int(min, max)",
-      "documentation": "- Parameters: min: number, max: number. - Returns: a deterministic integer in the inclusive [min,max] range. - Determinism: consumes canonical RNG in a replayable way.",
+      "documentation": "- Status: implemented (kernel v1, #65 / PR #74). - Parameters: safe integers min <= max; the inclusive interval may contain at most 2^32 values. - Returns: a deterministic integer in the inclusive [min,max] range. - Determinism: consumes canonical RNG in a replayable way.",
       "kind": "method",
       "owner": "random"
     },
     {
       "label": "random:shuffle",
       "signature": "random:shuffle(list)",
-      "documentation": "- Parameters: list: table used as an ordered array. - Returns: a new shuffled array; the input is unchanged. - Determinism: consumes canonical RNG. This list utility is distinct from Deck:shuffle(), which queues deck.shuffle and never accepts a caller-provided resulting order.",
+      "documentation": "- Status: implemented (kernel v1, #65 / PR #74). - Parameters: list: table used as an ordered array. - Returns: a new shuffled array; the input is unchanged. - Determinism: consumes canonical RNG. This list utility is distinct from Deck:shuffle(), which queues deck.shuffle and never accepts a caller-provided resulting order.",
       "kind": "method",
       "owner": "random"
     },
     {
       "label": "refs",
       "signature": "refs",
-      "documentation": "refs.<name> resolves an editor-defined entity reference by stable identity. Renaming the entity or changing its display name does not break the reference.",
+      "documentation": "Stable editor-authored entity references; implemented (kernel v1, #65 / PR #74). Missing names evaluate to nil. See refs, settings, props, and self.",
       "kind": "namespace",
       "owner": "refs"
     },
     {
       "label": "scene",
       "signature": "scene",
-      "documentation": "#### scene:get(id)",
+      "documentation": "Deterministic entity lookup and tag queries; implemented (kernel v1, #65 / PR #74).",
       "kind": "namespace",
       "owner": "scene"
     },
     {
       "label": "scene:find",
       "signature": "scene:find(name)",
-      "documentation": "- Parameters: name: string — authored entity name. - Returns: the first matching entity proxy in ascending EntityId order, or nil. - Determinism: duplicate names resolve by ascending stable EntityId. Prefer refs or stable IDs.",
+      "documentation": "- Status: implemented (kernel v1, #65 / PR #74). - Parameters: name: string — authored entity name. - Returns: the first matching entity proxy in ascending EntityId order, or nil. - Determinism: duplicate names resolve by ascending stable EntityId. Prefer refs or stable IDs.",
       "kind": "method",
       "owner": "scene"
     },
     {
       "label": "scene:get",
       "signature": "scene:get(id)",
-      "documentation": "- Parameters: id: EntityId — stable entity identity. - Returns: the matching semantic entity proxy, or nil for a missing ID. - Determinism: identity lookup is canonical; it must not consult renderer objects.",
+      "documentation": "- Status: implemented (kernel v1, #65 / PR #74). - Parameters: id: EntityId — stable entity identity. - Returns: the matching semantic entity proxy, or nil for a missing ID. - Determinism: identity lookup is canonical; it must not consult renderer objects.",
       "kind": "method",
       "owner": "scene"
     },
     {
       "label": "scene:query",
       "signature": "scene:query(filter)",
-      "documentation": "- Parameters: filter: table; SPEC 04 shows { tags = { \"enemy\", \"unit\" } } and defines no other keys. - Returns: an array of matching proxies. - Determinism: results use ascending stable EntityId order.",
+      "documentation": "- Status: implemented (kernel v1, #65 / PR #74). - Parameters: filter: { tags?: string[] }. Every requested tag must be present; an absent tags field returns all entities. - Returns: an array of matching proxies. - Determinism: results use ascending stable EntityId order.",
       "kind": "method",
       "owner": "scene"
     },
     {
       "label": "scores",
       "signature": "scores",
-      "documentation": "Deterministic finite score convenience state stored under canonical state; ties use stable player ordering.",
+      "documentation": "Deterministic score convenience state stored under canonical state; implemented (kernel v1, #65 / PR #74) as luaStdlibVersion: 1. Leader ties use stable player ordering.",
       "kind": "namespace",
       "owner": "scores"
     },
     {
       "label": "scores:add",
       "signature": "scores:add(subject, amount)",
-      "documentation": "Adds to and returns a subject's score.",
+      "documentation": "implemented (kernel v1, #65 / PR #74). Adds amount to the prior score (default 0), stores the result, and returns it.",
       "kind": "method",
       "owner": "scores"
     },
     {
       "label": "scores:get",
       "signature": "scores:get(subject)",
-      "documentation": "Returns a subject's score, defaulting to zero.",
+      "documentation": "implemented (kernel v1, #65 / PR #74). Returns the subject's stored value or 0.",
       "kind": "method",
       "owner": "scores"
     },
     {
       "label": "scores:leader",
       "signature": "scores:leader()",
-      "documentation": "Returns the highest-scoring player; stable player order breaks ties.",
+      "documentation": "implemented (kernel v1, #65 / PR #74). Compares players in players:list() order and returns the first player with the highest score, so ties use ascending seat then unseated PlayerId order. Returns nil when there are no players; non-player score subjects are not candidates.",
       "kind": "method",
       "owner": "scores"
     },
     {
       "label": "scores:set",
       "signature": "scores:set(subject, value)",
-      "documentation": "Sets and returns a subject's score.",
+      "documentation": "implemented (kernel v1, #65 / PR #74). Uses a proxy's id or the supplied scalar as the canonical table key, stores value, and returns it. The enclosing state extraction requires the resulting score state to remain canonical and finite.",
       "kind": "method",
       "owner": "scores"
     },
     {
       "label": "settings",
       "signature": "settings",
-      "documentation": "settings is the read-only canonical room-start configuration. Scripts may branch on it, but cannot change it. Values are canonical-compatible and identical for healthy simulations processing the same game.",
+      "documentation": "Read-only canonical room-start settings; implemented (kernel v1, #65 / PR #74). See refs, settings, props, and self.",
       "kind": "namespace",
       "owner": "settings"
     },
@@ -550,7 +550,7 @@
     {
       "label": "state",
       "signature": "state",
-      "documentation": "Persistent canonical script data. See Persistent state. Reads return the reconstructed canonical value; writes are committed only if the surrounding top-level action succeeds.",
+      "documentation": "Persistent canonical script data; implemented (kernel v1, #65 / PR #74). See Persistent state. Reads return the reconstructed canonical value; writes are committed only if the surrounding top-level action succeeds.",
       "kind": "namespace",
       "owner": "state"
     },
@@ -564,105 +564,105 @@
     {
       "label": "text:set",
       "signature": "text:set(value: string)",
-      "documentation": "Sets a bounded canonical string; the v1 size limit is unspecified.",
+      "documentation": "Sets a canonical string of at most 4,096 UTF-8 bytes.",
       "kind": "method",
       "owner": "Text"
     },
     {
       "label": "timer",
       "signature": "timer",
-      "documentation": "#### timer:after(delay, callback_name)",
+      "documentation": "Named one-shot callback registration and cancellation; implemented (kernel v1, #65 / PR #74).",
       "kind": "namespace",
       "owner": "timer"
     },
     {
       "label": "timer:after",
       "signature": "timer:after(delay, callback_name)",
-      "documentation": "- Parameters: delay: number, shown in seconds by timer:after(5, ...); callback_name: string. - Returns: a timer ID is implied by timer:cancel(timer_id), but its exact return contract is not stated. - Determinism: schedules a named one-shot callback. Room service later contributes system.timer_fire, which fires the timer exactly once in canonical order.",
+      "documentation": "- Status: implemented (kernel v1, #65 / PR #74). - Parameters: delay: positive finite number in seconds; callback_name: non-empty string naming a global function in the same script. - Returns: a deterministic TimerId of the form timer_<parentActionId>_<zeroBasedIndex>. - Determinism: queues timer.register with the current script/binding identity and, for an entity binding, its entity ID.",
       "kind": "method",
       "owner": "timer"
     },
     {
       "label": "timer:cancel",
       "signature": "timer:cancel(timer_id)",
-      "documentation": "- Parameters: timer_id: TimerId. - Returns: nil. - Determinism: queues timer.cancel; cancellation is canonical and a later system.timer_fire rejects.",
+      "documentation": "- Status: implemented (kernel v1, #65 / PR #74). - Parameters: timer_id: TimerId. - Returns: nil. - Determinism: queues timer.cancel; the ID must name a scheduled timer. Unknown, fired, or already-canceled timers reject the whole parent transaction.",
       "kind": "method",
       "owner": "timer"
     },
     {
       "label": "turns",
       "signature": "turns",
-      "documentation": "Deterministic turn convenience state stored under canonical state; this is Lua stdlib v1, not a kernel primitive.",
+      "documentation": "Deterministic turn convenience state stored under canonical state; implemented (kernel v1, #65 / PR #74) as luaStdlibVersion: 1, not a kernel primitive.",
       "kind": "namespace",
       "owner": "turns"
     },
     {
       "label": "turns:current",
       "signature": "turns:current()",
-      "documentation": "Returns the current player or nil when stopped.",
+      "documentation": "implemented (kernel v1, #65 / PR #74). Returns the current Player proxy, or nil when stopped or when the stored player is no longer present.",
       "kind": "method",
       "owner": "turns"
     },
     {
       "label": "turns:index",
       "signature": "turns:index()",
-      "documentation": "Returns the current one-based turn index, or zero before start.",
+      "documentation": "implemented (kernel v1, #65 / PR #74). Returns the stored one-based index. It is 0 before the first start, 1 after starting even with no players, and remains unchanged by stop().",
       "kind": "method",
       "owner": "turns"
     },
     {
       "label": "turns:is_current",
       "signature": "turns:is_current(player)",
-      "documentation": "Tests a player proxy or PlayerId against the current turn.",
+      "documentation": "implemented (kernel v1, #65 / PR #74). Accepts a Player proxy or PlayerId and returns whether it matches the current player; nil and stopped turns return false.",
       "kind": "method",
       "owner": "turns"
     },
     {
       "label": "turns:next",
       "signature": "turns:next()",
-      "documentation": "Advances cyclically and returns the next player.",
+      "documentation": "implemented (kernel v1, #65 / PR #74). When active, advances cyclically through the stored order and returns the next current player; otherwise returns nil.",
       "kind": "method",
       "owner": "turns"
     },
     {
       "label": "turns:start",
       "signature": "turns:start(first?)",
-      "documentation": "Starts the stable seat-order/player-ID order, optionally at a supplied player, and returns the current player.",
+      "documentation": "implemented (kernel v1, #65 / PR #74). Rebuilds the turn order from players:list(), selects one-based index 1, optionally selects the matching Player or PlayerId, marks turns active only when at least one player exists, and returns turns:current(). An unmatched first leaves index 1 selected.",
       "kind": "method",
       "owner": "turns"
     },
     {
       "label": "turns:stop",
       "signature": "turns:stop()",
-      "documentation": "Stops turn progression without discarding the stored order.",
+      "documentation": "implemented (kernel v1, #65 / PR #74). Marks turns inactive without discarding the stored order or index and returns nil.",
       "kind": "method",
       "owner": "turns"
     },
     {
       "label": "ui",
       "signature": "ui",
-      "documentation": "The UI namespace creates structured canonical prompts, not arbitrary DOM or custom UI. A player answers through prompt.respond; the response becomes part of the ordered action stream and must target that player and satisfy the stored schema.",
+      "documentation": "Structured canonical prompt creation; implemented (kernel v1, #65 / PR #74). This namespace does not expose arbitrary DOM or custom UI. A player answers through prompt.respond.",
       "kind": "namespace",
       "owner": "ui"
     },
     {
       "label": "ui:confirm",
       "signature": "ui:confirm(player, schema)",
-      "documentation": "- Parameters: player: Player; schema: { id: string, title: string, ... }. - Returns: the canonical prompt ID. - Behavior: creates a confirmation prompt whose response is boolean.",
+      "documentation": "- Status: implemented (kernel v1, #65 / PR #74). - Parameters: player: Player; schema: { id: non-empty string, title?: string, default?: boolean }. - Returns: schema.id. - Behavior: queues a confirmation prompt. A response must be boolean.",
       "kind": "method",
       "owner": "ui"
     },
     {
       "label": "ui:number_prompt",
       "signature": "ui:number_prompt(player, schema)",
-      "documentation": "- Parameters: player: Player; schema: { id: string, min: number, max: number, step: number, default: number, ... }. - Returns: the canonical prompt ID. - Behavior: creates a numeric prompt with inclusive endpoints and exact min + n step validation.",
+      "documentation": "- Status: implemented (kernel v1, #65 / PR #74). - Parameters: player: Player; schema: { id: non-empty string, title?: string, min: finite number, max: finite number, step?: positive finite number, default?: finite number }. - Returns: schema.id. - Behavior: step defaults to 1; min <= max. Defaults and responses must lie inside the inclusive range and make (value - min) / step an integer.",
       "kind": "method",
       "owner": "ui"
     },
     {
       "label": "ui:prompt",
       "signature": "ui:prompt(player, schema)",
-      "documentation": "- Parameters: player: Player; schema: { id: string, title: string, choices: table, ... }. - Returns: the canonical prompt ID. - Behavior: creates a choice prompt. Beyond the shown id, title, and choices, the schema is not defined in SPEC 04.",
+      "documentation": "- Status: implemented (kernel v1, #65 / PR #74). - Parameters: player: Player; schema: { id: non-empty string, title?: string, choices: non-empty CanonicalValue[], default?: CanonicalValue }. - Returns: schema.id. - Behavior: queues prompt.create with kind choice. The optional default must be canonically equal to one of the choices; the ID must not already exist.",
       "kind": "method",
       "owner": "ui"
     },

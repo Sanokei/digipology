@@ -11,18 +11,18 @@ description: The canonical v1 action vocabulary, payloads, prediction guidance, 
 
 Every service-accepted ordered action consumes one monotonically increasing `Sequence`, including an action that the game rejects. A game-semantic rejection advances the processed sequence but leaves gameplay fields unchanged. Processing a top-level action is atomic: if its validation, a script callback, or any generated subcommand fails, the kernel discards every uncommitted gameplay mutation from that transaction.
 
-Canonical state changes only through a registered action or a deterministic subcommand generated during the current transaction. Player, script, system, and internal sources are validated independently of whether the official UI exposes the operation.
+Canonical state changes only through a registered action or a deterministic subcommand generated during the current transaction. Kernel v1 validates `player`, `script`, and `system` sources independently of whether the official UI exposes the operation; Lua-generated subcommands use the `script` source.
 
 ## Status legend
 
 | Status | Meaning |
 | --- | --- |
-| **kernel v0** | Registered by the `digipology-kernel` implementation, with this payload checked against its code. |
-| **spec** | Defined by Appendix C but not yet backed by a kernel v0 implementation in this repository. |
+| **implemented (kernel v1, pre-wave 9)** | Registered before wave 9 and present in the `kernelVersion: 1` registry. |
+| **implemented (kernel v1, #64 / PR #72)** | Registered by the tabletop-semantics wave and present in the `kernelVersion: 1` registry. |
+| **implemented (kernel v1, #65 / PR #74)** | Registered by the creator-API wave and present in the `kernelVersion: 1` registry. |
+| **spec** | Defined by Appendix C but not registered by kernel v1. |
 
-All entries below are **spec**. This repository does not yet contain `packages/kernel`.
-
-> **Count divergence:** Issue #9 describes “all 27 actions,” but Appendix C contains 28 action rows. This reference includes all 28. Dropping one would diverge from the normative registry.
+Appendix C contains 28 top-level registry rows. Kernel v1 implements 21 of those rows (7 remain **spec**) and also registers four additional stack commands (`stack.create`, `stack.add`, `stack.merge`, `stack.dissolve`) plus the prompt/timer lifecycle commands (`prompt.create`, `prompt.cancel`, `timer.register`, `timer.cancel`) described by Appendix B.2 and SPEC 03.9 — 29 registered action types in `builtInActions`. Status is therefore recorded row by row rather than inferred from the normative count.
 
 ## Payload notation
 
@@ -49,11 +49,17 @@ type CanonicalValue =
   | { readonly [key: string]: CanonicalValue };
 
 type CanonicalObject = { readonly [key: string]: CanonicalValue };
-type CanonicalTransform = CanonicalObject;
+type Vector3 = { x: number; y: number; z: number };
+type Quaternion = { x: number; y: number; z: number; w: number };
+type CanonicalTransform = {
+  position: Vector3;
+  rotation: Quaternion;
+  scale: Vector3;
+};
 type DealTarget = PlayerId | ContainerId;
 ```
 
-Appendix C names payload fields but does not fully define the nested `CanonicalTransform`, settings, props, deal-target, or prompt-response schemas. The aliases above keep those gaps visible. In particular, the registry does not state whether a `container.move` endpoint can be absent, how it would encode the world, or the exact serialized shape of a transform.
+Every implemented action rejects unknown top-level payload keys. This `onlyKeys` discipline is part of kernel v1, so optionality below is explicit. Implemented transforms require finite position/scale coordinates within ±1,000,000, positive scales, and a finite nonzero quaternion normalized within 0.001; the committed transform is normalized and quantized to a 0.0001 grid. Appendix C still leaves the nested deal-target and unimplemented spawn-props contracts open.
 
 ## System actions
 
@@ -62,22 +68,22 @@ Appendix C names payload fields but does not fully define the nested `CanonicalT
 | Property | Contract |
 | --- | --- |
 | Allowed source | `system` |
-| Payload | `{ settings: CanonicalObject }` |
+| Payload | `{ settings?: Record<string, boolean | finite number | string> }` |
 | Prediction default | No |
-| Status | **implemented** |
+| Status | **implemented (kernel v1, pre-wave 9)** |
 
-Initializes the game and invokes `on_start`. The settings become canonical room-start configuration.
+Requires sequence zero. When present, `settings` replaces canonical room-start settings; nested values are not accepted. The action emits `game.started`, which invokes `on_start` through the creator runtime.
 
 ### system.player_joined
 
 | Property | Contract |
 | --- | --- |
 | Allowed source | `system` |
-| Payload | `{ playerId: PlayerId }` |
+| Payload | `{ playerId: PlayerId; name?: string }` |
 | Prediction default | No |
-| Status | **spec** |
+| Status | **implemented (kernel v1, pre-wave 9)** |
 
-Records a canonical player lifecycle join.
+Requires a non-empty, previously unused `playerId`. It stores the optional name and emits `player.joined`.
 
 ### system.player_left
 
@@ -86,9 +92,9 @@ Records a canonical player lifecycle join.
 | Allowed source | `system` |
 | Payload | `{ playerId: PlayerId }` |
 | Prediction default | No |
-| Status | **spec** |
+| Status | **implemented (kernel v1, pre-wave 9)** |
 
-Records a voluntary logical departure.
+Requires an existing player. In ascending EntityId order it releases objects held by that player, then clears occupied seats in ascending SeatId order, deletes the player, and emits `entity.dropped`, `seat.left`, and `player.left` as applicable.
 
 ### system.player_disconnected
 
@@ -119,9 +125,9 @@ Records a kick or administrative removal.
 | Allowed source | `system` |
 | Payload | `{ playerId: PlayerId; seatId: SeatId }` |
 | Prediction default | No |
-| Status | **spec** |
+| Status | **implemented (kernel v1, pre-wave 9)** |
 
-Assigns the player to the seat canonically.
+Requires non-empty IDs and an existing player. A previously absent seat is created; an existing seat's `playerId` is replaced. The action emits `seat.assigned`.
 
 ### system.timer_fire
 
@@ -130,9 +136,9 @@ Assigns the player to the seat canonically.
 | Allowed source | `system` |
 | Payload | `{ timerId: TimerId }` |
 | Prediction default | No |
-| Status | **implemented** |
+| Status | **implemented (kernel v1, #65 / PR #74)** |
 
-Fires a one-shot timer exactly once. Room service schedules the timer; deterministic gameplay begins when this canonical action enters the ordered stream.
+Requires an existing timer whose status is `scheduled`; a duplicate fire or fire after cancellation rejects. It marks the timer `fired` before emitting `timer.fired` with the stored callback and binding identity. Room service schedules delivery, while the kernel performs the deterministic simulation when this canonical action enters the ordered stream.
 
 ## Entity actions
 
@@ -143,9 +149,9 @@ Fires a one-shot timer exactly once. Room service schedules the timer; determini
 | Allowed source | `player` |
 | Payload | `{ entityId: EntityId }` |
 | Prediction default | Yes |
-| Status | **spec** |
+| Status | **implemented (kernel v1, pre-wave 9)** |
 
-The entity must be free, enabled, grabbable, and allowed by its `can_grab` guard. Continuous drag transforms are transient; the grab itself is canonical.
+The entity must have an enabled `grabbable` component, be unheld and unlocked, and either be outside a stack or be its canonical top. The acting player's `can_grab` guards run before commit. Continuous drag transforms are transient; the grab itself is canonical.
 
 ### entity.drop
 
@@ -154,9 +160,9 @@ The entity must be free, enabled, grabbable, and allowed by its `can_grab` guard
 | Allowed source | `player` |
 | Payload | `{ entityId: EntityId; transform: CanonicalTransform }` |
 | Prediction default | Yes |
-| Status | **spec** |
+| Status | **implemented (kernel v1, pre-wave 9)** |
 
-The actor must hold the entity. The kernel validates, normalizes, and quantizes the final transform, then resolves semantic zone, snap, and stack transitions deterministically.
+The actor must hold the entity, and only a canonical stack top may leave its stack. After `can_drop`, the kernel detaches the old exclusive placement, canonicalizes the transform, and applies fixed resolution precedence: nearest compatible snap point (distance ties by SnapPointId), otherwise an exact-position stack target (EntityId order), then zone recomputation, otherwise world placement. Zones are overlays and are recomputed even after snap or stack placement.
 
 ### entity.move
 
@@ -165,9 +171,9 @@ The actor must hold the entity. The kernel validates, normalizes, and quantizes 
 | Allowed source | `script` or `system` |
 | Payload | `{ entityId: EntityId; transform: CanonicalTransform }` |
 | Prediction default | No |
-| Status | **spec** |
+| Status | **implemented (kernel v1, #64 / PR #72)** |
 
-Performs scripted canonical movement. Renderer or presentation physics never determine the resulting canonical transform.
+Requires an existing `transform` component and permits only a canonical stack top to move. It removes the entity from any container, snap point, or stack, commits the canonicalized transform, and recomputes zones. It does not run automatic snap or stack resolution. Renderer or presentation physics never determine the result.
 
 ### entity.flip
 
@@ -176,9 +182,9 @@ Performs scripted canonical movement. Renderer or presentation physics never det
 | Allowed source | `player` or `script` |
 | Payload | `{ entityId: EntityId }` |
 | Prediction default | Yes |
-| Status | **spec** |
+| Status | **implemented (kernel v1, pre-wave 9)** |
 
-Requires a flippable entity. A player source must also pass the applicable player guard.
+Requires a `flippable` component and toggles its canonical `flipped` value. Player sources also run `can_flip`; script sources do not.
 
 ### entity.set_locked
 
@@ -187,9 +193,9 @@ Requires a flippable entity. A player source must also pass the applicable playe
 | Allowed source | `script`; `player` only in a permitted sandbox |
 | Payload | `{ entityId: EntityId; locked: boolean }` |
 | Prediction default | Conditional (`maybe` in Appendix C) |
-| Status | **spec** |
+| Status | **implemented (kernel v1, #64 / PR #72)** |
 
-Sets canonical locked state and is permission-gated. Appendix C does not define which sandbox permission enables a player source.
+Requires a `lockable` component. Script sources may set it directly; a player source is accepted only when canonical `settings.sandbox` is `true`. A locked grabbable is rejected by `entity.grab`.
 
 ### entity.spawn
 
@@ -219,12 +225,12 @@ Destroys the entity and cleans its memberships and references. Entity IDs are ne
 
 | Property | Contract |
 | --- | --- |
-| Allowed source | `script` or deterministic `internal` subcommand |
-| Payload | `{ entity: EntityId; from: ContainerId; to: ContainerId; index: number }` |
+| Allowed source | `script` |
+| Payload | `{ entity: EntityId; from: ContainerId | null; to: ContainerId | null; index: number }` |
 | Prediction default | No |
-| Status | **spec** |
+| Status | **implemented (kernel v1, #64 / PR #72)** |
 
-Transfers an entity atomically between exclusive containers at the requested canonical index. Appendix C spells the fields `entity`, `from`, `to`, and `index`; it does not specify endpoint nullability or world encoding.
+Transfers an entity atomically between containers or between a container and the world while enforcing exclusive placement. `null` encodes the world for either endpoint; `from` and `to` must differ. `index` is a non-negative safe integer and is a zero-based insertion index for a target container. A world destination requires index `0`. The source must match current membership, the target must exist and have capacity, and the insertion index may not exceed its length. Success emits `container.moved` and recomputes zone membership.
 
 ### deck.shuffle
 
@@ -233,9 +239,9 @@ Transfers an entity atomically between exclusive containers at the requested can
 | Allowed source | `player` or `script` |
 | Payload | `{ deckId: DeckId }` |
 | Prediction default | No |
-| Status | **spec** |
+| Status | **implemented (kernel v1, pre-wave 9)** |
 
-Uses the canonical versioned RNG. A caller must never provide the resulting card order.
+Requires an entity with enabled `deck` and `container` components. It replaces container order with a canonical RNG shuffle and emits `deck.shuffled`; a caller never provides the resulting card order.
 
 ### deck.draw_to_container
 
@@ -244,9 +250,9 @@ Uses the canonical versioned RNG. A caller must never provide the resulting card
 | Allowed source | `player` or `script` |
 | Payload | `{ deckId: DeckId; target: ContainerId; count: number }` |
 | Prediction default | No |
-| Status | **spec** |
+| Status | **implemented (kernel v1, pre-wave 9)** |
 
-Derives the drawn card identities from canonical deck contents and moves them to the target container. The last deck item is the top in v1. Appendix C does not state integer bounds for `count`; an insufficient request rejects the transaction.
+`count` must be a positive safe integer. The deck and target must differ, both must be valid containers, and the complete draw must fit the target and available cards. The last deck item is canonical top; each drawn card is appended to the target. The action emits one `deck.drawn` event containing the ordered drawn IDs. Any insufficiency rejects without a partial draw.
 
 ### deck.draw_to_world
 
@@ -277,9 +283,22 @@ Deals in round-robin order. Target array order is therefore canonical and signif
 | Allowed source | `player` or `script` |
 | Payload | `{ stackId: StackId }` |
 | Prediction default | Conditional (`maybe` in Appendix C) |
-| Status | **spec** |
+| Status | **implemented (kernel v1, #64 / PR #72)** |
 
-Removes the entity identified by the stack's canonical top; callers do not choose its identity.
+Requires a non-empty existing stack. It removes the last item, recomputes that entity's zone membership, and emits `stack.changed`; removing the final item deletes the record and emits `stack.dissolved`. Callers do not choose the removed identity.
+
+### Stack subcommand surface (Appendix B.2)
+
+These additional exact-key, script-source commands are registered in kernel v1 by #64 / PR #72. They are kernel commands, not methods on a shipped Lua `Stack` proxy.
+
+| Action | Payload | Validation and result | Status |
+| --- | --- | --- | --- |
+| `stack.create` | `{ stackId: StackId; items: EntityId[] }` | Requires a new non-empty ID and at least two unique, enabled, stackable entities currently in the world. Array order is bottom-to-top. Emits `stack.created`. | **implemented (kernel v1, #64 / PR #72)** |
+| `stack.add` | `{ stackId: StackId; entityId: EntityId }` | Requires an existing stack and an enabled stackable entity currently in the world. Appends the entity as top and emits `stack.changed`. | **implemented (kernel v1, #64 / PR #72)** |
+| `stack.merge` | `{ targetStackId: StackId; sourceStackId: StackId }` | Requires two distinct existing stacks. Appends the source order to the target, deletes the source, then emits target `stack.changed` and source `stack.dissolved`. | **implemented (kernel v1, #64 / PR #72)** |
+| `stack.dissolve` | `{ stackId: StackId }` | Requires an existing stack, deletes it without deleting its entities, recomputes their zones, and emits `stack.dissolved`. | **implemented (kernel v1, #64 / PR #72)** |
+
+Automatic `entity.drop` uses `stack_<actionId>` (with the first unused numeric suffix on collision) when it creates a new two-item stack. Exact-position candidates are checked in ascending EntityId order, and an existing stack is eligible only through its canonical top.
 
 ## Die and counter actions
 
@@ -290,9 +309,9 @@ Removes the entity identified by the stack's canonical top; callers do not choos
 | Allowed source | `player` or `script` |
 | Payload | `{ entityId: EntityId }` |
 | Prediction default | No |
-| Status | **spec** |
+| Status | **implemented (kernel v1, pre-wave 9)** |
 
-The kernel's canonical RNG chooses the face. Animation and presentation randomness cannot choose or alter the canonical result.
+Requires a die with a non-empty ordered list of finite-number/string faces; `standard_d6` falls back to `1..6`. A die held by another player rejects. The canonical RNG chooses an array index and the action emits `die.rolled`; animation cannot choose or alter the result.
 
 ### die.set_value
 
@@ -309,23 +328,23 @@ Sets a die to a value that exactly matches one of its valid faces. This is scrip
 
 | Property | Contract |
 | --- | --- |
-| Allowed source | `script`; a permitted `player` interaction |
+| Allowed source | `player` or `script` |
 | Payload | `{ entityId: EntityId; value: number }` |
 | Prediction default | Yes |
-| Status | **spec** |
+| Status | **implemented (kernel v1, pre-wave 9)** |
 
-Sets the counter and clamps the result to any configured bounds. The registry does not define the permission model for player-originated counter interaction.
+Requires a finite value and a `counter` component. It clamps to configured nullable min/max bounds, normalizes negative zero to zero, and emits `counter.changed`.
 
 ### counter.add
 
 | Property | Contract |
 | --- | --- |
-| Allowed source | `script`; a permitted `player` interaction |
+| Allowed source | `player` or `script` |
 | Payload | `{ entityId: EntityId; amount: number }` |
 | Prediction default | Yes |
-| Status | **spec** |
+| Status | **implemented (kernel v1, pre-wave 9)** |
 
-Adds the amount and clamps the result to any configured bounds. Subtraction is represented by a negative amount; Appendix C defines no separate `counter.subtract` action.
+Requires a finite amount, a `counter` component, and a finite pre-clamp sum. It clamps and emits `counter.changed`. Subtraction is represented by a negative amount; there is no `counter.subtract` action.
 
 ## Interaction, text, snap, and prompt actions
 
@@ -336,9 +355,9 @@ Adds the amount and clamps the result to any configured bounds. Subtraction is r
 | Allowed source | `player` |
 | Payload | `{ entityId: EntityId }` |
 | Prediction default | Yes |
-| Status | **spec** |
+| Status | **implemented (kernel v1, #64 / PR #72)** |
 
-Requires an enabled button and approval from `can_press` when that guard is present.
+Requires an enabled `button` component and approval from all bound `can_press` guards. Success emits `button.pressed` with the entity and acting player IDs; pressing does not itself mutate the button.
 
 ### text.set
 
@@ -347,20 +366,20 @@ Requires an enabled button and approval from `can_press` when that guard is pres
 | Allowed source | `script` |
 | Payload | `{ entityId: EntityId; value: string }` |
 | Prediction default | No |
-| Status | **spec** |
+| Status | **implemented (kernel v1, #64 / PR #72)** |
 
-Sets canonical text. The string is bounded, although Appendix C does not specify the v1 length limit.
+Requires a `text` component and a value no larger than 4,096 UTF-8 bytes. Success stores the exact string and emits `text.changed`.
 
 ### snap.attach
 
 | Property | Contract |
 | --- | --- |
-| Allowed source | `script` or deterministic `internal` subcommand |
+| Allowed source | `script` |
 | Payload | `{ snapPointId: SnapPointId; entityId: EntityId }` |
 | Prediction default | No |
-| Status | **spec** |
+| Status | **implemented (kernel v1, #64 / PR #72)** |
 
-Attaches an entity only if capacity and compatibility rules permit it. Automatic snap resolution filters valid candidates, chooses the nearest, and breaks an exact distance tie by stable `SnapPointId`.
+The IDs must differ and identify an existing snap point and entity. The entity may not already be attached there; only a stack top can leave a stack; capacity must remain and at least one required snap tag must match when the snap point has tags. Success detaches any old exclusive placement, inserts the attachment in EntityId order, emits `snap.attached` (plus the old-placement event), and recomputes zones.
 
 ### prompt.respond
 
@@ -369,17 +388,27 @@ Attaches an entity only if capacity and compatibility rules permit it. Automatic
 | Allowed source | `player` |
 | Payload | `{ promptId: PromptId; response: CanonicalValue }` |
 | Prediction default | Yes |
-| Status | **implemented** |
+| Status | **implemented (kernel v1, #65 / PR #74)** |
 
-The prompt must be open and target the acting player. Choice responses must equal a stored choice, confirmation responses are boolean, and number responses must satisfy inclusive min/max and step constraints.
+The prompt must exist, be open, and target the acting player. Choice responses must be canonically equal to a stored choice, confirmation responses must be boolean, and number responses must be finite, inside inclusive min/max, and satisfy integer `(response - min) / step`. Success marks the prompt `resolved`, stores the response, and emits `prompt.responded`; a duplicate response rejects.
 
-### prompt.create / prompt.cancel
+### prompt.create and prompt.cancel
 
-Script-only generated subcommands create typed canonical choice, confirmation, or number records and cancel open records. They emit `prompt.created` and `prompt.canceled`; creators use the `ui` namespace rather than queueing these actions directly.
+| Action | Allowed source | Payload | Validation and result | Status |
+| --- | --- | --- | --- | --- |
+| `prompt.create` | `script` | `{ id; kind; playerId; title; choices?; min?; max?; step?; default? }` | Requires a new non-empty ID, an existing player, and kind `choice`, `confirm`, or `number`. Choice prompts require a non-empty canonical choices array and an optional default equal to one choice. Number prompts require finite `min <= max`, positive finite `step`, and a valid optional default. Confirm defaults are boolean. Emits `prompt.created`. | **implemented (kernel v1, #65 / PR #74)** |
+| `prompt.cancel` | `script` or `system` | `{ promptId: PromptId }` | Requires an open existing prompt, marks it `canceled`, and emits `prompt.canceled`. | **implemented (kernel v1, #65 / PR #74)** |
 
-### timer.register / timer.cancel
+Creators call [`ui:prompt`, `ui:confirm`, or `ui:number_prompt`](./lua-api.md#ui) rather than constructing `prompt.create` directly.
 
-Script-only generated subcommands persist named one-shot callback metadata. They emit `timer.registered`/`timer.canceled`; the room service stores only timer ID and due time, then sequences `system.timer_fire`.
+### timer.register and timer.cancel
+
+| Action | Allowed source | Payload | Validation and result | Status |
+| --- | --- | --- | --- | --- |
+| `timer.register` | `script` | `{ timerId; delay; callback; scriptId; bindingId; entityId? }` | Requires a new non-empty timer ID, positive finite delay, and non-empty callback/script/binding IDs. Stores a `scheduled` one-shot timer and emits `timer.registered`. | **implemented (kernel v1, #65 / PR #74)** |
+| `timer.cancel` | `script` | `{ timerId: TimerId }` | Requires a scheduled timer, marks it `canceled`, and emits `timer.canceled`. | **implemented (kernel v1, #65 / PR #74)** |
+
+The room service schedules the due time but does not simulate the callback. It sequences exactly one `system.timer_fire`; the kernel rejects duplicate or canceled delivery and routes `timer.fired` back to the stored named callback.
 
 ## Prediction guidance
 
@@ -393,47 +422,42 @@ Prediction changes latency handling, not canonical authority. A predicted action
 
 ## Derived events
 
-Appendix C.2 lists the event vocabulary but does not provide an action-to-event emission matrix. The mapping below states the direct action association where one is defined by the registry name or key rule, and labels conditional or generated-subcommand cases. It must not be read as an invented promise that every listed action always emits every associated event.
+The table below is the kernel v1 emission matrix from `ctx.emit`, not an inference from event names. Events produced while processing script subcommands retain the parent action's sequence and action ID.
 
-| Derived event | Emitting action or condition |
+| Implemented event | Emitting action or condition |
 | --- | --- |
-| `game.started` | [`system.game_start`](#systemgame_start) |
-| `player.joined` | [`system.player_joined`](#systemplayer_joined) |
-| `player.left` | [`system.player_left`](#systemplayer_left) |
-| `player.disconnected` | [`system.player_disconnected`](#systemplayer_disconnected) |
-| `player.removed` | [`system.player_removed`](#systemplayer_removed) |
-| `seat.assigned` | [`system.seat_assign`](#systemseat_assign) |
-| `seat.left` | A seat-clearing lifecycle transition; Appendix C defines no dedicated seat-unassign action. It may be a consequence of a player departure/removal, but the exact emission matrix is unspecified. |
-| `entity.spawned` | [`entity.spawn`](#entityspawn) |
-| `entity.destroyed` | [`entity.destroy`](#entitydestroy) |
-| `entity.grabbed` | [`entity.grab`](#entitygrab) |
-| `entity.dropped` | [`entity.drop`](#entitydrop) |
-| `entity.flipped` | [`entity.flip`](#entityflip) |
-| `container.added` | A successful [`container.move`](#containermove), or a deck/stack operation that generates an equivalent internal transfer |
-| `container.removed` | A successful [`container.move`](#containermove), or a deck/stack/destroy operation that generates an equivalent internal removal |
-| `container.moved` | [`container.move`](#containermove) when the semantic transition is a move; exact added/removed/moved distinctions are unspecified |
-| `deck.shuffled` | [`deck.shuffle`](#deckshuffle) |
-| `deck.drawn` | [`deck.draw_to_container`](#deckdraw_to_container) or [`deck.draw_to_world`](#deckdraw_to_world) |
-| `deck.dealt` | [`deck.deal`](#deckdeal) |
-| `stack.created` | A placement transition such as [`entity.drop`](#entitydrop) that creates a stack; no dedicated create action exists |
-| `stack.changed` | A stack-affecting placement/transfer or [`stack.remove_top`](#stackremove_top) |
-| `stack.dissolved` | A stack-affecting placement/transfer or [`stack.remove_top`](#stackremove_top) that leaves no stack; exact threshold is unspecified |
-| `die.rolled` | [`die.roll`](#dieroll) |
-| `counter.changed` | [`counter.set`](#counterset) or [`counter.add`](#counteradd) |
-| `zone.entered` | A semantic placement transition caused by [`entity.drop`](#entitydrop), [`entity.move`](#entitymove), spawn/destroy, or a generated transfer; membership is recomputed on placement transitions, not frame physics |
-| `zone.left` | The corresponding semantic placement transition out of a zone; exact action matrix is unspecified |
-| `snap.attached` | [`snap.attach`](#snapattach), or automatic snap resolution during [`entity.drop`](#entitydrop) |
-| `snap.detached` | A placement/destruction transition that removes an attachment; Appendix C defines no `snap.detach` action |
-| `button.pressed` | [`button.press`](#buttonpress) |
-| `text.changed` | [`text.set`](#textset) |
-| `prompt.created` | `prompt.create`, generated by `ui:prompt`, `ui:confirm`, or `ui:number_prompt` |
-| `prompt.responded` | [`prompt.respond`](#promptrespond) |
+| `game.started` | `system.game_start` |
+| `player.joined` | `system.player_joined` |
+| `player.left` | `system.player_left` |
+| `seat.assigned` | `system.seat_assign` |
+| `seat.left` | `system.player_left` for each cleared seat, in SeatId order |
+| `entity.grabbed` | `entity.grab` |
+| `entity.dropped` | `entity.drop`, or `system.player_left` when releasing a held entity |
+| `entity.flipped` | `entity.flip` |
+| `container.removed` | A drop, scripted move, or snap attach that first detaches an entity from a container |
+| `container.moved` | `container.move`, with nullable `from`/`to`, requested `index`, and actual `fromIndex` |
+| `deck.shuffled` | `deck.shuffle` |
+| `deck.drawn` | `deck.draw_to_container`, with the drawn IDs in draw order |
+| `stack.created` | `stack.create` or an `entity.drop` that creates a stack |
+| `stack.changed` | `stack.add`, `stack.remove_top` when items remain, `stack.merge` for the target, an automatic stack addition, or removal from a stack |
+| `stack.dissolved` | `stack.dissolve`, a merge source, or removal of the last stack item |
+| `die.rolled` | `die.roll` |
+| `counter.changed` | `counter.set` or `counter.add` |
+| `zone.entered` / `zone.left` | Zone recomputation after implemented placement transitions; zones and affected entities are processed in ascending IDs |
+| `snap.attached` | `snap.attach` or automatic snap resolution during `entity.drop` |
+| `snap.detached` | A drop, scripted move, or snap attach that first detaches an existing attachment |
+| `button.pressed` | `button.press` |
+| `text.changed` | `text.set` |
+| `prompt.created` | `prompt.create` |
+| `prompt.responded` | `prompt.respond` |
 | `prompt.canceled` | `prompt.cancel` |
-| `timer.registered` | `timer.register`, generated by `timer:after` |
+| `timer.registered` | `timer.register` |
 | `timer.canceled` | `timer.cancel` |
-| `timer.fired` | [`system.timer_fire`](#systemtimer_fire) |
-| `action.rejected` | Any ordered action rejected by semantic validation, a guard, a script error, or a failed generated subcommand |
-| `script.error` | Any top-level action whose callback or subscriber execution raises a canonical script error |
+| `timer.fired` | `system.timer_fire` |
+
+`action.rejected` is produced by the transaction runner, not `ctx.emit`. A Lua failure also appends `script.error` with script ID, binding ID, function, optional line, message, error kind, and sequence. Both leave gameplay state at its pre-action value while advancing sequence.
+
+The following Appendix C.2 names remain **spec** because kernel v1 has no registered action or emission path for them: `player.disconnected`, `player.removed`, `entity.spawned`, `entity.destroyed`, `container.added`, and `deck.dealt`. `deck.drawn` currently comes only from `deck.draw_to_container`; the spec-only `deck.draw_to_world` does not create an implementation claim.
 
 ## References
 
