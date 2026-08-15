@@ -550,6 +550,74 @@ function validateEntity(
   if (hasOwn.call(components, "counter")) {
     validateCounter(components.counter, entityId);
   }
+  if (hasOwn.call(components, "script")) {
+    const script = requireRecord(components.script, `entities.${entityId}.components.script`);
+    if (typeof script.scriptId !== "string" || script.scriptId.length === 0 ||
+      typeof script.bindingId !== "string" || script.bindingId.length === 0) {
+      throw new InvalidGameStateError(`entity ${entityId} has invalid script binding`);
+    }
+    requireRecord(script.props, `entities.${entityId}.components.script.props`);
+  }
+}
+
+function validatePrompts(value: unknown): void {
+  const prompts = validateIdentityRecords(value, "prompts");
+  for (const promptId of sortedKeys(prompts)) {
+    const prompt = requireRecord(prompts[promptId], `prompts.${promptId}`);
+    if (!["choice", "confirm", "number"].includes(String(prompt.kind)) ||
+      typeof prompt.playerId !== "string" || typeof prompt.title !== "string" ||
+      !["open", "resolved", "canceled"].includes(String(prompt.status))) {
+      throw new InvalidGameStateError(`prompt ${promptId} has invalid schema`);
+    }
+    if (prompt.kind === "choice" && (!Array.isArray(prompt.choices) || prompt.choices.length === 0)) {
+      throw new InvalidGameStateError(`prompt ${promptId} needs choices`);
+    }
+    if (prompt.kind === "choice" && hasOwn.call(prompt, "default") && !(prompt.choices as unknown[]).some(
+      (choice) => canonicalStringify(choice) === canonicalStringify(prompt.default),
+    )) throw new InvalidGameStateError(`prompt ${promptId} has invalid default choice`);
+    if (prompt.kind === "number" && (
+      typeof prompt.min !== "number" || !Number.isFinite(prompt.min) ||
+      typeof prompt.max !== "number" || !Number.isFinite(prompt.max) ||
+      typeof prompt.step !== "number" || !Number.isFinite(prompt.step) || prompt.step <= 0 || prompt.min > prompt.max
+    )) throw new InvalidGameStateError(`prompt ${promptId} has invalid number bounds`);
+    const validNumber = (candidate: unknown): boolean => prompt.kind === "number" &&
+      typeof candidate === "number" && Number.isFinite(candidate) &&
+      candidate >= (prompt.min as number) && candidate <= (prompt.max as number) &&
+      Number.isInteger((candidate - (prompt.min as number)) / (prompt.step as number));
+    if (prompt.kind === "number" && hasOwn.call(prompt, "default") && !validNumber(prompt.default)) {
+      throw new InvalidGameStateError(`prompt ${promptId} has invalid number default`);
+    }
+    if (prompt.kind === "confirm" && hasOwn.call(prompt, "default") && typeof prompt.default !== "boolean") {
+      throw new InvalidGameStateError(`prompt ${promptId} has invalid confirm default`);
+    }
+    if (prompt.status === "resolved" && !hasOwn.call(prompt, "response")) {
+      throw new InvalidGameStateError(`resolved prompt ${promptId} needs a response`);
+    }
+    if (prompt.status === "resolved" && prompt.kind === "confirm" && typeof prompt.response !== "boolean") {
+      throw new InvalidGameStateError(`prompt ${promptId} has invalid confirm response`);
+    }
+    if (prompt.status === "resolved" && prompt.kind === "choice" && !(prompt.choices as unknown[]).some(
+      (choice) => canonicalStringify(choice) === canonicalStringify(prompt.response),
+    )) throw new InvalidGameStateError(`prompt ${promptId} has invalid choice response`);
+    if (prompt.status === "resolved" && prompt.kind === "number" && !validNumber(prompt.response)) {
+      throw new InvalidGameStateError(`prompt ${promptId} has invalid number response`);
+    }
+  }
+}
+
+function validateTimers(value: unknown): void {
+  const timers = validateIdentityRecords(value, "timers");
+  for (const timerId of sortedKeys(timers)) {
+    const timer = requireRecord(timers[timerId], `timers.${timerId}`);
+    if (typeof timer.delay !== "number" || !Number.isFinite(timer.delay) || timer.delay <= 0 ||
+      typeof timer.callback !== "string" || timer.callback.length === 0 ||
+      typeof timer.scriptId !== "string" || timer.scriptId.length === 0 ||
+      typeof timer.bindingId !== "string" || timer.bindingId.length === 0 ||
+      (timer.entityId !== undefined && typeof timer.entityId !== "string") ||
+      !["scheduled", "fired", "canceled"].includes(String(timer.status))) {
+      throw new InvalidGameStateError(`timer ${timerId} has invalid schema`);
+    }
+  }
 }
 
 /** Throw unless the complete state satisfies the v1 canonical schema/invariants. */
@@ -585,7 +653,7 @@ export function validateCanonicalGameState(state: unknown): asserts state is Can
   fromState(candidate.rng as CanonicalGameState["rng"]);
   validateIdentityRecords(candidate.players, "players");
   validateIdentityRecords(candidate.seats, "seats");
-  validateIdentityRecords(candidate.prompts, "prompts");
+  validatePrompts(candidate.prompts);
   const entities = validateIdentityRecords(candidate.entities, "entities");
   const memberships: Record<string, string> = {};
   if (hasOwn.call(candidate, "stacks")) {
@@ -593,6 +661,17 @@ export function validateCanonicalGameState(state: unknown): asserts state is Can
   }
   for (const entityId of sortedKeys(entities)) {
     validateEntity(entities[entityId], entityId, entities, memberships);
+  }
+  if (hasOwn.call(candidate, "timers")) validateTimers(candidate.timers);
+  const bindingIds = new Set<string>();
+  for (const entityId of sortedKeys(entities)) {
+    const script = (entities[entityId] as EntityRecord).components.script as
+      | { bindingId?: unknown }
+      | undefined;
+    if (script === undefined) continue;
+    const bindingId = script.bindingId as string;
+    if (bindingIds.has(bindingId)) throw new InvalidGameStateError(`duplicate script binding ${bindingId}`);
+    bindingIds.add(bindingId);
   }
   canonicalStringify(candidate.scriptState);
 }

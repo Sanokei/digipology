@@ -32,3 +32,15 @@ export function planRoomAlarm(now: number, state: RoomAlarmState): RoomAlarmPlan
     nextAlarmAt: now >= expiryAt ? null : expiryAt,
   };
 }
+
+/** Multiplex the single DO alarm; canonical game timers pause while empty. */
+export function nextRoomAlarmAt(
+  livenessAt: number | null,
+  earliestTimerDueAt: number | null,
+  connectionCount: number,
+): number | null {
+  const timerAt = connectionCount > 0 ? earliestTimerDueAt : null;
+  if (livenessAt === null) return timerAt;
+  if (timerAt === null) return livenessAt;
+  return Math.min(livenessAt, timerAt);
+}

@@ -144,6 +144,23 @@ describe("RoomCore sequencing", () => {
     expect(after.state.lastSequence).toBe(1);
   });
 
+  test("deduplicates system.timer_fire across room-core reconstruction", () => {
+    const before = new RoomCore("timers");
+    const fired = before.sequenceSystem(
+      { type: "system.timer_fire", payload: { timerId: "timer_1" } },
+      "timer_fire_timer_1",
+    );
+    expect(fired.duplicate).toBe(false);
+    const after = new RoomCore("timers", JSON.parse(JSON.stringify(before.state)));
+    const retried = after.sequenceSystem(
+      { type: "system.timer_fire", payload: { timerId: "timer_1" } },
+      "timer_fire_timer_1",
+    );
+    expect(retried.duplicate).toBe(true);
+    expect(retried.orderedAction).toEqual(fired.orderedAction);
+    expect(after.state.lastSequence).toBe(1);
+  });
+
   test("bootstraps the persisted room snapshot before system.game_start", () => {
     const initial = createBuiltinInitialState("builtin_dice_dash_2", [
       { playerId: "player_host", displayName: "Host" },

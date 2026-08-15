@@ -876,3 +876,14 @@ function decodeUtf8(bytes: Uint8Array): string {
   }
   return result;
 }
+
+export {
+  LUA_STDLIB_VERSION,
+  PROXY_ACTIONS,
+  createCreatorScriptRuntime,
+  scriptsFromReleaseFiles,
+} from "./creator-runtime";
+export type {
+  CreatorScriptRuntime,
+  CreatorScriptRuntimeOptions,
+} from "./creator-runtime";

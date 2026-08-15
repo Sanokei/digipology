@@ -17,6 +17,7 @@ The desktop editor assembles this format for you and hands it to the same valida
   "releaseNumber": 1,
   "kernelVersion": 1,
   "luaApiVersion": 1,
+  "luaStdlibVersion": 1,
   "networkProtocolVersion": 1,
   "interactionMode": "sandbox",
   "minPlayers": 2,
@@ -29,6 +30,7 @@ The desktop editor assembles this format for you and hands it to the same valida
       "content": "{...}"
     }
   ],
+  "refs": { "main_deck": "entity_deck_01" },
   "integrity": { "manifestHash": "sha256:..." },
   "initialSnapshot": {
     "formatVersion": 1,
@@ -53,7 +55,7 @@ The desktop editor assembles this format for you and hands it to the same valida
 }
 ```
 
-`interactionMode` is `sandbox` or `scripted`. Player limits are integers from 1 through 64, `minPlayers <= maxPlayers`, and must match the publish form. A bundle contains 1–256 unique files. File paths start with `runtime/` or `scripts/`; file content is an inline string.
+`interactionMode` is `sandbox` or `scripted`. Player limits are integers from 1 through 64, `minPlayers <= maxPlayers`, and must match the publish form. A bundle contains 1–256 unique files. File paths start with `runtime/` or `scripts/`; file content is an inline string. `refs` optionally maps safe Lua identifiers to immutable entity IDs. `luaStdlibVersion` pins the deterministic `turns`/`scores` package separately from `kernelVersion` and `luaApiVersion`; bundles created before this field default to version 1.
 
 `title` and `definitions` may be included. A definition maps an ID to optional plain-text `label` and `color` strings. Game title, tagline, and creator handle are always treated as untrusted plain text by the site, never HTML or Markdown.
 
@@ -71,11 +73,13 @@ Each `contentHash` is SHA-256 over the file content's raw UTF-8 bytes, written a
   "releaseNumber": 1,
   "kernelVersion": 1,
   "luaApiVersion": 1,
+  "luaStdlibVersion": 1,
   "networkProtocolVersion": 1,
   "interactionMode": "sandbox",
   "minPlayers": 2,
   "maxPlayers": 4,
-  "files": [{ "path": "runtime/game.json", "contentHash": "sha256:...", "byteLength": 28142 }]
+  "files": [{ "path": "runtime/game.json", "contentHash": "sha256:...", "byteLength": 28142 }],
+  "refs": { "main_deck": "entity_deck_01" }
 }
 ```
 

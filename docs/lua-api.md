@@ -15,7 +15,7 @@ description: The stable deterministic Lua scripting contract for Digipology tabl
 | **spec** | Required by SPEC 04 but not yet implemented by a kernel v0 package in this repository. |
 | **surface only** | SPEC 04 names the member but does not settle enough detail to document a callable contract. |
 
-Every API on this page is currently **spec**; `packages/kernel` does not exist in this repository. “Unmapped” means SPEC 04 requires a mutating proxy method but Appendix C defines no corresponding action. It is not permission to invent an action.
+This page is the implemented creator API v1 and the manifest's single source of truth. A SPEC 04 member without a #64 registered action is omitted; an unmapped method is never permission to invent an action.
 
 Signatures below use these documentation types:
 
@@ -39,7 +39,7 @@ Creator code is hostile input. The sandbox exposes only the documented API and h
 - network or storage APIs;
 - the filesystem or operating system.
 
-`require()` resolves only project or platform modules packaged into the immutable release. It cannot load a machine-local file, download a module, or select code based on the host environment. Releases pin `luaApiVersion`; the separate Lua standard library proposed by SPEC 10.5 is outside this reference.
+`require()` resolves only project or platform modules packaged into the immutable release. It cannot load a machine-local file, download a module, or select code based on the host environment. Releases pin `luaApiVersion` and the deterministic convenience library separately as `luaStdlibVersion`.
 
 ## 2. Persistent `state`
 
@@ -114,7 +114,7 @@ After its entity is destroyed, a proxy becomes invalid safely. It must not becom
 
 ## 4. Namespaces
 
-The v1 environment exposes exactly these ten named surfaces: `state`, `refs`, `settings`, `game`, `scene`, `players`, `random`, `timer`, `ui`, and `data`. Entity bindings additionally receive `self` and `props`.
+The v1 environment exposes `state`, `refs`, `settings`, `game`, `scene`, `players`, `random`, `timer`, `ui`, and `data`, plus the separately pinned `turns` and `scores` standard-library modules. Entity bindings additionally receive `self` and `props`.
 
 ### `state`
 
@@ -142,7 +142,7 @@ Do not infer turns, rounds, scores, or teams APIs under `game`; those belong to 
 #### `scene:get(id)`
 
 - **Parameters:** `id: EntityId` — stable entity identity.
-- **Returns:** the matching semantic entity proxy. The missing-ID result is not specified.
+- **Returns:** the matching semantic entity proxy, or `nil` for a missing ID.
 - **Determinism:** identity lookup is canonical; it must not consult renderer objects.
 
 ```lua
@@ -152,8 +152,8 @@ local piece = scene:get(state.active_piece_id)
 #### `scene:find(name)`
 
 - **Parameters:** `name: string` — authored entity name.
-- **Returns:** a matching entity proxy. Missing and duplicate-name behavior is not specified.
-- **Determinism:** because duplicate selection order is unstated, do not use this call for canonical choices unless names are unique by authored invariant. Prefer `refs` or stable IDs.
+- **Returns:** the first matching entity proxy in ascending EntityId order, or `nil`.
+- **Determinism:** duplicate names resolve by ascending stable EntityId. Prefer `refs` or stable IDs.
 
 ```lua
 local board = scene:find("Board")
@@ -163,31 +163,13 @@ local board = scene:find("Board")
 
 - **Parameters:** `filter: table`; SPEC 04 shows `{ tags = { "enemy", "unit" } }` and defines no other keys.
 - **Returns:** an array of matching proxies.
-- **Determinism:** SPEC 04 recommends ascending stable `EntityId` order. Because the source says “recommended,” this ordering is not yet locked as a MUST; until stabilized, callers should not turn query position into gameplay meaning.
+- **Determinism:** results use ascending stable `EntityId` order.
 
 ```lua
 local enemies = scene:query({ tags = { "enemy", "unit" } })
 ```
 
-#### `scene:spawn(prefab_id, options)`
-
-- **Parameters:** `prefab_id: PrefabId`; `options: table` (shape not defined by SPEC 04).
-- **Returns:** not specified.
-- **Determinism:** queues [`entity.spawn`](./actions.md#entityspawn). The resulting ID derives from canonical action identity plus spawn index; options that persist must be canonical-compatible.
-
-```lua
-scene:spawn("prefab_token", { props = { team = "red" } })
-```
-
-#### `scene:destroy(entity)`
-
-- **Parameters:** `entity: Entity` proxy.
-- **Returns:** not specified.
-- **Determinism:** queues [`entity.destroy`](./actions.md#entitydestroy). Destruction cleans memberships/references, never reuses the ID, and safely invalidates proxies.
-
-```lua
-scene:destroy(self)
-```
+`scene:spawn` and `scene:destroy` are omitted from creator API v1 because #64 did not register backing actions.
 
 ### `players`
 
@@ -206,7 +188,7 @@ end
 #### `players:get(id)`
 
 - **Parameters:** `id: PlayerId`.
-- **Returns:** the matching `Player` proxy. Missing-ID behavior is not specified.
+- **Returns:** the matching `Player` proxy, or `nil`.
 - **Determinism:** stable identity lookup.
 
 ```lua
@@ -217,7 +199,7 @@ local active = players:get(state.active_player_id)
 
 - **Parameters:** none.
 - **Returns:** the canonical player count as an integer.
-- **Determinism:** SPEC 04 does not say whether disconnected or logically departed players count; do not build a rule on that distinction until it is defined.
+- **Determinism:** counts records in canonical `players` state.
 
 ```lua
 state.started_with = players:count()
@@ -226,7 +208,7 @@ state.started_with = players:count()
 #### `players:by_seat(seat_id)`
 
 - **Parameters:** `seat_id: SeatId`.
-- **Returns:** the player assigned to that seat; the empty-seat result is not specified.
+- **Returns:** the player assigned to that seat, or `nil`.
 - **Determinism:** canonical seat assignment lookup.
 
 ```lua
@@ -240,7 +222,7 @@ All methods consume the versioned canonical PRNG stored in game state. They neve
 #### `random:int(min, max)`
 
 - **Parameters:** `min: number`, `max: number`.
-- **Returns:** a deterministic integer. Endpoint inclusivity and invalid-range behavior are not specified.
+- **Returns:** a deterministic integer in the inclusive `[min,max]` range.
 - **Determinism:** consumes canonical RNG in a replayable way.
 
 ```lua
@@ -250,7 +232,7 @@ local first_player_index = random:int(1, players:count())
 #### `random:float()`
 
 - **Parameters:** none.
-- **Returns:** a deterministic finite number. SPEC 04 does not define the output interval or precision.
+- **Returns:** the canonical PRNG's deterministic finite value in `[0,1)`.
 - **Determinism:** consumes canonical RNG; callers must not assume unstated numeric bounds.
 
 ```lua
@@ -260,7 +242,7 @@ local sample = random:float()
 #### `random:choice(list)`
 
 - **Parameters:** `list: table` used as an ordered array.
-- **Returns:** one deterministic member. Empty-list behavior is not specified.
+- **Returns:** one deterministic member, or `nil` for an empty list.
 - **Determinism:** selection depends on canonical RNG and the supplied array order. Never build the list from unordered table-key iteration.
 
 ```lua
@@ -270,12 +252,12 @@ local color = random:choice({ "red", "green", "blue" })
 #### `random:shuffle(list)`
 
 - **Parameters:** `list: table` used as an ordered array.
-- **Returns:** not specified; SPEC 04 does not say whether the input is mutated or a new list is returned.
+- **Returns:** a new shuffled array; the input is unchanged.
 - **Determinism:** consumes canonical RNG. This list utility is distinct from `Deck:shuffle()`, which queues [`deck.shuffle`](./actions.md#deckshuffle) and never accepts a caller-provided resulting order.
 
 ```lua
 local initiative = { "red", "green", "blue" }
-random:shuffle(initiative) -- in-place versus returned-list behavior is not yet specified
+local shuffled = random:shuffle(initiative)
 ```
 
 ### `timer`
@@ -295,8 +277,8 @@ Callbacks must be named functions, not anonymous closures. A closure captures VM
 #### `timer:cancel(timer_id)`
 
 - **Parameters:** `timer_id: TimerId`.
-- **Returns:** not specified.
-- **Determinism:** cancels a reconstructable timer. Appendix C defines no timer-cancel action, so the canonical subcommand mapping is **unmapped**.
+- **Returns:** `nil`.
+- **Determinism:** queues `timer.cancel`; cancellation is canonical and a later `system.timer_fire` rejects.
 
 ```lua
 timer:cancel(state.pending_timer_id)
@@ -309,7 +291,7 @@ The UI namespace creates structured canonical prompts, not arbitrary DOM or cust
 #### `ui:prompt(player, schema)`
 
 - **Parameters:** `player: Player`; `schema: { id: string, title: string, choices: table, ... }`.
-- **Returns:** not specified.
+- **Returns:** the canonical prompt ID.
 - **Behavior:** creates a choice prompt. Beyond the shown `id`, `title`, and `choices`, the schema is not defined in SPEC 04.
 
 ```lua
@@ -323,8 +305,8 @@ ui:prompt(player, {
 #### `ui:confirm(player, schema)`
 
 - **Parameters:** `player: Player`; `schema: { id: string, title: string, ... }`.
-- **Returns:** not specified.
-- **Behavior:** creates a confirmation prompt. The exact response value is not specified.
+- **Returns:** the canonical prompt ID.
+- **Behavior:** creates a confirmation prompt whose response is boolean.
 
 ```lua
 ui:confirm(player, { id = "end_turn", title = "End your turn?" })
@@ -333,8 +315,8 @@ ui:confirm(player, { id = "end_turn", title = "End your turn?" })
 #### `ui:number_prompt(player, schema)`
 
 - **Parameters:** `player: Player`; `schema: { id: string, min: number, max: number, step: number, default: number, ... }`.
-- **Returns:** not specified.
-- **Behavior:** creates a bounded numeric prompt. SPEC 04 does not define validation details such as endpoint inclusivity or step rounding.
+- **Returns:** the canonical prompt ID.
+- **Behavior:** creates a numeric prompt with inclusive endpoints and exact `min + n * step` validation.
 
 ```lua
 ui:number_prompt(player, {
@@ -348,6 +330,54 @@ ui:number_prompt(player, {
 
 Prompt state is canonical. Prompt creation is a deterministic generated subcommand (Appendix C has no create action); response is `prompt.respond`. The game callback list includes `on_prompt`, but SPEC 04 does not define its context schema or dispatch timing beyond the canonical response flow.
 
+### `turns`
+
+Deterministic turn convenience state stored under canonical `state`; this is Lua stdlib v1, not a kernel primitive.
+
+#### `turns:start(first?)`
+
+Starts the stable seat-order/player-ID order, optionally at a supplied player, and returns the current player.
+
+#### `turns:current()`
+
+Returns the current player or `nil` when stopped.
+
+#### `turns:next()`
+
+Advances cyclically and returns the next player.
+
+#### `turns:index()`
+
+Returns the current one-based turn index, or zero before start.
+
+#### `turns:is_current(player)`
+
+Tests a player proxy or PlayerId against the current turn.
+
+#### `turns:stop()`
+
+Stops turn progression without discarding the stored order.
+
+### `scores`
+
+Deterministic finite score convenience state stored under canonical `state`; ties use stable player ordering.
+
+#### `scores:set(subject, value)`
+
+Sets and returns a subject's score.
+
+#### `scores:add(subject, amount)`
+
+Adds to and returns a subject's score.
+
+#### `scores:get(subject)`
+
+Returns a subject's score, defaulting to zero.
+
+#### `scores:leader()`
+
+Returns the highest-scoring player; stable player order breaks ties.
+
 ### `data`
 
 | Member | Parameters | Return | Determinism and status |
@@ -358,7 +388,7 @@ Do not assume a loader, path syntax, mutability model, or iteration order until 
 
 ## 5. Semantic proxies
 
-Proxy operations expose tabletop meaning, never renderer objects. Read operations do not queue canonical actions. Every mutating method below names its Appendix C mapping or explicitly says that the registry leaves it unmapped.
+Proxy operations expose tabletop meaning, never renderer objects. Read operations do not queue canonical actions. Every mutating method below maps to one registered kernel action; methods without #64 backing are omitted.
 
 ### Card
 
@@ -366,7 +396,7 @@ Proxy operations expose tabletop meaning, never renderer objects. Read operation
 | --- | --- | --- | --- |
 | `is_face_up` | Field: `boolean` | Current canonical face orientation. | None; read only. |
 | `flip` | `card:flip()` | Toggles face orientation; requires the entity to be flippable and a player guard when player-originated. | [`entity.flip`](./actions.md#entityflip) |
-| `set_face_up` | `card:set_face_up(value: boolean)` | Requests a particular face orientation. SPEC 04 does not define whether this becomes a conditional flip or a distinct subcommand. | **Unmapped.** [`entity.flip`](./actions.md#entityflip) is toggle-only and has no boolean payload. |
+| `set_face_up` | `card:set_face_up(value: boolean)` | Queues a flip only when the requested orientation differs. | [`entity.flip`](./actions.md#entityflip) |
 | `definition_id` | Field: stable definition ID (serialized type unspecified) | Identifies the authored card definition. | None; read only. |
 | `definition` | Field: packaged card definition (shape unspecified) | Reads immutable definition data. | None; read only. |
 
@@ -381,24 +411,14 @@ if not self.is_face_up then self:flip() end
 | `count` | Field: integer | Number of cards currently in the deck. The last item is top in v1. | None; read only. |
 | `shuffle` | `deck:shuffle()` | Reorders with canonical RNG; caller never supplies the result. | [`deck.shuffle`](./actions.md#deckshuffle) |
 | `draw_to` | `deck:draw_to(target: Container, count?: number)` | Draws canonical top card identity/identities to a container. Optionality/default for `count` is not stated by SPEC 04. | [`deck.draw_to_container`](./actions.md#deckdraw_to_container) |
-| `draw_to_world` | `deck:draw_to_world(transform?: table)` | Extracts the canonical top card to the world at an optional canonical transform. | [`deck.draw_to_world`](./actions.md#deckdraw_to_world) |
-| `deal` | `deck:deal(target_or_targets, cards_each: number)` | Deals round-robin. SPEC 04.9 demonstrates one `Player` target at a time; Appendix C carries ordered `targets`. Insufficient cards reject the entire transaction. | [`deck.deal`](./actions.md#deckdeal) |
-| `insert_top` | `deck:insert_top(entity: Entity)` | Inserts an entity at the canonical top (the last item in v1). | [`container.move`](./actions.md#containermove) by semantic transfer; endpoint encoding is unspecified. |
-| `insert_bottom` | `deck:insert_bottom(entity: Entity)` | Inserts an entity at the canonical bottom. | [`container.move`](./actions.md#containermove) by semantic transfer; endpoint encoding is unspecified. |
-
-Deal order is determinism-sensitive: the action's `targets` array order is canonical, and round-robin dealing visits targets in that order. When constructing it from `players:list()`, seat order comes first and unseated players follow by `PlayerId`.
-
-```lua
-refs.main_deck:shuffle()
-refs.main_deck:deal(players:list(), 5)
-```
+`draw_to_world`, `deal`, `insert_top`, and `insert_bottom` are omitted because #64 provides no exact backing action for those signatures.
 
 ### Hand
 
 | Member | Kind and signature | Behavior | Canonical action |
 | --- | --- | --- | --- |
 | `count` | Field: integer | Number of contained entities visible through this proxy. | None; read only. |
-| `list` | `hand:list()` | Returns contained proxies in canonical container order. This ordering follows the container's stored array; visual sorting is local unless `canonicalOrder` is enabled. | None; read only. |
+| `list` | `hand:list()` | Returns contained proxies in ascending stable EntityId order. | None; read only. |
 | `add` | `hand:add(entity: Entity, index?: number)` | Transfers an entity into the hand. Default index is unspecified. | [`container.move`](./actions.md#containermove) |
 | `remove` | `hand:remove(entity: Entity)` | Removes an entity from the hand. The registry's world/no-container encoding is unspecified. | [`container.move`](./actions.md#containermove) |
 | `contains` | `hand:contains(entity: Entity)` → `boolean` | Tests canonical membership. | None; read only. |
@@ -412,7 +432,7 @@ if not player.hand:contains(card) then player.hand:add(card) end
 | Member | Kind and signature | Behavior | Canonical action |
 | --- | --- | --- | --- |
 | `count` | Field: integer | Number of contained entities. | None; read only. |
-| `list` | `container:list()` | Returns proxies in canonical stored order. | None; read only. |
+| `list` | `container:list()` | Returns proxies in ascending stable EntityId order. | None; read only. |
 | `contains` | `container:contains(entity: Entity)` → `boolean` | Tests the single canonical source of membership. | None; read only. |
 | `add` | `container:add(entity: Entity, index?: number)` | Atomically transfers an entity into this container. Default index is unspecified. | [`container.move`](./actions.md#containermove) |
 | `remove` | `container:remove(entity: Entity)` | Atomically removes an entity; destination/world encoding is unspecified. | [`container.move`](./actions.md#containermove) |
@@ -429,7 +449,6 @@ refs.discard:move_to(card, refs.main_deck)
 | `roll` | `die:roll()` | Uses kernel RNG to choose a valid face; animation cannot choose the result. | [`die.roll`](./actions.md#dieroll) |
 | `value` | Field: canonical face value | Current canonical face value. | None; read only. |
 | `faces` | Field: ordered table of canonical face values | Authored valid faces. Their order participates in deterministic selection. | None; read only. |
-| `set_value` | `die:set_value(value: CanonicalValue)` | Script-only selection of an exactly matching valid face. | [`die.set_value`](./actions.md#dieset_value) |
 
 ```lua
 refs.attack_die:roll()
@@ -443,7 +462,7 @@ refs.attack_die:roll()
 | `set` | `counter:set(value: number)` | Sets and clamps to configured bounds. | [`counter.set`](./actions.md#counterset) |
 | `add` | `counter:add(amount: number)` | Adds and clamps to configured bounds. | [`counter.add`](./actions.md#counteradd) |
 | `subtract` | `counter:subtract(amount: number)` | Subtracts and clamps; represented as a negative add because Appendix C has no subtract action. | [`counter.add`](./actions.md#counteradd) |
-| `reset` | `counter:reset()` | Restores an authored initial value, but SPEC 04 does not define that value or its payload. | **Unmapped.** No `counter.reset` action appears in Appendix C. |
+| `reset` | `counter:reset()` | Restores the canonical component default. | [`counter.set`](./actions.md#counterset) |
 
 ```lua
 refs.score:add(1)
@@ -454,7 +473,7 @@ refs.score:add(1)
 | Member | Kind and signature | Behavior | Canonical action |
 | --- | --- | --- | --- |
 | `contains` | `zone:contains(entity: Entity)` → `boolean` | Tests canonical zone membership. Membership is recomputed on semantic placement transitions, not frame physics. | None; read only. |
-| `entities` | Field: ordered table of entity proxies | Current members. SPEC 04 does not specify this field's order; do not derive gameplay priority from its position. | None; read only. |
+| `entities` | Field: ordered table of entity proxies | Current members in ascending stable EntityId order. | None; read only. |
 
 ```lua
 if refs.scoring_zone:contains(self) then refs.score:add(1) end
@@ -465,9 +484,8 @@ if refs.scoring_zone:contains(self) then refs.score:add(1) end
 | Member | Kind and signature | Behavior | Canonical action |
 | --- | --- | --- | --- |
 | `is_occupied` | Field: `boolean` | Whether canonical capacity is occupied. | None; read only. |
-| `entities` | Field: ordered table of entity proxies | Entities currently attached. SPEC 04 does not specify field order. | None; read only. |
+| `entities` | Field: ordered table of entity proxies | Entities currently attached in ascending stable EntityId order. | None; read only. |
 | `attach` | `snap_point:attach(entity: Entity)` | Attaches if capacity and compatibility allow. | [`snap.attach`](./actions.md#snapattach) |
-| `detach` | `snap_point:detach(entity: Entity)` | Removes an attachment. | **Unmapped.** Appendix C lists `snap.detached` as an event but defines no `snap.detach` action. |
 
 Automatic placement filters compatible candidates, chooses the nearest, and breaks an exact distance tie by stable `SnapPointId`.
 
@@ -480,14 +498,10 @@ if not refs.slot.is_occupied then refs.slot:attach(self) end
 | Member | Kind and signature | Behavior | Canonical action |
 | --- | --- | --- | --- |
 | `is_enabled` | Field: `boolean` | Current canonical enabled state. | None; read only. |
-| `set_enabled` | `button:set_enabled(enabled: boolean)` | Changes canonical enabled state. | **Unmapped.** Appendix C defines only `button.press`. |
-| `set_label` | `button:set_label(label: string)` | Changes the semantic button label. | **Unmapped.** Appendix C defines no button-label action; [`text.set`](./actions.md#textset) applies to a Text proxy, not necessarily a Button. |
 
 Player presses are represented by [`button.press`](./actions.md#buttonpress), require an enabled button, and run `can_press`. SPEC 04.5 does not list a `Button:press()` script method.
 
-```lua
-refs.end_turn:set_enabled(false)
-```
+`set_enabled` and `set_label` are omitted because #64 registered no backing mutation.
 
 ### Text
 
@@ -506,14 +520,11 @@ refs.status:set("Round " .. state.round)
 | --- | --- | --- | --- |
 | `id` | Field: `PlayerId` | Stable logical participant identity; reconnect keeps the same ID. | None; read only. |
 | `name` | Field: `string` | Player-facing name. | None; read only. |
-| `connected` | Field: `boolean` | Current canonical connection/lifecycle view. Exact reconnect semantics are not defined in SPEC 04. | None; read only. |
-| `role` | Field: role value (shape unspecified) | Canonical player role. | None; read only. |
 | `seat` | Field: seat proxy/value or `nil` (shape unspecified) | Canonical seat assignment. SPEC 04.9 demonstrates `player.seat.id`. | None; read only. |
 | `hand` | Field: `Hand` or `nil` | The player's semantic hand when configured. | None; read only. |
-| `message` | `player:message(value: string)` | Requests a player-facing message. Whether it is canonical, transient, or represented by an action is not defined. | **Unmapped.** No message action appears in Appendix C. |
 
 ```lua
-if player.hand then refs.main_deck:deal(player, 5) end
+if player.hand then refs.main_deck:draw_to(player.hand, 1) end
 ```
 
 ## 6. Timers and prompts
@@ -549,20 +560,15 @@ The prompt remains canonical while open. A response consumes a sequence even if 
 | --- | --- |
 | `on_start(ctx)` | Canonical game initialization. |
 | `on_player_join(ctx)` | A player lifecycle join. |
-| `on_player_disconnect(ctx)` | A canonical disconnect/departure transition. |
-| `on_player_removed(ctx)` | A kick or administrative removal. |
 | `on_prompt(ctx)` | Canonical prompt processing; exact context schema is unspecified. |
 
 ### Entity callbacks
 
 | Callback | Trigger contract |
 | --- | --- |
-| `on_click(ctx)` | The bound entity is clicked. No `entity.click` action exists in Appendix C, so canonical dispatch details are unspecified. |
 | `on_grab(ctx)` | The bound entity is successfully grabbed. |
 | `on_drop(ctx)` | The bound entity is successfully dropped. |
 | `on_flip(ctx)` | The bound entity is successfully flipped. |
-| `on_spawn(ctx)` | The bound entity is spawned. |
-| `on_destroy(ctx)` | The bound entity is destroyed. |
 | `on_roll(ctx)` | The bound die is rolled. |
 | `on_press(ctx)` | The bound button is pressed. |
 | `on_enter(ctx)` | An entity enters the bound zone. |
@@ -574,9 +580,8 @@ SPEC 04 lists callback names but does not define a complete `ctx` schema. Its ex
 
 ### Guards
 
-The complete v1 guard list is:
+The shipped v1 guard list, limited to #64 hook points, is:
 
-- `can_click(ctx)`
 - `can_grab(ctx)`
 - `can_drop(ctx)`
 - `can_flip(ctx)`
@@ -625,7 +630,7 @@ function on_start(ctx)
     state.turn = 1
     refs.main_deck:shuffle()
     for _, player in ipairs(players:list()) do
-        if player.hand then refs.main_deck:deal(player, 5) end
+        if player.hand then refs.main_deck:draw_to(player.hand, 1) end
     end
 end
 ```
@@ -638,7 +643,7 @@ end
 | `players:list()` | Returns players in stable seat order, followed by unseated `PlayerId` order. |
 | `ipairs(...)` | Walks the returned array order, not unordered table keys. This makes recipient iteration deterministic. |
 | `if player.hand then ...` | Skips players without a configured semantic hand. |
-| `deal(player, 5)` | The example issues one five-card deal per player. Each deal derives card identity from the deck; insufficient cards reject the enclosing top-level transaction, not a partial remainder. |
+| `draw_to(player.hand, 1)` | Draws one canonical top card per player through the registered `deck.draw_to_container` action. Insufficient cards reject the enclosing top-level transaction. |
 | `end` | If any queued operation or callback fails, the game-start transaction discards all uncommitted changes. |
 
 ### Read-only grab guard
@@ -665,20 +670,15 @@ This representative callback comes from SPEC 10.13:
 
 ```lua
 function on_enter(ctx)
-    if ctx.object:has_tag("treasure") then
-        refs.score:add(1)
-        ctx.object:destroy()
-    end
+    refs.score:add(1)
 end
 ```
 
 | Line | Meaning |
 | --- | --- |
 | `function on_enter(ctx)` | Runs when a semantic placement transition causes an object to enter the bound zone; frame-by-frame physics does not drive canonical membership. |
-| `ctx.object:has_tag("treasure")` | Filters by an authored semantic tag. `has_tag` appears in SPEC 10.13 but is not listed in the SPEC 04.5 proxy table, so its general Entity signature remains **surface only**. |
 | `refs.score:add(1)` | Resolves the stable counter reference and queues [`counter.add`](./actions.md#counteradd), clamped to configured bounds. |
-| `ctx.object:destroy()` | Queues [`entity.destroy`](./actions.md#entitydestroy). `destroy()` appears in SPEC 10.13, while SPEC 04.4 formally exposes destruction as `scene:destroy(entity)`; this is a documented source divergence, not a newly generalized proxy method. |
-| `end` | Both mutations are FIFO subcommands in the parent placement transaction. If destruction or another subscriber fails, neither score nor destruction commits. |
+| `end` | The score mutation is a FIFO subcommand in the parent placement transaction. If it or another subscriber fails, the score change is discarded. |
 
 ## References
 

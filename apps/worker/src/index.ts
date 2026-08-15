@@ -27,8 +27,7 @@ import {
   roomBootstrapFromSnapshots,
   type RoomCoreState,
 } from "./room-core";
-import { ROOM_HEARTBEAT_INTERVAL_MS } from "./quickplay";
-import { EMPTY_ROOM_TTL_MS, planRoomAlarm } from "./room-liveness";
+import { nextRoomAlarmAt, planRoomAlarm } from "./room-liveness";
 
 const DEFAULT_ROOM_CAPACITY = 8;
 const DUMMY_HASH = "0".repeat(64);
@@ -61,6 +60,12 @@ interface PlayerTokenRow extends Record<string, SqlStorageValue> {
 
 interface ActionRow extends Record<string, SqlStorageValue> {
   body: string;
+}
+
+interface TimerMetadataRow extends Record<string, SqlStorageValue> {
+  timer_id: string;
+  due_at: number;
+  status: "scheduled" | "fired" | "canceled";
 }
 
 type SocketAttachment = ConnectionState;
@@ -205,6 +210,38 @@ export class RoomDO extends DurableObject<Env> {
     return true;
   }
 
+  /** Store canonical timer metadata only. Lua remains entirely client-side. */
+  async registerCanonicalTimer(timerId: string, dueAt: number): Promise<boolean> {
+    if (typeof timerId !== "string" || timerId.length === 0 || timerId.length > 256 ||
+      !Number.isSafeInteger(dueAt) || dueAt < 0) return false;
+    if (this.room() === null) return false;
+    const inserted = this.ctx.storage.sql.exec(
+      `INSERT OR IGNORE INTO canonical_timers (timer_id, due_at, status)
+       VALUES (?, ?, 'scheduled')`,
+      timerId,
+      dueAt,
+    ).rowsWritten === 1;
+    if (!inserted) {
+      const existing = this.ctx.storage.sql.exec<TimerMetadataRow>(
+        "SELECT timer_id, due_at, status FROM canonical_timers WHERE timer_id = ?",
+        timerId,
+      ).one();
+      if (existing.due_at !== dueAt || existing.status !== "scheduled") return false;
+    }
+    await this.rescheduleAlarm(Date.now());
+    return inserted;
+  }
+
+  async cancelCanonicalTimer(timerId: string): Promise<boolean> {
+    if (typeof timerId !== "string" || timerId.length === 0 || this.room() === null) return false;
+    const changed = this.ctx.storage.sql.exec(
+      "UPDATE canonical_timers SET status = 'canceled' WHERE timer_id = ? AND status = 'scheduled'",
+      timerId,
+    ).rowsWritten === 1;
+    await this.rescheduleAlarm(Date.now());
+    return changed;
+  }
+
   async fetch(request: Request): Promise<Response> {
     if (this.room() === null) {
       return Response.json(
@@ -228,7 +265,7 @@ export class RoomDO extends DurableObject<Env> {
       "UPDATE room SET empty_since_at = NULL, last_heartbeat_at = ? WHERE singleton = 1",
       now,
     );
-    await this.ctx.storage.setAlarm(now + ROOM_HEARTBEAT_INTERVAL_MS);
+    await this.rescheduleAlarm(now);
     this.scheduleIndexMetadataUpdate();
     this.ctx.waitUntil(this.flushPlayCounts());
     return new Response(null, { status: 101, webSocket: client });
@@ -256,6 +293,41 @@ export class RoomDO extends DurableObject<Env> {
     const room = this.room();
     if (room === null || room.ended_reason !== null) return;
     const now = Date.now();
+    const timerActions: OrderedAction[] = [];
+    if (this.ctx.getWebSockets().length > 0) {
+      this.ctx.storage.transactionSync(() => {
+        const current = this.requiredRoom();
+        const core = this.loadCore(current);
+        const due = this.ctx.storage.sql.exec<TimerMetadataRow>(
+          `SELECT timer_id, due_at, status FROM canonical_timers
+           WHERE status = 'scheduled' AND due_at <= ?
+           ORDER BY due_at, timer_id`,
+          now,
+        ).toArray();
+        for (const timer of due) {
+          const sequenced = core.sequenceSystem(
+            { type: "system.timer_fire", payload: { timerId: timer.timer_id } },
+            `timer_fire_${timer.timer_id}`,
+          );
+          this.ctx.storage.sql.exec(
+            "UPDATE canonical_timers SET status = 'fired' WHERE timer_id = ? AND status = 'scheduled'",
+            timer.timer_id,
+          );
+          if (!sequenced.duplicate) {
+            this.persistSystemAction(sequenced.orderedAction);
+            timerActions.push(sequenced.orderedAction);
+          }
+        }
+        if (due.length > 0) {
+          this.advanceCheckpointIfNeeded(current, core);
+          this.ctx.storage.sql.exec(
+            "UPDATE room SET last_sequence = ? WHERE singleton = 1",
+            core.state.lastSequence,
+          );
+        }
+      });
+    }
+    for (const action of timerActions) this.broadcast(action);
     const plan = planRoomAlarm(now, {
       connectionCount: this.ctx.getWebSockets().length,
       lastHeartbeatAt: room.last_heartbeat_at,
@@ -273,7 +345,7 @@ export class RoomDO extends DurableObject<Env> {
       await this.writeIndexMetadata();
     }
     await this.flushPlayCounts();
-    if (plan.nextAlarmAt !== null) await this.ctx.storage.setAlarm(plan.nextAlarmAt);
+    await this.rescheduleAlarm(now);
   }
 
   private messageContext(socket: WebSocket) {
@@ -620,13 +692,13 @@ export class RoomDO extends DurableObject<Env> {
         now,
         now,
       );
-      await this.ctx.storage.setAlarm(emptySinceAt + EMPTY_ROOM_TTL_MS);
+      await this.rescheduleAlarm(now);
     } else {
       this.ctx.storage.sql.exec(
         "UPDATE room SET empty_since_at = NULL, last_heartbeat_at = ? WHERE singleton = 1",
         now,
       );
-      await this.ctx.storage.setAlarm(now + ROOM_HEARTBEAT_INTERVAL_MS);
+      await this.rescheduleAlarm(now);
     }
     this.scheduleIndexMetadataUpdate();
     this.ctx.waitUntil(this.flushPlayCounts());
@@ -634,6 +706,27 @@ export class RoomDO extends DurableObject<Env> {
 
   private scheduleIndexMetadataUpdate(): void {
     this.ctx.waitUntil(this.writeIndexMetadata());
+  }
+
+  private async rescheduleAlarm(now: number): Promise<void> {
+    const room = this.room();
+    if (room === null || room.ended_reason !== null) {
+      await this.ctx.storage.deleteAlarm();
+      return;
+    }
+    const connectionCount = this.ctx.getWebSockets().length;
+    const liveness = planRoomAlarm(now, {
+      connectionCount,
+      lastHeartbeatAt: room.last_heartbeat_at,
+      emptySinceAt: room.empty_since_at,
+    }).nextAlarmAt;
+    const timer = this.ctx.storage.sql.exec<{ due_at: number }>(
+      `SELECT due_at FROM canonical_timers WHERE status = 'scheduled'
+       ORDER BY due_at, timer_id LIMIT 1`,
+    ).toArray()[0]?.due_at;
+    const next = nextRoomAlarmAt(liveness, timer ?? null, connectionCount);
+    if (next === null) await this.ctx.storage.deleteAlarm();
+    else await this.ctx.storage.setAlarm(next);
   }
 
   private async writeIndexMetadata(): Promise<void> {
@@ -797,6 +890,11 @@ export class RoomDO extends DurableObject<Env> {
         player_id TEXT PRIMARY KEY,
         flushed INTEGER NOT NULL DEFAULT 0 CHECK (flushed IN (0, 1))
       );
+      CREATE TABLE canonical_timers (
+        timer_id TEXT PRIMARY KEY,
+        due_at INTEGER NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('scheduled', 'fired', 'canceled'))
+      );
     `);
   }
 
@@ -838,6 +936,11 @@ export class RoomDO extends DurableObject<Env> {
       CREATE TABLE IF NOT EXISTS counted_players (
         player_id TEXT PRIMARY KEY,
         flushed INTEGER NOT NULL DEFAULT 0 CHECK (flushed IN (0, 1))
+      );
+      CREATE TABLE IF NOT EXISTS canonical_timers (
+        timer_id TEXT PRIMARY KEY,
+        due_at INTEGER NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('scheduled', 'fired', 'canceled'))
       );
     `);
   }

@@ -47,6 +47,7 @@ export function createEmptyEditorDraft(id: string, now = new Date().toISOString(
     releaseNumber: 1,
     kernelVersion: 1,
     luaApiVersion: 1,
+    luaStdlibVersion: 1,
     networkProtocolVersion: 1,
     interactionMode: "sandbox",
     minPlayers: 1,
