@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { ROOM_HEARTBEAT_INTERVAL_MS } from "./quickplay";
-import { EMPTY_ROOM_TTL_MS, planRoomAlarm } from "./room-liveness";
+import { EMPTY_ROOM_TTL_MS, nextRoomAlarmAt, planRoomAlarm } from "./room-liveness";
 
 describe("room alarm multiplexing", () => {
   test("refreshes connected rooms on the coarse heartbeat cadence", () => {
@@ -18,5 +18,11 @@ describe("room alarm multiplexing", () => {
     expect(planRoomAlarm(emptySinceAt + EMPTY_ROOM_TTL_MS, {
       connectionCount: 0, lastHeartbeatAt: null, emptySinceAt,
     })).toEqual({ heartbeatDue: false, expiryDue: true, nextAlarmAt: null });
+  });
+
+  test("selects the earliest canonical timer but pauses it for an empty room", () => {
+    expect(nextRoomAlarmAt(10_000, 5_000, 2)).toBe(5_000);
+    expect(nextRoomAlarmAt(10_000, 5_000, 0)).toBe(10_000);
+    expect(nextRoomAlarmAt(null, 5_000, 1)).toBe(5_000);
   });
 });

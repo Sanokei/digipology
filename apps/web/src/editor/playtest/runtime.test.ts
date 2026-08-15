@@ -1,14 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { canonicalStringify } from "digipology-canonical-json";
 import {
-  applyOrdered,
-  snapshot,
   type CanonicalGameState,
-  type EntityRecord,
 } from "digipology-kernel";
-
-import { DemoLuaHost, createFirstDealInitialState } from "../../../../../packages/demo-games/src/test-support";
-import { FIRST_DEAL_LUA } from "../../../../../packages/demo-games/src/games/first-deal/game.lua";
 import { EditorStore } from "../state/EditorStore";
 import { createEmptyEditorDraft, rebuildDraftIntegrity } from "../state/bundle";
 import { updateScript } from "../state/scripts";
@@ -35,8 +29,12 @@ describe("in-tab playtest runtime", () => {
     };
     state.entities.score = {
       id: "score",
-      components: { counter: { value: 0, default: 0, min: 0, max: 20 } },
+      components: {
+        counter: { value: 0, default: 0, min: 0, max: 20 },
+        script: { scriptId: "scripts/game.lua", bindingId: "game", props: {} },
+      },
     };
+    draft.bundle.refs = { card_a: "card_a", score: "score" };
     updateScript(draft, "scripts/game.lua", `
 function on_start(ctx)
   refs.card_a:flip()
@@ -58,43 +56,38 @@ end
     expect(store.getSnapshot().past).toHaveLength(historyBefore);
   }, 20_000);
 
-  test("matches the First Deal DemoLuaHost emitted action loop", async () => {
-    const initial = createFirstDealInitialState();
-    const draft = createEmptyEditorDraft("first-deal-playtest", "2026-01-01T00:00:00.000Z");
-    draft.title = "First Deal";
-    draft.minPlayers = 2;
-    draft.maxPlayers = 4;
-    draft.bundle.title = draft.title;
-    draft.bundle.gameId = "builtin_first_deal";
-    draft.bundle.releaseId = initial.releaseId;
-    draft.bundle.minPlayers = 2;
-    draft.bundle.maxPlayers = 4;
-    draft.bundle.initialSnapshot = snapshot(initial);
-    updateScript(draft, "scripts/game.lua", FIRST_DEAL_LUA);
+  test("drives prompts and named timers through canonical actions", async () => {
+    const draft = createEmptyEditorDraft("surface-playtest", "2026-01-01T00:00:00.000Z");
+    const state = draft.bundle.initialSnapshot.state as CanonicalGameState;
+    state.entities.rules = {
+      id: "rules",
+      components: { script: { scriptId: "scripts/game.lua", bindingId: "rules", props: {} } },
+    };
+    state.entities.score = {
+      id: "score",
+      components: { counter: { value: 0, default: 0, min: 0, max: 20 } },
+    };
+    draft.bundle.refs = { score: "score" };
+    updateScript(draft, "scripts/game.lua", `
+function on_player_join(ctx)
+  ui:confirm(ctx.player, { id = "ready", title = "Ready?" })
+end
+function on_prompt(ctx)
+  if ctx.response then state.timer_id = timer:after(1, "award") end
+end
+function award(ctx)
+  refs.score:add(3)
+end
+`);
     rebuildDraftIntegrity(draft);
 
     const runtime = await PlaytestRuntime.create(compileDraftForPlaytest(draft), () => undefined);
-    const host = await DemoLuaHost.create("builtin_first_deal_1");
-    let expected = applyOrdered(initial, {
-      sequence: 1,
-      actionId: "expected-start",
-      actor: { type: "system" },
-      action: { type: "system.game_start", payload: { settings: initial.settings } },
-    }).state;
-    const actions = await host.callback({ beforeSequence: 1, callback: "on_start", actionSequences: [] }, expected);
-    for (const [index, action] of actions.entries()) {
-      expected = applyOrdered(expected, {
-        sequence: expected.sequence + 1,
-        actionId: `expected-script-${index}`,
-        actor: { type: "script", scriptId: "scripts/game.lua" },
-        action,
-      }).state;
-    }
-    expect(runtime.getState().entities.deck?.components.container?.items).toEqual(expected.entities.deck?.components.container?.items);
-    for (const handId of ["hand_seat_1", "hand_seat_2", "hand_seat_3"]) {
-      expect(runtime.getState().entities[handId]?.components.container?.items).toEqual(expected.entities[handId]?.components.container?.items);
-    }
+    expect(runtime.getState().prompts.ready?.status).toBe("open");
+    await runtime.dispatchInteraction("prompt.respond", { promptId: "ready", response: true });
+    expect(Object.values(runtime.getState().timers ?? {})[0]?.status).toBe("scheduled");
+    await runtime.tick();
+    expect(runtime.getState().entities.score?.components.counter?.value).toBe(3);
+    expect(Object.values(runtime.getState().timers ?? {})[0]?.status).toBe("fired");
     runtime.close();
-    host.close();
   }, 20_000);
 });

@@ -11,7 +11,9 @@
     "random",
     "timer",
     "ui",
-    "data"
+    "data",
+    "turns",
+    "scores"
   ],
   "proxies": [
     "Card",
@@ -28,32 +30,11 @@
   ],
   "entries": [
     {
-      "label": "button:set_enabled",
-      "signature": "button:set_enabled(enabled: boolean)",
-      "documentation": "Changes canonical enabled state.",
-      "kind": "method",
-      "owner": "Button"
-    },
-    {
-      "label": "button:set_label",
-      "signature": "button:set_label(label: string)",
-      "documentation": "Changes the semantic button label.",
-      "kind": "method",
-      "owner": "Button"
-    },
-    {
       "label": "Button.is_enabled",
       "signature": "boolean",
       "documentation": "Current canonical enabled state.",
       "kind": "field",
       "owner": "Button"
-    },
-    {
-      "label": "can_click",
-      "signature": "can_click(ctx)",
-      "documentation": "Read-only guard. Return allow/deny and optionally a user-facing reason.",
-      "kind": "guard",
-      "owner": "Guards"
     },
     {
       "label": "can_drop",
@@ -93,7 +74,7 @@
     {
       "label": "card:set_face_up",
       "signature": "card:set_face_up(value: boolean)",
-      "documentation": "Requests a particular face orientation. SPEC 04 does not define whether this becomes a conditional flip or a distinct subcommand.",
+      "documentation": "Queues a flip only when the requested orientation differs.",
       "kind": "method",
       "owner": "Card"
     },
@@ -135,7 +116,7 @@
     {
       "label": "container:list",
       "signature": "container:list()",
-      "documentation": "Returns proxies in canonical stored order.",
+      "documentation": "Returns proxies in ascending stable EntityId order.",
       "kind": "method",
       "owner": "Container"
     },
@@ -170,7 +151,7 @@
     {
       "label": "counter:reset",
       "signature": "counter:reset()",
-      "documentation": "Restores an authored initial value, but SPEC 04 does not define that value or its payload.",
+      "documentation": "Restores the canonical component default.",
       "kind": "method",
       "owner": "Counter"
     },
@@ -203,37 +184,9 @@
       "owner": "data"
     },
     {
-      "label": "deck:deal",
-      "signature": "deck:deal(target_or_targets, cards_each: number)",
-      "documentation": "Deals round-robin. SPEC 04.9 demonstrates one Player target at a time; Appendix C carries ordered targets. Insufficient cards reject the entire transaction.",
-      "kind": "method",
-      "owner": "Deck"
-    },
-    {
       "label": "deck:draw_to",
       "signature": "deck:draw_to(target: Container, count?: number)",
       "documentation": "Draws canonical top card identity/identities to a container. Optionality/default for count is not stated by SPEC 04.",
-      "kind": "method",
-      "owner": "Deck"
-    },
-    {
-      "label": "deck:draw_to_world",
-      "signature": "deck:draw_to_world(transform?: table)",
-      "documentation": "Extracts the canonical top card to the world at an optional canonical transform.",
-      "kind": "method",
-      "owner": "Deck"
-    },
-    {
-      "label": "deck:insert_bottom",
-      "signature": "deck:insert_bottom(entity: Entity)",
-      "documentation": "Inserts an entity at the canonical bottom.",
-      "kind": "method",
-      "owner": "Deck"
-    },
-    {
-      "label": "deck:insert_top",
-      "signature": "deck:insert_top(entity: Entity)",
-      "documentation": "Inserts an entity at the canonical top (the last item in v1).",
       "kind": "method",
       "owner": "Deck"
     },
@@ -255,13 +208,6 @@
       "label": "die:roll",
       "signature": "die:roll()",
       "documentation": "Uses kernel RNG to choose a valid face; animation cannot choose the result.",
-      "kind": "method",
-      "owner": "Die"
-    },
-    {
-      "label": "die:set_value",
-      "signature": "die:set_value(value: CanonicalValue)",
-      "documentation": "Script-only selection of an exactly matching valid face.",
       "kind": "method",
       "owner": "Die"
     },
@@ -303,7 +249,7 @@
     {
       "label": "hand:list",
       "signature": "hand:list()",
-      "documentation": "Returns contained proxies in canonical container order. This ordering follows the container's stored array; visual sorting is local unless canonicalOrder is enabled.",
+      "documentation": "Returns contained proxies in ascending stable EntityId order.",
       "kind": "method",
       "owner": "Hand"
     },
@@ -322,13 +268,6 @@
       "owner": "Hand"
     },
     {
-      "label": "on_click",
-      "signature": "on_click(ctx)",
-      "documentation": "The bound entity is clicked. No entity.click action exists in Appendix C, so canonical dispatch details are unspecified.",
-      "kind": "callback",
-      "owner": "Entity callbacks"
-    },
-    {
       "label": "on_container_add",
       "signature": "on_container_add(ctx)",
       "documentation": "An entity is added to the bound container.",
@@ -339,13 +278,6 @@
       "label": "on_container_remove",
       "signature": "on_container_remove(ctx)",
       "documentation": "An entity is removed from the bound container.",
-      "kind": "callback",
-      "owner": "Entity callbacks"
-    },
-    {
-      "label": "on_destroy",
-      "signature": "on_destroy(ctx)",
-      "documentation": "The bound entity is destroyed.",
       "kind": "callback",
       "owner": "Entity callbacks"
     },
@@ -385,23 +317,9 @@
       "owner": "Entity callbacks"
     },
     {
-      "label": "on_player_disconnect",
-      "signature": "on_player_disconnect(ctx)",
-      "documentation": "A canonical disconnect/departure transition.",
-      "kind": "callback",
-      "owner": "Game callbacks"
-    },
-    {
       "label": "on_player_join",
       "signature": "on_player_join(ctx)",
       "documentation": "A player lifecycle join.",
-      "kind": "callback",
-      "owner": "Game callbacks"
-    },
-    {
-      "label": "on_player_removed",
-      "signature": "on_player_removed(ctx)",
-      "documentation": "A kick or administrative removal.",
       "kind": "callback",
       "owner": "Game callbacks"
     },
@@ -427,32 +345,11 @@
       "owner": "Entity callbacks"
     },
     {
-      "label": "on_spawn",
-      "signature": "on_spawn(ctx)",
-      "documentation": "The bound entity is spawned.",
-      "kind": "callback",
-      "owner": "Entity callbacks"
-    },
-    {
       "label": "on_start",
       "signature": "on_start(ctx)",
       "documentation": "Canonical game initialization.",
       "kind": "callback",
       "owner": "Game callbacks"
-    },
-    {
-      "label": "player:message",
-      "signature": "player:message(value: string)",
-      "documentation": "Requests a player-facing message. Whether it is canonical, transient, or represented by an action is not defined.",
-      "kind": "method",
-      "owner": "Player"
-    },
-    {
-      "label": "Player.connected",
-      "signature": "boolean",
-      "documentation": "Current canonical connection/lifecycle view. Exact reconnect semantics are not defined in SPEC 04.",
-      "kind": "field",
-      "owner": "Player"
     },
     {
       "label": "Player.hand",
@@ -476,13 +373,6 @@
       "owner": "Player"
     },
     {
-      "label": "Player.role",
-      "signature": "Player.role: role value (shape unspecified)",
-      "documentation": "Canonical player role.",
-      "kind": "field",
-      "owner": "Player"
-    },
-    {
       "label": "Player.seat",
       "signature": "nil",
       "documentation": "Canonical seat assignment. SPEC 04.9 demonstrates player.seat.id.",
@@ -499,21 +389,21 @@
     {
       "label": "players:by_seat",
       "signature": "players:by_seat(seat_id)",
-      "documentation": "- Parameters: seat_id: SeatId. - Returns: the player assigned to that seat; the empty-seat result is not specified. - Determinism: canonical seat assignment lookup.",
+      "documentation": "- Parameters: seat_id: SeatId. - Returns: the player assigned to that seat, or nil. - Determinism: canonical seat assignment lookup.",
       "kind": "method",
       "owner": "players"
     },
     {
       "label": "players:count",
       "signature": "players:count()",
-      "documentation": "- Parameters: none. - Returns: the canonical player count as an integer. - Determinism: SPEC 04 does not say whether disconnected or logically departed players count; do not build a rule on that distinction until it is defined.",
+      "documentation": "- Parameters: none. - Returns: the canonical player count as an integer. - Determinism: counts records in canonical players state.",
       "kind": "method",
       "owner": "players"
     },
     {
       "label": "players:get",
       "signature": "players:get(id)",
-      "documentation": "- Parameters: id: PlayerId. - Returns: the matching Player proxy. Missing-ID behavior is not specified. - Determinism: stable identity lookup.",
+      "documentation": "- Parameters: id: PlayerId. - Returns: the matching Player proxy, or nil. - Determinism: stable identity lookup.",
       "kind": "method",
       "owner": "players"
     },
@@ -534,28 +424,28 @@
     {
       "label": "random:choice",
       "signature": "random:choice(list)",
-      "documentation": "- Parameters: list: table used as an ordered array. - Returns: one deterministic member. Empty-list behavior is not specified. - Determinism: selection depends on canonical RNG and the supplied array order. Never build the list from unordered table-key iteration.",
+      "documentation": "- Parameters: list: table used as an ordered array. - Returns: one deterministic member, or nil for an empty list. - Determinism: selection depends on canonical RNG and the supplied array order. Never build the list from unordered table-key iteration.",
       "kind": "method",
       "owner": "random"
     },
     {
       "label": "random:float",
       "signature": "random:float()",
-      "documentation": "- Parameters: none. - Returns: a deterministic finite number. SPEC 04 does not define the output interval or precision. - Determinism: consumes canonical RNG; callers must not assume unstated numeric bounds.",
+      "documentation": "- Parameters: none. - Returns: the canonical PRNG's deterministic finite value in [0,1). - Determinism: consumes canonical RNG; callers must not assume unstated numeric bounds.",
       "kind": "method",
       "owner": "random"
     },
     {
       "label": "random:int",
       "signature": "random:int(min, max)",
-      "documentation": "- Parameters: min: number, max: number. - Returns: a deterministic integer. Endpoint inclusivity and invalid-range behavior are not specified. - Determinism: consumes canonical RNG in a replayable way.",
+      "documentation": "- Parameters: min: number, max: number. - Returns: a deterministic integer in the inclusive [min,max] range. - Determinism: consumes canonical RNG in a replayable way.",
       "kind": "method",
       "owner": "random"
     },
     {
       "label": "random:shuffle",
       "signature": "random:shuffle(list)",
-      "documentation": "- Parameters: list: table used as an ordered array. - Returns: not specified; SPEC 04 does not say whether the input is mutated or a new list is returned. - Determinism: consumes canonical RNG. This list utility is distinct from Deck:shuffle(), which queues deck.shuffle and never accepts a caller-provided resulting order.",
+      "documentation": "- Parameters: list: table used as an ordered array. - Returns: a new shuffled array; the input is unchanged. - Determinism: consumes canonical RNG. This list utility is distinct from Deck:shuffle(), which queues deck.shuffle and never accepts a caller-provided resulting order.",
       "kind": "method",
       "owner": "random"
     },
@@ -574,39 +464,60 @@
       "owner": "scene"
     },
     {
-      "label": "scene:destroy",
-      "signature": "scene:destroy(entity)",
-      "documentation": "- Parameters: entity: Entity proxy. - Returns: not specified. - Determinism: queues entity.destroy. Destruction cleans memberships/references, never reuses the ID, and safely invalidates proxies.",
-      "kind": "method",
-      "owner": "scene"
-    },
-    {
       "label": "scene:find",
       "signature": "scene:find(name)",
-      "documentation": "- Parameters: name: string — authored entity name. - Returns: a matching entity proxy. Missing and duplicate-name behavior is not specified. - Determinism: because duplicate selection order is unstated, do not use this call for canonical choices unless names are unique by authored invariant. Prefer refs or stable IDs.",
+      "documentation": "- Parameters: name: string — authored entity name. - Returns: the first matching entity proxy in ascending EntityId order, or nil. - Determinism: duplicate names resolve by ascending stable EntityId. Prefer refs or stable IDs.",
       "kind": "method",
       "owner": "scene"
     },
     {
       "label": "scene:get",
       "signature": "scene:get(id)",
-      "documentation": "- Parameters: id: EntityId — stable entity identity. - Returns: the matching semantic entity proxy. The missing-ID result is not specified. - Determinism: identity lookup is canonical; it must not consult renderer objects.",
+      "documentation": "- Parameters: id: EntityId — stable entity identity. - Returns: the matching semantic entity proxy, or nil for a missing ID. - Determinism: identity lookup is canonical; it must not consult renderer objects.",
       "kind": "method",
       "owner": "scene"
     },
     {
       "label": "scene:query",
       "signature": "scene:query(filter)",
-      "documentation": "- Parameters: filter: table; SPEC 04 shows { tags = { \"enemy\", \"unit\" } } and defines no other keys. - Returns: an array of matching proxies. - Determinism: SPEC 04 recommends ascending stable EntityId order. Because the source says “recommended,” this ordering is not yet locked as a MUST; until stabilized, callers should not turn query position into gameplay meaning.",
+      "documentation": "- Parameters: filter: table; SPEC 04 shows { tags = { \"enemy\", \"unit\" } } and defines no other keys. - Returns: an array of matching proxies. - Determinism: results use ascending stable EntityId order.",
       "kind": "method",
       "owner": "scene"
     },
     {
-      "label": "scene:spawn",
-      "signature": "scene:spawn(prefab_id, options)",
-      "documentation": "- Parameters: prefab_id: PrefabId; options: table (shape not defined by SPEC 04). - Returns: not specified. - Determinism: queues entity.spawn. The resulting ID derives from canonical action identity plus spawn index; options that persist must be canonical-compatible.",
+      "label": "scores",
+      "signature": "scores",
+      "documentation": "Deterministic finite score convenience state stored under canonical state; ties use stable player ordering.",
+      "kind": "namespace",
+      "owner": "scores"
+    },
+    {
+      "label": "scores:add",
+      "signature": "scores:add(subject, amount)",
+      "documentation": "Adds to and returns a subject's score.",
       "kind": "method",
-      "owner": "scene"
+      "owner": "scores"
+    },
+    {
+      "label": "scores:get",
+      "signature": "scores:get(subject)",
+      "documentation": "Returns a subject's score, defaulting to zero.",
+      "kind": "method",
+      "owner": "scores"
+    },
+    {
+      "label": "scores:leader",
+      "signature": "scores:leader()",
+      "documentation": "Returns the highest-scoring player; stable player order breaks ties.",
+      "kind": "method",
+      "owner": "scores"
+    },
+    {
+      "label": "scores:set",
+      "signature": "scores:set(subject, value)",
+      "documentation": "Sets and returns a subject's score.",
+      "kind": "method",
+      "owner": "scores"
     },
     {
       "label": "settings",
@@ -623,16 +534,9 @@
       "owner": "SnapPoint"
     },
     {
-      "label": "snap_point:detach",
-      "signature": "snap_point:detach(entity: Entity)",
-      "documentation": "Removes an attachment.",
-      "kind": "method",
-      "owner": "SnapPoint"
-    },
-    {
       "label": "SnapPoint.entities",
       "signature": "SnapPoint.entities: ordered table of entity proxies",
-      "documentation": "Entities currently attached. SPEC 04 does not specify field order.",
+      "documentation": "Entities currently attached in ascending stable EntityId order.",
       "kind": "field",
       "owner": "SnapPoint"
     },
@@ -681,9 +585,58 @@
     {
       "label": "timer:cancel",
       "signature": "timer:cancel(timer_id)",
-      "documentation": "- Parameters: timer_id: TimerId. - Returns: not specified. - Determinism: cancels a reconstructable timer. Appendix C defines no timer-cancel action, so the canonical subcommand mapping is unmapped.",
+      "documentation": "- Parameters: timer_id: TimerId. - Returns: nil. - Determinism: queues timer.cancel; cancellation is canonical and a later system.timer_fire rejects.",
       "kind": "method",
       "owner": "timer"
+    },
+    {
+      "label": "turns",
+      "signature": "turns",
+      "documentation": "Deterministic turn convenience state stored under canonical state; this is Lua stdlib v1, not a kernel primitive.",
+      "kind": "namespace",
+      "owner": "turns"
+    },
+    {
+      "label": "turns:current",
+      "signature": "turns:current()",
+      "documentation": "Returns the current player or nil when stopped.",
+      "kind": "method",
+      "owner": "turns"
+    },
+    {
+      "label": "turns:index",
+      "signature": "turns:index()",
+      "documentation": "Returns the current one-based turn index, or zero before start.",
+      "kind": "method",
+      "owner": "turns"
+    },
+    {
+      "label": "turns:is_current",
+      "signature": "turns:is_current(player)",
+      "documentation": "Tests a player proxy or PlayerId against the current turn.",
+      "kind": "method",
+      "owner": "turns"
+    },
+    {
+      "label": "turns:next",
+      "signature": "turns:next()",
+      "documentation": "Advances cyclically and returns the next player.",
+      "kind": "method",
+      "owner": "turns"
+    },
+    {
+      "label": "turns:start",
+      "signature": "turns:start(first?)",
+      "documentation": "Starts the stable seat-order/player-ID order, optionally at a supplied player, and returns the current player.",
+      "kind": "method",
+      "owner": "turns"
+    },
+    {
+      "label": "turns:stop",
+      "signature": "turns:stop()",
+      "documentation": "Stops turn progression without discarding the stored order.",
+      "kind": "method",
+      "owner": "turns"
     },
     {
       "label": "ui",
@@ -695,21 +648,21 @@
     {
       "label": "ui:confirm",
       "signature": "ui:confirm(player, schema)",
-      "documentation": "- Parameters: player: Player; schema: { id: string, title: string, ... }. - Returns: not specified. - Behavior: creates a confirmation prompt. The exact response value is not specified.",
+      "documentation": "- Parameters: player: Player; schema: { id: string, title: string, ... }. - Returns: the canonical prompt ID. - Behavior: creates a confirmation prompt whose response is boolean.",
       "kind": "method",
       "owner": "ui"
     },
     {
       "label": "ui:number_prompt",
       "signature": "ui:number_prompt(player, schema)",
-      "documentation": "- Parameters: player: Player; schema: { id: string, min: number, max: number, step: number, default: number, ... }. - Returns: not specified. - Behavior: creates a bounded numeric prompt. SPEC 04 does not define validation details such as endpoint inclusivity or step rounding.",
+      "documentation": "- Parameters: player: Player; schema: { id: string, min: number, max: number, step: number, default: number, ... }. - Returns: the canonical prompt ID. - Behavior: creates a numeric prompt with inclusive endpoints and exact min + n step validation.",
       "kind": "method",
       "owner": "ui"
     },
     {
       "label": "ui:prompt",
       "signature": "ui:prompt(player, schema)",
-      "documentation": "- Parameters: player: Player; schema: { id: string, title: string, choices: table, ... }. - Returns: not specified. - Behavior: creates a choice prompt. Beyond the shown id, title, and choices, the schema is not defined in SPEC 04.",
+      "documentation": "- Parameters: player: Player; schema: { id: string, title: string, choices: table, ... }. - Returns: the canonical prompt ID. - Behavior: creates a choice prompt. Beyond the shown id, title, and choices, the schema is not defined in SPEC 04.",
       "kind": "method",
       "owner": "ui"
     },
@@ -723,7 +676,7 @@
     {
       "label": "Zone.entities",
       "signature": "Zone.entities: ordered table of entity proxies",
-      "documentation": "Current members. SPEC 04 does not specify this field's order; do not derive gameplay priority from its position.",
+      "documentation": "Current members in ascending stable EntityId order.",
       "kind": "field",
       "owner": "Zone"
     }

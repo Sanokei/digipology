@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  effectiveLuaStdlibVersion,
   rawContentHash,
   releaseManifestHash,
   validateCreateAiGameRequest,
@@ -231,5 +232,22 @@ describe("HTTP v1 request validators", () => {
     expect(failed).toContain("kernel_load");
     expect(failed).toContain("version_pins");
     expect(failed).toContain("player_limits");
+  });
+
+  test("pins Lua stdlib v1 additively and defaults legacy bundles", () => {
+    const legacy = validBundle();
+    expect(effectiveLuaStdlibVersion(legacy)).toBe(1);
+    expect(validateReleaseBundle(legacy, VALIDATION).every((item) => item.ok)).toBe(true);
+
+    const current = validBundle();
+    current.luaStdlibVersion = 1;
+    current.refs = { main_deck: "deck_01" };
+    current.integrity.manifestHash = releaseManifestHash(current, fakeHash);
+    expect(effectiveLuaStdlibVersion(current)).toBe(1);
+    expect(validateReleaseBundle(current, VALIDATION).every((item) => item.ok)).toBe(true);
+
+    const badRefs = structuredClone(current) as unknown as Record<string, unknown>;
+    badRefs.refs = { "not-safe!": "deck_01" };
+    expect(validateReleaseBundle(badRefs, VALIDATION).find((item) => item.check === "bundle_shape")?.ok).toBe(false);
   });
 });

@@ -22,6 +22,8 @@ import type {
   JsonValue,
   LockableComponent,
   PlayerRecord,
+  PromptKind,
+  PromptRecord,
   Reject,
   Settings,
   SnapPointComponent,
@@ -30,6 +32,7 @@ import type {
   StackableComponent,
   TagsComponent,
   TextComponent,
+  TimerRecord,
   TransformComponent,
   ValidationResult,
   ZoneComponent,
@@ -40,6 +43,18 @@ const hasOwn = Object.prototype.hasOwnProperty;
 
 function reject(reason: string): Reject {
   return { reason };
+}
+
+function guardResult(
+  decision: boolean | { allowed: boolean; reason?: string },
+  fallback: string,
+): ValidationResult {
+  if (decision === true || (typeof decision === "object" && decision.allowed)) return OK;
+  return reject(
+    typeof decision === "object" && typeof decision.reason === "string"
+      ? decision.reason
+      : fallback,
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -815,7 +830,7 @@ const entityGrab: ActionDefinition<unknown> = {
   type: "entity.grab",
   version: 1,
   sources: ["player"],
-  validate(state, action) {
+  validate(state, action, context) {
     const payload = entityPayload(action);
     if (isReject(payload)) return payload;
     const grabbable = requireComponent<GrabbableComponent>(
@@ -832,6 +847,12 @@ const entityGrab: ActionDefinition<unknown> = {
     if (lockable?.locked === true) return reject("Entity is locked");
     const placement = canLeaveCurrentPlacement(state, payload.entityId);
     if (isReject(placement)) return placement;
+    if (context !== undefined) {
+      return guardResult(
+        context.canGrab(state, action, payload.entityId),
+        "Entity grab denied by can_grab guard",
+      );
+    }
     return OK;
   },
   apply(draft, action, ctx) {
@@ -850,7 +871,7 @@ const entityDrop: ActionDefinition<unknown> = {
   type: "entity.drop",
   version: 1,
   sources: ["player"],
-  validate(state, action) {
+  validate(state, action, context) {
     if (
       !isRecord(action.payload) ||
       !onlyKeys(action.payload, ["entityId", "transform"]) ||
@@ -869,7 +890,13 @@ const entityDrop: ActionDefinition<unknown> = {
     const placement = canLeaveCurrentPlacement(state, action.payload.entityId);
     if (isReject(placement)) return placement;
     const problem = transformProblem(action.payload.transform);
-    return problem === undefined ? OK : reject(`Invalid transform: ${problem}`);
+    if (problem !== undefined) return reject(`Invalid transform: ${problem}`);
+    return context === undefined || action.actor.type !== "player"
+      ? OK
+      : guardResult(
+          context.canDrop(state, action, action.payload.entityId),
+          "Entity drop denied by can_drop guard",
+        );
   },
   apply(draft, action, ctx) {
     const payload = action.payload as {
@@ -907,7 +934,7 @@ const entityFlip: ActionDefinition<unknown> = {
   type: "entity.flip",
   version: 1,
   sources: ["player", "script"],
-  validate(state, action) {
+  validate(state, action, context) {
     const payload = entityPayload(action);
     if (isReject(payload)) return payload;
     const flippable = requireComponent<FlippableComponent>(
@@ -915,7 +942,13 @@ const entityFlip: ActionDefinition<unknown> = {
       payload.entityId,
       "flippable",
     );
-    return isReject(flippable) ? flippable : OK;
+    if (isReject(flippable)) return flippable;
+    return context === undefined || action.actor.type !== "player"
+      ? OK
+      : guardResult(
+          context.canFlip(state, action, payload.entityId),
+          "Entity flip denied by can_flip guard",
+        );
   },
   apply(draft, action, ctx) {
     const { entityId } = action.payload as { entityId: string };
@@ -1060,10 +1093,12 @@ const buttonPress: ActionDefinition<unknown> = {
     );
     if (isReject(button)) return button;
     if (!button.enabled) return reject("Button is disabled");
-    if (context !== undefined && !context.canPress(state, action, payload.entityId)) {
-      return reject("Button press denied by can_press guard");
-    }
-    return OK;
+    return context === undefined
+      ? OK
+      : guardResult(
+          context.canPress(state, action, payload.entityId),
+          "Button press denied by can_press guard",
+        );
   },
   apply(_draft, action, ctx) {
     const { entityId } = action.payload as { entityId: EntityId };
@@ -1561,6 +1596,215 @@ const counterAdd: ActionDefinition<unknown> = {
   },
 };
 
+function promptCreatePayload(value: unknown):
+  | Omit<PromptRecord, "status" | "response">
+  | Reject {
+  if (
+    !isRecord(value) ||
+    !onlyKeys(value, ["id", "kind", "playerId", "title", "choices", "min", "max", "step", "default"]) ||
+    typeof value.id !== "string" || value.id.length === 0 ||
+    !["choice", "confirm", "number"].includes(String(value.kind)) ||
+    typeof value.playerId !== "string" || value.playerId.length === 0 ||
+    typeof value.title !== "string"
+  ) {
+    return reject("Prompt requires id, kind, playerId, and title");
+  }
+  const kind = value.kind as PromptKind;
+  if (kind === "choice") {
+    if (!Array.isArray(value.choices) || value.choices.length === 0) {
+      return reject("Choice prompt requires non-empty choices");
+    }
+    for (const choice of value.choices) canonicalStringify(choice);
+    if (hasOwn.call(value, "default") && !value.choices.some(
+      (choice) => canonicalStringify(choice) === canonicalStringify(value.default),
+    )) return reject("Prompt default must be one of choices");
+  } else if (kind === "number") {
+    if (
+      typeof value.min !== "number" || !Number.isFinite(value.min) ||
+      typeof value.max !== "number" || !Number.isFinite(value.max) ||
+      typeof value.step !== "number" || !Number.isFinite(value.step) || value.step <= 0 ||
+      value.min > value.max
+    ) return reject("Number prompt requires finite min, max, and positive step");
+    if (hasOwn.call(value, "default")) {
+      if (typeof value.default !== "number" || !validPromptNumber(value.default, value.min, value.max, value.step)) {
+        return reject("Number prompt default violates its range or step");
+      }
+    }
+  } else if (hasOwn.call(value, "default") && typeof value.default !== "boolean") {
+    return reject("Confirm prompt default must be boolean");
+  }
+  return cloneCanonical(value) as unknown as Omit<PromptRecord, "status" | "response">;
+}
+
+function validPromptNumber(value: number, min: number, max: number, step: number): boolean {
+  return Number.isFinite(value) && value >= min && value <= max && Number.isInteger((value - min) / step);
+}
+
+const promptCreate: ActionDefinition<unknown> = {
+  type: "prompt.create",
+  version: 1,
+  sources: ["script"],
+  validate(state, action) {
+    const payload = promptCreatePayload(action.payload);
+    if (isReject(payload)) return payload;
+    if (!hasOwn.call(state.players, payload.playerId)) return reject(`Unknown player: ${payload.playerId}`);
+    return hasOwn.call(state.prompts, payload.id) ? reject(`Prompt already exists: ${payload.id}`) : OK;
+  },
+  apply(draft, action, ctx) {
+    const payload = promptCreatePayload(action.payload);
+    if (isReject(payload)) throw new Error("Validated prompt disappeared");
+    const prompt = { ...payload, status: "open" as const } as PromptRecord;
+    draft.prompts[prompt.id] = prompt;
+    ctx.emit("prompt.created", cloneCanonical(prompt) as unknown as { [key: string]: JsonValue });
+  },
+};
+
+const promptRespond: ActionDefinition<unknown> = {
+  type: "prompt.respond",
+  version: 1,
+  sources: ["player"],
+  validate(state, action) {
+    if (!isRecord(action.payload) || !onlyKeys(action.payload, ["promptId", "response"]) ||
+      typeof action.payload.promptId !== "string" || !hasOwn.call(action.payload, "response")) {
+      return reject("Payload requires promptId and response");
+    }
+    const prompt = state.prompts[action.payload.promptId];
+    if (prompt === undefined) return reject(`Unknown prompt: ${action.payload.promptId}`);
+    if (prompt.status !== "open") return reject("Prompt is already resolved");
+    if (action.actor.type !== "player" || action.actor.playerId !== prompt.playerId) {
+      return reject("Only the prompted player may respond");
+    }
+    const response = action.payload.response;
+    canonicalStringify(response);
+    if (prompt.kind === "confirm" && typeof response !== "boolean") return reject("Confirm response must be boolean");
+    if (prompt.kind === "choice" && !(prompt.choices ?? []).some(
+      (choice) => canonicalStringify(choice) === canonicalStringify(response),
+    )) return reject("Response must be one of the prompt choices");
+    if (prompt.kind === "number" && (
+      typeof response !== "number" || prompt.min === undefined || prompt.max === undefined ||
+      prompt.step === undefined || !validPromptNumber(response, prompt.min, prompt.max, prompt.step)
+    )) return reject("Number response violates the prompt range or step");
+    return OK;
+  },
+  apply(draft, action, ctx) {
+    const payload = action.payload as { promptId: string; response: JsonValue };
+    const prompt = draft.prompts[payload.promptId];
+    if (prompt === undefined) throw new Error("Validated prompt disappeared");
+    prompt.status = "resolved";
+    prompt.response = cloneCanonical(payload.response);
+    ctx.emit("prompt.responded", {
+      promptId: prompt.id,
+      playerId: prompt.playerId,
+      response: cloneCanonical(payload.response),
+    });
+  },
+};
+
+const promptCancel: ActionDefinition<unknown> = {
+  type: "prompt.cancel",
+  version: 1,
+  sources: ["script", "system"],
+  validate(state, action) {
+    if (!isRecord(action.payload) || !onlyKeys(action.payload, ["promptId"]) || typeof action.payload.promptId !== "string") {
+      return reject("Payload requires only promptId");
+    }
+    const prompt = state.prompts[action.payload.promptId];
+    if (prompt === undefined) return reject(`Unknown prompt: ${action.payload.promptId}`);
+    return prompt.status === "open" ? OK : reject("Prompt is already resolved");
+  },
+  apply(draft, action, ctx) {
+    const { promptId } = action.payload as { promptId: string };
+    const prompt = draft.prompts[promptId];
+    if (prompt === undefined) throw new Error("Validated prompt disappeared");
+    prompt.status = "canceled";
+    ctx.emit("prompt.canceled", { promptId, playerId: prompt.playerId });
+  },
+};
+
+type TimerRegistration = Omit<TimerRecord, "id" | "status"> & { timerId: string };
+
+function timerPayload(value: unknown): TimerRegistration | Reject {
+  if (!isRecord(value) || !onlyKeys(value, ["timerId", "delay", "callback", "scriptId", "bindingId", "entityId"]) ||
+    typeof value.timerId !== "string" || value.timerId.length === 0 ||
+    typeof value.delay !== "number" || !Number.isFinite(value.delay) || value.delay <= 0 ||
+    typeof value.callback !== "string" || value.callback.length === 0 ||
+    typeof value.scriptId !== "string" || value.scriptId.length === 0 ||
+    typeof value.bindingId !== "string" || value.bindingId.length === 0 ||
+    (value.entityId !== undefined && typeof value.entityId !== "string")) {
+    return reject("Timer requires timerId, positive delay, callback, scriptId, and bindingId");
+  }
+  return cloneCanonical(value) as unknown as TimerRegistration;
+}
+
+const timerRegister: ActionDefinition<unknown> = {
+  type: "timer.register",
+  version: 1,
+  sources: ["script"],
+  validate(state, action) {
+    const payload = timerPayload(action.payload);
+    if (isReject(payload)) return payload;
+    return state.timers?.[payload.timerId] === undefined
+      ? OK : reject(`Timer already exists: ${payload.timerId}`);
+  },
+  apply(draft, action, ctx) {
+    const payload = timerPayload(action.payload);
+    if (isReject(payload)) throw new Error("Validated timer disappeared");
+    const { timerId, ...registration } = payload;
+    const timer: TimerRecord = { ...registration, id: timerId, status: "scheduled" };
+    if (draft.timers === undefined) draft.timers = {};
+    draft.timers[timerId] = timer;
+    ctx.emit("timer.registered", { timerId, delay: timer.delay });
+  },
+};
+
+const timerCancel: ActionDefinition<unknown> = {
+  type: "timer.cancel",
+  version: 1,
+  sources: ["script"],
+  validate(state, action) {
+    if (!isRecord(action.payload) || !onlyKeys(action.payload, ["timerId"]) || typeof action.payload.timerId !== "string") {
+      return reject("Payload requires only timerId");
+    }
+    const timer = state.timers?.[action.payload.timerId];
+    if (timer === undefined) return reject(`Unknown timer: ${action.payload.timerId}`);
+    return timer.status === "scheduled" ? OK : reject("Timer is not scheduled");
+  },
+  apply(draft, action, ctx) {
+    const { timerId } = action.payload as { timerId: string };
+    const timer = draft.timers?.[timerId];
+    if (timer === undefined) throw new Error("Validated timer disappeared");
+    timer.status = "canceled";
+    ctx.emit("timer.canceled", { timerId });
+  },
+};
+
+const timerFire: ActionDefinition<unknown> = {
+  type: "system.timer_fire",
+  version: 1,
+  sources: ["system"],
+  validate(state, action) {
+    if (!isRecord(action.payload) || !onlyKeys(action.payload, ["timerId"]) || typeof action.payload.timerId !== "string") {
+      return reject("Payload requires only timerId");
+    }
+    const timer = state.timers?.[action.payload.timerId];
+    if (timer === undefined) return reject(`Unknown timer: ${action.payload.timerId}`);
+    return timer.status === "scheduled" ? OK : reject("Timer has already fired or was canceled");
+  },
+  apply(draft, action, ctx) {
+    const { timerId } = action.payload as { timerId: string };
+    const timer = draft.timers?.[timerId];
+    if (timer === undefined) throw new Error("Validated timer disappeared");
+    timer.status = "fired";
+    ctx.emit("timer.fired", {
+      timerId,
+      callback: timer.callback,
+      scriptId: timer.scriptId,
+      bindingId: timer.bindingId,
+      ...(timer.entityId === undefined ? {} : { entityId: timer.entityId }),
+    });
+  },
+};
+
 export const builtInActions: ReadonlyArray<ActionDefinition<unknown>> = [
   gameStart,
   playerJoined,
@@ -1585,6 +1829,12 @@ export const builtInActions: ReadonlyArray<ActionDefinition<unknown>> = [
   buttonPress,
   textSet,
   snapAttach,
+  promptCreate,
+  promptRespond,
+  promptCancel,
+  timerRegister,
+  timerCancel,
+  timerFire,
 ];
 
 /** Add a new entity using the current action's deterministic allocation stream. */

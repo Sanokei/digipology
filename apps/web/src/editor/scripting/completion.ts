@@ -22,13 +22,6 @@ export function manifestCompletionOptions(manifest: LuaApiManifest, prefix = "")
       apply: `function ${entry.label}(ctx)${denied}\nend`,
     });
   }
-  options.push({
-    label: "timer_callback",
-    type: "snippet",
-    detail: "Named timer callback skeleton",
-    info: "Named callbacks survive sandbox reconstruction.",
-    apply: "function timer_callback(ctx)\n    \nend",
-  });
   return options;
 }
 

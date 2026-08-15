@@ -196,6 +196,8 @@ export interface ReleaseBundleDto {
   releaseNumber: number;
   kernelVersion: 1;
   luaApiVersion: 1;
+  /** Missing on pre-v1-stdlib bundles and interpreted as version 1. */
+  luaStdlibVersion?: 1;
   networkProtocolVersion: 1;
   interactionMode: "sandbox" | "scripted";
   minPlayers: number;
@@ -205,6 +207,8 @@ export interface ReleaseBundleDto {
   initialSnapshot: GameSnapshotDto;
   title?: string;
   definitions?: Record<string, { label?: string; color?: string }>;
+  /** Stable editor-authored names mapped to immutable entity IDs. */
+  refs?: Record<string, string>;
 }
 
 export type ReleaseBundle = ReleaseBundleDto;
@@ -632,7 +636,7 @@ export function validateReleaseBundle(
   report.push(check("kernel_load", loadOk, loadDetail ?? (bundle === null ? "bundle shape is invalid" : undefined)));
 
   const versionsOk = bundle !== null && bundle.formatVersion === 1 && bundle.kernelVersion === 1 &&
-    bundle.luaApiVersion === 1 && bundle.networkProtocolVersion === 1 &&
+    bundle.luaApiVersion === 1 && (bundle.luaStdlibVersion === undefined || bundle.luaStdlibVersion === 1) && bundle.networkProtocolVersion === 1 &&
     bundle.initialSnapshot.formatVersion === 1 && bundle.initialSnapshot.kernelVersion === 1;
   report.push(check("version_pins", versionsOk, versionsOk ? undefined : "all format, kernel, Lua API, and network versions must be 1"));
 
@@ -653,8 +657,8 @@ function releaseBundleShape(value: unknown):
   | { ok: false; detail: string } {
   const top = strictRecord(value, [
     "formatVersion", "gameId", "releaseId", "releaseNumber", "kernelVersion",
-    "luaApiVersion", "networkProtocolVersion", "interactionMode", "minPlayers",
-    "maxPlayers", "files", "integrity", "initialSnapshot", "title", "definitions",
+    "luaApiVersion", "luaStdlibVersion", "networkProtocolVersion", "interactionMode", "minPlayers",
+    "maxPlayers", "files", "integrity", "initialSnapshot", "title", "definitions", "refs",
   ]);
   if (!top.ok) return top;
   const object = top.value;
@@ -669,6 +673,9 @@ function releaseBundleShape(value: unknown):
   }
   for (const field of ["formatVersion", "kernelVersion", "luaApiVersion", "networkProtocolVersion"] as const) {
     if (!Number.isSafeInteger(object[field])) return shapeInvalid(`${field} must be an integer`);
+  }
+  if (object.luaStdlibVersion !== undefined && !Number.isSafeInteger(object.luaStdlibVersion)) {
+    return shapeInvalid("luaStdlibVersion must be an integer");
   }
   if (!Number.isSafeInteger(object.minPlayers) || !Number.isSafeInteger(object.maxPlayers)) {
     return shapeInvalid("minPlayers and maxPlayers must be integers");
@@ -729,6 +736,9 @@ function releaseBundleShape(value: unknown):
   if (object.definitions !== undefined && !validDefinitions(object.definitions)) {
     return shapeInvalid("definitions must map IDs to optional label/color strings");
   }
+  if (object.refs !== undefined && !validRefs(object.refs)) {
+    return shapeInvalid("refs must map safe names to non-empty entity IDs");
+  }
   return {
     ok: true,
     value: {
@@ -738,6 +748,7 @@ function releaseBundleShape(value: unknown):
       releaseNumber: object.releaseNumber as number,
       kernelVersion: object.kernelVersion as 1,
       luaApiVersion: object.luaApiVersion as 1,
+      ...(object.luaStdlibVersion === undefined ? {} : { luaStdlibVersion: object.luaStdlibVersion as 1 }),
       networkProtocolVersion: object.networkProtocolVersion as 1,
       interactionMode: object.interactionMode,
       minPlayers: object.minPlayers as number,
@@ -749,6 +760,7 @@ function releaseBundleShape(value: unknown):
       ...(object.definitions === undefined ? {} : {
         definitions: object.definitions as Record<string, { label?: string; color?: string }>,
       }),
+      ...(object.refs === undefined ? {} : { refs: object.refs as Record<string, string> }),
     },
   };
 }
@@ -761,12 +773,18 @@ function manifestHashInput(bundle: ReleaseBundleDto): JsonObject {
     releaseNumber: bundle.releaseNumber,
     kernelVersion: bundle.kernelVersion,
     luaApiVersion: bundle.luaApiVersion,
+    ...(bundle.luaStdlibVersion === undefined ? {} : { luaStdlibVersion: bundle.luaStdlibVersion }),
     networkProtocolVersion: bundle.networkProtocolVersion,
     interactionMode: bundle.interactionMode,
     minPlayers: bundle.minPlayers,
     maxPlayers: bundle.maxPlayers,
     files: bundle.files.map(({ path, contentHash, byteLength }) => ({ path, contentHash, byteLength })),
+    ...(bundle.refs === undefined ? {} : { refs: bundle.refs }),
   };
+}
+
+export function effectiveLuaStdlibVersion(bundle: Pick<ReleaseBundleDto, "luaStdlibVersion">): 1 {
+  return bundle.luaStdlibVersion ?? 1;
 }
 
 export function releaseManifestHash(
@@ -841,6 +859,14 @@ function validDefinitions(value: unknown): boolean {
     if (!record.ok) return false;
     if (record.value.label !== undefined && typeof record.value.label !== "string") return false;
     if (record.value.color !== undefined && typeof record.value.color !== "string") return false;
+  }
+  return true;
+}
+
+function validRefs(value: unknown): boolean {
+  if (!isJsonObject(value)) return false;
+  for (const [name, entityId] of Object.entries(value)) {
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name) || typeof entityId !== "string" || entityId.length === 0) return false;
   }
   return true;
 }

@@ -8,6 +8,7 @@ export type SeatId = string;
 export type EntityId = string;
 export type StackId = string;
 export type PromptId = string;
+export type TimerId = string;
 
 export type Settings = Record<string, boolean | number | string>;
 
@@ -21,9 +22,37 @@ export interface SeatRecord {
   [key: string]: JsonValue;
 }
 
+export type PromptKind = "choice" | "confirm" | "number";
+export type PromptStatus = "open" | "resolved" | "canceled";
+
 export interface PromptRecord {
   id: PromptId;
-  [key: string]: JsonValue;
+  kind: PromptKind;
+  playerId: PlayerId;
+  title: string;
+  status: PromptStatus;
+  choices?: JsonValue[];
+  min?: number;
+  max?: number;
+  step?: number;
+  default?: JsonValue;
+  response?: JsonValue;
+}
+
+export interface TimerRecord {
+  id: TimerId;
+  delay: number;
+  callback: string;
+  scriptId: string;
+  bindingId: string;
+  entityId?: EntityId;
+  status: "scheduled" | "fired" | "canceled";
+}
+
+export interface ScriptBindingComponent {
+  scriptId: string;
+  bindingId: string;
+  props: { [key: string]: JsonValue };
 }
 
 export interface Vector3 {
@@ -145,6 +174,7 @@ export interface EntityComponents {
   "snap-point"?: SnapPointComponent;
   text?: TextComponent;
   button?: ButtonComponent;
+  script?: ScriptBindingComponent;
   [componentType: string]: unknown;
 }
 
@@ -173,6 +203,8 @@ export interface CanonicalGameState {
   stacks?: Record<StackId, StackRecord>;
   scriptState: JsonValue;
   prompts: Record<PromptId, PromptRecord>;
+  /** Optional for schema-v1 compatibility; created lazily by timer actions. */
+  timers?: Record<TimerId, TimerRecord>;
 }
 
 export type ActionSource = "player" | "script" | "system";
@@ -243,14 +275,74 @@ export type DeepReadonly<T> = T extends JsonPrimitive
       ? { readonly [Key in keyof T]: DeepReadonly<T[Key]> }
       : T;
 
-export type CanPressGuard = (
+export interface GuardDecision {
+  allowed: boolean;
+  reason?: string;
+}
+
+export type ActionGuard = (
   state: DeepReadonly<CanonicalGameState>,
   action: DeepReadonly<ActionInstance<unknown>>,
   entityId: EntityId,
-) => boolean;
+) => boolean | GuardDecision;
+
+export type CanPressGuard = ActionGuard;
 
 export interface ActionValidationContext {
+  readonly canGrab: ActionGuard;
+  readonly canDrop: ActionGuard;
+  readonly canFlip: ActionGuard;
   readonly canPress: CanPressGuard;
+}
+
+export interface ScriptBinding {
+  readonly scriptId: string;
+  readonly bindingId: string;
+  readonly props: { readonly [key: string]: JsonValue };
+  readonly entityId?: EntityId;
+}
+
+export interface ScriptDiagnostic {
+  readonly kind: string;
+  readonly message: string;
+  readonly line?: number;
+}
+
+export interface ScriptInvocationResult {
+  readonly ok: boolean;
+  readonly handled?: boolean;
+  readonly scriptState?: JsonValue;
+  readonly allowed?: boolean;
+  readonly reason?: string;
+  readonly error?: ScriptDiagnostic;
+}
+
+export interface ScriptRuntimeBridge {
+  queue(action: ActionInput<JsonValue>): void;
+  randomInt(min: number, max: number): number;
+  randomFloat(): number;
+  allocateTimerId(): TimerId;
+}
+
+export interface ScriptInvocation {
+  readonly state: DeepReadonly<CanonicalGameState>;
+  readonly scriptState: JsonValue;
+  readonly binding: ScriptBinding;
+  readonly functionName: string;
+  readonly context: { readonly [key: string]: JsonValue };
+  readonly readOnly: boolean;
+  readonly bridge: ScriptRuntimeBridge;
+}
+
+/** Host-injected Lua implementation. The kernel never imports a Lua engine. */
+export interface ScriptRuntime {
+  bindings(state: DeepReadonly<CanonicalGameState>): readonly ScriptBinding[];
+  invoke(request: ScriptInvocation): Promise<ScriptInvocationResult>;
+}
+
+export interface ScriptTransactionOptions {
+  readonly runtime: ScriptRuntime;
+  readonly maxCommands?: number;
 }
 
 export interface ActionDefinition<P = unknown> {
@@ -291,8 +383,14 @@ export interface ComponentDefinition {
 }
 
 export interface ActionRegistryOptions {
+  canGrab?: ActionGuard;
+  canDrop?: ActionGuard;
+  canFlip?: ActionGuard;
   /** JavaScript-facing spelling. */
   canPress?: CanPressGuard;
+  can_grab?: ActionGuard;
+  can_drop?: ActionGuard;
+  can_flip?: ActionGuard;
   /** Lua guard spelling retained for the wave-9 binding surface. */
   can_press?: CanPressGuard;
 }

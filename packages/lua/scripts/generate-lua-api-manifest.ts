@@ -8,7 +8,7 @@ const outputPath = resolve(here, "../src/luaApiManifest.json");
 const source = readFileSync(docsPath, "utf8").replaceAll("\r\n", "\n");
 
 const namespaceNames = [
-  "state", "refs", "settings", "game", "scene", "players", "random", "timer", "ui", "data",
+  "state", "refs", "settings", "game", "scene", "players", "random", "timer", "ui", "data", "turns", "scores",
 ] as const;
 const proxyNames = [
   "Card", "Deck", "Hand", "Container", "Die", "Counter", "Zone", "SnapPoint", "Button", "Text", "Player",

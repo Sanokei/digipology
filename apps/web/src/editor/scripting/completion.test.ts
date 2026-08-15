@@ -16,8 +16,8 @@ describe("manifest-driven Lua completion", () => {
         { label: "alpha:beta()", signature: "alpha:beta()", documentation: "B", kind: "method", owner: "alpha" },
       ],
     };
-    expect(manifestCompletionOptions(manifest).map((item) => item.label)).toEqual(["alpha", "alpha:beta()", "timer_callback"]);
-    expect(manifestCompletionOptions(manifest, "alpha:").map((item) => item.label)).toEqual(["alpha:beta()", "timer_callback"]);
+    expect(manifestCompletionOptions(manifest).map((item) => item.label)).toEqual(["alpha", "alpha:beta()"]);
+    expect(manifestCompletionOptions(manifest, "alpha:").map((item) => item.label)).toEqual(["alpha:beta()"]);
   });
 
   test("the extension source contains no copied real API entries", () => {

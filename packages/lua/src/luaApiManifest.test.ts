@@ -12,10 +12,11 @@ describe("generated Lua API manifest", () => {
       expect(luaApiManifest.entries.some((entry) => entry.signature === heading)).toBe(true);
     }
     expect(luaApiManifest.namespaces).toEqual([
-      "state", "refs", "settings", "game", "scene", "players", "random", "timer", "ui", "data",
+      "state", "refs", "settings", "game", "scene", "players", "random", "timer", "ui", "data", "turns", "scores",
     ]);
     expect(luaApiManifest.proxies).toContain("SnapPoint");
-    expect(luaApiManifest.entries.some((entry) => entry.label === "on_player_disconnect")).toBe(true);
+    expect(luaApiManifest.entries.some((entry) => entry.label === "on_player_disconnect")).toBe(false);
+    expect(luaApiManifest.entries.some((entry) => entry.label === "turns:start")).toBe(true);
     expect(luaApiManifest.entries.some((entry) => entry.label === "can_press")).toBe(true);
   });
 });

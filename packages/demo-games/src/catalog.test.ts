@@ -173,6 +173,9 @@ describe("merged action and Lua surfaces", () => {
       "entity.grab",
       "entity.move",
       "entity.set_locked",
+      "prompt.cancel",
+      "prompt.create",
+      "prompt.respond",
       "snap.attach",
       "stack.add",
       "stack.create",
@@ -183,7 +186,10 @@ describe("merged action and Lua surfaces", () => {
       "system.player_joined",
       "system.player_left",
       "system.seat_assign",
+      "system.timer_fire",
       "text.set",
+      "timer.cancel",
+      "timer.register",
     ]));
     for (const type of used) expect(registered.has(type)).toBe(true);
   });
