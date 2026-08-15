@@ -5,9 +5,9 @@ import { builtinCatalog, gameSummary, releaseSummary } from "./catalog";
 import { createBuiltinInitialState } from "./initial-state";
 
 describe("built-in game catalog", () => {
-  test("lists both demo games and resolves their slugs and immutable release IDs", () => {
+  test("lists all three demo games and resolves their slugs and immutable release IDs", () => {
     const games = builtinCatalog.listGames();
-    expect(games.map((game) => game.slug)).toEqual(["first-deal", "dice-dash"]);
+    expect(games.map((game) => game.slug)).toEqual(["first-deal", "dice-dash", "zone-runner"]);
 
     for (const game of games) {
       const bySlug = builtinCatalog.resolveRelease(game.slug);
@@ -29,6 +29,7 @@ describe("built-in game catalog", () => {
       "first-deal-replay-v1",
       "dice-dash-replay-v1",
       "dice-dash-replay-v2",
+      "zone-runner-replay-v1",
     ]) {
       const fixture = await Bun.file(
         new URL(`../../../packages/demo-games/fixtures/${name}.json`, import.meta.url),
@@ -65,6 +66,17 @@ describe("built-in game catalog", () => {
     });
   });
 
+  test("builds Zone Runner hands, zones, snap slots, and script bindings for a live roster", () => {
+    const state = createBuiltinInitialState("builtin_zone_runner_1", [
+      { playerId: "player_host", displayName: "Host" },
+      { playerId: "player_guest", displayName: "Guest" },
+    ])!;
+    expect(state.entities.hand_seat_1?.components.container?.visibility).toBe("owner:seat_1");
+    expect(state.entities.scoring_zone?.components.zone?.acceptedTags).toEqual(["runner"]);
+    expect(state.entities.slot_1?.components["snap-point"]).toMatchObject({ capacity: 1, tags: ["runner"] });
+    expect(state.entities.rules?.components.script?.scriptId).toBe("scripts/game.lua");
+  });
+
   test("keeps v1 resolvable while new Dice Dash rooms pin v2", () => {
     expect(builtinCatalog.getGame("dice-dash")?.latestReleaseId).toBe("builtin_dice_dash_2");
     expect(builtinCatalog.getRelease("builtin_dice_dash_1")?.releaseId).toBe(
@@ -87,7 +99,7 @@ describe("built-in game catalog", () => {
       builtin: true,
       currentPlayers: 0,
       totalPlays: 0,
-      coverVersion: 2,
+      coverVersion: 3,
     });
     expect(releaseSummary(release)).toEqual({
       releaseId: "builtin_first_deal_1",

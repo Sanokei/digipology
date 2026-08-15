@@ -226,10 +226,10 @@ export class RoomDO extends DurableObject<Env> {
         "SELECT timer_id, due_at, status FROM canonical_timers WHERE timer_id = ?",
         timerId,
       ).one();
-      if (existing.due_at !== dueAt || existing.status !== "scheduled") return false;
+      if (existing.timer_id !== timerId) return false;
     }
     await this.rescheduleAlarm(Date.now());
-    return inserted;
+    return true;
   }
 
   async cancelCanonicalTimer(timerId: string): Promise<boolean> {
@@ -238,8 +238,29 @@ export class RoomDO extends DurableObject<Env> {
       "UPDATE canonical_timers SET status = 'canceled' WHERE timer_id = ? AND status = 'scheduled'",
       timerId,
     ).rowsWritten === 1;
+    const accepted = changed || this.ctx.storage.sql.exec<TimerMetadataRow>(
+      "SELECT timer_id, due_at, status FROM canonical_timers WHERE timer_id = ?",
+      timerId,
+    ).toArray()[0]?.status === "canceled";
     await this.rescheduleAlarm(Date.now());
-    return changed;
+    return accepted;
+  }
+
+  async scheduleCanonicalTimer(
+    roomToken: string,
+    timerId: string,
+    delaySeconds: number,
+  ): Promise<boolean> {
+    if (await this.authenticateRoomToken(roomToken) === null ||
+      typeof delaySeconds !== "number" || !Number.isFinite(delaySeconds) ||
+      delaySeconds <= 0 || delaySeconds > 86_400) return false;
+    const delayMs = Math.max(1, Math.ceil(delaySeconds * 1_000));
+    return this.registerCanonicalTimer(timerId, Date.now() + delayMs);
+  }
+
+  async cancelCanonicalTimerForPlayer(roomToken: string, timerId: string): Promise<boolean> {
+    if (await this.authenticateRoomToken(roomToken) === null) return false;
+    return this.cancelCanonicalTimer(timerId);
   }
 
   async fetch(request: Request): Promise<Response> {

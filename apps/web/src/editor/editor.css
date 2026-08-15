@@ -125,6 +125,12 @@
 .editor-draft-dialog__empty { padding: 30px 18px; color: var(--editor-muted); text-align: center; }
 .editor-draft-dialog > footer { display: flex; gap: 16px; padding: 9px 18px; color: var(--editor-muted); border-top: 1px solid var(--editor-border); font-size: 10px; }
 .editor-draft-dialog kbd { color: #cfd5de; font: 10px "DM Mono", monospace; }
+.editor-template-dialog { width: min(720px, calc(100vw - 40px)); }
+.editor-template-dialog__grid { min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; overflow-y: auto; padding: 10px; }
+.editor-template-dialog__grid > button { min-height: 112px; display: grid; align-content: center; gap: 7px; padding: 16px; color: #cfd5de; background: #10141b; border: 1px solid var(--editor-border); border-radius: 8px; text-align: left; }
+.editor-template-dialog__grid > button:hover, .editor-template-dialog__grid > button.is-selected { color: white; background: #293140; border-color: var(--editor-accent); outline: none; }
+.editor-template-dialog__grid strong { font-size: 15px; }
+.editor-template-dialog__grid span { color: var(--editor-muted); line-height: 1.45; }
 .editor-json-preview { white-space: pre-wrap; color: var(--editor-muted); font-size: 10px; }
 .editor-script-list { min-height: 0; overflow: auto; padding: 5px; }
 .editor-script-list button { width: 100%; display: flex; justify-content: space-between; gap: 8px; padding: 7px 9px; color: #cbd1da; background: transparent; border: 0; border-radius: 4px; text-align: left; }

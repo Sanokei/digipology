@@ -13,8 +13,9 @@ describe("catalog routes", () => {
     const gamesBody = await gamesResponse.json() as {
       games: Array<{ slug: string; currentPlayers: number; totalPlays: number; coverVersion: number | null }>;
     };
-    expect(gamesBody.games.map((game) => game.slug)).toEqual(["first-deal", "dice-dash"]);
-    expect(gamesBody.games[0]).toMatchObject({ currentPlayers: 0, totalPlays: 0, coverVersion: 2 });
+    expect(gamesBody.games.map((game) => game.slug)).toEqual(["first-deal", "dice-dash", "zone-runner"]);
+    expect(gamesBody.games[0]).toMatchObject({ currentPlayers: 0, totalPlays: 0, coverVersion: 3 });
+    expect(gamesBody.games.every((game) => game.coverVersion === 3)).toBe(true);
 
     const gameResponse = await handlePlatformRequest(
       new Request("https://play.digipology.com/api/games/dice-dash"),
@@ -127,6 +128,37 @@ describe("same-origin custom-header CSRF check", () => {
       method: "POST",
       headers: { "X-Digipology-CSRF": "1" },
     }))).toBe(true);
+  });
+});
+
+describe("canonical room timer metadata", () => {
+  test("authenticates register and cancel reports through the Room DO", async () => {
+    const roomId = "a".repeat(64);
+    const calls: unknown[][] = [];
+    const room = {
+      async scheduleCanonicalTimer(...args: unknown[]) { calls.push(["register", ...args]); return true; },
+      async cancelCanonicalTimerForPlayer(...args: unknown[]) { calls.push(["cancel", ...args]); return true; },
+    };
+    const env = {
+      ROOM: {
+        idFromString: (value: string) => value,
+        get: () => room,
+      },
+    } as unknown as Env;
+    const headers = { "X-Digipology-CSRF": "1", "Content-Type": "application/json" };
+    const register = await handlePlatformRequest(new Request(
+      `https://play.digipology.com/api/rooms/${roomId}/timers`,
+      { method: "POST", headers, body: JSON.stringify({ operation: "register", roomToken: "token", timerId: "timer-1", delay: 2 }) },
+    ), env);
+    const cancel = await handlePlatformRequest(new Request(
+      `https://play.digipology.com/api/rooms/${roomId}/timers`,
+      { method: "POST", headers, body: JSON.stringify({ operation: "cancel", roomToken: "token", timerId: "timer-1" }) },
+    ), env);
+    expect([register.status, cancel.status]).toEqual([204, 204]);
+    expect(calls).toEqual([
+      ["register", "token", "timer-1", 2],
+      ["cancel", "token", "timer-1"],
+    ]);
   });
 });
 
@@ -322,9 +354,9 @@ describe("uploaded game authorization", () => {
   });
 
   test("serves bespoke built-in SVG covers through the same endpoint", async () => {
-    for (const slug of ["first-deal", "dice-dash"]) {
+    for (const slug of ["first-deal", "dice-dash", "zone-runner"]) {
       const response = await handlePlatformRequest(new Request(
-        `https://play.digipology.com/api/games/${slug}/cover?v=1`,
+        `https://play.digipology.com/api/games/${slug}/cover?v=3`,
       ), {} as Env);
       expect(response.status).toBe(200);
       expect(response.headers.get("Content-Type")).toBe("image/svg+xml");

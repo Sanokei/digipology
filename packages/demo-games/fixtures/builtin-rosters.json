@@ -11,5 +11,9 @@
   "builtin_dice_dash_2": [
     { "playerId": "alice", "displayName": "Alice" },
     { "playerId": "bob", "displayName": "Bob" }
+  ],
+  "builtin_zone_runner_1": [
+    { "playerId": "alice", "displayName": "Alice" },
+    { "playerId": "bob", "displayName": "Bob" }
   ]
 }

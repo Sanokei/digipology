@@ -12,6 +12,11 @@ export interface RoomClientStatus {
 }
 
 type SocketFactory = (url: string) => WebSocket;
+type TimerMetadataReporter = (input: {
+  operation: "register" | "cancel";
+  timerId: string;
+  delay?: number;
+}) => Promise<void>;
 
 export class RoomClient {
   private socket: WebSocket | null = null;
@@ -20,6 +25,7 @@ export class RoomClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private releaseLoaded = false;
   private forceFullResync = false;
+  private scriptedMessageQueue: Promise<void> = Promise.resolve();
 
   constructor(
     private readonly session: SavedRoomSession,
@@ -27,6 +33,14 @@ export class RoomClient {
     private readonly onStatus: (status: RoomClientStatus) => void,
     private readonly apiClient: ApiClient = api,
     private readonly socketFactory: SocketFactory = (url) => new WebSocket(url),
+    private readonly reportTimerMetadata: TimerMetadataReporter = async (input) => {
+      const response = await fetch(`/api/rooms/${encodeURIComponent(session.roomId)}/timers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Digipology-CSRF": "1" },
+        body: JSON.stringify({ roomToken: session.roomToken, ...input }),
+      });
+      if (!response.ok) throw new Error("Canonical timer metadata was not accepted");
+    },
   ) {}
 
   start(): void { this.stopped = false; this.connect(false); }
@@ -36,6 +50,7 @@ export class RoomClient {
     if (this.reconnectTimer !== null) clearTimeout(this.reconnectTimer);
     this.socket?.close(1000, "Leaving table");
     this.socket = null;
+    this.store.dispose();
   }
 
   sendAction(action: { type: string; payload: unknown }): string | null {
@@ -74,7 +89,11 @@ export class RoomClient {
       this.onStatus({ state: "loading_release", message: "Loading game release" });
       const result = await this.apiClient.getReleaseBundle(this.session.releaseId);
       if (!result.ok) { this.onStatus({ state: "error", message: result.error.message }); this.stopped = true; socket.close(); return; }
-      try { this.store.loadRelease(result.value); this.releaseLoaded = true; }
+      try {
+        this.store.loadRelease(result.value);
+        await this.store.loadScriptRuntime(result.value);
+        this.releaseLoaded = true;
+      }
       catch { this.onStatus({ state: "error", message: "This game release could not be started." }); this.stopped = true; socket.close(); return; }
     }
     if (this.stopped || socket !== this.socket || socket.readyState !== WebSocket.OPEN) return;
@@ -90,10 +109,18 @@ export class RoomClient {
     if (typeof data !== "string") { this.recoverFromGap("Received a non-text server message"); return; }
     const parsed = parseServerMessage(data);
     if (!parsed.ok) { this.recoverFromGap(`Protocol parse error: ${parsed.error.detail}`); return; }
-    this.handle(parsed.message);
+    if (!this.store.hasScriptRuntime()) {
+      void this.handle(parsed.message);
+      return;
+    }
+    this.scriptedMessageQueue = this.scriptedMessageQueue
+      .then(() => this.handle(parsed.message))
+      .catch((error) => this.recoverFromGap(
+        error instanceof Error ? error.message : "Scripted action processing failed",
+      ));
   }
 
-  private handle(message: ServerMessage): void {
+  private async handle(message: ServerMessage): Promise<void> {
     switch (message.type) {
       case "bootstrap": {
         const result = this.store.bootstrap(message.sequence, message.players, message.snapshot);
@@ -101,13 +128,29 @@ export class RoomClient {
         this.reconnectAttempt = 0; this.onStatus({ state: "connected", message: "Connected" }); return;
       }
       case "resume": {
-        const result = this.store.applyResume(message);
-        if (!result.ok) { this.recoverFromGap(`Resume gap at ${result.actual}`); return; }
+        if (!this.store.hasScriptRuntime()) {
+          const result = this.store.applyResume(message);
+          if (!result.ok) { this.recoverFromGap(`Resume gap at ${result.actual}`); return; }
+        } else {
+          const expected = (this.store.getSnapshot().state?.sequence ?? -1) + 1;
+          if (message.fromSequence !== expected) {
+            this.recoverFromGap(`Resume gap at ${message.fromSequence}`);
+            return;
+          }
+          for (const action of message.actions) {
+            const result = await this.store.applyOrderedWithScriptRuntime(action);
+            if (!result.ok) { this.recoverFromGap(`Resume gap at ${result.actual}`); return; }
+            await this.reportCanonicalTimerEvents();
+          }
+        }
         this.reconnectAttempt = 0; this.onStatus({ state: "connected", message: "Connected" }); return;
       }
       case "ordered_action": {
-        const result = this.store.applyOrdered(message);
+        const result = this.store.hasScriptRuntime()
+          ? await this.store.applyOrderedWithScriptRuntime(message)
+          : this.store.applyOrdered(message);
         if (!result.ok) this.recoverFromGap(`Ordered stream gap at ${result.actual}`);
+        else await this.reportCanonicalTimerEvents();
         return;
       }
       case "resync_required": this.recoverFromGap("Server requested a full resync", true); return;
@@ -119,6 +162,16 @@ export class RoomClient {
         return;
       case "room_ended": this.store.roomEnded(message.reason); this.onStatus({ state: "ended", message: "This table has ended." }); this.stop(); return;
       case "pong": return;
+    }
+  }
+
+  private async reportCanonicalTimerEvents(): Promise<void> {
+    for (const event of this.store.getSnapshot().events) {
+      if (event.type === "timer.registered" && typeof event.data.timerId === "string" && typeof event.data.delay === "number") {
+        await this.reportTimerMetadata({ operation: "register", timerId: event.data.timerId, delay: event.data.delay });
+      } else if (event.type === "timer.canceled" && typeof event.data.timerId === "string") {
+        await this.reportTimerMetadata({ operation: "cancel", timerId: event.data.timerId });
+      }
     }
   }
 

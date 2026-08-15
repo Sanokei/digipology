@@ -5,6 +5,8 @@ import { createSandbox } from "digipology-lua";
 import firstDealFixture from "../fixtures/first-deal-replay-v1.json";
 import diceDashFixture from "../fixtures/dice-dash-replay-v1.json";
 import diceDashV2Fixture from "../fixtures/dice-dash-replay-v2.json";
+import zoneRunnerFixture from "../fixtures/zone-runner-replay-v1.json";
+import builtinRosters from "../fixtures/builtin-rosters.json";
 import packageJson from "../package.json";
 import { BUILTIN_GAMES, getBuiltinRelease } from "./index";
 import type { ReleaseBundle } from "./types";
@@ -55,6 +57,9 @@ function manifestHashInput(release: ReleaseBundle) {
     releaseNumber: release.releaseNumber,
     kernelVersion: release.kernelVersion,
     luaApiVersion: release.luaApiVersion,
+    ...(release.luaStdlibVersion === undefined ? {} : {
+      luaStdlibVersion: release.luaStdlibVersion,
+    }),
     networkProtocolVersion: release.networkProtocolVersion,
     interactionMode: release.interactionMode,
     minPlayers: release.minPlayers,
@@ -64,6 +69,7 @@ function manifestHashInput(release: ReleaseBundle) {
       contentHash,
       byteLength,
     })),
+    ...(release.refs === undefined ? {} : { refs: release.refs }),
   };
 }
 
@@ -74,6 +80,7 @@ function validateManifestShape(release: ReleaseBundle): void {
   expect(release.releaseNumber).toBeGreaterThanOrEqual(1);
   expect(release.kernelVersion).toBe(1);
   expect(release.luaApiVersion).toBe(1);
+  if (release.luaStdlibVersion !== undefined) expect(release.luaStdlibVersion).toBe(1);
   expect(release.networkProtocolVersion).toBe(1);
   expect(["sandbox", "scripted"]).toContain(release.interactionMode);
   expect(release.minPlayers).toBe(2);
@@ -105,6 +112,7 @@ describe("built-in catalog", () => {
         "builtin_dice_dash_2",
         ["builtin_dice_dash_1", "builtin_dice_dash_2"],
       ],
+      ["zone-runner", "builtin_zone_runner_1", ["builtin_zone_runner_1"]],
     ]);
     for (const game of BUILTIN_GAMES) {
       const latest = getBuiltinRelease(game.latestReleaseId)!;
@@ -122,6 +130,10 @@ describe("built-in catalog", () => {
       "sha256:f672353e5b6df79aa7157e9bd8a4eb9802e30991b1cc1adf07a25a3e015e0b12",
     );
     expect(getBuiltinRelease("missing_release")).toBeUndefined();
+    expect(getBuiltinRelease("builtin_zone_runner_1")?.luaStdlibVersion).toBe(1);
+    expect(Object.keys(builtinRosters).sort()).toEqual(
+      BUILTIN_GAMES.flatMap((game) => game.releases.map((release) => release.releaseId)).sort(),
+    );
   });
 
   test("has no runtime dependencies and only the allowed workspace dev dependencies", () => {
@@ -158,6 +170,7 @@ describe("merged action and Lua surfaces", () => {
       ...firstDealFixture.actions,
       ...diceDashFixture.actions,
       ...diceDashV2Fixture.actions,
+      ...zoneRunnerFixture.actions,
     ]
       .map((ordered) => ordered.action.type);
     expect(registered).toEqual(new Set([

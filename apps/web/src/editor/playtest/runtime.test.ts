@@ -2,12 +2,13 @@ import { describe, expect, test } from "bun:test";
 import { canonicalStringify } from "digipology-canonical-json";
 import {
   type CanonicalGameState,
+  builtInActions,
 } from "digipology-kernel";
 import { EditorStore } from "../state/EditorStore";
 import { createEmptyEditorDraft, rebuildDraftIntegrity } from "../state/bundle";
 import { updateScript } from "../state/scripts";
 import { editorTestDraft } from "../state/testFixtures";
-import { compileDraftForPlaytest, PlaytestRuntime } from "./runtime";
+import { compileDraftForPlaytest, PLAYTEST_INTERACTION_ACTIONS, PlaytestRuntime } from "./runtime";
 
 const IDENTITY = {
   position: { x: 0, y: 0, z: 0 },
@@ -16,6 +17,14 @@ const IDENTITY = {
 };
 
 describe("in-tab playtest runtime", () => {
+  test("allows every post-tabletop player action registered by the kernel", () => {
+    const playerActions = builtInActions
+      .filter((definition) => definition.sources.includes("player"))
+      .map((definition) => definition.type)
+      .sort();
+    expect([...PLAYTEST_INTERACTION_ACTIONS].sort()).toEqual(playerActions);
+  });
+
   test("Stop discards all runtime mutations without touching draft or history", async () => {
     const draft = editorTestDraft();
     const state = draft.bundle.initialSnapshot.state as CanonicalGameState;

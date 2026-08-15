@@ -7,7 +7,13 @@ import {
   type OrderedActionInput,
   type RngState,
 } from "digipology-kernel";
-import { createSandbox, type LuaValue, type Sandbox } from "digipology-lua";
+import {
+  createCreatorScriptRuntime,
+  createSandbox,
+  scriptsFromReleaseFiles,
+  type LuaValue,
+  type Sandbox,
+} from "digipology-lua";
 import { getBuiltinRelease } from "./catalog";
 
 export interface LuaExpectation {
@@ -22,8 +28,22 @@ export interface ReplayFixture {
   readonly initialSnapshot: GameSnapshot;
   readonly actions: ReadonlyArray<OrderedActionInput>;
   readonly luaExpectations: ReadonlyArray<LuaExpectation>;
+  readonly expectedEventTypes?: ReadonlyArray<string>;
+  readonly expectedScriptState?: Readonly<Record<string, LuaValue>>;
   readonly expectedFinalStateHash: string;
   readonly expectedRejectionCount: number;
+}
+
+export async function createBuiltinCreatorRuntime(releaseId: string) {
+  const release = getBuiltinRelease(releaseId);
+  if (release === undefined) throw new Error(`Missing release ${releaseId}`);
+  return createCreatorScriptRuntime({
+    scripts: scriptsFromReleaseFiles(release.files),
+    refs: release.refs ?? {},
+    definitions: release.definitions ?? {},
+    instructionBudget: 50_000,
+    memoryBudgetBytes: 512 * 1024,
+  });
 }
 
 export interface ScriptAction {
@@ -46,6 +66,12 @@ const FIRST_DEAL_RNG: RngState = {
 const DICE_DASH_RNG: RngState = {
   algorithm: "sfc32-v1",
   state: [272407026, 249763150, 2700400486, 1540153423],
+  draws: 0,
+};
+
+const ZONE_RUNNER_RNG: RngState = {
+  algorithm: "sfc32-v1",
+  state: [1831565813, 2976579765, 398764591, 920572347],
   draws: 0,
 };
 
@@ -122,6 +148,100 @@ export function createDiceDashInitialState(): CanonicalGameState {
 
 export function createDiceDashV2InitialState(): CanonicalGameState {
   return createDiceDashState("builtin_dice_dash_2");
+}
+
+export function createZoneRunnerInitialState(): CanonicalGameState {
+  const runtime = JSON.parse(releaseFile("builtin_zone_runner_1", "runtime/game.json")) as {
+    handIds: string[];
+    pieceIds: string[];
+    rulesId: string;
+    scoreIds: string[];
+    settings: { targetScore: number; turnSeconds: number };
+    snapPointIds: string[];
+    statusId: string;
+    zoneId: string;
+  };
+  const transform = (x: number, z = 0) => ({
+    ...IDENTITY,
+    position: { x, y: 0, z },
+  });
+  const entities: Record<string, EntityRecord> = {};
+  entities[runtime.rulesId] = entity(runtime.rulesId, {
+    script: {
+      scriptId: "scripts/game.lua",
+      bindingId: "zone_runner_rules",
+      props: { role: "game" },
+    },
+  });
+  entities[runtime.zoneId] = entity(runtime.zoneId, {
+    transform: { ...IDENTITY, scale: { x: 8, y: 2, z: 4 } },
+    zone: { shape: "box", acceptedTags: ["runner"], visibleInPlay: true, members: [] },
+    script: {
+      scriptId: "scripts/game.lua",
+      bindingId: "zone_runner_scoring_zone",
+      props: { role: "scoring_zone" },
+    },
+  });
+  entities[runtime.statusId] = entity(runtime.statusId, {
+    text: { value: "Waiting for runners" },
+    transform: transform(0, -3),
+  });
+  for (let index = 0; index < runtime.snapPointIds.length; index += 1) {
+    const snapId = runtime.snapPointIds[index]!;
+    entities[snapId] = entity(snapId, {
+      transform: transform(-3 + index * 2),
+      "snap-point": {
+        radius: 0.75,
+        capacity: 1,
+        tags: ["runner"],
+        alignment: null,
+        attached: [],
+      },
+    });
+  }
+  for (let index = 0; index < runtime.handIds.length; index += 1) {
+    const handId = runtime.handIds[index]!;
+    const seatNumber = index + 1;
+    const items = runtime.pieceIds.filter((pieceId) => pieceId.startsWith(`runner_seat_${seatNumber}_`));
+    entities[handId] = entity(handId, {
+      container: {
+        items,
+        capacity: 2,
+        ordering: "canonical",
+        visibility: `owner:seat_${seatNumber}`,
+      },
+      hand: { owner: `seat_${seatNumber}`, canonicalOrder: true },
+    });
+  }
+  for (let index = 0; index < runtime.pieceIds.length; index += 1) {
+    const pieceId = runtime.pieceIds[index]!;
+    entities[pieceId] = entity(pieceId, {
+      grabbable: { enabled: true, heldBy: null },
+      tags: { values: ["runner"] },
+      transform: transform(-3.5 + index, 5),
+    });
+  }
+  for (let index = 0; index < runtime.scoreIds.length; index += 1) {
+    const scoreId = runtime.scoreIds[index]!;
+    entities[scoreId] = entity(scoreId, {
+      counter: { value: 0, default: 0, min: 0, max: runtime.settings.targetScore },
+      transform: transform(-3 + index * 2, -4),
+    });
+  }
+  return createInitialState({
+    releaseId: "builtin_zone_runner_1",
+    rng: ZONE_RUNNER_RNG,
+    settings: runtime.settings,
+    players: {
+      alice: { id: "alice", name: "Alice" },
+      bob: { id: "bob", name: "Bob" },
+    },
+    seats: {
+      seat_1: { id: "seat_1", playerId: "alice", handId: "hand_seat_1", scoreId: "score_seat_1" },
+      seat_2: { id: "seat_2", playerId: "bob", handId: "hand_seat_2", scoreId: "score_seat_2" },
+    },
+    entities,
+  });
 }
 
 function createDiceDashState(releaseId: string): CanonicalGameState {

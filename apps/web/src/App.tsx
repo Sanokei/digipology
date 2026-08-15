@@ -34,6 +34,14 @@ export function AppRoutes() {
         <Route path="/games/:slug" element={<GameDetailPage />} />
         <Route path="/create" element={<CreatePage />} />
         <Route
+          path="/edit"
+          element={
+            <Suspense fallback={<div className="table-loading">Checking editor support…</div>}>
+              <EditorRoute />
+            </Suspense>
+          }
+        />
+        <Route
           path="/edit/:draftId"
           element={
             <Suspense fallback={<div className="table-loading">Checking editor support…</div>}>

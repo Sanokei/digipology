@@ -1,0 +1,880 @@
+{
+  "fixtureVersion": 1,
+  "initialSnapshot": {
+    "formatVersion": 1,
+    "kernelVersion": 1,
+    "releaseId": "builtin_zone_runner_1",
+    "sequence": 0,
+    "state": {
+      "entities": {
+        "hand_seat_1": {
+          "components": {
+            "container": {
+              "capacity": 2,
+              "items": [
+                "runner_seat_1_a",
+                "runner_seat_1_b"
+              ],
+              "ordering": "canonical",
+              "visibility": "owner:seat_1"
+            },
+            "hand": {
+              "canonicalOrder": true,
+              "owner": "seat_1"
+            }
+          },
+          "id": "hand_seat_1"
+        },
+        "hand_seat_2": {
+          "components": {
+            "container": {
+              "capacity": 2,
+              "items": [
+                "runner_seat_2_a",
+                "runner_seat_2_b"
+              ],
+              "ordering": "canonical",
+              "visibility": "owner:seat_2"
+            },
+            "hand": {
+              "canonicalOrder": true,
+              "owner": "seat_2"
+            }
+          },
+          "id": "hand_seat_2"
+        },
+        "hand_seat_3": {
+          "components": {
+            "container": {
+              "capacity": 2,
+              "items": [
+                "runner_seat_3_a",
+                "runner_seat_3_b"
+              ],
+              "ordering": "canonical",
+              "visibility": "owner:seat_3"
+            },
+            "hand": {
+              "canonicalOrder": true,
+              "owner": "seat_3"
+            }
+          },
+          "id": "hand_seat_3"
+        },
+        "hand_seat_4": {
+          "components": {
+            "container": {
+              "capacity": 2,
+              "items": [
+                "runner_seat_4_a",
+                "runner_seat_4_b"
+              ],
+              "ordering": "canonical",
+              "visibility": "owner:seat_4"
+            },
+            "hand": {
+              "canonicalOrder": true,
+              "owner": "seat_4"
+            }
+          },
+          "id": "hand_seat_4"
+        },
+        "rules": {
+          "components": {
+            "script": {
+              "bindingId": "zone_runner_rules",
+              "props": {
+                "role": "game"
+              },
+              "scriptId": "scripts/game.lua"
+            }
+          },
+          "id": "rules"
+        },
+        "runner_seat_1_a": {
+          "components": {
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "tags": {
+              "values": [
+                "runner"
+              ]
+            },
+            "transform": {
+              "position": {
+                "x": -3.5,
+                "y": 0,
+                "z": 5
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "runner_seat_1_a"
+        },
+        "runner_seat_1_b": {
+          "components": {
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "tags": {
+              "values": [
+                "runner"
+              ]
+            },
+            "transform": {
+              "position": {
+                "x": -2.5,
+                "y": 0,
+                "z": 5
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "runner_seat_1_b"
+        },
+        "runner_seat_2_a": {
+          "components": {
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "tags": {
+              "values": [
+                "runner"
+              ]
+            },
+            "transform": {
+              "position": {
+                "x": -1.5,
+                "y": 0,
+                "z": 5
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "runner_seat_2_a"
+        },
+        "runner_seat_2_b": {
+          "components": {
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "tags": {
+              "values": [
+                "runner"
+              ]
+            },
+            "transform": {
+              "position": {
+                "x": -0.5,
+                "y": 0,
+                "z": 5
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "runner_seat_2_b"
+        },
+        "runner_seat_3_a": {
+          "components": {
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "tags": {
+              "values": [
+                "runner"
+              ]
+            },
+            "transform": {
+              "position": {
+                "x": 0.5,
+                "y": 0,
+                "z": 5
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "runner_seat_3_a"
+        },
+        "runner_seat_3_b": {
+          "components": {
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "tags": {
+              "values": [
+                "runner"
+              ]
+            },
+            "transform": {
+              "position": {
+                "x": 1.5,
+                "y": 0,
+                "z": 5
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "runner_seat_3_b"
+        },
+        "runner_seat_4_a": {
+          "components": {
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "tags": {
+              "values": [
+                "runner"
+              ]
+            },
+            "transform": {
+              "position": {
+                "x": 2.5,
+                "y": 0,
+                "z": 5
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "runner_seat_4_a"
+        },
+        "runner_seat_4_b": {
+          "components": {
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "tags": {
+              "values": [
+                "runner"
+              ]
+            },
+            "transform": {
+              "position": {
+                "x": 3.5,
+                "y": 0,
+                "z": 5
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "runner_seat_4_b"
+        },
+        "score_seat_1": {
+          "components": {
+            "counter": {
+              "default": 0,
+              "max": 2,
+              "min": 0,
+              "value": 0
+            },
+            "transform": {
+              "position": {
+                "x": -3,
+                "y": 0,
+                "z": -4
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "score_seat_1"
+        },
+        "score_seat_2": {
+          "components": {
+            "counter": {
+              "default": 0,
+              "max": 2,
+              "min": 0,
+              "value": 0
+            },
+            "transform": {
+              "position": {
+                "x": -1,
+                "y": 0,
+                "z": -4
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "score_seat_2"
+        },
+        "score_seat_3": {
+          "components": {
+            "counter": {
+              "default": 0,
+              "max": 2,
+              "min": 0,
+              "value": 0
+            },
+            "transform": {
+              "position": {
+                "x": 1,
+                "y": 0,
+                "z": -4
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "score_seat_3"
+        },
+        "score_seat_4": {
+          "components": {
+            "counter": {
+              "default": 0,
+              "max": 2,
+              "min": 0,
+              "value": 0
+            },
+            "transform": {
+              "position": {
+                "x": 3,
+                "y": 0,
+                "z": -4
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "score_seat_4"
+        },
+        "scoring_zone": {
+          "components": {
+            "script": {
+              "bindingId": "zone_runner_scoring_zone",
+              "props": {
+                "role": "scoring_zone"
+              },
+              "scriptId": "scripts/game.lua"
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 8,
+                "y": 2,
+                "z": 4
+              }
+            },
+            "zone": {
+              "acceptedTags": [
+                "runner"
+              ],
+              "members": [],
+              "shape": "box",
+              "visibleInPlay": true
+            }
+          },
+          "id": "scoring_zone"
+        },
+        "slot_1": {
+          "components": {
+            "snap-point": {
+              "alignment": null,
+              "attached": [],
+              "capacity": 1,
+              "radius": 0.75,
+              "tags": [
+                "runner"
+              ]
+            },
+            "transform": {
+              "position": {
+                "x": -3,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "slot_1"
+        },
+        "slot_2": {
+          "components": {
+            "snap-point": {
+              "alignment": null,
+              "attached": [],
+              "capacity": 1,
+              "radius": 0.75,
+              "tags": [
+                "runner"
+              ]
+            },
+            "transform": {
+              "position": {
+                "x": -1,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "slot_2"
+        },
+        "slot_3": {
+          "components": {
+            "snap-point": {
+              "alignment": null,
+              "attached": [],
+              "capacity": 1,
+              "radius": 0.75,
+              "tags": [
+                "runner"
+              ]
+            },
+            "transform": {
+              "position": {
+                "x": 1,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "slot_3"
+        },
+        "slot_4": {
+          "components": {
+            "snap-point": {
+              "alignment": null,
+              "attached": [],
+              "capacity": 1,
+              "radius": 0.75,
+              "tags": [
+                "runner"
+              ]
+            },
+            "transform": {
+              "position": {
+                "x": 3,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "slot_4"
+        },
+        "status": {
+          "components": {
+            "text": {
+              "value": "Waiting for runners"
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": -3
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "status"
+        }
+      },
+      "kernelVersion": 1,
+      "players": {
+        "alice": {
+          "id": "alice",
+          "name": "Alice"
+        },
+        "bob": {
+          "id": "bob",
+          "name": "Bob"
+        }
+      },
+      "prompts": {},
+      "releaseId": "builtin_zone_runner_1",
+      "rng": {
+        "algorithm": "sfc32-v1",
+        "draws": 0,
+        "state": [
+          1831565813,
+          2976579765,
+          398764591,
+          920572347
+        ]
+      },
+      "schemaVersion": 1,
+      "scriptState": {},
+      "seats": {
+        "seat_1": {
+          "handId": "hand_seat_1",
+          "id": "seat_1",
+          "playerId": "alice",
+          "scoreId": "score_seat_1"
+        },
+        "seat_2": {
+          "handId": "hand_seat_2",
+          "id": "seat_2",
+          "playerId": "bob",
+          "scoreId": "score_seat_2"
+        }
+      },
+      "sequence": 0,
+      "settings": {
+        "targetScore": 2,
+        "turnSeconds": 2
+      }
+    },
+    "stateHash": "sha256:84c53ac72f59a82a10fbea30880d804ebe2bd43be984472c3ae01821f98f799f"
+  },
+  "actions": [
+    {
+      "sequence": 1,
+      "actionId": "zr-start",
+      "actor": {
+        "type": "system"
+      },
+      "action": {
+        "type": "system.game_start",
+        "payload": {
+          "settings": {
+            "targetScore": 2,
+            "turnSeconds": 2
+          }
+        }
+      }
+    },
+    {
+      "sequence": 2,
+      "actionId": "zr-opening",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "prompt.respond",
+        "payload": {
+          "promptId": "opening_move",
+          "response": "run"
+        }
+      }
+    },
+    {
+      "sequence": 3,
+      "actionId": "zr-grab-a",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "entity.grab",
+        "payload": {
+          "entityId": "runner_seat_1_a"
+        }
+      }
+    },
+    {
+      "sequence": 4,
+      "actionId": "zr-drop-a",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "entity.drop",
+        "payload": {
+          "entityId": "runner_seat_1_a",
+          "transform": {
+            "position": {
+              "x": -3,
+              "y": 0,
+              "z": 0
+            },
+            "rotation": {
+              "x": 0,
+              "y": 0,
+              "z": 0,
+              "w": 1
+            },
+            "scale": {
+              "x": 1,
+              "y": 1,
+              "z": 1
+            }
+          }
+        }
+      }
+    },
+    {
+      "sequence": 5,
+      "actionId": "zr-timeout",
+      "actor": {
+        "type": "system"
+      },
+      "action": {
+        "type": "system.timer_fire",
+        "payload": {
+          "timerId": "timer_zr-drop-a_0"
+        }
+      }
+    },
+    {
+      "sequence": 6,
+      "actionId": "zr-grab-b",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "entity.grab",
+        "payload": {
+          "entityId": "runner_seat_1_b"
+        }
+      }
+    },
+    {
+      "sequence": 7,
+      "actionId": "zr-drop-b",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "entity.drop",
+        "payload": {
+          "entityId": "runner_seat_1_b",
+          "transform": {
+            "position": {
+              "x": -1,
+              "y": 0,
+              "z": 0
+            },
+            "rotation": {
+              "x": 0,
+              "y": 0,
+              "z": 0,
+              "w": 1
+            },
+            "scale": {
+              "x": 1,
+              "y": 1,
+              "z": 1
+            }
+          }
+        }
+      }
+    }
+  ],
+  "luaExpectations": [],
+  "expectedEventTypes": [
+    "game.started",
+    "text.changed",
+    "prompt.created",
+    "timer.registered",
+    "prompt.responded",
+    "text.changed",
+    "entity.grabbed",
+    "container.removed",
+    "snap.attached",
+    "zone.entered",
+    "entity.dropped",
+    "counter.changed",
+    "timer.canceled",
+    "text.changed",
+    "timer.registered",
+    "timer.fired",
+    "text.changed",
+    "timer.registered",
+    "entity.grabbed",
+    "container.removed",
+    "snap.attached",
+    "zone.entered",
+    "entity.dropped",
+    "counter.changed",
+    "timer.canceled",
+    "text.changed"
+  ],
+  "expectedScriptState": {
+    "opening_choice": "run",
+    "timeouts": 1,
+    "winner_id": "alice"
+  },
+  "expectedFinalStateHash": "sha256:385b13cf95139d68b655bd85623743e0d1c7928384708c0712b209f8ce09196b",
+  "expectedRejectionCount": 0
+}

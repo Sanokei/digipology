@@ -23,11 +23,14 @@ export interface ReleaseBundle {
   readonly releaseNumber: number;
   readonly kernelVersion: 1;
   readonly luaApiVersion: 1;
+  readonly luaStdlibVersion?: 1;
   readonly networkProtocolVersion: 1;
   readonly interactionMode: InteractionMode;
   readonly minPlayers: number;
   readonly maxPlayers: number;
   readonly files: ReadonlyArray<ReleaseFile>;
+  readonly definitions?: Readonly<Record<string, { readonly label?: string; readonly color?: string }>>;
+  readonly refs?: Readonly<Record<string, string>>;
   readonly integrity: ReleaseIntegrity;
 }
 

@@ -4,6 +4,8 @@ import { DICE_DASH_RUNTIME_JSON } from "./games/dice-dash/runtime";
 import { DICE_DASH_V2_RUNTIME_JSON } from "./games/dice-dash/runtime-v2";
 import { FIRST_DEAL_LUA } from "./games/first-deal/game.lua";
 import { FIRST_DEAL_RUNTIME_JSON } from "./games/first-deal/runtime";
+import { ZONE_RUNNER_LUA } from "./games/zone-runner/game.lua";
+import { ZONE_RUNNER_RUNTIME_JSON } from "./games/zone-runner/runtime";
 import type { BuiltinGame, ReleaseBundle, ReleaseFile } from "./types";
 
 function frozenFile(file: ReleaseFile): ReleaseFile {
@@ -106,6 +108,43 @@ const DICE_DASH_RELEASE_V2 = frozenRelease({
   }),
 });
 
+const ZONE_RUNNER_RELEASE = frozenRelease({
+  formatVersion: 1,
+  gameId: "builtin_zone_runner",
+  releaseId: "builtin_zone_runner_1",
+  releaseNumber: 1,
+  kernelVersion: 1,
+  luaApiVersion: 1,
+  luaStdlibVersion: 1,
+  networkProtocolVersion: 1,
+  interactionMode: "scripted",
+  minPlayers: 2,
+  maxPlayers: 4,
+  files: [
+    frozenFile({
+      path: "runtime/game.json",
+      contentHash: "sha256:ebe2862a41cedb2714e72faa2a744c910deeaaabdad43e95157c03f3412d39c9",
+      byteLength: 575,
+      content: ZONE_RUNNER_RUNTIME_JSON,
+    }),
+    frozenFile({
+      path: "scripts/game.lua",
+      contentHash: "sha256:61cd5cd89dbf8ee8722f1cd61bce8aedb9f0665979cd1b4018286989b3bbed2d",
+      byteLength: 1799,
+      content: ZONE_RUNNER_LUA,
+    }),
+  ],
+  definitions: Object.freeze({
+    runner: Object.freeze({ label: "Runner", color: "#f3a53b" }),
+  }),
+  refs: Object.freeze({
+    status: "status",
+  }),
+  integrity: Object.freeze({
+    manifestHash: "sha256:4e2bb17e8f29aefedb42823f87a9cac31106c3d943580e74457b2e68b7112b2d",
+  }),
+});
+
 export const BUILTIN_GAMES: ReadonlyArray<BuiltinGame> = Object.freeze([
   Object.freeze({
     slug: "first-deal",
@@ -124,6 +163,15 @@ export const BUILTIN_GAMES: ReadonlyArray<BuiltinGame> = Object.freeze([
     maxPlayers: 4,
     latestReleaseId: DICE_DASH_RELEASE_V2.releaseId,
     releases: Object.freeze([DICE_DASH_RELEASE, DICE_DASH_RELEASE_V2]),
+  }),
+  Object.freeze({
+    slug: "zone-runner",
+    title: "Zone Runner",
+    tagline: "Race pieces into scoring zones before the turn timer runs out.",
+    minPlayers: 2,
+    maxPlayers: 4,
+    latestReleaseId: ZONE_RUNNER_RELEASE.releaseId,
+    releases: Object.freeze([ZONE_RUNNER_RELEASE]),
   }),
 ]);
 

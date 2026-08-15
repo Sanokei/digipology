@@ -6,17 +6,20 @@ import { EditorLayoutHost, type EditorLayoutApi } from "./EditorLayoutHost";
 import { EDITOR_PANELS } from "./layout";
 import { MenuBar, type MenuAction } from "./menubar/MenuBar";
 import { OpenDraftDialog } from "./OpenDraftDialog";
+import { NewDraftDialog } from "./NewDraftDialog";
 import { CommitTextInput } from "./panels/common/PanelComponents";
 import { draftToCreatePrefill } from "./publish";
 import {
   EditorStore,
   createEmptyEditorDraft,
+  createEditorDraftFromTemplate,
   exportBundleText,
   importBundleAsDraft,
   loadDraftIndex,
   loadEditorDraft,
   saveEditorDraft,
   useEditorSnapshot,
+  type EditorTemplateId,
 } from "./state";
 import "./editor.css";
 import { PlaytestController, usePlaytestSnapshot } from "./playtest/PlaytestController";
@@ -39,6 +42,7 @@ function randomDraftId(): string {
 
 export function EditorPage() {
   const params = useParams<{ draftId: string }>();
+  const landing = params.draftId === undefined;
   const draftId = params.draftId?.trim() || "untitled";
   const navigate = useNavigate();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -47,16 +51,17 @@ export function EditorPage() {
   const playtestSnapshot = usePlaytestSnapshot(playtest);
   const [error, setError] = useState<string | null>(null);
   const [openDrafts, setOpenDrafts] = useState<ReturnType<typeof loadDraftIndex> | null>(null);
+  const [newDraftOpen, setNewDraftOpen] = useState(landing);
   const store = useMemo(() => {
-    const loaded = loadEditorDraft(localStorage, draftId);
+    const loaded = landing ? null : loadEditorDraft(localStorage, draftId);
     const draft = loaded ?? createEmptyEditorDraft(draftId);
     const editorStore = new EditorStore(draft, { saveDraft: (next) => saveEditorDraft(localStorage, next) });
-    if (loaded === null) {
+    if (loaded === null && !landing) {
       try { saveEditorDraft(localStorage, draft); }
       catch { editorStore.log("This browser could not initialize local draft storage.", "warning"); }
     }
     return editorStore;
-  }, [draftId]);
+  }, [draftId, landing]);
   const snapshot = useEditorSnapshot(store);
   useEffect(() => () => store.dispose(), [store]);
   useEffect(() => () => playtest.dispose(), [playtest]);
@@ -103,22 +108,35 @@ export function EditorPage() {
     setOpenDrafts(null);
     navigate(`/edit/${encodeURIComponent(id)}`);
   }, [navigate]);
+  const newDraft = useCallback(() => setNewDraftOpen(true), []);
+  const chooseTemplate = useCallback((templateId: EditorTemplateId) => {
+    const id = randomDraftId();
+    if (templateId !== "blank") {
+      saveEditorDraft(localStorage, createEditorDraftFromTemplate(templateId, id));
+    }
+    setNewDraftOpen(false);
+    navigate(`/edit/${encodeURIComponent(id)}`);
+  }, [navigate]);
+  const closeTemplatePicker = useCallback(() => {
+    if (landing) navigate("/");
+    else setNewDraftOpen(false);
+  }, [landing, navigate]);
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey)) return;
       const target = event.target as HTMLElement | null;
       if (target?.matches("input, textarea, select, [contenteditable=true]") === true) return;
-      if (event.key.toLowerCase() === "n") { event.preventDefault(); navigate(`/edit/${randomDraftId()}`); }
+      if (event.key.toLowerCase() === "n") { event.preventDefault(); newDraft(); }
       else if (event.key.toLowerCase() === "o") { event.preventDefault(); openDraft(); }
       else if (event.key.toLowerCase() === "s") { event.preventDefault(); downloadBundle(store); }
     };
     window.addEventListener("keydown", keydown, true);
     return () => window.removeEventListener("keydown", keydown, true);
-  }, [navigate, openDraft, store]);
+  }, [newDraft, openDraft, store]);
   const onLayoutReady = useCallback((api: EditorLayoutApi | null) => { layoutApi.current = api; }, []);
   const menuActions = useMemo<Record<"File" | "Edit" | "Play" | "Window", MenuAction[]>>(() => ({
     File: [
-      { kind: "action", label: "New draft", shortcut: "Ctrl+N", onSelect: () => navigate(`/edit/${randomDraftId()}`) },
+      { kind: "action", label: "New draft", shortcut: "Ctrl+N", searchTerms: ["template blank card dice zone"], onSelect: newDraft },
       { kind: "action", label: "Open local draft…", shortcut: "Ctrl+O", onSelect: openDraft },
       { kind: "separator" },
       { kind: "action", label: "Import bundle…", searchTerms: ["json file"], onSelect: () => fileInput.current?.click() },
@@ -144,7 +162,7 @@ export function EditorPage() {
       { kind: "separator" },
       { kind: "action", label: "Reset layout", onSelect: () => layoutApi.current?.resetLayout() },
     ],
-  }), [navigate, openDraft, playtest, playtestSnapshot.status, publish, snapshot.future.length, snapshot.past.length, snapshot.selectedEntityId, store]);
+  }), [newDraft, openDraft, playtest, playtestSnapshot.status, publish, snapshot.future.length, snapshot.past.length, snapshot.selectedEntityId, store]);
   return <div className="editor-shell">
     <MenuBar actions={menuActions} status={<><span className={`editor-save-status is-${snapshot.saveStatus}`}>{snapshot.saveStatus === "saved" ? <Save size={13} /> : null}{snapshot.saveStatus}</span><span>{snapshot.draft.title}</span>{playtestSnapshot.status === "playing" ? <><button type="button" className="editor-transport-button" onClick={() => playtest.tick()}><Pause size={13} />Tick {playtestSnapshot.tick}</button><button type="button" className="editor-transport-button" onClick={() => playtest.stop()}><Square size={12} />Stop</button></> : <button type="button" className="editor-transport-button" disabled={playtestSnapshot.status === "starting"} onClick={() => { void playtest.start(store.getSnapshot().draft); }}><Play size={13} />{playtestSnapshot.status === "starting" ? "Starting" : "Play"}</button>}<button type="button" className="editor-publish-button" onClick={publish}><CloudUpload size={14} />Publish</button></>} />
     <div className="editor-details-bar">
@@ -156,6 +174,7 @@ export function EditorPage() {
     </div>
     <input ref={fileInput} className="editor-hidden-input" type="file" accept="application/json,.json" onChange={(event) => void importFile(event)} />
     {openDrafts === null ? null : <OpenDraftDialog drafts={openDrafts} onOpen={chooseDraft} onClose={() => setOpenDrafts(null)} />}
+    {newDraftOpen ? <NewDraftDialog onChoose={chooseTemplate} onClose={closeTemplatePicker} /> : null}
     <EditorLayoutHost store={store} playtest={playtest} onReady={onLayoutReady} />
   </div>;
 }
