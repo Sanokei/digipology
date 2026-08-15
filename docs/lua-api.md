@@ -464,6 +464,7 @@ if not self.is_face_up then self:flip() end
 | `count` | Field: integer | Number of cards currently in the deck. The last item is top in v1. | None; read only. |
 | `shuffle` | `deck:shuffle()` | Reorders with canonical RNG; caller never supplies the result. | [`deck.shuffle`](./actions.md#deckshuffle) |
 | `draw_to` | `deck:draw_to(target: Container, count?: number)` | Draws canonical top card identity/identities to a container; `count` defaults to `1`. | [`deck.draw_to_container`](./actions.md#deckdraw_to_container) |
+
 `draw_to_world`, `deal`, `insert_top`, and `insert_bottom` are omitted because #64 provides no exact backing action for those signatures.
 
 ### Hand
