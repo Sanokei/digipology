@@ -1,10 +1,14 @@
 import type { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
-import { Ray } from "@babylonjs/core/Culling/ray";
+import { Ray } from "@babylonjs/core/Culling/ray.core";
+// Patches Scene with the picking methods used by pointer and touch dragging.
+import "@babylonjs/core/Culling/ray";
 import {
   PointerEventTypes,
   type PointerInfo,
 } from "@babylonjs/core/Events/pointerEvents";
 import { HighlightLayer } from "@babylonjs/core/Layers/highlightLayer";
+// Registers effect-layer render stages with Scene; HighlightLayer construction otherwise throws.
+import "@babylonjs/core/Layers/effectLayerSceneComponent";
 import { Color3 } from "@babylonjs/core/Maths/math.color";
 import { Matrix, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh";

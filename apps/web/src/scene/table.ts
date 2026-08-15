@@ -1,14 +1,16 @@
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import { ArcRotateCameraPointersInput } from "@babylonjs/core/Cameras/Inputs/arcRotateCameraPointersInput";
 import type { PointerTouch } from "@babylonjs/core/Events/pointerEvents";
-import { Color3 } from "@babylonjs/core/Maths/math.color";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator";
+// Registers shadow render targets with Scene; ShadowGenerator construction otherwise throws.
+import "@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
+import { Color3 } from "@babylonjs/core/Maths/math.color";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector";
+import { CreateBox } from "@babylonjs/core/Meshes/Builders/boxBuilder";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
-import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import type { Scene } from "@babylonjs/core/scene";
 
 export const TABLE_WIDTH = 12;
@@ -17,7 +19,7 @@ export const TABLE_SURFACE_Y = 0;
 export const GRABBABLE_SIZE = 0.9;
 
 export interface LightingGraph {
-  shadows: ShadowGenerator;
+  shadows: ShadowGenerator | null;
 }
 
 class MultiTouchOnlyArcRotatePointersInput extends ArcRotateCameraPointersInput {
@@ -52,7 +54,7 @@ export function buildTableSurface(scene: Scene): Mesh {
   felt.specularColor = Color3.FromHexString("#07130f");
   felt.roughness = 0.92;
 
-  const table = MeshBuilder.CreateBox(
+  const table = CreateBox(
     "table-surface",
     { width: TABLE_WIDTH, depth: TABLE_DEPTH, height: 0.42 },
     scene,
@@ -65,7 +67,7 @@ export function buildTableSurface(scene: Scene): Mesh {
   return table;
 }
 
-export function buildLighting(scene: Scene): LightingGraph {
+export function buildLighting(scene: Scene, shadowsEnabled = true): LightingGraph {
   const ambient = new HemisphericLight("ambient-light", new Vector3(0, 1, 0), scene);
   ambient.diffuse = Color3.FromHexString("#d7eadf");
   ambient.groundColor = Color3.FromHexString("#101913");
@@ -80,10 +82,12 @@ export function buildLighting(scene: Scene): LightingGraph {
   key.diffuse = Color3.FromHexString("#fff1d7");
   key.intensity = 1.5;
 
-  const shadows = new ShadowGenerator(1024, key);
-  shadows.useBlurExponentialShadowMap = true;
-  shadows.blurKernel = 24;
-  shadows.bias = 0.001;
+  const shadows = shadowsEnabled ? new ShadowGenerator(1024, key) : null;
+  if (shadows !== null) {
+    shadows.useBlurExponentialShadowMap = true;
+    shadows.blurKernel = 24;
+    shadows.bias = 0.001;
+  }
 
   return { shadows };
 }
