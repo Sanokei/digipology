@@ -31,7 +31,7 @@ test("a Lite mount failure disposes the failed adapter and mounts WebGL", async 
   const liteError = new Error("WebGPU adapter unavailable");
   const webgl = adapterThat(async () => undefined, disposed, "webgl");
   const result = await mountSceneAdapter(
-    { renderer: "lite", requestedLiteFallback: false },
+    { renderer: "lite", requestedLiteFallback: false, reason: "webgpu" },
     async (renderer) => {
       loaded.push(renderer);
       return renderer === "lite"
@@ -45,7 +45,7 @@ test("a Lite mount failure disposes the failed adapter and mounts WebGL", async 
   expect(result).toBe(webgl);
   expect(loaded).toEqual(["lite", "webgl"]);
   expect(disposed).toEqual(["lite"]);
-  expect(fallbacks).toEqual([liteError]);
+  expect(fallbacks).toEqual([{ from: "lite", to: "webgl", error: "WebGPU adapter unavailable" }]);
 });
 
 test("a WebGL mount failure is surfaced without attempting another adapter", async () => {
@@ -53,7 +53,7 @@ test("a WebGL mount failure is surfaced without attempting another adapter", asy
   const disposed: string[] = [];
   const error = new Error("WebGL unavailable");
   await expect(mountSceneAdapter(
-    { renderer: "webgl", requestedLiteFallback: false },
+    { renderer: "webgl", requestedLiteFallback: false, reason: "no-webgpu" },
     async (renderer) => {
       loaded.push(renderer);
       return adapterThat(async () => { throw error; }, disposed, "webgl");
@@ -65,4 +65,3 @@ test("a WebGL mount failure is surfaced without attempting another adapter", asy
   expect(loaded).toEqual(["webgl"]);
   expect(disposed).toEqual(["webgl"]);
 });
-

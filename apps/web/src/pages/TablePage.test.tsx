@@ -4,8 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 
 import { HandStrip } from "../components/HandStrip";
 import { TableTopBar } from "../components/TableTopBar";
-import { playersPanelOpenByDefault } from "./TablePage";
-import { openPromptsForPlayer } from "./TablePage";
+import { openPromptsForPlayer, playersPanelOpenByDefault, RendererDiagnostics } from "./TablePage";
 
 test("375px table chrome exposes compact controls and the thumb hand tray", async () => {
   const html = renderToStaticMarkup(
@@ -45,4 +44,21 @@ test("only exposes the local player's open canonical prompts", () => {
     },
   } as unknown as import("digipology-kernel").CanonicalGameState;
   expect(openPromptsForPlayer(state, "p1").map((prompt) => prompt.id)).toEqual(["mine"]);
+});
+
+test("renderer diagnostics expose the mounted adapter, fallback, and tier", () => {
+  const html = renderToStaticMarkup(<dl><RendererDiagnostics status={{
+    requested: "lite",
+    mounted: "webgl",
+    reason: "webgpu",
+    fallback: { from: "lite", to: "webgl", error: "adapter unavailable" },
+    tier: "low",
+  }} /></dl>);
+  expect(html).toContain("Renderer");
+  expect(html).toContain("webgl");
+  expect(html).toContain("Selected because");
+  expect(html).toContain("Fallback");
+  expect(html).toContain("Lite failed to start: adapter unavailable");
+  expect(html).toContain("Tier");
+  expect(html).toContain("low");
 });

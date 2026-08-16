@@ -7,7 +7,7 @@ Use this checklist before changing either table scene adapter. Test the same rel
 - `rendererPolicy.test.ts`: WebGPU present/absent, both overrides, invalid override, and the no-WebGPU Lite fallback decision.
 - `mountSceneAdapter.test.ts`: Lite mount failure disposal and WebGL remount; WebGL failures remain visible.
 - `sceneInteraction.test.ts`: async target resolution preserves the 450 ms long-press and drag thresholds, stale cancellation preserves double-tap state, and hover picks are coalesced.
-- `sceneAdapter.contract.test.ts`: the real Lite adapter runs against a thin mocked Lite engine for sync/create/update/destroy, async pick-to-gesture, drag payload, highlight, correction, and disposal. WebGL's unchanged interaction path remains covered by the shared behavior tests below.
+- `sceneAdapter.contract.shared.ts`, `sceneAdapter.contract.test.ts`, and `sceneAdapter.contract.webgl.test.ts`: the same sync/create/update/destroy, async pick-to-gesture, drag payload, grabbability, highlight, 180 ms correction, camera, pause, and disposal contract runs against both real adapters. Lite uses a thin mocked Lite engine; WebGL uses Babylon's `NullEngine` and the real `attachDragBehavior` through injected browser-owned construction surfaces.
 - Existing `dragBehavior.test.ts`, `dragActions.test.ts`, `touchGestures.test.ts`, and `rendererTier.test.ts` remain the shared pure behavior floor.
 - `bun run --filter digipology-web check-chunks` verifies the built vendor chunks do not contain symbols from the other engine.
 
@@ -22,9 +22,9 @@ Use this checklist before changing either table scene adapter. Test the same rel
 | Two-finger orbit/pan | Not yet executed | Not yet executed | Not yet executed | |
 | Pinch zoom | Not yet executed | Not yet executed | Not yet executed | Lite blocks `attachControl`'s native touch path so only the shared gesture machine applies pinch |
 | Rejected prediction animates correction | Not yet executed | Not yet executed | Not yet executed | Both use a 180 ms easing window |
-| Card, die, and counter labels remain legible | Not yet executed | Not yet executed | Not yet executed | Lite labels are top-facing planes |
+| Card, die, and counter labels remain legible | Not yet executed | Not yet executed | Not yet executed | Lite card/die labels stay top-facing; counter labels are raised camera-facing planes |
 | Hover/selected/held feedback is clear | Not yet executed | Not yet executed | Not yet executed | WebGL outline vs Lite emissive affordance |
 | Dispose/remount leaves one responsive canvas | Not yet executed | Not yet executed | Not yet executed | Navigate away/back or remount the component |
-| Forced Lite without WebGPU shows WebGL, not black canvas | Not yet executed | Not applicable | Not yet executed | Confirm informational console message |
+| Forced Lite without WebGPU shows WebGL, not black canvas | Not yet executed | Not applicable | Not yet executed | Confirm the override hint and Diagnostics Renderer/reason/fallback rows |
 
 Record the phone model, OS/browser versions, WebGPU desktop GPU/driver, date, result, and any screenshots or console diagnostics in the PR before merging.
