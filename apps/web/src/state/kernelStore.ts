@@ -3,6 +3,7 @@ import {
   applyOrderedWithScripts as applyOrderedWithCreatorScripts,
   loadSnapshot,
   snapshot,
+  snapshotRequiresScripts,
   type CanonicalGameState,
   type GameSnapshot,
   type KernelEvent,
@@ -114,6 +115,7 @@ export class KernelStore {
   private predictionPlayerId: string | null = null;
   private correctionId = 0;
   private scriptRuntime: CreatorScriptRuntime | null = null;
+  private scriptedRelease = false;
 
   getSnapshot = (): KernelStoreSnapshot => this.current;
   subscribe = (listener: () => void): (() => void) => {
@@ -127,6 +129,7 @@ export class KernelStore {
 
   loadRelease(bundle: ReleaseBundleDto): void {
     const initial = bundleSnapshot(bundle);
+    this.scriptedRelease = snapshotRequiresScripts(initial);
     this.initialSnapshot = initial;
     this.replaceSnapshot(initial);
     this.publish({
@@ -139,10 +142,10 @@ export class KernelStore {
   async loadScriptRuntime(bundle: ReleaseBundleDto): Promise<void> {
     this.scriptRuntime?.close();
     this.scriptRuntime = null;
+    if (!snapshotRequiresScripts(bundleSnapshot(bundle))) return;
     const files = Array.isArray(bundle.files) ? bundle.files : [];
     if (!files.some((file) => file.path.startsWith("scripts/") && file.path.endsWith(".lua"))) return;
     const initial = loadSnapshot(bundleSnapshot(bundle));
-    if (!Object.values(initial.entities).some((entity) => entity.components.script !== undefined)) return;
     const entityRefs = Object.fromEntries(Object.keys(initial.entities).sort().map((id) => [id, id]));
     this.scriptRuntime = await createCreatorScriptRuntime({
       scripts: scriptsFromReleaseFiles(files),
@@ -155,6 +158,14 @@ export class KernelStore {
 
   hasScriptRuntime(): boolean {
     return this.scriptRuntime !== null;
+  }
+
+  requiresScripts(): boolean {
+    return this.scriptedRelease;
+  }
+
+  confirmedSnapshot(): GameSnapshot | null {
+    return this.current.state === null ? null : snapshot(this.current.state);
   }
 
   dispose(): void {

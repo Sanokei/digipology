@@ -227,4 +227,110 @@ return {}`;
     expect(statuses).not.toContain("reconnecting");
     client.stop();
   }, 20_000);
+
+  it("attests scripted cadence snapshots from confirmed state and treats failures as best-effort", async () => {
+    const initial = createInitialState({
+      releaseId: "release_test",
+      rng: { algorithm: "sfc32-v1", state: [1, 2, 3, 4], draws: 0 },
+      entities: {
+        rules: { id: "rules", components: { script: { scriptId: "scripts/game.lua", bindingId: "rules", props: {} } } },
+        counter: { id: "counter", components: { counter: { value: 0, default: 0, min: 0, max: 10 } } },
+        token: {
+          id: "token",
+          components: {
+            transform: { position: { x: 0, y: 0.1, z: 0 }, rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: { x: 1, y: 1, z: 1 } },
+            grabbable: { enabled: true, heldBy: null },
+          },
+        },
+      },
+    });
+    const source = "return {}";
+    const bundle = {
+      releaseId: "release_test",
+      initialSnapshot: snapshot(initial),
+      files: [{ path: "scripts/game.lua", content: source, byteLength: source.length, contentHash: `sha256:${"0".repeat(64)}` }],
+    };
+    const api = createApiClient(async () => Response.json(bundle));
+    const socket = new MockSocket();
+    const store = new KernelStore();
+    const reports: Array<{ sequence: number; stateHash: string; snapshot: ReturnType<typeof snapshot> }> = [];
+    const client = new RoomClient(
+      session,
+      store,
+      () => undefined,
+      api,
+      () => socket as unknown as WebSocket,
+      async () => undefined,
+      async (input) => {
+        reports.push(input as typeof reports[number]);
+        throw new Error("simulated checkpoint outage");
+      },
+    );
+    client.start();
+    socket.open();
+    await waitFor(() => socket.sent.length > 0);
+    const at199 = snapshot({ ...initial, sequence: 199 });
+    socket.message({ type: "bootstrap", protocolVersion: 1, sequence: 199, players: [], snapshot: at199 });
+    await waitFor(() => store.getSnapshot().state?.sequence === 199);
+    expect(client.sendAction({ type: "entity.grab", payload: { entityId: "token" } })).toBeString();
+    expect(store.getSnapshot().displayedState?.entities.token?.components.grabbable?.heldBy).toBe("p1");
+
+    socket.message({
+      type: "ordered_action", protocolVersion: 1, sequence: 200, actionId: "counter-200",
+      actor: { type: "system" }, action: { type: "counter.add", payload: { entityId: "counter", amount: 1 } },
+    });
+    await waitFor(() => reports.length === 1);
+    expect(reports[0]?.sequence).toBe(200);
+    expect(reports[0]?.stateHash).toBe(reports[0]?.snapshot.stateHash);
+    expect(reports[0]?.snapshot.state.entities.token?.components.grabbable?.heldBy).toBeNull();
+    expect(store.getSnapshot().displayedState?.entities.token?.components.grabbable?.heldBy).toBe("p1");
+    await waitFor(() => store.getSnapshot().diagnostic?.includes("Checkpoint at sequence 200") === true);
+
+    socket.message({
+      type: "ordered_action", protocolVersion: 1, sequence: 201, actionId: "counter-201",
+      actor: { type: "system" }, action: { type: "counter.add", payload: { entityId: "counter", amount: 1 } },
+    });
+    await waitFor(() => store.getSnapshot().state?.sequence === 201);
+    expect(socket.readyState).toBe(WebSocket.OPEN);
+    client.stop();
+  }, 20_000);
+
+  it("does not attest an unscripted room at checkpoint cadence", async () => {
+    const initial = createInitialState({
+      releaseId: "release_test",
+      rng: { algorithm: "sfc32-v1", state: [1, 2, 3, 4], draws: 0 },
+    });
+    const api = createApiClient(async () => Response.json({
+      releaseId: "release_test",
+      initialSnapshot: snapshot(initial),
+      files: [{ path: "scripts/unused.lua", content: "return {}", byteLength: 9, contentHash: `sha256:${"0".repeat(64)}` }],
+    }));
+    const socket = new MockSocket();
+    const store = new KernelStore();
+    let reports = 0;
+    const client = new RoomClient(
+      session,
+      store,
+      () => undefined,
+      api,
+      () => socket as unknown as WebSocket,
+      async () => undefined,
+      async () => { reports += 1; },
+    );
+    client.start();
+    socket.open();
+    await waitFor(() => socket.sent.length > 0);
+    socket.message({
+      type: "bootstrap", protocolVersion: 1, sequence: 199, players: [],
+      snapshot: snapshot({ ...initial, sequence: 199 }),
+    });
+    socket.message({
+      type: "ordered_action", protocolVersion: 1, sequence: 200, actionId: "start-200",
+      actor: { type: "system" }, action: { type: "system.game_start", payload: { settings: {} } },
+    });
+    await waitFor(() => store.getSnapshot().state?.sequence === 200);
+    expect(store.requiresScripts()).toBe(false);
+    expect(reports).toBe(0);
+    client.stop();
+  });
 });

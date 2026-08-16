@@ -13,7 +13,10 @@
 //   6. every timer.registered / timer.canceled report is accepted (204),
 //   7. neither client records an unexpected rejection (a stale timer fire that
 //      races a reported cancel is tolerated) and both event streams match,
-//   8. a late-bootstrap client catches up to the live hash.
+//   8. the room advances by more than the 500-action retention window (driven
+//      by a grab/drop action loop, so it does not wait on the 20 s turn timer)
+//      and both clients' checkpoint attestations are accepted,
+//   9. a late-bootstrap client catches up to the live hash.
 import {
   applyOrderedWithScripts,
   loadSnapshot,
@@ -33,11 +36,13 @@ import type {
   QuickPlayResponse,
   ReleaseBundleDto,
 } from "digipology-protocol/http";
+import { CHECKPOINT_ATTESTATION_INTERVAL } from "digipology-protocol/http";
 
 const NETWORK_TIMEOUT_MS = 7_000;
 const FRAME_TIMEOUT_MS = 30_000;
 const MAX_FRAMES_PER_STEP = 60;
 const SCORE_ATTEMPTS = 3;
+const LONG_ROOM_ACTIONS = 501;
 const SLUG = "zone-runner";
 const EXPECTED_RELEASE_ID = "builtin_zone_runner_2";
 const JSON_HEADERS = { "Content-Type": "application/json", "X-Digipology-CSRF": "1" };
@@ -60,6 +65,11 @@ interface TimerPost {
   status: number;
 }
 
+interface CheckpointPost {
+  sequence: number;
+  status: number;
+}
+
 interface Client {
   name: string;
   playerId: string;
@@ -71,6 +81,7 @@ interface Client {
   events: string[];
   rejections: string[];
   timerPosts: TimerPost[];
+  checkpointPosts: CheckpointPost[];
   next(): Promise<ServerMessage>;
 }
 
@@ -236,6 +247,40 @@ async function runChecks(): Promise<void> {
     return `${connected.a.events.length} events${stale > 0 ? `, ${stale} stale timer fire(s) rejected on both` : ""}`;
   }, (detail) => detail);
 
+  await check("scripted room crosses the full action-retention window", async () => {
+    const connected = requireValue(pair, "both clients bootstrap and converge after system.game_start");
+    const startSequence = Math.max(requireState(connected.a).sequence, requireState(connected.b).sequence);
+    const targetSequence = startSequence + LONG_ROOM_ACTIONS;
+    // Drive the window with kernel-level grab/drop round trips on one of the
+    // driver's own runners, parked well outside the scoring zone so the Lua
+    // rules stay idle; turn-timer frames interleave naturally.
+    const driver = handItems(connected.a, seatOf(connected.a).handId).length > 0 ? connected.a : connected.b;
+    const follower = driver === connected.a ? connected.b : connected.a;
+    const runner = handItems(driver, seatOf(driver).handId)[0];
+    expect(runner !== undefined, `${driver.name} has no runner left in hand to drive the long room`);
+    const parked = { position: { x: 6, y: 0, z: 5 }, rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: { x: 1, y: 1, z: 1 } };
+    let holding = false;
+    const rejectionsBefore = unexpectedRejections(driver).length;
+    while (requireState(driver).sequence < targetSequence) {
+      const requestId = holding
+        ? sendAction(driver, "entity.drop", { entityId: runner, transform: parked })
+        : sendAction(driver, "entity.grab", { entityId: runner });
+      holding = !holding;
+      await applyUntil(driver, isRequest(requestId));
+    }
+    const reached = (message: ServerMessage): boolean =>
+      message.type === "ordered_action" && message.sequence >= requireState(driver).sequence;
+    await applyUntil(follower, reached, LONG_ROOM_ACTIONS + MAX_FRAMES_PER_STEP);
+    expectConverged(connected);
+    const driverRejections = unexpectedRejections(driver).slice(rejectionsBefore);
+    expect(driverRejections.length === 0, `${driver.name} rejections while driving: ${JSON.stringify(driverRejections)}`);
+    const posts = [...connected.a.checkpointPosts, ...connected.b.checkpointPosts];
+    const rejected = posts.filter((post) => post.status !== 204);
+    expect(posts.length >= 4, `expected checkpoint attestations from both clients, received ${posts.length}`);
+    expect(rejected.length === 0, `non-204 checkpoint posts: ${JSON.stringify(rejected)}`);
+    return `sequence ${targetSequence}, ${posts.length} checkpoint attestations`;
+  }, (detail) => detail);
+
   await check("late-bootstrap client converges to the live hash", async () => {
     const connected = requireValue(pair, "both clients bootstrap and converge after system.game_start");
     const quick = requireValue(seats, "two guest quickplay calls share a zone-runner room");
@@ -246,7 +291,9 @@ async function runChecks(): Promise<void> {
     const goal = Math.max(requireState(connected.a).sequence, requireState(late).sequence);
     const reached = (message: ServerMessage): boolean => message.type === "ordered_action" && message.sequence >= goal;
     if (requireState(connected.a).sequence < goal) await applyUntil(connected.a, reached);
-    if (requireState(late).sequence < goal) await applyUntil(late, reached);
+    if (requireState(late).sequence < goal) {
+      await applyUntil(late, reached, LONG_ROOM_ACTIONS + MAX_FRAMES_PER_STEP);
+    }
     const liveHash = hashOf(connected.a);
     expect(hashOf(late) === liveHash, `late client hash ${hashOf(late)} differs from live ${liveHash} at sequence ${goal}`);
     const unexpected = unexpectedRejections(late);
@@ -333,6 +380,7 @@ async function connect(name: string, quick: QuickPlayResponse, release: ReleaseB
     events: [],
     rejections: [],
     timerPosts: [],
+    checkpointPosts: [],
     next() {
       const queued = frames.shift();
       if (queued !== undefined) return Promise.resolve(queued);
@@ -350,8 +398,12 @@ async function connect(name: string, quick: QuickPlayResponse, release: ReleaseB
 }
 
 /** Applies frames through the scripted kernel until `done` accepts one; reports timer metadata like the web client. */
-async function applyUntil(client: Client, done: (message: ServerMessage) => boolean): Promise<ServerMessage> {
-  for (let index = 0; index < MAX_FRAMES_PER_STEP; index += 1) {
+async function applyUntil(
+  client: Client,
+  done: (message: ServerMessage) => boolean,
+  maxFrames = MAX_FRAMES_PER_STEP,
+): Promise<ServerMessage> {
+  for (let index = 0; index < maxFrames; index += 1) {
     const message = await client.next();
     if (message.type === "bootstrap") {
       client.state = loadSnapshot(message.snapshot as GameSnapshot);
@@ -376,9 +428,27 @@ async function applyUntil(client: Client, done: (message: ServerMessage) => bool
       client.rejections.push(`${message.sequence}:${message.action.type}:${result.rejection.reason}`);
     }
     await reportTimers(client, result.events);
+    await reportCheckpoint(client);
     if (done(message)) return message;
   }
-  throw new Error(`${client.name}: predicate not met within ${MAX_FRAMES_PER_STEP} frames`);
+  throw new Error(`${client.name}: predicate not met within ${maxFrames} frames`);
+}
+
+async function reportCheckpoint(client: Client): Promise<void> {
+  const state = requireState(client);
+  if (state.sequence <= 0 || state.sequence % CHECKPOINT_ATTESTATION_INTERVAL !== 0) return;
+  const checkpoint = snapshot(state);
+  const response = await fetch(`${origin}/api/rooms/${encodeURIComponent(client.roomId)}/checkpoints`, {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify({
+      roomToken: client.roomToken,
+      sequence: checkpoint.sequence,
+      stateHash: checkpoint.stateHash,
+      snapshot: checkpoint,
+    }),
+  });
+  client.checkpointPosts.push({ sequence: checkpoint.sequence, status: response.status });
 }
 
 async function applyOnBoth(pair: Pair, done: (message: ServerMessage) => boolean): Promise<void> {

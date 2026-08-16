@@ -1,4 +1,5 @@
 import type {
+  CheckpointAttestationRequest,
   CreateGameResponse,
   CoverUploadResponse,
   CreateReleaseResponse,
@@ -774,6 +775,48 @@ export async function handlePlatformRequest(
     return new Response(object.body, {
       headers: { ...cacheHeaders, "Content-Type": "application/json; charset=utf-8" },
     });
+  }
+
+  const roomCheckpointMatch = /^\/api\/rooms\/([0-9a-f]{64})\/checkpoints$/.exec(url.pathname);
+  if (request.method === "POST" && roomCheckpointMatch?.[1] !== undefined) {
+    const parsed = await readUploadJson(request);
+    if (parsed.oversize) {
+      return jsonError(413, "checkpoint_too_large", "Checkpoint exceeds the 1 MiB limit");
+    }
+    const body = asRecord(parsed.value);
+    if (body === null || typeof body.roomToken !== "string" ||
+      typeof body.sequence !== "number" || !Number.isSafeInteger(body.sequence) ||
+      typeof body.stateHash !== "string" ||
+      asRecord(body.snapshot) === null) {
+      return invalidRequest("Checkpoint attestation is invalid");
+    }
+    const attestation = body as unknown as CheckpointAttestationRequest;
+    try {
+      const room = env.ROOM.get(env.ROOM.idFromString(roomCheckpointMatch[1]));
+      const outcome = await room.attestCheckpoint(attestation.roomToken, {
+        sequence: attestation.sequence,
+        stateHash: attestation.stateHash,
+        snapshot: attestation.snapshot,
+      });
+      switch (outcome.status) {
+        case "accepted":
+        case "confirmed":
+        case "duplicate":
+          return new Response(null, { status: 204 });
+        case "unauthorized":
+          return jsonError(403, "checkpoint_unauthorized", "Room token was not accepted");
+        case "rate_limited":
+          return jsonError(429, "rate_limited", "Too many checkpoint attestations", {
+            "Retry-After": "60",
+          });
+        case "divergent":
+          return jsonError(409, "checkpoint_divergent", outcome.reason ?? "Checkpoint hashes diverged");
+        case "rejected":
+          return jsonError(422, "checkpoint_rejected", outcome.reason ?? "Checkpoint was not accepted");
+      }
+    } catch {
+      return jsonError(404, "not_found", "Room not found");
+    }
   }
 
   const roomTimerMatch = /^\/api\/rooms\/([0-9a-f]{64})\/timers$/.exec(url.pathname);

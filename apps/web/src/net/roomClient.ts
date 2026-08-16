@@ -1,4 +1,8 @@
 import { PROTOCOL_VERSION, parseServerMessage, type ActionRequest, type ClientMessage, type ServerMessage } from "digipology-protocol";
+import {
+  CHECKPOINT_ATTESTATION_INTERVAL,
+  type CheckpointAttestationRequest,
+} from "digipology-protocol/http";
 
 import { api, type ApiClient } from "../api/client";
 import type { SavedRoomSession } from "../utils/roomSession";
@@ -17,6 +21,9 @@ type TimerMetadataReporter = (input: {
   timerId: string;
   delay?: number;
 }) => Promise<void>;
+type CheckpointAttestationReporter = (
+  input: Omit<CheckpointAttestationRequest, "roomToken">,
+) => Promise<void>;
 
 export class RoomClient {
   private socket: WebSocket | null = null;
@@ -40,6 +47,14 @@ export class RoomClient {
         body: JSON.stringify({ roomToken: session.roomToken, ...input }),
       });
       if (!response.ok) throw new Error("Canonical timer metadata was not accepted");
+    },
+    private readonly reportCheckpointAttestation: CheckpointAttestationReporter = async (input) => {
+      const response = await fetch(`/api/rooms/${encodeURIComponent(session.roomId)}/checkpoints`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Digipology-CSRF": "1" },
+        body: JSON.stringify({ roomToken: session.roomToken, ...input }),
+      });
+      if (!response.ok) throw new Error("Canonical checkpoint was not accepted");
     },
   ) {}
 
@@ -141,6 +156,7 @@ export class RoomClient {
             const result = await this.store.applyOrderedWithScriptRuntime(action);
             if (!result.ok) { this.recoverFromGap(`Resume gap at ${result.actual}`); return; }
             await this.reportCanonicalTimerEvents();
+            await this.reportCanonicalCheckpoint();
           }
         }
         this.reconnectAttempt = 0; this.onStatus({ state: "connected", message: "Connected" }); return;
@@ -150,7 +166,10 @@ export class RoomClient {
           ? await this.store.applyOrderedWithScriptRuntime(message)
           : this.store.applyOrdered(message);
         if (!result.ok) this.recoverFromGap(`Ordered stream gap at ${result.actual}`);
-        else await this.reportCanonicalTimerEvents();
+        else {
+          await this.reportCanonicalTimerEvents();
+          await this.reportCanonicalCheckpoint();
+        }
         return;
       }
       case "resync_required": this.recoverFromGap("Server requested a full resync", true); return;
@@ -183,6 +202,27 @@ export class RoomClient {
       catch (error) {
         this.store.setDiagnostic(`Timer ${input.operation} for ${input.timerId} was not recorded: ${error instanceof Error ? error.message : String(error)}`);
       }
+    }
+  }
+
+  /** Best-effort and always authored from confirmed, never predicted, state. */
+  private async reportCanonicalCheckpoint(): Promise<void> {
+    if (!this.store.requiresScripts()) return;
+    const sequence = this.store.getSnapshot().state?.sequence ?? 0;
+    if (sequence <= 0 || sequence % CHECKPOINT_ATTESTATION_INTERVAL !== 0) return;
+    // Only serialize/hash the full state on the cadence, never per action.
+    const confirmed = this.store.confirmedSnapshot();
+    if (confirmed === null || confirmed.sequence !== sequence) return;
+    try {
+      await this.reportCheckpointAttestation({
+        sequence: confirmed.sequence,
+        stateHash: confirmed.stateHash,
+        snapshot: confirmed,
+      });
+    } catch (error) {
+      this.store.setDiagnostic(
+        `Checkpoint at sequence ${confirmed.sequence} was not recorded: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
