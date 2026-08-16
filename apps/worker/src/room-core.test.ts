@@ -18,11 +18,15 @@ import {
   CHECKPOINT_INTERVAL,
   CHECKPOINT_SOLO_GRACE_MS,
   replayCheckpoint,
+  resumeBaseFromSave,
   RoomCore,
   roomBootstrapFromSnapshots,
   retentionFloor,
   roomBootstrapMessages,
   timerFireDedupKey,
+  nextHost,
+  savedPlayerIdsToRemove,
+  scheduledTimersToArm,
   validateCheckpointAttestationSnapshot,
 } from "./room-core";
 
@@ -54,6 +58,27 @@ function checkpointInitialSnapshot(): GameSnapshot {
 }
 
 describe("RoomCore sequencing", () => {
+  test("plans deterministic saved-table resume cleanup and timers", () => {
+    const state = createInitialState({
+      releaseId: "release_save_test",
+      rng: { algorithm: "sfc32-v1", state: [1, 2, 3, 4], draws: 0 },
+    });
+    state.sequence = 9;
+    state.players = { zed: { id: "zed" }, alice: { id: "alice" } };
+    state.timers = {
+      later: { id: "later", delay: 3, callback: "tick", scriptId: "s", bindingId: "b", status: "scheduled" },
+      done: { id: "done", delay: 1, callback: "tick", scriptId: "s", bindingId: "b", status: "fired" },
+    };
+    const saved = snapshot(state);
+    const base = resumeBaseFromSave(saved);
+    expect(base.sequence).toBe(0);
+    expect(base.stateHash).not.toBe(saved.stateHash);
+    const loaded = loadSnapshot(base);
+    expect(savedPlayerIdsToRemove(loaded)).toEqual(["alice", "zed"]);
+    expect(scheduledTimersToArm(loaded)).toEqual([{ timerId: "later", delayMs: 3000 }]);
+    expect(nextHost(["old", "new"], ["new"], "old")).toBe("new");
+    expect(nextHost(["old", "new"], [], "old")).toBe("old");
+  });
   test("allocates 1000 monotonically increasing sequences and retains 500", () => {
     const core = new RoomCore("room123");
     for (let index = 1; index <= 1000; index += 1) {

@@ -9,6 +9,7 @@ import { GameDetailPage } from "./pages/GameDetailPage";
 import { HomePage } from "./pages/HomePage";
 import { JoinPage } from "./pages/JoinPage";
 import { LoginPage } from "./pages/LoginPage";
+import { SavesPage } from "./pages/SavesPage";
 
 const TablePage = lazy(async () => {
   const module = await import("./pages/TablePage");
@@ -33,6 +34,7 @@ export function AppRoutes() {
         <Route path="/games" element={<GamesPage />} />
         <Route path="/games/:slug" element={<GameDetailPage />} />
         <Route path="/create" element={<CreatePage />} />
+        <Route path="/saves" element={<SavesPage />} />
         <Route
           path="/edit"
           element={

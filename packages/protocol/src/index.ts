@@ -9,6 +9,8 @@ export interface PlayerInfo {
   displayName: string;
   seatId: string | null;
   connected: boolean;
+  /** Administrative room metadata. Missing is equivalent to false for v1 clients. */
+  host?: boolean;
 }
 
 export type ProtocolErrorCode =
@@ -542,7 +544,7 @@ function validatePlayerInfo(value: unknown, path: string): ParseFailure | undefi
   if (!isObject(value)) return wrongType(path, "a player object");
   const extra = rejectExtraKeys(
     value,
-    ["playerId", "displayName", "seatId", "connected"],
+    ["playerId", "displayName", "seatId", "connected", "host"],
     path,
   );
   if (extra !== undefined) return extra;
@@ -557,6 +559,9 @@ function validatePlayerInfo(value: unknown, path: string): ParseFailure | undefi
   }
   if (typeof value.connected !== "boolean") {
     return wrongType(`${path}.connected`, "a boolean");
+  }
+  if (hasOwn(value, "host") && typeof value.host !== "boolean") {
+    return wrongType(`${path}.host`, "a boolean");
   }
   return undefined;
 }

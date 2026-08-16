@@ -86,6 +86,9 @@ describe("API client", () => {
     await client.joinRoom({ code: "ABCD-EFGH", displayName: "Grace" }); await client.listPublicRooms();
     await client.quickPlay({ slug: "demo game", displayName: "Grace" });
     await client.getReleaseBundle("rel/1");
+    await client.saveTable("room/1", "token"); await client.listSaves();
+    await client.resumeSave("save/1"); await client.deleteSave("save/1");
+    await client.endTable("room/1", "token");
     expect(calls.map(({ path, init }) => [path, init?.method])).toEqual([
       ["/api/auth/logout", "POST"], ["/api/me", "GET"], ["/api/me", "PATCH"],
       ["/api/games", "GET"], ["/api/games/mine", "GET"], ["/api/games", "POST"],
@@ -96,6 +99,9 @@ describe("API client", () => {
       ["/api/rooms", "POST"], ["/api/rooms/join", "POST"],
       ["/api/rooms/public", "GET"], ["/api/quickplay", "POST"],
       ["/api/releases/rel%2F1/bundle", "GET"],
+      ["/api/rooms/room%2F1/save", "POST"], ["/api/saves", "GET"],
+      ["/api/saves/save%2F1/resume", "POST"], ["/api/saves/save%2F1", "DELETE"],
+      ["/api/rooms/room%2F1/end", "POST"],
     ]);
     for (const { init } of calls) {
       expect(init?.credentials).toBe("include");

@@ -3,6 +3,8 @@ import { Link, useParams } from "react-router-dom";
 
 import { HandStrip } from "../components/HandStrip";
 import { TableTopBar } from "../components/TableTopBar";
+import { TableMenu } from "../components/TableMenu";
+import type { GameSnapshotDto } from "digipology-protocol/http";
 import { RoomClient, type RoomClientStatus } from "../net/roomClient";
 import { TableScene } from "../scene/TableScene";
 import {
@@ -111,7 +113,7 @@ export function TablePage() {
   return <TableScene
     store={store} client={client} interactionsPaused={status.state !== "connected"}
     onRendererStatus={setRendererStatus} rendererStatus={rendererStatus} rendererOverrideActive={rendererOverrideActive}
-    topBar={<TableTopBar gameTitle={gameTitle} playerCount={view.players.length} joinCode={session.joinCode} inviteUrl={session.inviteUrl} onPlayers={() => setPlayersOpen((value) => !value)} onDiagnostics={() => setDiagnosticsOpen((value) => !value)} />}
+    topBar={<TableTopBar gameTitle={gameTitle} playerCount={view.players.length} joinCode={session.joinCode} inviteUrl={session.inviteUrl} onPlayers={() => setPlayersOpen((value) => !value)} onDiagnostics={() => setDiagnosticsOpen((value) => !value)} menu={<TableMenu roomId={roomId} roomToken={session.roomToken} isHost={view.players.find((player) => player.playerId === session.playerId)?.host === true} confirmedSnapshot={() => store.confirmedSnapshot() as GameSnapshotDto | null} onDiagnostics={() => setDiagnosticsOpen((value) => !value)} />} />}
     panels={<>
       {view.correction === null ? null : <div key={view.correction.id} className="prediction-correction" role="status">{view.correction.message}</div>}
       {playersOpen ? <aside className="players-panel table-sheet" aria-label="Players"><div className="panel-heading"><span>Players</span><button type="button" aria-label="Close players" onClick={() => setPlayersOpen(false)}>×</button></div>{view.players.map((player) => <div className="player-row" key={player.playerId}><span className={player.connected ? "connection-dot connection-dot--online" : "connection-dot"} /><span><strong>{player.displayName}</strong><small>{player.seatId ?? "No seat"}</small></span><em>{player.connected ? "Connected" : "Away"}</em></div>)}</aside> : null}

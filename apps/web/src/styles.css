@@ -1019,6 +1019,21 @@ button.action-card { width: 100%; border-right: 0; border-left: 0; text-align: l
 .play-room-list a > span:nth-child(2) { color: var(--dgp-muted); font-variant-numeric: tabular-nums; }
 .play-room-list i { font-style: normal; }
 .play-toast { position: fixed; z-index: 110; right: 24px; bottom: 24px; max-width: min(390px,calc(100vw - 48px)); padding: 13px 16px; border: 1px solid rgba(248,113,113,.32); border-radius: 10px; background: #201517; box-shadow: 0 16px 44px rgba(0,0,0,.5); color: #ffd6d6; font-size: 13px; }
+
+.table-menu { position: relative; }
+.table-menu > summary { display: grid; place-items: center; min-width: 40px; min-height: 40px; list-style: none; cursor: pointer; }
+.table-menu > summary::-webkit-details-marker { display: none; }
+.table-menu__sheet { position: absolute; z-index: 120; top: calc(100% + 8px); right: 0; width: min(260px, calc(100vw - 24px)); padding: 8px; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+.table-menu__sheet button,.table-menu__sheet a { display: flex; align-items: center; width: 100%; min-height: 44px; padding: 8px 12px; border: 0; border-radius: 8px; background: transparent; color: inherit; text-decoration: none; font: inherit; text-align: left; cursor: pointer; }
+.table-menu__sheet button:hover,.table-menu__sheet button:focus-visible,.table-menu__sheet a:hover,.table-menu__sheet a:focus-visible { background: rgba(255,255,255,.08); outline: 2px solid transparent; }
+.table-menu__toast { position: fixed; z-index: 130; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); padding: 12px 16px; border-radius: 10px; background: #17171d; color: #fff; box-shadow: 0 16px 40px rgba(0,0,0,.45); }
+.saved-tables-page { width: min(960px, calc(100% - 32px)); margin: 48px auto; }
+.saved-tables-list { display: grid; gap: 12px; margin-top: 24px; }
+.saved-table-card { display: flex; justify-content: space-between; gap: 20px; align-items: center; padding: 18px; border: 1px solid var(--dgp-border, #26262e); border-radius: 12px; background: var(--dgp-surface, #16161c); }
+.saved-table-card div:first-child { display: grid; gap: 4px; }
+.saved-table-card small { color: var(--dgp-muted, #a1a1aa); }
+.saved-table-card div:last-child { display: flex; gap: 8px; }
+@media (max-width: 600px) { .saved-table-card { align-items: stretch; flex-direction: column; } .saved-table-card div:last-child button { flex: 1; min-height: 44px; } }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
 .login-overlay { position: fixed; z-index: 90; inset: 0; display: grid; padding: 24px; overflow-y: auto; place-items: center; background: rgba(0,0,0,.76); color: var(--dgp-text); backdrop-filter: blur(5px); }

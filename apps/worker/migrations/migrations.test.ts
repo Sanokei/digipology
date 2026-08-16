@@ -91,4 +91,48 @@ describe("D1 migrations", () => {
       .toEqual([{ room_id: "room_lobby" }]);
     db.close();
   });
+
+  test("0006 adds saved tables and nullable room ownership/provenance", async () => {
+    const db = new Database(":memory:");
+    for (const name of [
+      "0001_platform_v1.sql", "0002_uploaded_games_v1.sql",
+      "0003_quickplay_metrics_covers.sql", "0004_deepseek_usage.sql",
+      "0005_room_joinability.sql",
+    ]) db.exec(await Bun.file(new URL(`./${name}`, import.meta.url)).text());
+    db.query(`INSERT INTO rooms_index
+      (room_id, join_code, join_code_normalized, visibility, release_id,
+       player_count, max_players, created_at, origin, game_slug, joinable)
+      VALUES ('legacy', 'DDDD-2222', 'DDDD2222', 'private',
+       'builtin_first_deal_1', 1, 4, 1, 'hosted', 'first-deal', 0)`).run();
+    db.exec(await Bun.file(new URL("./0006_saved_tables.sql", import.meta.url)).text());
+    expect(db.query("SELECT creator_user_id, resumed_from_save_id FROM rooms_index WHERE room_id = 'legacy'").get())
+      .toEqual({ creator_user_id: null, resumed_from_save_id: null });
+    expect(db.query("PRAGMA table_info(saved_tables)").all().map((row) => (row as { name: string }).name))
+      .toEqual(expect.arrayContaining(["owner_user_id", "release_id", "state_hash", "object_key", "deleted_at"]));
+    db.close();
+  });
+
+  test("0006 applies as part of a fresh migration chain", async () => {
+    const db = new Database(":memory:");
+    for (const name of [
+      "0001_platform_v1.sql", "0002_uploaded_games_v1.sql",
+      "0003_quickplay_metrics_covers.sql", "0004_deepseek_usage.sql",
+      "0005_room_joinability.sql", "0006_saved_tables.sql",
+    ]) db.exec(await Bun.file(new URL(`./${name}`, import.meta.url)).text());
+    db.query(`INSERT INTO users (id, name, email, created_at, updated_at)
+      VALUES ('owner', 'Owner', 'owner@example.com', 1, 1)`).run();
+    db.query(`INSERT INTO saved_tables
+      (id, owner_user_id, release_id, game_slug, source_room_id, sequence,
+       state_hash, object_key, byte_length, created_at)
+      VALUES ('save_1', 'owner', 'builtin_first_deal_1', 'first-deal',
+              'room_1', 7, 'sha256:test', 'saves/save_1.json', 100, 2)`).run();
+    expect(db.query("SELECT owner_user_id, release_id, state_hash, object_key FROM saved_tables").get())
+      .toEqual({
+        owner_user_id: "owner",
+        release_id: "builtin_first_deal_1",
+        state_hash: "sha256:test",
+        object_key: "saves/save_1.json",
+      });
+    db.close();
+  });
 });

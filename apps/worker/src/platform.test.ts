@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
+import { Database } from "bun:sqlite";
 import { getBuiltinRelease } from "digipology-demo-games";
+import type { GameSnapshotDto } from "digipology-protocol/http";
 import { createSession, type SessionRecord, type SessionRepository } from "./auth";
+import { builtinCatalog } from "./catalog";
 import { handlePlatformRequest, isCsrfSafe, readCoverBody, readUploadJson, writeReleaseThenCommit } from "./platform";
 
 describe("catalog routes", () => {
@@ -440,6 +443,526 @@ describe("uploaded game authorization", () => {
     }
   });
 });
+
+describe("saved tables routes", () => {
+  test("require authentication for save, list, delete, and resume", async () => {
+    const roomId = "d".repeat(64);
+    for (const [method, path, body] of [
+      ["POST", `/api/rooms/${roomId}/save`, { roomToken: "host-token" }],
+      ["GET", "/api/saves", undefined],
+      ["DELETE", "/api/saves/save_private", undefined],
+      ["POST", "/api/saves/save_private/resume", {}],
+    ] as const) {
+      const response = await handlePlatformRequest(savedTablesRequest(method, path, undefined, body), {} as Env);
+      expect(response.status).toBe(401);
+      expect(await response.json()).toMatchObject({ error: { code: "authentication_required" } });
+    }
+  });
+
+  test("maps save token, host, availability, and freshness failures", async () => {
+    const harness = await savedTablesTestEnv();
+    const absent = await harness.request("POST", `/api/rooms/${harness.roomId}/save`, {});
+    expect(absent.status).toBe(403);
+    expect(await absent.json()).toMatchObject({ error: { code: "save_unauthorized" } });
+
+    for (const [token, outcome, code] of [
+      ["bad-token", { status: "unauthorized" }, "save_unauthorized"],
+      ["player-token", { status: "host_only" }, "save_host_only"],
+      ["host-token", { status: "unavailable" }, "save_unavailable"],
+      ["host-token", { status: "unavailable" }, "save_unavailable"],
+      ["host-token", { status: "stale" }, "save_stale"],
+    ] as const) {
+      harness.saveOutcome = outcome;
+      const response = await harness.request("POST", `/api/rooms/${harness.roomId}/save`, { roomToken: token });
+      expect(response.status).toBe(code.startsWith("save_") && code !== "save_unauthorized" && code !== "save_host_only" ? 409 : 403);
+      expect(await response.json()).toMatchObject({ error: { code } });
+    }
+    expect(harness.bucket.objects.size).toBe(0);
+    expect(harness.db.query("SELECT COUNT(*) AS count FROM saved_tables").get()).toEqual({ count: 0 });
+  });
+
+  test("rejects tampered and oversized snapshots without persistence", async () => {
+    const harness = await savedTablesTestEnv();
+    harness.saveOutcome = { status: "invalid", reason: "Snapshot state hash mismatch" };
+    const tampered = await harness.request("POST", `/api/rooms/${harness.roomId}/save`, {
+      roomToken: "host-token",
+      snapshot: { ...harness.snapshot, stateHash: `sha256:${"0".repeat(64)}` },
+    });
+    expect(tampered.status).toBe(422);
+    expect(await tampered.json()).toMatchObject({ error: { code: "save_invalid" } });
+    expect(harness.bucket.objects.size).toBe(0);
+    expect(harness.db.query("SELECT COUNT(*) AS count FROM saved_tables").get()).toEqual({ count: 0 });
+
+    const oversized = await handlePlatformRequest(new Request(
+      `https://play.digipology.com/api/rooms/${harness.roomId}/save`,
+      {
+        method: "POST",
+        headers: savedTablesHeaders(harness.cookie, { "Content-Length": String(1024 * 1024 + 1) }),
+        body: "{}",
+      },
+    ), harness.env, { now: SAVED_TABLES_NOW });
+    expect(oversized.status).toBe(413);
+    expect(await oversized.json()).toMatchObject({ error: { code: "save_too_large" } });
+    expect(harness.bucket.objects.size).toBe(0);
+  });
+
+  test("enforces the per-minute rate limit and active-save cap", async () => {
+    const rateHarness = await savedTablesTestEnv();
+    rateHarness.saveOutcome = { status: "host_only" };
+    for (let index = 0; index < 10; index += 1) {
+      expect((await rateHarness.request("POST", `/api/rooms/${rateHarness.roomId}/save`, {
+        roomToken: "player-token",
+      })).status).toBe(403);
+    }
+    const limited = await rateHarness.request("POST", `/api/rooms/${rateHarness.roomId}/save`, {
+      roomToken: "player-token",
+    });
+    expect(limited.status).toBe(429);
+    expect(await limited.json()).toMatchObject({ error: { code: "rate_limited" } });
+
+    const capHarness = await savedTablesTestEnv();
+    for (let index = 0; index < 50; index += 1) {
+      insertSavedTable(capHarness.db, {
+        id: `save_cap_${index}`, ownerUserId: capHarness.userId, releaseId: harnessReleaseId(),
+        gameSlug: "first-deal", createdAt: index,
+      });
+    }
+    const capped = await capHarness.request("POST", `/api/rooms/${capHarness.roomId}/save`, {
+      roomToken: "host-token",
+    });
+    expect(capped.status).toBe(409);
+    expect(await capped.json()).toMatchObject({ error: { code: "save_limit_reached" } });
+    expect(capHarness.bucket.objects.size).toBe(0);
+  });
+
+  test("persists a verified snapshot and pinned metadata on success", async () => {
+    const harness = await savedTablesTestEnv();
+    harness.saveOutcome = { status: "ok", snapshotJson: JSON.stringify(harness.snapshot) };
+    const response = await harness.request("POST", `/api/rooms/${harness.roomId}/save`, {
+      roomToken: "host-token", label: "Friday table", snapshot: harness.snapshot,
+    });
+    expect(response.status).toBe(201);
+    const body = await response.json() as { saveId: string; sequence: number; stateHash: string; createdAt: string };
+    expect(body).toMatchObject({ sequence: harness.snapshot.sequence, stateHash: harness.snapshot.stateHash });
+    expect(body.saveId).toMatch(/^save_[0-9a-f-]{36}$/);
+    expect(Date.parse(body.createdAt)).toBe(SAVED_TABLES_NOW);
+    const objectKey = `saves/${body.saveId}.json`;
+    expect(JSON.parse(harness.bucket.objects.get(objectKey)!)).toEqual(harness.snapshot);
+    expect(harness.db.query(`SELECT id, owner_user_id, release_id, game_slug, source_room_id,
+      sequence, state_hash, object_key, label, deleted_at FROM saved_tables WHERE id = ?`).get(body.saveId)).toEqual({
+      id: body.saveId, owner_user_id: harness.userId, release_id: harness.snapshot.releaseId,
+      game_slug: "first-deal", source_room_id: harness.roomId, sequence: harness.snapshot.sequence,
+      state_hash: harness.snapshot.stateHash, object_key: objectKey, label: "Friday table", deleted_at: null,
+    });
+  });
+
+  test("lists only the owner's active saves newest first with resolved and fallback titles", async () => {
+    const harness = await savedTablesTestEnv();
+    addTestUser(harness.db, "user_other");
+    insertUploadedRelease(harness.db, "release_community", "ready");
+    insertSavedTable(harness.db, {
+      id: "save_builtin", ownerUserId: harness.userId, releaseId: harnessReleaseId(),
+      gameSlug: "first-deal", createdAt: 100,
+    });
+    insertSavedTable(harness.db, {
+      id: "save_uploaded", ownerUserId: harness.userId, releaseId: "release_community",
+      gameSlug: "community", createdAt: 200,
+    });
+    insertSavedTable(harness.db, {
+      id: "save_fallback", ownerUserId: harness.userId, releaseId: "release_missing",
+      gameSlug: "lost-game", createdAt: 300,
+    });
+    insertSavedTable(harness.db, {
+      id: "save_deleted", ownerUserId: harness.userId, releaseId: harnessReleaseId(),
+      gameSlug: "first-deal", createdAt: 400, deletedAt: 401,
+    });
+    insertSavedTable(harness.db, {
+      id: "save_other", ownerUserId: "user_other", releaseId: harnessReleaseId(),
+      gameSlug: "first-deal", createdAt: 500,
+    });
+
+    const response = await harness.request("GET", "/api/saves");
+    expect(response.status).toBe(200);
+    const body = await response.json() as { saves: Array<{ saveId: string; gameTitle: string }> };
+    expect(body.saves).toEqual([
+      expect.objectContaining({ saveId: "save_fallback", gameTitle: "lost-game" }),
+      expect.objectContaining({ saveId: "save_uploaded", gameTitle: "Community Game" }),
+      expect.objectContaining({ saveId: "save_builtin", gameTitle: "First Deal" }),
+    ]);
+  });
+
+  test("soft-deletes only an owner's save and removes its R2 object", async () => {
+    const harness = await savedTablesTestEnv();
+    const otherCookie = await addTestSession(harness.db, "user_other", SAVED_TABLES_NOW);
+    insertSavedTable(harness.db, {
+      id: "save_delete", ownerUserId: harness.userId, releaseId: harnessReleaseId(),
+      gameSlug: "first-deal", createdAt: 100,
+    });
+    harness.bucket.objects.set("saves/save_delete.json", JSON.stringify(harness.snapshot));
+
+    const hidden = await handlePlatformRequest(
+      savedTablesRequest("DELETE", "/api/saves/save_delete", otherCookie),
+      harness.env,
+      { now: SAVED_TABLES_NOW },
+    );
+    expect(hidden.status).toBe(404);
+    expect(harness.bucket.objects.has("saves/save_delete.json")).toBe(true);
+
+    const deleted = await harness.request("DELETE", "/api/saves/save_delete");
+    expect(deleted.status).toBe(204);
+    expect(harness.bucket.objects.has("saves/save_delete.json")).toBe(false);
+    expect(harness.db.query("SELECT deleted_at FROM saved_tables WHERE id = 'save_delete'").get())
+      .toEqual({ deleted_at: SAVED_TABLES_NOW });
+    const listed = await harness.request("GET", "/api/saves");
+    expect(await listed.json() as { saves: unknown[] }).toEqual({ saves: [] });
+  });
+
+  test("does not leak foreign saves and resumes available saves into a new indexed room", async () => {
+    const harness = await savedTablesTestEnv();
+    const otherCookie = await addTestSession(harness.db, "user_other", SAVED_TABLES_NOW);
+    insertUploadedRelease(harness.db, "release_disabled", "disabled");
+    insertSavedTable(harness.db, {
+      id: "save_disabled", ownerUserId: harness.userId, releaseId: "release_disabled",
+      gameSlug: "community", createdAt: 100,
+    });
+    insertSavedTable(harness.db, {
+      id: "save_missing", ownerUserId: harness.userId, releaseId: "release_missing",
+      gameSlug: "missing", createdAt: 101,
+    });
+    insertSavedTable(harness.db, {
+      id: "save_resume", ownerUserId: harness.userId, releaseId: harnessReleaseId(),
+      gameSlug: "first-deal", createdAt: 102, stateHash: harness.snapshot.stateHash,
+      sequence: harness.snapshot.sequence,
+    });
+    harness.bucket.objects.set("saves/save_resume.json", JSON.stringify(harness.snapshot));
+
+    const foreign = await handlePlatformRequest(
+      savedTablesRequest("POST", "/api/saves/save_resume/resume", otherCookie, {}),
+      harness.env,
+      { now: SAVED_TABLES_NOW },
+    );
+    expect(foreign.status).toBe(404);
+    for (const saveId of ["save_disabled", "save_missing"]) {
+      const unavailable = await harness.request("POST", `/api/saves/${saveId}/resume`, {});
+      expect(unavailable.status).toBe(410);
+      expect(await unavailable.json()).toMatchObject({ error: { code: "release_unavailable" } });
+    }
+
+    const resumed = await harness.request("POST", "/api/saves/save_resume/resume", {
+      visibility: "private", displayName: "Resuming Host",
+    });
+    expect(resumed.status).toBe(201);
+    const body = await resumed.json() as Record<string, unknown>;
+    expect(body).toMatchObject({
+      roomId: harness.newRoomId, playerId: "player_resumed", roomToken: "resumed-token",
+      releaseId: harnessReleaseId(), gameTitle: "First Deal",
+    });
+    expect(body.joinCode).toMatch(/^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{4}-[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{4}$/);
+    expect(body.inviteUrl).toBe(`https://play.digipology.com/join/${body.joinCode}`);
+    expect(body.wsUrl).toBe(`wss://play.digipology.com/api/rooms/${harness.newRoomId}/ws`);
+    expect(harness.initializedFromSave).toEqual(harness.snapshot);
+    expect(harness.db.query(`SELECT room_id, release_id, origin, creator_user_id,
+      resumed_from_save_id FROM rooms_index WHERE room_id = ?`).get(harness.newRoomId)).toEqual({
+      room_id: harness.newRoomId, release_id: harnessReleaseId(), origin: "hosted",
+      creator_user_id: harness.userId, resumed_from_save_id: "save_resume",
+    });
+  });
+});
+
+describe("end table route", () => {
+  test("requires a host token and reports an already-ended table", async () => {
+    const harness = await savedTablesTestEnv();
+    for (const [body, code] of [
+      [{}, "end_unauthorized"],
+      [{ roomToken: "bad-token" }, "end_unauthorized"],
+      [{ roomToken: "player-token" }, "end_host_only"],
+    ] as const) {
+      const response = await harness.request("POST", `/api/rooms/${harness.roomId}/end`, body);
+      expect(response.status).toBe(403);
+      expect(await response.json()).toMatchObject({ error: { code } });
+    }
+    expect((await harness.request("POST", `/api/rooms/${harness.roomId}/end`, {
+      roomToken: "host-token",
+    })).status).toBe(204);
+    const ended = await harness.request("POST", `/api/rooms/${harness.roomId}/end`, {
+      roomToken: "host-token",
+    });
+    expect(ended.status).toBe(409);
+    expect(await ended.json()).toMatchObject({ error: { code: "end_unavailable" } });
+  });
+});
+
+const SAVED_TABLES_NOW = Date.parse("2026-08-16T12:00:00.000Z");
+const TEST_SESSION_SECRET = "test-session-secret-that-is-at-least-32-bytes";
+
+type TestSaveOutcome =
+  | { status: "unauthorized" | "host_only" | "unavailable" | "stale" }
+  | { status: "invalid"; reason: string }
+  | { status: "ok"; snapshotJson: string };
+
+class SqliteD1Statement {
+  constructor(
+    private readonly db: Database,
+    private readonly sql: string,
+    private readonly values: readonly unknown[] = [],
+  ) {}
+
+  bind(...values: unknown[]): SqliteD1Statement {
+    return new SqliteD1Statement(this.db, this.sql, values);
+  }
+
+  async first<T>(columnName?: string): Promise<T | null> {
+    const row = this.db.query(this.sql).get(...this.values as never[]) as Record<string, unknown> | null;
+    if (row === null) return null;
+    return (columnName === undefined ? row : row[columnName]) as T;
+  }
+
+  async all<T>(): Promise<{ success: true; results: T[]; meta: { changes: number } }> {
+    const rows = this.db.query(this.sql).all(...this.values as never[]) as T[];
+    return { success: true, results: rows, meta: { changes: 0 } };
+  }
+
+  async run<T>(): Promise<{ success: true; results: T[]; meta: { changes: number } }> {
+    if (/\bRETURNING\b/i.test(this.sql)) {
+      const rows = this.db.query(this.sql).all(...this.values as never[]) as T[];
+      return { success: true, results: rows, meta: { changes: rows.length } };
+    }
+    const result = this.db.query(this.sql).run(...this.values as never[]);
+    return { success: true, results: [], meta: { changes: result.changes } };
+  }
+}
+
+function sqliteD1(db: Database): D1Database {
+  return {
+    prepare(sql: string) {
+      return new SqliteD1Statement(db, sql);
+    },
+    async batch(statements: D1PreparedStatement[]) {
+      const results = [];
+      for (const statement of statements) {
+        results.push(await (statement as unknown as SqliteD1Statement).run());
+      }
+      return results;
+    },
+  } as unknown as D1Database;
+}
+
+class MemorySaveBucket {
+  readonly objects = new Map<string, string>();
+
+  async put(key: string, value: string): Promise<object> {
+    this.objects.set(key, value);
+    return {};
+  }
+
+  async get(key: string): Promise<object | null> {
+    const value = this.objects.get(key);
+    if (value === undefined) return null;
+    return {
+      body: new Response(value).body,
+      text: async () => value,
+    };
+  }
+
+  async delete(key: string): Promise<void> {
+    this.objects.delete(key);
+  }
+}
+
+interface SavedTablesTestHarness {
+  db: Database;
+  env: Env;
+  bucket: MemorySaveBucket;
+  cookie: string;
+  userId: string;
+  roomId: string;
+  newRoomId: string;
+  snapshot: GameSnapshotDto;
+  saveOutcome: TestSaveOutcome;
+  initializedFromSave: GameSnapshotDto | null;
+  request(method: string, path: string, body?: unknown): Promise<Response>;
+}
+
+async function savedTablesTestEnv(): Promise<SavedTablesTestHarness> {
+  const db = new Database(":memory:");
+  for (const name of [
+    "0001_platform_v1.sql", "0002_uploaded_games_v1.sql",
+    "0003_quickplay_metrics_covers.sql", "0004_deepseek_usage.sql",
+    "0005_room_joinability.sql", "0006_saved_tables.sql",
+  ]) db.exec(await Bun.file(new URL(`../migrations/${name}`, import.meta.url)).text());
+  const userId = "user_owner";
+  const cookie = await addTestSession(db, userId, SAVED_TABLES_NOW);
+  const roomId = "d".repeat(64);
+  const newRoomId = "e".repeat(64);
+  db.query(`INSERT INTO rooms_index
+    (room_id, join_code, join_code_normalized, visibility, release_id,
+     player_count, max_players, created_at, ended_at, origin,
+     last_heartbeat_at, game_slug, joinable, creator_user_id, resumed_from_save_id)
+    VALUES (?, 'AAAA-2222', 'AAAA2222', 'private', ?, 1, 4, ?, NULL,
+            'hosted', ?, 'first-deal', 1, ?, NULL)`)
+    .run(roomId, harnessReleaseId(), SAVED_TABLES_NOW, SAVED_TABLES_NOW, userId);
+  const release = builtinCatalog.getRelease(harnessReleaseId());
+  if (release === null) throw new Error("Missing saved-tables test release");
+  const snapshot = structuredClone(release.bundle.initialSnapshot);
+  const bucket = new MemorySaveBucket();
+  const harness = {
+    db,
+    bucket,
+    cookie,
+    userId,
+    roomId,
+    newRoomId,
+    snapshot,
+    saveOutcome: { status: "ok", snapshotJson: JSON.stringify(snapshot) } as TestSaveOutcome,
+    initializedFromSave: null,
+  } as SavedTablesTestHarness;
+  let ended = false;
+  const room = {
+    async saveSnapshot(_roomToken: string, _snapshot?: GameSnapshotDto) {
+      return harness.saveOutcome;
+    },
+    async endWithToken(roomToken: string) {
+      if (roomToken === "bad-token") return "unauthorized" as const;
+      if (roomToken === "player-token") return "host_only" as const;
+      if (ended) return "unavailable" as const;
+      ended = true;
+      return "ended" as const;
+    },
+    async initFromSave(
+      _roomId: string,
+      _joinCode: string,
+      _releaseId: string,
+      _capacity: number,
+      saved: GameSnapshotDto,
+    ) {
+      harness.initializedFromSave = saved;
+      return true;
+    },
+    async join() {
+      return {
+        status: "ok" as const,
+        playerId: "player_resumed",
+        roomToken: "resumed-token",
+        releaseId: harnessReleaseId(),
+        playerCount: 1,
+      };
+    },
+  };
+  harness.env = {
+    DB: sqliteD1(db),
+    RELEASES: bucket as unknown as R2Bucket,
+    SESSION_SECRET: TEST_SESSION_SECRET,
+    ROOM: {
+      idFromString: (value: string) => value,
+      newUniqueId: () => ({ toString: () => newRoomId }),
+      get: () => room,
+    },
+  } as unknown as Env;
+  harness.request = (method, path, body) => handlePlatformRequest(
+    savedTablesRequest(method, path, cookie, body),
+    harness.env,
+    { now: SAVED_TABLES_NOW },
+  );
+  return harness;
+}
+
+function savedTablesHeaders(cookie?: string, extra: Record<string, string> = {}): Record<string, string> {
+  return {
+    "X-Digipology-CSRF": "1",
+    "Content-Type": "application/json",
+    ...(cookie === undefined ? {} : { Cookie: cookie }),
+    ...extra,
+  };
+}
+
+function savedTablesRequest(method: string, path: string, cookie?: string, body?: unknown): Request {
+  return new Request(`https://play.digipology.com${path}`, {
+    method,
+    headers: savedTablesHeaders(cookie),
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+}
+
+async function addTestSession(db: Database, userId: string, now: number): Promise<string> {
+  addTestUser(db, userId);
+  let record: SessionRecord | null = null;
+  const repository: SessionRepository = {
+    insertSession(value) { record = value; return Promise.resolve(); },
+    findSessions() { return Promise.resolve([]); },
+    refreshSession() { return Promise.resolve(true); },
+    revokeSession() { return Promise.resolve(true); },
+  };
+  const created = await createSession(repository, {
+    id: userId,
+    name: userId === "user_owner" ? "Owner" : "Other",
+    email: `${userId}@example.com`,
+  }, TEST_SESSION_SECRET, now);
+  const session = record! as SessionRecord;
+  db.query(`INSERT INTO sessions
+    (id, user_id, token_selector, token_hash, created_at, last_used_at, expires_at, revoked_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, NULL)`).run(
+    session.id, session.user.id, session.tokenSelector, session.tokenHash,
+    session.createdAt, session.lastUsedAt, session.expiresAt,
+  );
+  return `dgp_session=${created.token}`;
+}
+
+function addTestUser(db: Database, userId: string): void {
+  db.query(`INSERT OR IGNORE INTO users (id, name, email, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?)`).run(
+    userId,
+    userId === "user_owner" ? "Owner" : "Other",
+    `${userId}@example.com`,
+    SAVED_TABLES_NOW,
+    SAVED_TABLES_NOW,
+  );
+}
+
+function insertSavedTable(db: Database, input: {
+  id: string;
+  ownerUserId: string;
+  releaseId: string;
+  gameSlug: string;
+  createdAt: number;
+  sequence?: number;
+  stateHash?: string;
+  deletedAt?: number;
+}): void {
+  db.query(`INSERT INTO saved_tables
+    (id, owner_user_id, release_id, game_slug, source_room_id, sequence,
+     state_hash, object_key, byte_length, label, created_at, deleted_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 100, NULL, ?, ?)`)
+    .run(
+      input.id,
+      input.ownerUserId,
+      input.releaseId,
+      input.gameSlug,
+      "source_room",
+      input.sequence ?? 0,
+      input.stateHash ?? `sha256:${"1".repeat(64)}`,
+      `saves/${input.id}.json`,
+      input.createdAt,
+      input.deletedAt ?? null,
+    );
+}
+
+function insertUploadedRelease(db: Database, releaseId: string, status: string): void {
+  db.query(`INSERT OR IGNORE INTO games
+    (id, slug, title, tagline, min_players, max_players, builtin, latest_release_id,
+     created_at, updated_at, owner_user_id, visibility, total_plays, cover_version)
+    VALUES ('game_community', 'community', 'Community Game', '', 2, 6, 0, ?,
+            ?, ?, 'user_owner', 'public', 0, NULL)`)
+    .run(releaseId, SAVED_TABLES_NOW, SAVED_TABLES_NOW);
+  db.query(`INSERT INTO releases
+    (id, game_id, release_number, kernel_version, lua_api_version, manifest_hash,
+     status, created_at, format_version, network_protocol_version, bundle_key)
+    VALUES (?, 'game_community', 1, 1, 1, ?, ?, ?, 1, 1, ?)`)
+    .run(releaseId, `sha256:${"2".repeat(64)}`, status, SAVED_TABLES_NOW, `releases/${releaseId}.json`);
+}
+
+function harnessReleaseId(): string {
+  return "builtin_first_deal_1";
+}
 
 function quickPlayDb(
   rows: unknown[],

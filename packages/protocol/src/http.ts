@@ -158,6 +158,42 @@ export interface CheckpointAttestationRequest {
   snapshot: GameSnapshotDto;
 }
 
+export interface SaveTableRequest {
+  roomToken: string;
+  snapshot?: GameSnapshotDto;
+  label?: string;
+}
+
+export interface SaveTableResponse {
+  saveId: string;
+  sequence: number;
+  stateHash: string;
+  createdAt: string;
+}
+
+export interface SavedTableDto {
+  saveId: string;
+  gameSlug: string;
+  gameTitle: string;
+  releaseId: string;
+  sequence: number;
+  createdAt: string;
+  byteLength: number;
+  label?: string;
+}
+
+export interface SavesResponse { saves: SavedTableDto[]; }
+
+export interface ResumeSaveRequest {
+  visibility?: RoomVisibility;
+  displayName?: string;
+}
+
+export interface ResumeSaveResponse extends CreateRoomResponse {
+  releaseId: string;
+  gameTitle: string;
+}
+
 export interface QuickPlayRequest {
   slug: string;
   displayName?: string;
@@ -402,6 +438,73 @@ export function validateQuickPlayRequest(
     ok: true,
     value: { slug, ...(displayName === undefined ? {} : { displayName }) },
   };
+}
+
+export function validateSaveTableRequest(value: unknown): HttpValidationResult<SaveTableRequest> {
+  const object = exactObject(value, ["roomToken", "snapshot", "label"]);
+  if (!object.ok) return object;
+  if (typeof object.value.roomToken !== "string" || object.value.roomToken.length < 1 || object.value.roomToken.length > 512) {
+    return invalid("$.roomToken", "roomToken must contain 1 to 512 characters");
+  }
+  const snapshot = object.value.snapshot;
+  if (snapshot !== undefined && !isGameSnapshotDto(snapshot)) {
+    return invalid("$.snapshot", "snapshot must be a canonical game snapshot");
+  }
+  const label = object.value.label;
+  if (label !== undefined && (typeof label !== "string" || !boundedTrimmedText(label, 1, 80))) {
+    return invalid("$.label", "label must contain 1 to 80 characters");
+  }
+  return { ok: true, value: {
+    roomToken: object.value.roomToken,
+    ...(snapshot === undefined ? {} : { snapshot }),
+    ...(label === undefined ? {} : { label }),
+  } };
+}
+
+export function validateResumeSaveRequest(value: unknown): HttpValidationResult<ResumeSaveRequest> {
+  const object = exactObject(value, ["visibility", "displayName"]);
+  if (!object.ok) return object;
+  const visibility = object.value.visibility;
+  if (visibility !== undefined && visibility !== "private" && visibility !== "public") {
+    return invalid("$.visibility", 'visibility must be "private" or "public"');
+  }
+  const displayName = object.value.displayName;
+  if (displayName !== undefined && (typeof displayName !== "string" || !isDisplayName(displayName))) {
+    return invalid("$.displayName", "displayName must contain 1 to 64 characters");
+  }
+  return { ok: true, value: {
+    ...(visibility === undefined ? {} : { visibility }),
+    ...(displayName === undefined ? {} : { displayName }),
+  } };
+}
+
+export function validateSavedTableDto(value: unknown): HttpValidationResult<SavedTableDto> {
+  const object = exactObject(value, [
+    "saveId", "gameSlug", "gameTitle", "releaseId", "sequence", "createdAt", "byteLength", "label",
+  ]);
+  if (!object.ok) return object;
+  const { saveId, gameSlug, gameTitle, releaseId, sequence, createdAt, byteLength, label } = object.value;
+  if (typeof saveId !== "string" || saveId.length < 1) return invalid("$.saveId", "saveId is required");
+  if (typeof gameSlug !== "string" || !isGameSlug(gameSlug)) return invalid("$.gameSlug", "gameSlug is invalid");
+  if (typeof gameTitle !== "string" || !boundedTrimmedText(gameTitle, 1, GAME_TITLE_MAX_LENGTH)) return invalid("$.gameTitle", "gameTitle is invalid");
+  if (typeof releaseId !== "string" || releaseId.length < 1 || releaseId.length > RELEASE_REFERENCE_MAX_LENGTH) return invalid("$.releaseId", "releaseId is invalid");
+  if (!isNonNegativeInteger(sequence)) return invalid("$.sequence", "sequence must be a non-negative integer");
+  if (typeof createdAt !== "string" || Number.isNaN(Date.parse(createdAt))) return invalid("$.createdAt", "createdAt must be an ISO date");
+  if (!isNonNegativeInteger(byteLength)) return invalid("$.byteLength", "byteLength must be a non-negative integer");
+  if (label !== undefined && (typeof label !== "string" || !boundedTrimmedText(label, 1, 80))) return invalid("$.label", "label is invalid");
+  return { ok: true, value: {
+    saveId, gameSlug, gameTitle, releaseId, sequence, createdAt, byteLength,
+    ...(label === undefined ? {} : { label }),
+  } };
+}
+
+function isGameSnapshotDto(value: unknown): value is GameSnapshotDto {
+  const object = exactObject(value, ["formatVersion", "kernelVersion", "releaseId", "sequence", "state", "stateHash"]);
+  if (!object.ok) return false;
+  return object.value.formatVersion === 1 && object.value.kernelVersion === 1 &&
+    typeof object.value.releaseId === "string" && object.value.releaseId.length > 0 &&
+    isNonNegativeInteger(object.value.sequence) && isJsonObject(object.value.state) &&
+    typeof object.value.stateHash === "string" && isSha256(object.value.stateHash);
 }
 
 export function validateGameSummaryDto(

@@ -103,6 +103,18 @@ interface ReleaseRow {
   created_at: number;
 }
 
+interface SavedTableRow {
+  id: string; owner_user_id: string; release_id: string; game_slug: string;
+  source_room_id: string; sequence: number; state_hash: string; object_key: string;
+  byte_length: number; label: string | null; created_at: number; deleted_at: number | null;
+}
+
+export interface SavedTableRecord {
+  id: string; ownerUserId: string; releaseId: string; gameSlug: string;
+  sourceRoomId: string; sequence: number; stateHash: string; objectKey: string;
+  byteLength: number; label?: string; createdAt: number; deletedAt: number | null;
+}
+
 export class D1Repositories implements MagicLinkRepository, SessionRepository, RateLimitStore {
   constructor(readonly db: D1Database) {}
 
@@ -221,6 +233,51 @@ export class D1Repositories implements MagicLinkRepository, SessionRepository, R
 
   async uploadedSlugExists(slug: string): Promise<boolean> {
     return (await this.db.prepare("SELECT id FROM games WHERE slug = ?").bind(slug).first()) !== null;
+  }
+
+  async countActiveSaves(userId: string): Promise<number> {
+    return (await this.db.prepare(
+      "SELECT COUNT(*) AS count FROM saved_tables WHERE owner_user_id = ? AND deleted_at IS NULL",
+    ).bind(userId).first<{ count: number }>())?.count ?? 0;
+  }
+
+  async createSavedTable(record: SavedTableRecord): Promise<void> {
+    await this.db.prepare(
+      `INSERT INTO saved_tables
+       (id, owner_user_id, release_id, game_slug, source_room_id, sequence,
+        state_hash, object_key, byte_length, label, created_at, deleted_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+    ).bind(record.id, record.ownerUserId, record.releaseId, record.gameSlug,
+      record.sourceRoomId, record.sequence, record.stateHash, record.objectKey,
+      record.byteLength, record.label ?? null, record.createdAt).run();
+  }
+
+  async listSavedTables(userId: string): Promise<SavedTableRecord[]> {
+    const rows = await this.db.prepare(
+      `SELECT id, owner_user_id, release_id, game_slug, source_room_id, sequence,
+              state_hash, object_key, byte_length, label, created_at, deleted_at
+       FROM saved_tables WHERE owner_user_id = ? AND deleted_at IS NULL
+       ORDER BY created_at DESC, id DESC`,
+    ).bind(userId).all<SavedTableRow>();
+    return rows.results.map(savedTableRecord);
+  }
+
+  async getOwnedSavedTable(saveId: string, userId: string): Promise<SavedTableRecord | null> {
+    const row = await this.db.prepare(
+      `SELECT id, owner_user_id, release_id, game_slug, source_room_id, sequence,
+              state_hash, object_key, byte_length, label, created_at, deleted_at
+       FROM saved_tables WHERE id = ? AND owner_user_id = ? AND deleted_at IS NULL`,
+    ).bind(saveId, userId).first<SavedTableRow>();
+    return row === null ? null : savedTableRecord(row);
+  }
+
+  async softDeleteSavedTable(saveId: string, userId: string, now: number): Promise<SavedTableRecord | null> {
+    const existing = await this.getOwnedSavedTable(saveId, userId);
+    if (existing === null) return null;
+    await this.db.prepare(
+      "UPDATE saved_tables SET deleted_at = ? WHERE id = ? AND owner_user_id = ? AND deleted_at IS NULL",
+    ).bind(now, saveId, userId).run();
+    return existing;
   }
 
   async listPublicUploadedGames(): Promise<UploadedGameRecord[]> {
@@ -428,6 +485,16 @@ function releaseRecord(row: ReleaseRow): UploadedReleaseRecord {
     bundleKey: row.bundle_key,
     status: row.status,
     createdAt: new Date(row.created_at).toISOString(),
+  };
+}
+
+function savedTableRecord(row: SavedTableRow): SavedTableRecord {
+  return {
+    id: row.id, ownerUserId: row.owner_user_id, releaseId: row.release_id,
+    gameSlug: row.game_slug, sourceRoomId: row.source_room_id,
+    sequence: row.sequence, stateHash: row.state_hash, objectKey: row.object_key,
+    byteLength: row.byte_length, ...(row.label === null ? {} : { label: row.label }),
+    createdAt: row.created_at, deletedAt: row.deleted_at,
   };
 }
 

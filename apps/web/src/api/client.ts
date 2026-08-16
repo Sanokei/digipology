@@ -15,6 +15,11 @@ import type {
   MyGamesResponse,
   PublicRoomDto,
   ReleaseBundleDto,
+  ResumeSaveRequest,
+  ResumeSaveResponse,
+  SaveTableResponse,
+  SavesResponse,
+  GameSnapshotDto,
   UpdateGameResponse,
   UserDto,
   UserResponse,
@@ -51,6 +56,11 @@ export interface ApiClient {
   quickPlay(input: QuickPlayRequest): Promise<ApiResult<QuickPlayResponse>>;
   listPublicRooms(): Promise<ApiResult<{ rooms: PublicRoomDto[] }>>;
   getReleaseBundle(id: string): Promise<ApiResult<ReleaseBundleDto>>;
+  saveTable(roomId: string, roomToken: string, snapshot?: GameSnapshotDto): Promise<ApiResult<SaveTableResponse>>;
+  listSaves(): Promise<ApiResult<SavesResponse>>;
+  resumeSave(saveId: string, input?: ResumeSaveRequest): Promise<ApiResult<ResumeSaveResponse>>;
+  deleteSave(saveId: string): Promise<ApiResult<void>>;
+  endTable(roomId: string, roomToken: string): Promise<ApiResult<void>>;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -145,6 +155,13 @@ export function createApiClient(fetcher: Fetcher = fetch): ApiClient {
     quickPlay: (input) => post("/api/quickplay", input),
     listPublicRooms: () => request("/api/rooms/public"),
     getReleaseBundle: (id) => request(`/api/releases/${encodeURIComponent(id)}/bundle`),
+    saveTable: (roomId, roomToken, snapshot) => post(`/api/rooms/${encodeURIComponent(roomId)}/save`, {
+      roomToken, ...(snapshot === undefined ? {} : { snapshot }),
+    }),
+    listSaves: () => request("/api/saves"),
+    resumeSave: (saveId, input = {}) => post(`/api/saves/${encodeURIComponent(saveId)}/resume`, input),
+    deleteSave: (saveId) => request(`/api/saves/${encodeURIComponent(saveId)}`, { method: "DELETE" }),
+    endTable: (roomId, roomToken) => post(`/api/rooms/${encodeURIComponent(roomId)}/end`, { roomToken }),
   };
 }
 
