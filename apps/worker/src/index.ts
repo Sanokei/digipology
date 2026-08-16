@@ -26,6 +26,7 @@ import { createBuiltinInitialState } from "./initial-state";
 import {
   ACTION_RETENTION,
   attestCheckpointCandidate,
+  bootstrapPlan,
   checkpointBaseConnects,
   checkpointIsDue,
   CHECKPOINT_INTERVAL,
@@ -33,6 +34,7 @@ import {
   retentionFloor,
   RoomCore,
   roomBootstrapFromSnapshots,
+  ScriptedBootstrapUnavailableError,
   TIMER_CANCEL_GRACE_MS,
   timerFireDedupKey,
   validateCheckpointAttestationSnapshot,
@@ -64,6 +66,8 @@ interface RoomMetadataRow extends Record<string, SqlStorageValue> {
   last_heartbeat_at: number | null;
   empty_since_at: number | null;
   last_action_at: number | null;
+  last_multi_bootstrap_at: number | null;
+  bootstrap_unavailable_logged_at: number | null;
 }
 
 interface PlayerRow extends Record<string, SqlStorageValue> {
@@ -99,6 +103,7 @@ export type CheckpointAttestationStatus =
   | "confirmed"
   | "duplicate"
   | "divergent"
+  | "conflicted"
   | "unauthorized"
   | "rate_limited"
   | "rejected";
@@ -110,8 +115,24 @@ export interface CheckpointAttestationOutcome {
 
 const CHECKPOINT_ATTESTATION_RATE_LIMIT = 12;
 const CHECKPOINT_ATTESTATION_RATE_WINDOW_MS = 60_000;
+const BOOTSTRAP_UNAVAILABLE_LOG_INTERVAL_MS = 5 * 60_000;
+const BOOTSTRAP_UNAVAILABLE_MESSAGE =
+  "This table needs a checkpoint from a player who is already seated before new players can join. Ask them to keep playing, then try again.";
 
 type SocketAttachment = ConnectionState;
+
+/**
+ * A socket counts for checkpoint quorum only once hello produced a bootstrap or
+ * resume. Attachments serialized before the `bootstrapped` flag existed (sockets
+ * hibernated across a deploy) carry no flag; an authenticated legacy attachment
+ * could only have got there through a completed hello, so it counts rather than
+ * silently disabling attestation for that player until they reconnect.
+ */
+function isBootstrappedAttachment(
+  state: SocketAttachment | null,
+): state is SocketAttachment & { playerId: string } {
+  return state?.authenticated === true && state.playerId !== null && state.bootstrapped !== false;
+}
 
 type JoinResult =
   | {
@@ -322,10 +343,15 @@ export class RoomDO extends DurableObject<Env> {
     if (!this.roomIsScripted(room)) {
       return { status: "rejected", reason: "Room does not require scripted checkpoints" };
     }
-    const connectedPlayerIds = this.connectedPlayerIds();
-    if (!connectedPlayerIds.includes(playerId)) {
+    const bootstrappedPlayerIds = this.bootstrappedPlayerIds();
+    if (!bootstrappedPlayerIds.includes(playerId)) {
       return { status: "rejected", reason: "Checkpoint attester is not connected" };
     }
+    const now = Date.now();
+    const lastMultiBootstrapAt = bootstrappedPlayerIds.length >= 2
+      ? now
+      : room.last_multi_bootstrap_at;
+    if (bootstrappedPlayerIds.length >= 2) this.recordMultiBootstrapPresence(now);
     const candidateSnapshot = input.snapshot as unknown as GameSnapshot;
     const core = this.loadCore(room);
     if (!Number.isSafeInteger(input.sequence) || input.sequence <= 0 ||
@@ -336,7 +362,7 @@ export class RoomDO extends DurableObject<Env> {
     if (room.checkpoint_sequence !== null && input.sequence <= room.checkpoint_sequence) {
       return { status: "duplicate" };
     }
-    if (!this.consumeCheckpointAttestationRate(playerId, Date.now())) {
+    if (!this.consumeCheckpointAttestationRate(playerId, now)) {
       return { status: "rate_limited" };
     }
     try {
@@ -380,18 +406,21 @@ export class RoomDO extends DurableObject<Env> {
           conflicted: row.conflicted === 1,
         },
         { sequence: input.sequence, stateHash: input.stateHash, snapshotJson, playerId },
-        connectedPlayerIds,
+        bootstrappedPlayerIds,
+        { now, lastMultiBootstrapAt },
       );
-      this.ctx.storage.sql.exec(
-        `INSERT INTO checkpoint_candidates (sequence, state_hash, snapshot_json, conflicted)
-         VALUES (?, ?, ?, ?)
-         ON CONFLICT(sequence) DO UPDATE SET conflicted = excluded.conflicted`,
-        recorded.candidate.sequence,
-        recorded.candidate.stateHash,
-        recorded.candidate.snapshotJson,
-        recorded.candidate.conflicted ? 1 : 0,
-      );
-      if (recorded.status !== "divergent") {
+      if (recorded.status !== "conflicted") {
+        this.ctx.storage.sql.exec(
+          `INSERT INTO checkpoint_candidates (sequence, state_hash, snapshot_json, conflicted)
+           VALUES (?, ?, ?, ?)
+           ON CONFLICT(sequence) DO UPDATE SET conflicted = excluded.conflicted`,
+          recorded.candidate.sequence,
+          recorded.candidate.stateHash,
+          recorded.candidate.snapshotJson,
+          recorded.candidate.conflicted ? 1 : 0,
+        );
+      }
+      if (recorded.status !== "divergent" && recorded.status !== "conflicted") {
         this.ctx.storage.sql.exec(
           "INSERT OR IGNORE INTO checkpoint_attesters (sequence, player_id) VALUES (?, ?)",
           input.sequence,
@@ -423,6 +452,9 @@ export class RoomDO extends DurableObject<Env> {
     });
 
     if (result.status === "divergent") {
+      if (result.candidate.stateHash === input.stateHash) {
+        throw new Error("Divergent checkpoint result requires different hashes");
+      }
       console.warn(JSON.stringify({
         level: "warn",
         message: "scripted checkpoint hash divergence",
@@ -434,6 +466,7 @@ export class RoomDO extends DurableObject<Env> {
       }));
       return { status: "divergent", reason: "Checkpoint hash diverges from another client" };
     }
+    if (result.status === "conflicted") return { status: "conflicted" };
     return { status: result.status === "recorded" ? "accepted" : result.status };
   }
 
@@ -454,7 +487,11 @@ export class RoomDO extends DurableObject<Env> {
     const client = pair[0];
     const server = pair[1];
     this.ctx.acceptWebSocket(server);
-    server.serializeAttachment({ authenticated: false, playerId: null } satisfies SocketAttachment);
+    server.serializeAttachment({
+      authenticated: false,
+      playerId: null,
+      bootstrapped: false,
+    } satisfies SocketAttachment);
     const now = Date.now();
     this.ctx.storage.sql.exec(
       "UPDATE room SET empty_since_at = NULL, last_heartbeat_at = ? WHERE singleton = 1",
@@ -580,7 +617,11 @@ export class RoomDO extends DurableObject<Env> {
 
   private messageContext(socket: WebSocket) {
     const attachment = socket.deserializeAttachment() as SocketAttachment | null;
-    const state: SocketAttachment = attachment ?? { authenticated: false, playerId: null };
+    const state: SocketAttachment = attachment ?? {
+      authenticated: false,
+      playerId: null,
+      bootstrapped: false,
+    };
     return {
       state,
       authenticate: (token: string): Promise<string | null> => this.authenticateRoomToken(token),
@@ -618,26 +659,50 @@ export class RoomDO extends DurableObject<Env> {
           const checkpoint = needsRecoveryBase
             ? this.storedCheckpoint(room, scripted)
             : null;
-          const fullActions = scripted ? this.loadFullActions() : [];
-          if (scripted && needsRecoveryBase && checkpoint === null) {
+          const plan = bootstrapPlan({
+            initialSequence: initialSnapshot.sequence,
+            needsRecoveryBase,
+            scripted,
+            checkpointSequence: checkpoint?.sequence ?? null,
+          });
+          if (plan.type === "initial-tail") {
+            return roomBootstrapFromSnapshots(core, initialSnapshot, null, this.players());
+          }
+          if (!scripted) {
+            return roomBootstrapFromSnapshots(core, initialSnapshot, checkpoint, this.players());
+          }
+          const actions = this.loadActionsAfter(plan.baseSequence);
+          if (plan.type === "full-log") {
             const storedCharacters = this.ctx.storage.sql.exec<{ size: number }>(
-              "SELECT COALESCE(SUM(LENGTH(body)), 0) AS size FROM actions",
+              "SELECT COALESCE(SUM(LENGTH(body)), 0) AS size FROM actions WHERE sequence > ?",
+              plan.baseSequence,
             ).one().size;
             console.info(JSON.stringify({
               level: "info",
               message: "scripted checkpoint bootstrap using full action log",
               roomId: room.room_id,
-              actionCount: fullActions.length,
+              actionCount: actions.length,
               storedCharacters,
             }));
           }
-          return roomBootstrapFromSnapshots(
-            core,
-            initialSnapshot,
-            checkpoint,
-            this.players(),
-            scripted ? { scripted: true, fullActions } : undefined,
-          );
+          try {
+            return roomBootstrapFromSnapshots(
+              core,
+              initialSnapshot,
+              checkpoint,
+              this.players(),
+              { scripted: true, fullActions: actions },
+            );
+          } catch (error) {
+            if (!(error instanceof ScriptedBootstrapUnavailableError)) throw error;
+            this.logBootstrapUnavailable(room, core);
+            return {
+              type: "protocol_error",
+              protocolVersion: PROTOCOL_VERSION,
+              code: "bootstrap_unavailable",
+              message: BOOTSTRAP_UNAVAILABLE_MESSAGE,
+            };
+          }
         }
         const result = this.loadCore(room).resumeAfter(lastSequence);
         if (result.type === "resume") return result.message;
@@ -656,6 +721,9 @@ export class RoomDO extends DurableObject<Env> {
         messages: readonly ServerMessage[],
       ): Promise<void> => {
         if (!messages.some((message) => message.type === "bootstrap" || message.type === "resume")) return;
+        state.bootstrapped = true;
+        socket.serializeAttachment(state);
+        this.recordMultiBootstrapPresence(Date.now());
         this.markPlayerActive(playerId);
         this.recordFirstBootstrap(playerId);
       },
@@ -897,11 +965,12 @@ export class RoomDO extends DurableObject<Env> {
   }
 
   private trimActionsAfterPersistence(room: RoomMetadataRow, sequence: number): void {
-    if (room.initial_snapshot !== null && this.roomIsScripted(room)) return;
-    this.ctx.storage.sql.exec(
-      "DELETE FROM actions WHERE sequence <= ?",
-      sequence - ACTION_RETENTION,
-    );
+    if (room.initial_snapshot === null || !this.roomIsScripted(room)) {
+      this.ctx.storage.sql.exec(
+        "DELETE FROM actions WHERE sequence <= ?",
+        sequence - ACTION_RETENTION,
+      );
+    }
     this.ctx.storage.sql.exec(
       "UPDATE room SET last_action_at = ? WHERE singleton = 1",
       Date.now(),
@@ -932,6 +1001,19 @@ export class RoomDO extends DurableObject<Env> {
     if (room === null || room.ended_reason !== null) return;
     const state = socket.deserializeAttachment() as SocketAttachment | null;
     const peers = this.ctx.getWebSockets().filter((peer) => peer !== socket);
+    const now = Date.now();
+    const bootstrappedBeforeDeparture = new Set<string>();
+    if (isBootstrappedAttachment(state)) bootstrappedBeforeDeparture.add(state.playerId);
+    for (const peer of peers) {
+      const peerState = peer.deserializeAttachment() as SocketAttachment | null;
+      if (isBootstrappedAttachment(peerState)) bootstrappedBeforeDeparture.add(peerState.playerId);
+    }
+    if (bootstrappedBeforeDeparture.size >= 2) {
+      this.ctx.storage.sql.exec(
+        "UPDATE room SET last_multi_bootstrap_at = ? WHERE singleton = 1",
+        now,
+      );
+    }
     if (state?.authenticated === true && state.playerId !== null) {
       const samePlayerConnected = peers.some((peer) => {
         const peerState = peer.deserializeAttachment() as SocketAttachment | null;
@@ -941,7 +1023,6 @@ export class RoomDO extends DurableObject<Env> {
         this.ctx.storage.sql.exec("DELETE FROM active_players WHERE player_id = ?", state.playerId);
       }
     }
-    const now = Date.now();
     if (peers.length === 0) {
       const emptySinceAt = room.empty_since_at ?? now;
       this.ctx.storage.sql.exec(
@@ -1058,7 +1139,7 @@ export class RoomDO extends DurableObject<Env> {
       `SELECT room_id, join_code, release_id, capacity, ended_reason, last_sequence,
               started, initial_snapshot, checkpoint_snapshot, checkpoint_sequence,
               checkpoint_attested, scripted, quickplay_joinable, last_heartbeat_at, empty_since_at,
-              last_action_at
+              last_action_at, last_multi_bootstrap_at, bootstrap_unavailable_logged_at
        FROM room WHERE singleton = 1`,
     ).toArray()[0] ?? null;
   }
@@ -1078,9 +1159,10 @@ export class RoomDO extends DurableObject<Env> {
     return new RoomCore(room.room_id.slice(-8), state);
   }
 
-  private loadFullActions(): OrderedAction[] {
+  private loadActionsAfter(sequence: number): OrderedAction[] {
     return this.ctx.storage.sql.exec<ActionRow>(
-      "SELECT body FROM actions ORDER BY sequence",
+      "SELECT body FROM actions WHERE sequence > ? ORDER BY sequence",
+      sequence,
     ).toArray().map((row) => JSON.parse(row.body) as OrderedAction);
   }
 
@@ -1105,6 +1187,40 @@ export class RoomDO extends DurableObject<Env> {
       const state = socket.deserializeAttachment() as SocketAttachment | null;
       return state?.authenticated === true && state.playerId !== null ? [state.playerId] : [];
     }))].sort();
+  }
+
+  /** Players whose socket completed hello (see `isBootstrappedAttachment`). */
+  private bootstrappedPlayerIds(): string[] {
+    return [...new Set(this.ctx.getWebSockets().flatMap((socket) => {
+      const state = socket.deserializeAttachment() as SocketAttachment | null;
+      return isBootstrappedAttachment(state) ? [state.playerId] : [];
+    }))].sort();
+  }
+
+  private recordMultiBootstrapPresence(now: number): void {
+    if (this.bootstrappedPlayerIds().length < 2) return;
+    this.ctx.storage.sql.exec(
+      "UPDATE room SET last_multi_bootstrap_at = ? WHERE singleton = 1",
+      now,
+    );
+  }
+
+  private logBootstrapUnavailable(room: RoomMetadataRow, core: RoomCore): void {
+    const now = Date.now();
+    if (room.bootstrap_unavailable_logged_at !== null &&
+      now - room.bootstrap_unavailable_logged_at < BOOTSTRAP_UNAVAILABLE_LOG_INTERVAL_MS) return;
+    this.ctx.storage.sql.exec(
+      "UPDATE room SET bootstrap_unavailable_logged_at = ? WHERE singleton = 1",
+      now,
+    );
+    console.warn(JSON.stringify({
+      level: "warn",
+      message: "scripted bootstrap unavailable: trimmed log without attested checkpoint",
+      roomId: room.room_id,
+      retentionFloor: retentionFloor(core.state),
+      lastSequence: core.state.lastSequence,
+      checkpointSequence: room.checkpoint_sequence,
+    }));
   }
 
   private roomIsScripted(room: RoomMetadataRow): boolean {
@@ -1170,7 +1286,9 @@ export class RoomDO extends DurableObject<Env> {
         quickplay_joinable INTEGER NOT NULL DEFAULT 0 CHECK (quickplay_joinable IN (0, 1)),
         last_heartbeat_at INTEGER,
         empty_since_at INTEGER,
-        last_action_at INTEGER
+        last_action_at INTEGER,
+        last_multi_bootstrap_at INTEGER,
+        bootstrap_unavailable_logged_at INTEGER
       );
       CREATE TABLE players (
         player_id TEXT PRIMARY KEY,
@@ -1266,6 +1384,12 @@ export class RoomDO extends DurableObject<Env> {
     }
     if (!columns.has("last_action_at")) {
       this.ctx.storage.sql.exec("ALTER TABLE room ADD COLUMN last_action_at INTEGER");
+    }
+    if (!columns.has("last_multi_bootstrap_at")) {
+      this.ctx.storage.sql.exec("ALTER TABLE room ADD COLUMN last_multi_bootstrap_at INTEGER");
+    }
+    if (!columns.has("bootstrap_unavailable_logged_at")) {
+      this.ctx.storage.sql.exec("ALTER TABLE room ADD COLUMN bootstrap_unavailable_logged_at INTEGER");
     }
     this.ctx.storage.sql.exec(`
       CREATE TABLE IF NOT EXISTS active_players (

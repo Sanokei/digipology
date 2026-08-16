@@ -67,6 +67,12 @@ const serverVariants: ServerMessage[] = [
     code: "invalid_session",
     message: "Invalid session",
   },
+  {
+    type: "protocol_error",
+    protocolVersion: 1,
+    code: "bootstrap_unavailable",
+    message: "This table is not ready for new players.",
+  },
   { type: "room_ended", protocolVersion: 1, reason: "host_ended" },
   orderedPlayer,
   { type: "pong", protocolVersion: 1, t: 123.5 },

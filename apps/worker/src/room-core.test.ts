@@ -11,10 +11,12 @@ import {
 import {
   ACTION_RETENTION,
   attestCheckpointCandidate,
+  bootstrapPlan,
   assertCheckpointConnectsToTail,
   checkpointBaseConnects,
   checkpointIsDue,
   CHECKPOINT_INTERVAL,
+  CHECKPOINT_SOLO_GRACE_MS,
   replayCheckpoint,
   RoomCore,
   roomBootstrapFromSnapshots,
@@ -358,11 +360,54 @@ describe("scripted checkpoint attestations", () => {
     );
     expect(mismatch.status).toBe("divergent");
     expect(mismatch.candidate.conflicted).toBe(true);
-    expect(attestCheckpointCandidate(
+    const matching = attestCheckpointCandidate(
       mismatch.candidate,
       attestation("bob", "sha256:first"),
       ["alice", "bob"],
-    ).status).toBe("divergent");
+    );
+    expect(matching.status).toBe("conflicted");
+    expect(matching.candidate).toEqual(mismatch.candidate);
+    expect(matching.candidate.attesters).toEqual(new Set(["alice"]));
+    const anotherMismatch = attestCheckpointCandidate(
+      matching.candidate,
+      attestation("bob", "sha256:third"),
+      ["alice", "bob"],
+    );
+    expect(anotherMismatch.status).toBe("divergent");
+    expect(anotherMismatch.candidate.attesters).toEqual(new Set(["alice"]));
+  });
+
+  test("applies solo grace after a second bootstrapped player leaves", () => {
+    const now = 10_000;
+    const recent = attestCheckpointCandidate(null, attestation("alice"), ["alice"], {
+      now,
+      lastMultiBootstrapAt: now - CHECKPOINT_SOLO_GRACE_MS + 1,
+    });
+    expect(recent.status).toBe("recorded");
+    const elapsed = attestCheckpointCandidate(recent.candidate, attestation("alice"), ["alice"], {
+      now: now + CHECKPOINT_SOLO_GRACE_MS,
+      lastMultiBootstrapAt: now,
+    });
+    expect(elapsed.status).toBe("confirmed");
+
+    const twoPresent = attestCheckpointCandidate(null, attestation("alice"), ["alice", "bob"], {
+      now,
+      lastMultiBootstrapAt: now - CHECKPOINT_SOLO_GRACE_MS * 2,
+    });
+    expect(twoPresent.status).toBe("recorded");
+
+    const divergent = attestCheckpointCandidate(
+      twoPresent.candidate,
+      attestation("bob", "sha256:different"),
+      ["alice", "bob"],
+    );
+    expect(divergent.status).toBe("divergent");
+    expect(attestCheckpointCandidate(
+      divergent.candidate,
+      attestation("alice"),
+      ["alice"],
+      { now: now + CHECKPOINT_SOLO_GRACE_MS, lastMultiBootstrapAt: now },
+    ).status).toBe("conflicted");
   });
 
   test("validates attested hash, release, cadence, and retained-window sequence", () => {
@@ -445,7 +490,7 @@ describe("scripted checkpoint attestations", () => {
     const checkpoint = snapshot({ ...initialState, sequence: CHECKPOINT_INTERVAL * 2 });
     const attested = roomBootstrapFromSnapshots(long, initial, checkpoint, [], {
       scripted: true,
-      fullActions: allActions,
+      fullActions: allActions.filter((action) => action.sequence > checkpoint.sequence),
     });
     expect(attested[0]).toMatchObject({
       type: "bootstrap",
@@ -453,5 +498,16 @@ describe("scripted checkpoint attestations", () => {
       snapshot: checkpoint,
     });
     expect(attested).toHaveLength(1 + long.state.lastSequence - checkpoint.sequence);
+
+    expect(bootstrapPlan({
+      initialSequence: 0, needsRecoveryBase: false, scripted: true, checkpointSequence: null,
+    })).toEqual({ type: "initial-tail", baseSequence: 0 });
+    expect(bootstrapPlan({
+      initialSequence: 0, needsRecoveryBase: true, scripted: true,
+      checkpointSequence: checkpoint.sequence,
+    })).toEqual({ type: "checkpoint-tail", baseSequence: checkpoint.sequence });
+    expect(bootstrapPlan({
+      initialSequence: 0, needsRecoveryBase: true, scripted: true, checkpointSequence: null,
+    })).toEqual({ type: "full-log", baseSequence: 0 });
   });
 });

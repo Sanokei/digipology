@@ -36,4 +36,6 @@ If an invitation is invalid, full, or belongs to a table that has ended, the joi
 
 The table attempts to reconnect automatically. The table remains visible while it catches up, but gameplay interactions pause until the connection is restored. If the connection cannot be restored or the room has ended, the table shows a message and an option to leave.
 
+Occasionally an older, long-running scripted table needs a seated player to create a fresh recovery point before anyone new can enter. If you see the message that the table is not ready for new players, ask someone who is already at the table to keep playing for a few minutes, then choose **Try again**. You can also leave the table and reopen the invitation later; the client will not loop through silent reconnect attempts while it waits.
+
 Rooms do not remain active forever after everyone leaves. After sustained inactivity, an empty room expires; returning players can host a new table from the catalog.

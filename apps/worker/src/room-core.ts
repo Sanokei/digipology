@@ -6,7 +6,10 @@ import {
   type ResumeMessage,
   type ServerMessage,
 } from "digipology-protocol";
-import { CHECKPOINT_ATTESTATION_INTERVAL } from "digipology-protocol/http";
+import {
+  ACTION_RETENTION as PROTOCOL_ACTION_RETENTION,
+  CHECKPOINT_ATTESTATION_INTERVAL,
+} from "digipology-protocol/http";
 import {
   applyOrdered,
   loadSnapshot,
@@ -15,7 +18,7 @@ import {
 } from "digipology-kernel";
 import { hashValue } from "digipology-canonical-json";
 
-export const ACTION_RETENTION = 500;
+export const ACTION_RETENTION = PROTOCOL_ACTION_RETENTION;
 
 /**
  * Dedup key for a `system.timer_fire` sequenced by the room alarm. The kernel
@@ -28,6 +31,7 @@ export function timerFireDedupKey(timerId: string): string {
   return `timer_fire_${hashValue(timerId).slice("sha256:".length, "sha256:".length + 32)}`;
 }
 export const CHECKPOINT_INTERVAL = CHECKPOINT_ATTESTATION_INTERVAL;
+export const CHECKPOINT_SOLO_GRACE_MS = 5 * 60 * 1_000;
 export const TIMER_CANCEL_GRACE_MS = 350;
 
 if (CHECKPOINT_INTERVAL >= ACTION_RETENTION) {
@@ -64,9 +68,21 @@ export interface CheckpointAttestation {
 }
 
 export type CheckpointAttestationResult = {
-  status: "recorded" | "duplicate" | "divergent" | "confirmed";
+  status: "recorded" | "duplicate" | "divergent" | "conflicted" | "confirmed";
   candidate: CheckpointCandidate;
 };
+
+export type BootstrapPlan =
+  | { type: "initial-tail"; baseSequence: number }
+  | { type: "checkpoint-tail"; baseSequence: number }
+  | { type: "full-log"; baseSequence: number };
+
+export class ScriptedBootstrapUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ScriptedBootstrapUnavailableError";
+  }
+}
 
 export class RoomCore {
   readonly #roomShortId: string;
@@ -236,6 +252,11 @@ export function attestCheckpointCandidate(
   existing: CheckpointCandidate | null,
   attestation: CheckpointAttestation,
   connectedPlayerIds: readonly string[],
+  options: {
+    now?: number;
+    lastMultiBootstrapAt?: number | null;
+    soloGraceMs?: number;
+  } = {},
 ): CheckpointAttestationResult {
   const connected = new Set(connectedPlayerIds);
   if (!connected.has(attestation.playerId)) {
@@ -259,17 +280,39 @@ export function attestCheckpointCandidate(
         attesters: new Set(existing.attesters),
       };
 
-  if (candidate.conflicted || candidate.stateHash !== attestation.stateHash) {
+  if (candidate.stateHash !== attestation.stateHash) {
     candidate.conflicted = true;
     return { status: "divergent", candidate };
   }
+  if (candidate.conflicted) return { status: "conflicted", candidate };
 
   candidate.attesters.add(attestation.playerId);
   const healthyAttesters = [...candidate.attesters]
     .filter((playerId) => connected.has(playerId)).length;
-  const required = connected.size === 1 ? 1 : 2;
+  const lastMultiBootstrapAt = options.lastMultiBootstrapAt ?? null;
+  const soloGraceElapsed = lastMultiBootstrapAt === null ||
+    (options.now ?? 0) - lastMultiBootstrapAt >=
+      (options.soloGraceMs ?? CHECKPOINT_SOLO_GRACE_MS);
+  const required = connected.size === 1 && soloGraceElapsed ? 1 : 2;
   if (healthyAttesters >= required) return { status: "confirmed", candidate };
   return { status: duplicate ? "duplicate" : "recorded", candidate };
+}
+
+export function bootstrapPlan(input: {
+  initialSequence: number;
+  needsRecoveryBase: boolean;
+  scripted: boolean;
+  checkpointSequence: number | null;
+}): BootstrapPlan {
+  if (!input.needsRecoveryBase) {
+    return { type: "initial-tail", baseSequence: input.initialSequence };
+  }
+  if (input.checkpointSequence !== null) {
+    return { type: "checkpoint-tail", baseSequence: input.checkpointSequence };
+  }
+  return input.scripted
+    ? { type: "full-log", baseSequence: input.initialSequence }
+    : { type: "checkpoint-tail", baseSequence: input.initialSequence };
 }
 
 /** Mechanically replay a contiguous retained tail into a hash-verified snapshot. */
@@ -368,14 +411,14 @@ function contiguousActionsAfter(
   let expected = baseSequence + 1;
   for (const action of later) {
     if (action.sequence !== expected) {
-      throw new Error(
+      throw new ScriptedBootstrapUnavailableError(
         `Scripted bootstrap log is not contiguous: expected ${expected}, received ${action.sequence}`,
       );
     }
     expected += 1;
   }
   if (expected !== lastSequence + 1) {
-    throw new Error(
+    throw new ScriptedBootstrapUnavailableError(
       `Scripted bootstrap log ended at ${expected - 1}, expected ${lastSequence}`,
     );
   }

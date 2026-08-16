@@ -811,6 +811,12 @@ export async function handlePlatformRequest(
           });
         case "divergent":
           return jsonError(409, "checkpoint_divergent", outcome.reason ?? "Checkpoint hashes diverged");
+        case "conflicted":
+          return jsonError(
+            409,
+            "checkpoint_conflicted",
+            "This checkpoint sequence was already contested; the room will attest a later one",
+          );
         case "rejected":
           return jsonError(422, "checkpoint_rejected", outcome.reason ?? "Checkpoint was not accepted");
       }

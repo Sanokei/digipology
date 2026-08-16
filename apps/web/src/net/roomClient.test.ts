@@ -3,7 +3,7 @@ import { createInitialState, snapshot } from "digipology-kernel";
 
 import { createApiClient } from "../api/client";
 import { KernelStore } from "../state/kernelStore";
-import { RoomClient } from "./roomClient";
+import { CheckpointAttestationError, RoomClient, type RoomClientStatus } from "./roomClient";
 
 class MockSocket extends EventTarget {
   readyState: number = WebSocket.CONNECTING;
@@ -17,11 +17,54 @@ class MockSocket extends EventTarget {
 const session = { roomId: "room", joinCode: "ABCD-EFGH", inviteUrl: "https://play.digipology.com/join/ABCD-EFGH", playerId: "p1", roomToken: "token", wsUrl: "wss://example.test/ws", releaseId: "release_test", gameTitle: "Test" };
 
 async function waitFor(predicate: () => boolean): Promise<void> {
-  for (let attempt = 0; attempt < 100; attempt += 1) {
+  for (let attempt = 0; attempt < 2_000; attempt += 1) {
     if (predicate()) return;
     await new Promise((resolve) => setTimeout(resolve, 5));
   }
   throw new Error("Timed out waiting for RoomClient state");
+}
+
+function scriptedFixture(sequence = 0) {
+  const initialBase = createInitialState({
+    releaseId: "release_test",
+    rng: { algorithm: "sfc32-v1", state: [1, 2, 3, 4], draws: 0 },
+    entities: {
+      rules: {
+        id: "rules",
+        components: {
+          script: { scriptId: "scripts/game.lua", bindingId: "rules", props: {} },
+        },
+      },
+      counter: {
+        id: "counter",
+        components: { counter: { value: sequence, default: 0, min: 0, max: 10_000 } },
+      },
+    },
+  });
+  const initial = { ...initialBase, sequence };
+  const source = "return {}";
+  const bundle = {
+    releaseId: "release_test",
+    initialSnapshot: snapshot(initial),
+    files: [{
+      path: "scripts/game.lua",
+      content: source,
+      byteLength: source.length,
+      contentHash: `sha256:${"0".repeat(64)}`,
+    }],
+  };
+  return { initial, bundle, api: createApiClient(async () => Response.json(bundle)) };
+}
+
+function counterAction(sequence: number) {
+  return {
+    type: "ordered_action" as const,
+    protocolVersion: 1 as const,
+    sequence,
+    actionId: `counter-${sequence}`,
+    actor: { type: "system" as const },
+    action: { type: "counter.add", payload: { entityId: "counter", amount: 1 } },
+  };
 }
 
 describe("RoomClient", () => {
@@ -331,6 +374,139 @@ return {}`;
     await waitFor(() => store.getSnapshot().state?.sequence === 200);
     expect(store.requiresScripts()).toBe(false);
     expect(reports).toBe(0);
+    client.stop();
+  });
+
+  it("attests only the highest eligible cadence after a scripted bootstrap burst", async () => {
+    const cases = [
+      { base: 0, tail: 1_000, expected: [1_000] },
+      { base: 0, tail: 950, expected: [800] },
+      { base: 800, tail: 950, expected: [] },
+    ];
+    for (const testCase of cases) {
+      const { bundle, api } = scriptedFixture(testCase.base);
+      const socket = new MockSocket();
+      const store = new KernelStore();
+      const reports: number[] = [];
+      const client = new RoomClient(
+        session,
+        store,
+        () => undefined,
+        api,
+        () => socket as unknown as WebSocket,
+        async () => undefined,
+        async (input) => { reports.push(input.sequence); },
+      );
+      client.start();
+      socket.open();
+      await waitFor(() => socket.sent.length > 0);
+      socket.message({
+        type: "bootstrap",
+        protocolVersion: 1,
+        sequence: testCase.base,
+        players: [],
+        snapshot: bundle.initialSnapshot,
+      });
+      for (let sequence = testCase.base + 1; sequence <= testCase.tail; sequence += 1) {
+        socket.message(counterAction(sequence));
+      }
+      await waitFor(() => store.getSnapshot().state?.sequence === testCase.tail);
+      await waitFor(() => reports.length === testCase.expected.length);
+      expect(reports).toEqual(testCase.expected);
+      expect(store.getSnapshot().diagnostic ?? "").not.toContain("was not recorded");
+
+      if (testCase.base === 800) {
+        for (let sequence = 951; sequence <= 1_000; sequence += 1) {
+          socket.message(counterAction(sequence));
+        }
+        await waitFor(() => reports.length === 1);
+        expect(reports).toEqual([1_000]);
+      }
+      client.stop();
+    }
+  }, 30_000);
+
+  it("keeps conflicted reports quiet while diagnosing divergent and rejected reports", async () => {
+    const cases = [
+      { error: new CheckpointAttestationError(409, "checkpoint_conflicted"), diagnostic: false },
+      { error: new CheckpointAttestationError(409, "checkpoint_divergent"), diagnostic: true },
+      { error: new CheckpointAttestationError(422, "checkpoint_rejected"), diagnostic: true },
+    ];
+    for (const testCase of cases) {
+      const { initial, api } = scriptedFixture(0);
+      const socket = new MockSocket();
+      const store = new KernelStore();
+      let reports = 0;
+      const client = new RoomClient(
+        session,
+        store,
+        () => undefined,
+        api,
+        () => socket as unknown as WebSocket,
+        async () => undefined,
+        async () => { reports += 1; throw testCase.error; },
+      );
+      client.start(); socket.open(); await waitFor(() => socket.sent.length > 0);
+      socket.message({
+        type: "bootstrap", protocolVersion: 1, sequence: 199, players: [],
+        snapshot: snapshot({ ...initial, sequence: 199 }),
+      });
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      socket.message(counterAction(200));
+      await waitFor(() => reports === 1);
+      if (testCase.diagnostic) {
+        await waitFor(() => store.getSnapshot().diagnostic?.includes("was not recorded") === true);
+      } else {
+        expect(store.getSnapshot().diagnostic ?? "").not.toContain("was not recorded");
+      }
+      expect(socket.readyState).toBe(WebSocket.OPEN);
+      client.stop();
+    }
+  }, 20_000);
+
+  it("shows bootstrap_unavailable as terminal and start retries with a full hello", async () => {
+    const initial = createInitialState({
+      releaseId: "release_test",
+      rng: { algorithm: "sfc32-v1", state: [1, 2, 3, 4], draws: 0 },
+    });
+    const api = createApiClient(async () => Response.json({
+      releaseId: "release_test",
+      initialSnapshot: snapshot(initial),
+    }));
+    const sockets = [new MockSocket(), new MockSocket()];
+    const statuses: RoomClientStatus[] = [];
+    let socketIndex = 0;
+    const client = new RoomClient(
+      session,
+      new KernelStore(),
+      (status) => statuses.push(status),
+      api,
+      () => sockets[socketIndex++] as unknown as WebSocket,
+    );
+    client.start();
+    sockets[0]!.open();
+    await waitFor(() => sockets[0]!.sent.length > 0);
+    const productMessage =
+      "This table needs a checkpoint from a player who is already seated before new players can join. Ask them to keep playing, then try again.";
+    sockets[0]!.message({
+      type: "protocol_error",
+      protocolVersion: 1,
+      code: "bootstrap_unavailable",
+      message: productMessage,
+    });
+    await waitFor(() => statuses.at(-1)?.state === "error");
+    expect(statuses.at(-1)).toMatchObject({ state: "error", detail: productMessage });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(socketIndex).toBe(1);
+
+    client.start();
+    expect(socketIndex).toBe(2);
+    sockets[1]!.open();
+    await waitFor(() => sockets[1]!.sent.length > 0);
+    expect(JSON.parse(sockets[1]!.sent[0] ?? "{}")).toMatchObject({
+      type: "hello",
+      lastSequence: null,
+    });
     client.stop();
   });
 });

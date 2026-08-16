@@ -1,6 +1,7 @@
 export const CSRF_HEADER = "X-Digipology-CSRF";
 export const UPLOAD_BODY_LIMIT = 1024 * 1024;
 export const CHECKPOINT_ATTESTATION_INTERVAL = 200;
+export const ACTION_RETENTION = 500;
 
 export type RoomVisibility = "private" | "public";
 export type GameVisibility = "public" | "unlisted";

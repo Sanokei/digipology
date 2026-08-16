@@ -17,6 +17,7 @@ export type ProtocolErrorCode =
   | "malformed_message"
   | "message_too_large"
   | "rate_limited"
+  | "bootstrap_unavailable"
   | "unknown_message_type";
 
 export type HelloMessage = {
@@ -149,6 +150,7 @@ const PROTOCOL_ERROR_CODES = new Set<string>([
   "malformed_message",
   "message_too_large",
   "rate_limited",
+  "bootstrap_unavailable",
   "unknown_message_type",
 ]);
 const ROOM_END_REASONS = new Set<string>([

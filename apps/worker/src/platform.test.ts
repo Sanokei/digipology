@@ -195,9 +195,9 @@ describe("scripted checkpoint attestation route", () => {
     }]]);
   });
 
-  test("maps unauthenticated, divergent, rate-limited, and oversized reports", async () => {
+  test("maps unauthenticated, divergent, conflicted, rejected, rate-limited, and oversized reports", async () => {
     const roomId = "c".repeat(64);
-    const statuses = ["unauthorized", "divergent", "rate_limited"] as const;
+    const statuses = ["unauthorized", "divergent", "conflicted", "rejected", "rate_limited"] as const;
     let call = 0;
     const env = {
       ROOM: {
@@ -214,7 +214,17 @@ describe("scripted checkpoint attestation route", () => {
         { method: "POST", headers, body },
       ), env));
     }
-    expect(responses.map((response) => response.status)).toEqual([403, 409, 429]);
+    expect(responses.map((response) => response.status)).toEqual([403, 409, 409, 422, 429]);
+    expect(await responses[1]!.json()).toMatchObject({ error: { code: "checkpoint_divergent" } });
+    const conflictedBody = await responses[2]!.json() as {
+      error: { code: string; message: string };
+    };
+    expect(conflictedBody).toEqual({
+      error: {
+        code: "checkpoint_conflicted",
+        message: "This checkpoint sequence was already contested; the room will attest a later one",
+      },
+    });
 
     const oversized = await handlePlatformRequest(new Request(
       `https://play.digipology.com/api/rooms/${roomId}/checkpoints`,

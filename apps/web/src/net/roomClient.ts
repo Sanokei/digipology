@@ -1,8 +1,10 @@
 import { PROTOCOL_VERSION, parseServerMessage, type ActionRequest, type ClientMessage, type ServerMessage } from "digipology-protocol";
 import {
+  ACTION_RETENTION,
   CHECKPOINT_ATTESTATION_INTERVAL,
   type CheckpointAttestationRequest,
 } from "digipology-protocol/http";
+import { snapshot, type CanonicalGameState, type GameSnapshot } from "digipology-kernel";
 
 import { api, type ApiClient } from "../api/client";
 import type { SavedRoomSession } from "../utils/roomSession";
@@ -13,6 +15,7 @@ export type RoomConnectionState = "connecting" | "loading_release" | "starting" 
 export interface RoomClientStatus {
   state: RoomConnectionState;
   message: string;
+  detail?: string;
 }
 
 type SocketFactory = (url: string) => WebSocket;
@@ -25,6 +28,17 @@ type CheckpointAttestationReporter = (
   input: Omit<CheckpointAttestationRequest, "roomToken">,
 ) => Promise<void>;
 
+export class CheckpointAttestationError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: string,
+    message = "Canonical checkpoint was not accepted",
+  ) {
+    super(message);
+    this.name = "CheckpointAttestationError";
+  }
+}
+
 export class RoomClient {
   private socket: WebSocket | null = null;
   private stopped = false;
@@ -33,6 +47,10 @@ export class RoomClient {
   private releaseLoaded = false;
   private forceFullResync = false;
   private scriptedMessageQueue: Promise<void> = Promise.resolve();
+  private bootstrapBase: number | null = null;
+  private bootstrapCadenceState: CanonicalGameState | null = null;
+  private bootstrapFlushTimer: ReturnType<typeof setTimeout> | null = null;
+  private bootstrapGeneration = 0;
 
   constructor(
     private readonly session: SavedRoomSession,
@@ -54,15 +72,42 @@ export class RoomClient {
         headers: { "Content-Type": "application/json", "X-Digipology-CSRF": "1" },
         body: JSON.stringify({ roomToken: session.roomToken, ...input }),
       });
-      if (!response.ok) throw new Error("Canonical checkpoint was not accepted");
+      if (!response.ok) {
+        let code = "checkpoint_rejected";
+        let message = "Canonical checkpoint was not accepted";
+        try {
+          const body: unknown = await response.json();
+          if (typeof body === "object" && body !== null && !Array.isArray(body)) {
+            const error = Reflect.get(body, "error");
+            if (typeof error === "object" && error !== null && !Array.isArray(error)) {
+              const bodyCode = Reflect.get(error, "code");
+              const bodyMessage = Reflect.get(error, "message");
+              if (typeof bodyCode === "string") code = bodyCode;
+              if (typeof bodyMessage === "string") message = bodyMessage;
+            }
+          }
+        } catch {
+          // Preserve the generic typed error when the response body is not JSON.
+        }
+        throw new CheckpointAttestationError(response.status, code, message);
+      }
     },
   ) {}
 
-  start(): void { this.stopped = false; this.connect(false); }
+  start(): void {
+    if (this.reconnectTimer !== null) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
+    this.cancelBootstrapCatchUp();
+    this.stopped = false;
+    this.reconnectAttempt = 0;
+    this.forceFullResync = false;
+    this.connect(false);
+  }
 
   stop(): void {
     this.stopped = true;
     if (this.reconnectTimer !== null) clearTimeout(this.reconnectTimer);
+    this.cancelBootstrapCatchUp();
     this.socket?.close(1000, "Leaving table");
     this.socket = null;
     this.store.dispose();
@@ -128,11 +173,15 @@ export class RoomClient {
       void this.handle(parsed.message);
       return;
     }
+    if (parsed.message.type === "bootstrap") {
+      this.beginBootstrapCatchUp(parsed.message.sequence);
+    }
     this.scriptedMessageQueue = this.scriptedMessageQueue
       .then(() => this.handle(parsed.message))
       .catch((error) => this.recoverFromGap(
         error instanceof Error ? error.message : "Scripted action processing failed",
       ));
+    if (this.bootstrapBase !== null) this.scheduleBootstrapCatchUpFlush();
   }
 
   private async handle(message: ServerMessage): Promise<void> {
@@ -152,12 +201,18 @@ export class RoomClient {
             this.recoverFromGap(`Resume gap at ${message.fromSequence}`);
             return;
           }
+          const resumeBase = message.fromSequence - 1;
+          let cadenceState: CanonicalGameState | null = null;
           for (const action of message.actions) {
             const result = await this.store.applyOrderedWithScriptRuntime(action);
             if (!result.ok) { this.recoverFromGap(`Resume gap at ${result.actual}`); return; }
             await this.reportCanonicalTimerEvents();
-            await this.reportCanonicalCheckpoint();
+            if (action.sequence > resumeBase &&
+              action.sequence % CHECKPOINT_ATTESTATION_INTERVAL === 0) {
+              cadenceState = this.store.getSnapshot().state;
+            }
           }
+          await this.reportCatchUpCheckpoint(resumeBase, cadenceState);
         }
         this.reconnectAttempt = 0; this.onStatus({ state: "connected", message: "Connected" }); return;
       }
@@ -168,13 +223,32 @@ export class RoomClient {
         if (!result.ok) this.recoverFromGap(`Ordered stream gap at ${result.actual}`);
         else {
           await this.reportCanonicalTimerEvents();
-          await this.reportCanonicalCheckpoint();
+          if (this.bootstrapBase !== null) {
+            if (message.sequence > this.bootstrapBase &&
+              message.sequence % CHECKPOINT_ATTESTATION_INTERVAL === 0) {
+              this.bootstrapCadenceState = this.store.getSnapshot().state;
+            }
+          } else {
+            await this.reportCanonicalCheckpoint();
+          }
         }
         return;
       }
       case "resync_required": this.recoverFromGap("Server requested a full resync", true); return;
       case "protocol_error":
+        if (message.code === "bootstrap_unavailable") {
+          this.cancelBootstrapCatchUp();
+          this.onStatus({
+            state: "error",
+            message: "This table isn't ready for new players yet.",
+            detail: message.message,
+          });
+          this.stopped = true;
+          this.socket?.close(4002, "Bootstrap unavailable");
+          return;
+        }
         this.store.setDiagnostic(`${message.code}: ${message.message}`);
+        this.cancelBootstrapCatchUp();
         this.onStatus({ state: "error", message: "The table connection could not be restored." });
         this.stopped = true;
         this.socket?.close(4001, "Protocol error");
@@ -213,6 +287,55 @@ export class RoomClient {
     // Only serialize/hash the full state on the cadence, never per action.
     const confirmed = this.store.confirmedSnapshot();
     if (confirmed === null || confirmed.sequence !== sequence) return;
+    await this.reportCheckpointSnapshot(confirmed);
+  }
+
+  private beginBootstrapCatchUp(baseSequence: number): void {
+    if (this.bootstrapFlushTimer !== null) clearTimeout(this.bootstrapFlushTimer);
+    this.bootstrapBase = baseSequence;
+    this.bootstrapCadenceState = null;
+    this.bootstrapGeneration += 1;
+  }
+
+  private scheduleBootstrapCatchUpFlush(): void {
+    if (this.bootstrapFlushTimer !== null) clearTimeout(this.bootstrapFlushTimer);
+    const generation = ++this.bootstrapGeneration;
+    this.bootstrapFlushTimer = setTimeout(() => {
+      this.bootstrapFlushTimer = null;
+      void this.finishBootstrapCatchUp(generation);
+    }, 25);
+  }
+
+  private cancelBootstrapCatchUp(): void {
+    if (this.bootstrapFlushTimer !== null) clearTimeout(this.bootstrapFlushTimer);
+    this.bootstrapFlushTimer = null;
+    this.bootstrapBase = null;
+    this.bootstrapCadenceState = null;
+    this.bootstrapGeneration += 1;
+  }
+
+  private async finishBootstrapCatchUp(generation: number): Promise<void> {
+    await this.scriptedMessageQueue;
+    if (generation !== this.bootstrapGeneration || this.bootstrapBase === null) return;
+    const baseSequence = this.bootstrapBase;
+    const cadenceState = this.bootstrapCadenceState;
+    this.bootstrapBase = null;
+    this.bootstrapCadenceState = null;
+    await this.reportCatchUpCheckpoint(baseSequence, cadenceState);
+  }
+
+  private async reportCatchUpCheckpoint(
+    baseSequence: number,
+    cadenceState: CanonicalGameState | null,
+  ): Promise<void> {
+    if (!this.store.requiresScripts() || cadenceState === null) return;
+    const currentSequence = this.store.getSnapshot().state?.sequence ?? 0;
+    if (cadenceState.sequence <= baseSequence ||
+      cadenceState.sequence < currentSequence - ACTION_RETENTION + 1) return;
+    await this.reportCheckpointSnapshot(snapshot(cadenceState));
+  }
+
+  private async reportCheckpointSnapshot(confirmed: GameSnapshot): Promise<void> {
     try {
       await this.reportCheckpointAttestation({
         sequence: confirmed.sequence,
@@ -220,6 +343,8 @@ export class RoomClient {
         snapshot: confirmed,
       });
     } catch (error) {
+      if (error instanceof CheckpointAttestationError &&
+        error.status === 409 && error.code === "checkpoint_conflicted") return;
       this.store.setDiagnostic(
         `Checkpoint at sequence ${confirmed.sequence} was not recorded: ${error instanceof Error ? error.message : String(error)}`,
       );
@@ -230,6 +355,8 @@ export class RoomClient {
 
   private recoverFromGap(diagnostic: string, fullResync = false): void {
     this.store.setDiagnostic(diagnostic);
+    // The stream restarts (resume or full bootstrap); drop any pending catch-up attestation.
+    this.cancelBootstrapCatchUp();
     this.forceFullResync ||= fullResync;
     this.socket?.close(4000, "Resynchronizing");
     if (fullResync) this.releaseLoaded = false;
