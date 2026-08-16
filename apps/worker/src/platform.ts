@@ -5,12 +5,16 @@ import type {
   CreateReleaseResponse,
   CreateRoomResponse,
   GameResponse,
+  GameSnapshotDto,
   GamesResponse,
   JoinRoomResponse,
   MeResponse,
   MyGamesResponse,
   PublicRoomsResponse,
   QuickPlayResponse,
+  ResumeSaveResponse,
+  SaveTableResponse,
+  SavesResponse,
   UpdateGameResponse,
   UploadValidationReportItem,
   UserResponse,
@@ -26,6 +30,8 @@ import {
   validateCreateRoomRequest,
   validateJoinRoomRequest,
   validateQuickPlayRequest,
+  validateResumeSaveRequest,
+  validateSaveTableRequest,
   validateRequestMagicLinkRequest,
   validateUpdateGameRequest,
   validateUpdateMeRequest,
@@ -63,6 +69,7 @@ import {
   type AiGameDependencies,
 } from "./ai-games";
 import { handleCoverGeneration } from "./cover-generation";
+import { loadSnapshot, snapshotRequiresScripts, type GameSnapshot } from "digipology-kernel";
 
 const HTTP_BODY_LIMIT = 4 * 1024;
 const MAGIC_EMAIL_LIMIT = 3;
@@ -74,10 +81,15 @@ const UPLOAD_USER_LIMIT = 10;
 const UPLOAD_RATE_WINDOW_MS = 60 * 60 * 1000;
 const COVER_USER_LIMIT = 20;
 const COVER_RATE_WINDOW_MS = 60 * 60 * 1000;
+const SAVE_USER_LIMIT = 10;
+const SAVE_RATE_WINDOW_MS = 60 * 1000;
+const SAVE_COUNT_LIMIT = 50;
 
 interface RoomIndexLookupRow {
   room_id: string;
 }
+
+interface RoomSaveLookupRow { release_id: string; game_slug: string; }
 
 interface PublicRoomRow {
   join_code: string;
@@ -558,7 +570,7 @@ export async function handlePlatformRequest(
       join: async (candidate) => {
         try {
           const id = env.ROOM.idFromString(candidate.roomId);
-          const joined = await env.ROOM.get(id).join(displayName, true);
+          const joined = await env.ROOM.get(id).join(displayName, true, session?.user.id ?? null);
           return joined.status === "ok"
             ? { status: "ok" as const, value: joined }
             : { status: joined.status };
@@ -595,6 +607,7 @@ export async function handlePlatformRequest(
       origin: "quickplay",
       displayName,
       now,
+      creatorUserId: session?.user.id ?? null,
     });
     if (created === null) {
       return jsonError(503, "quickplay_unavailable", "Quick play is temporarily unavailable");
@@ -641,8 +654,8 @@ export async function handlePlatformRequest(
           `INSERT INTO rooms_index
             (room_id, join_code, join_code_normalized, visibility, release_id,
              player_count, max_players, created_at, ended_at, origin,
-             last_heartbeat_at, game_slug, joinable)
-           VALUES (?, ?, ?, ?, ?, 0, ?, ?, NULL, 'hosted', ?, ?, 1)`,
+             last_heartbeat_at, game_slug, joinable, creator_user_id)
+           VALUES (?, ?, ?, ?, ?, 0, ?, ?, NULL, 'hosted', ?, ?, 1, ?)`,
         ).bind(
           roomId,
           joinCode,
@@ -653,6 +666,7 @@ export async function handlePlatformRequest(
           now,
           now,
           gameSlug,
+          session?.user.id ?? null,
         ).run();
       } catch (error) {
         if (isUniqueConstraint(error)) continue;
@@ -660,12 +674,12 @@ export async function handlePlatformRequest(
       }
 
       const room = env.ROOM.get(id);
-      const initialized = await room.init(roomId, joinCode, releaseId, maxPlayers);
+      const initialized = await room.init(roomId, joinCode, releaseId, maxPlayers, session?.user.id ?? null);
       if (!initialized) {
         await deleteRoomIndex(env.DB, roomId);
         continue;
       }
-      const joined = await room.join(displayName);
+      const joined = await room.join(displayName, false, session?.user.id ?? null);
       if (joined.status !== "ok") {
         await deleteRoomIndex(env.DB, roomId);
         continue;
@@ -754,6 +768,164 @@ export async function handlePlatformRequest(
     }
     const response: PublicRoomsResponse = { rooms };
     return jsonResponse(response);
+  }
+
+  const roomEndMatch = /^\/api\/rooms\/([0-9a-f]{64})\/end$/.exec(url.pathname);
+  if (request.method === "POST" && roomEndMatch?.[1] !== undefined) {
+    const body = asRecord(await readJson(request));
+    if (body === null || typeof body.roomToken !== "string") {
+      return jsonError(403, "end_unauthorized", "Room token was not accepted");
+    }
+    try {
+      const outcome = await env.ROOM.get(env.ROOM.idFromString(roomEndMatch[1])).endWithToken(body.roomToken);
+      if (outcome === "unauthorized") return jsonError(403, "end_unauthorized", "Room token was not accepted");
+      if (outcome === "host_only") return jsonError(403, "end_host_only", "Only the table host can end the table");
+      if (outcome === "unavailable") return jsonError(409, "end_unavailable", "The table has already ended");
+      return new Response(null, { status: 204 });
+    } catch { return jsonError(404, "not_found", "Room not found"); }
+  }
+
+  const roomSaveMatch = /^\/api\/rooms\/([0-9a-f]{64})\/save$/.exec(url.pathname);
+  if (request.method === "POST" && roomSaveMatch?.[1] !== undefined) {
+    const session = await requestSession(request, repositories, env, now);
+    if (session === null) return jsonError(401, "authentication_required", "Sign in to save this table");
+    const limiter = new FixedWindowRateLimiter(repositories, SAVE_USER_LIMIT, SAVE_RATE_WINDOW_MS);
+    const rate = await limiter.consume(`save:user:${session.user.id}`, now);
+    if (!rate.allowed) return jsonError(429, "rate_limited", "Too many saves; try again later", { "Retry-After": String(rate.retryAfterSeconds) });
+    const upload = await readUploadJson(request);
+    if (upload.oversize) return jsonError(413, "save_too_large", "Save exceeds the 1 MiB limit");
+    const requestBody = asRecord(upload.value);
+    if (requestBody === null || typeof requestBody.roomToken !== "string") {
+      return jsonError(403, "save_unauthorized", "Room token was not accepted");
+    }
+    const parsed = validateSaveTableRequest(upload.value);
+    if (!parsed.ok) return invalidRequest(parsed.error.message);
+    if (await repositories.countActiveSaves(session.user.id) >= SAVE_COUNT_LIMIT) {
+      return jsonError(409, "save_limit_reached", `You can keep up to ${SAVE_COUNT_LIMIT} saved tables`);
+    }
+    const metadata = await env.DB.prepare(
+      "SELECT release_id, game_slug FROM rooms_index WHERE room_id = ?",
+    ).bind(roomSaveMatch[1]).first<RoomSaveLookupRow>();
+    if (metadata === null) return jsonError(404, "not_found", "Room not found");
+    let outcome;
+    try {
+      outcome = await env.ROOM.get(env.ROOM.idFromString(roomSaveMatch[1])).saveSnapshot(
+        parsed.value.roomToken,
+        parsed.value.snapshot,
+      );
+    } catch { return jsonError(404, "not_found", "Room not found"); }
+    if (outcome.status !== "ok") {
+      if (outcome.status === "unauthorized") return jsonError(403, "save_unauthorized", "Room token was not accepted");
+      if (outcome.status === "host_only") return jsonError(403, "save_host_only", "Only the table host can save");
+      if (outcome.status === "unavailable") return jsonError(409, "save_unavailable", "This table cannot be saved right now");
+      if (outcome.status === "stale") return jsonError(409, "save_stale", "The table moved on; try again");
+      return jsonError(422, "save_invalid", outcome.reason ?? "Snapshot integrity check failed");
+    }
+    const savedSnapshot = JSON.parse(outcome.snapshotJson) as GameSnapshotDto;
+    if (savedSnapshot.releaseId !== metadata.release_id) return jsonError(422, "save_invalid", "Snapshot release does not match the room index");
+    const requiresScripts = snapshotRequiresScripts(savedSnapshot as unknown as GameSnapshot);
+    const bucket = saveBucket(env);
+    if (bucket === null) return jsonError(503, "save_storage_unavailable", "Save storage is unavailable");
+    const saveId = `save_${crypto.randomUUID()}`;
+    const objectKey = `saves/${saveId}.json`;
+    const body = JSON.stringify(savedSnapshot);
+    const byteLength = new TextEncoder().encode(body).byteLength;
+    if (byteLength > UPLOAD_BODY_LIMIT) return jsonError(413, "save_too_large", "Save exceeds the 1 MiB limit");
+    await writeReleaseThenCommit(bucket, objectKey, body, () => repositories.createSavedTable({
+      id: saveId, ownerUserId: session.user.id, releaseId: savedSnapshot.releaseId,
+      gameSlug: metadata.game_slug, sourceRoomId: roomSaveMatch[1]!,
+      sequence: savedSnapshot.sequence, stateHash: savedSnapshot.stateHash,
+      objectKey, byteLength, requiresScripts,
+      ...(parsed.value.label === undefined ? {} : { label: parsed.value.label }),
+      createdAt: now, deletedAt: null,
+    }));
+    const response: SaveTableResponse = {
+      saveId, sequence: savedSnapshot.sequence, stateHash: savedSnapshot.stateHash,
+      createdAt: new Date(now).toISOString(),
+    };
+    return jsonResponse(response, 201, sessionCookieHeaders(session));
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/saves") {
+    const session = await requestSession(request, repositories, env, now);
+    if (session === null) return jsonError(401, "authentication_required", "Sign in to view saved tables");
+    const records = await repositories.listSavedTables(session.user.id);
+    const saves: SavesResponse["saves"] = [];
+    for (const record of records) {
+      const builtinRelease = builtinCatalog.getRelease(record.releaseId);
+      const builtinGame = builtinRelease === null ? null : builtinCatalog.getGame(builtinRelease.gameSlug);
+      const uploaded = builtinRelease === null ? await repositories.getUploadedRelease(record.releaseId) : null;
+      saves.push({
+        saveId: record.id, gameSlug: record.gameSlug,
+        gameTitle: builtinGame?.title ?? uploaded?.gameTitle ?? record.gameSlug,
+        releaseId: record.releaseId, sequence: record.sequence,
+        createdAt: new Date(record.createdAt).toISOString(), byteLength: record.byteLength,
+        resumable: !record.requiresScripts,
+        ...(record.requiresScripts ? { resumeBlockedReason: "scripted_resume_unsupported" } : {}),
+        ...(record.label === undefined ? {} : { label: record.label }),
+      });
+    }
+    return sessionResponse({ saves } satisfies SavesResponse, session);
+  }
+
+  const saveMatch = /^\/api\/saves\/([^/]+)$/.exec(url.pathname);
+  if (saveMatch?.[1] !== undefined && request.method === "DELETE") {
+    const session = await requestSession(request, repositories, env, now);
+    if (session === null) return jsonError(401, "authentication_required", "Sign in to delete a saved table");
+    const record = await repositories.softDeleteSavedTable(saveMatch[1], session.user.id, now);
+    if (record === null) return jsonError(404, "not_found", "Saved table not found");
+    const bucket = saveBucket(env);
+    if (bucket !== null) {
+      try { await bucket.delete(record.objectKey); } catch (error) {
+        console.error(JSON.stringify({ level: "error", message: "save object delete failed", saveId: record.id, error: String(error) }));
+      }
+    }
+    return new Response(null, { status: 204, headers: sessionCookieHeaders(session) });
+  }
+
+  const resumeMatch = /^\/api\/saves\/([^/]+)\/resume$/.exec(url.pathname);
+  if (resumeMatch?.[1] !== undefined && request.method === "POST") {
+    const session = await requestSession(request, repositories, env, now);
+    if (session === null) return jsonError(401, "authentication_required", "Sign in to resume a saved table");
+    const parsed = validateResumeSaveRequest(await readJson(request));
+    if (!parsed.ok) return invalidRequest(parsed.error.message);
+    const record = await repositories.getOwnedSavedTable(resumeMatch[1], session.user.id);
+    if (record === null) return jsonError(404, "not_found", "Saved table not found");
+    const builtinRelease = builtinCatalog.getRelease(record.releaseId);
+    const builtinGame = builtinRelease === null ? null : builtinCatalog.getGame(builtinRelease.gameSlug);
+    const uploaded = builtinRelease === null ? await repositories.getUploadedRelease(record.releaseId) : null;
+    if (builtinGame === null && (uploaded === null || uploaded.status !== "ready")) {
+      return jsonError(410, "release_unavailable", "This game's release is no longer available");
+    }
+    const bucket = saveBucket(env);
+    if (bucket === null) return jsonError(503, "save_storage_unavailable", "Save storage is unavailable");
+    const object = await bucket.get(record.objectKey);
+    if (object === null) return jsonError(410, "save_unavailable", "The saved snapshot is no longer available");
+    let saved: GameSnapshotDto;
+    try {
+      saved = JSON.parse(await object.text()) as GameSnapshotDto;
+      loadSnapshot(saved as unknown as GameSnapshot);
+      if (saved.releaseId !== record.releaseId || saved.sequence !== record.sequence || saved.stateHash !== record.stateHash) throw new Error("Save metadata mismatch");
+    } catch { return jsonError(422, "save_invalid", "The saved snapshot failed its integrity check"); }
+    if (snapshotRequiresScripts(saved as unknown as GameSnapshot)) {
+      return jsonError(409, "scripted_resume_unsupported", "Scripted games can't be resumed yet. Your save is kept safe and will resume once support lands.");
+    }
+    const gameTitle = builtinGame?.title ?? uploaded?.gameTitle ?? record.gameSlug;
+    const created = await allocateRoomForPlayer(env, {
+      releaseId: record.releaseId, gameSlug: record.gameSlug,
+      maxPlayers: builtinGame?.maxPlayers ?? uploaded!.maxPlayers,
+      visibility: parsed.value.visibility ?? "private", origin: "hosted",
+      displayName: normalizeDisplayName(parsed.value.displayName, session.user.name), now,
+      creatorUserId: session.user.id, savedSnapshot: saved, resumedFromSaveId: record.id,
+    });
+    if (created === null) return jsonError(503, "room_allocation_failed", "Could not resume this table");
+    const response: ResumeSaveResponse = {
+      roomId: created.roomId, joinCode: created.joinCode,
+      inviteUrl: `${configuredOrigin(env)}/join/${created.joinCode}`,
+      playerId: created.playerId, roomToken: created.roomToken,
+      wsUrl: websocketUrl(url, created.roomId), releaseId: created.releaseId, gameTitle,
+    };
+    return jsonResponse(response, 201, sessionCookieHeaders(session));
   }
 
   const releaseMatch = /^\/api\/releases\/([^/]+)\/bundle$/.exec(url.pathname);
@@ -1071,6 +1243,9 @@ function releaseBucket(env: Env): R2Bucket | null {
   return candidate === undefined ? null : candidate as R2Bucket;
 }
 
+/** Saves intentionally share the release bucket under a disjoint immutable prefix. */
+export function saveBucket(env: Env): R2Bucket | null { return releaseBucket(env); }
+
 function releaseObjectKey(releaseId: string): string {
   return `releases/${releaseId}.json`;
 }
@@ -1147,6 +1322,9 @@ interface RoomAllocationInput {
   origin: "hosted" | "quickplay";
   displayName: string;
   now: number;
+  creatorUserId: string | null;
+  savedSnapshot?: GameSnapshotDto;
+  resumedFromSaveId?: string;
 }
 
 interface RoomAllocationResult {
@@ -1170,8 +1348,8 @@ async function allocateRoomForPlayer(
         `INSERT INTO rooms_index
           (room_id, join_code, join_code_normalized, visibility, release_id,
            player_count, max_players, created_at, ended_at, origin,
-           last_heartbeat_at, game_slug, joinable)
-         VALUES (?, ?, ?, ?, ?, 0, ?, ?, NULL, ?, ?, ?, 1)`,
+           last_heartbeat_at, game_slug, joinable, creator_user_id, resumed_from_save_id)
+         VALUES (?, ?, ?, ?, ?, 0, ?, ?, NULL, ?, ?, ?, 1, ?, ?)`,
       ).bind(
         roomId,
         joinCode,
@@ -1183,18 +1361,22 @@ async function allocateRoomForPlayer(
         input.origin,
         input.now,
         input.gameSlug,
+        input.creatorUserId,
+        input.resumedFromSaveId ?? null,
       ).run();
     } catch (error) {
       if (isUniqueConstraint(error)) continue;
       throw error;
     }
     const room = env.ROOM.get(id);
-    const initialized = await room.init(roomId, joinCode, input.releaseId, input.maxPlayers);
+    const initialized = input.savedSnapshot === undefined
+      ? await room.init(roomId, joinCode, input.releaseId, input.maxPlayers, input.creatorUserId)
+      : await room.initFromSave(roomId, joinCode, input.releaseId, input.maxPlayers, input.savedSnapshot, input.creatorUserId);
     if (!initialized) {
       await deleteRoomIndex(env.DB, roomId);
       continue;
     }
-    const joined = await room.join(input.displayName);
+    const joined = await room.join(input.displayName, false, input.creatorUserId);
     if (joined.status !== "ok") {
       await deleteRoomIndex(env.DB, roomId);
       continue;

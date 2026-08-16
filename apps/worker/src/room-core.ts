@@ -14,6 +14,7 @@ import {
   applyOrdered,
   loadSnapshot,
   snapshot,
+  type CanonicalGameState,
   type GameSnapshot,
 } from "digipology-kernel";
 import { hashValue } from "digipology-canonical-json";
@@ -333,6 +334,37 @@ export function replayCheckpoint(
     expectedSequence += 1;
   }
   return snapshot(state);
+}
+
+/** Hash-verified save transformed into the immutable sequence-zero resume base. */
+export function resumeBaseFromSave(saved: GameSnapshot): GameSnapshot {
+  const state = loadSnapshot(saved);
+  return snapshot({ ...state, sequence: 0 });
+}
+
+/** Canonical ghost cleanup order is independent of object insertion order. */
+export function savedPlayerIdsToRemove(state: CanonicalGameState): string[] {
+  return Object.keys(state.players).sort((left, right) => left.localeCompare(right));
+}
+
+export interface ScheduledTimerPlan { timerId: string; delayMs: number; }
+
+/** Resume restarts a scheduled timer's full canonical delay exactly once. */
+export function scheduledTimersToArm(state: CanonicalGameState): ScheduledTimerPlan[] {
+  return Object.values(state.timers ?? {})
+    .filter((timer) => timer.status === "scheduled")
+    .sort((left, right) => left.id.localeCompare(right.id))
+    .map((timer) => ({ timerId: timer.id, delayMs: Math.max(1, Math.ceil(timer.delay * 1_000)) }));
+}
+
+/** Oldest connected player in durable row order becomes host; otherwise keep the current host. */
+export function nextHost(
+  playersInJoinOrder: readonly string[],
+  connectedPlayerIds: readonly string[],
+  currentHost: string | null = null,
+): string | null {
+  const connected = new Set(connectedPlayerIds);
+  return playersInJoinOrder.find((playerId) => connected.has(playerId)) ?? currentHost;
 }
 
 /** True when a bootstrap/checkpoint base still connects to the retained tail. */

@@ -51,6 +51,7 @@ const serverVariants: ServerMessage[] = [
         displayName: "Alice",
         seatId: "seat_red",
         connected: true,
+        host: true,
       },
     ],
   },

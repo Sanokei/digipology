@@ -15,6 +15,14 @@ Choose **Quick Play** on a game to go straight to a table. Digipology looks for 
 
 Quick Play works for signed-in players and guests. When a guest has no saved display name, the server assigns a generated `Guest-…` name.
 
+## Saving and resuming a table
+
+Only the table Host can create a persistent save, and the Host must be signed in. Open the table menu in the top bar and choose **Save table**. A guest Host can sign in from that action without leaving the table; after sign-in completes, return to the table tab and the save continues.
+
+Open **Saved tables** from the account menu or visit `/saves` to list or delete your saves. Choosing **Resume** creates a new room with a new invite code. Share that new code with the other players: everyone must join the resumed room again, and the old room's invite code does not lead to it.
+
+Games that use scripts can be saved, but they cannot be resumed yet. Those saves stay in **Saved tables** with **Resume** switched off until support lands.
+
 ## Host a room
 
 Open **Host a game**, choose a game, and select a visibility:

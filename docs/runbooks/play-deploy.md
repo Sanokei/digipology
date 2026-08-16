@@ -134,6 +134,8 @@ The dev fallback sender is production-disabled: without `EMAIL_DEV_MODE=true`,
 ```sh
 bun scripts/smoke-play.ts https://play.digipology.com   # live
 bun scripts/smoke-play.ts                               # local wrangler dev (127.0.0.1:8787)
+bun scripts/smoke-zone-runner.ts https://play.digipology.com
+SMOKE_SESSION=<cookie-token> bun scripts/smoke-saves.ts https://play.digipology.com
 ```
 
 Covers: unauthenticated `/api/me`, catalog, SPA deep-link fallback, private room create,
@@ -144,6 +146,14 @@ public-room auth gate. Prints PASS/FAIL per check and exits non-zero on failure.
 set `SMOKE_SESSION` to a valid `dgp_session` cookie value to also exercise authenticated
 public-room creation; without it, that check is skipped (creating a session requires a real
 magic-link login, which cannot be automated in production by design).
+
+`smoke-saves.ts` requires the value of an authenticated `dgp_session` cookie in
+`SMOKE_SESSION`. It runs full two-client save/resume convergence for unscripted First Deal,
+including the sequence-zero rebase and mid-grab release. For scripted Zone Runner v2 it
+verifies that saving succeeds, the saved-tables list marks the save non-resumable, and resume
+returns the documented `409 scripted_resume_unsupported` gate without consuming the save. It
+also checks signed-out and non-host save authorization, then deletes its saved-table rows.
+Omit the URL to target local `wrangler dev`.
 
 ## Rollback
 

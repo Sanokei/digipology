@@ -24,6 +24,7 @@ export function SiteHeader() {
             <summary>{user.name}</summary>
             <div>
               <Link to="/create#my-games">My Games</Link>
+              <Link to="/saves">Saved tables</Link>
               <button type="button" onClick={() => void logout()}>Log out</button>
             </div>
           </details>

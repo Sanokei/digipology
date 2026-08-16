@@ -13,7 +13,7 @@ import {
   snapshotRequiresScripts,
   type GameSnapshot,
 } from "digipology-kernel";
-import type { CheckpointAttestationRequest, ReleaseBundleDto } from "digipology-protocol/http";
+import type { CheckpointAttestationRequest, GameSnapshotDto, ReleaseBundleDto } from "digipology-protocol/http";
 import { hashSelector, sha256Hex, timingSafeHashEqual } from "./crypto";
 import {
   handleTextFrame,
@@ -31,12 +31,16 @@ import {
   checkpointIsDue,
   CHECKPOINT_INTERVAL,
   replayCheckpoint,
+  resumeBaseFromSave,
   retentionFloor,
   RoomCore,
   roomBootstrapFromSnapshots,
   ScriptedBootstrapUnavailableError,
   TIMER_CANCEL_GRACE_MS,
   timerFireDedupKey,
+  nextHost,
+  savedPlayerIdsToRemove,
+  scheduledTimersToArm,
   validateCheckpointAttestationSnapshot,
   type RoomCoreState,
 } from "./room-core";
@@ -68,11 +72,15 @@ interface RoomMetadataRow extends Record<string, SqlStorageValue> {
   last_action_at: number | null;
   last_multi_bootstrap_at: number | null;
   bootstrap_unavailable_logged_at: number | null;
+  host_player_id: string | null;
+  creator_user_id: string | null;
+  resumed: number;
 }
 
 interface PlayerRow extends Record<string, SqlStorageValue> {
   player_id: string;
   display_name: string;
+  user_id: string | null;
 }
 
 interface PlayerTokenRow extends Record<string, SqlStorageValue> {
@@ -147,6 +155,14 @@ type JoinResult =
   | { status: "ended" }
   | { status: "ineligible" };
 
+export type SaveSnapshotOutcome =
+  | { status: "ok"; snapshotJson: string; releaseId: string; sequence: number; stateHash: string }
+  | { status: "unauthorized" }
+  | { status: "host_only" }
+  | { status: "unavailable" }
+  | { status: "stale" }
+  | { status: "invalid"; reason?: string };
+
 export class RoomDO extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -157,6 +173,7 @@ export class RoomDO extends DurableObject<Env> {
     joinCode: string,
     releaseId: string,
     capacity = DEFAULT_ROOM_CAPACITY,
+    creatorUserId: string | null = null,
   ): boolean {
     if (this.room() !== null) return false;
     if (!Number.isSafeInteger(capacity) || capacity < 1 || capacity > 64) return false;
@@ -165,18 +182,50 @@ export class RoomDO extends DurableObject<Env> {
       this.ctx.storage.sql.exec(
         `INSERT INTO room
           (singleton, room_id, join_code, release_id, capacity, ended_reason,
-           last_sequence, quickplay_joinable)
-         VALUES (1, ?, ?, ?, ?, NULL, 0, 1)`,
+           last_sequence, quickplay_joinable, creator_user_id, resumed)
+         VALUES (1, ?, ?, ?, ?, NULL, 0, 1, ?, 0)`,
         roomId,
         joinCode,
         releaseId,
         capacity,
+        creatorUserId,
       );
     });
     return true;
   }
 
-  async join(displayName: string, requireQuickPlayJoinable = false): Promise<JoinResult> {
+  initFromSave(
+    roomId: string,
+    joinCode: string,
+    releaseId: string,
+    capacity: number,
+    savedSnapshotDto: GameSnapshotDto,
+    creatorUserId: string | null = null,
+  ): boolean {
+    if (this.room() !== null || !Number.isSafeInteger(capacity) || capacity < 1 || capacity > 64) return false;
+    let base: GameSnapshot;
+    try {
+      base = resumeBaseFromSave(savedSnapshotDto as GameSnapshot);
+    } catch {
+      return false;
+    }
+    if (base.releaseId !== releaseId) return false;
+    this.ctx.storage.transactionSync(() => {
+      this.createSchema();
+      this.ctx.storage.sql.exec(
+        `INSERT INTO room
+          (singleton, room_id, join_code, release_id, capacity, ended_reason,
+           last_sequence, quickplay_joinable, initial_snapshot, scripted,
+           creator_user_id, resumed)
+         VALUES (1, ?, ?, ?, ?, NULL, 0, 1, ?, ?, ?, 1)`,
+        roomId, joinCode, releaseId, capacity, JSON.stringify(base),
+        snapshotRequiresScripts(base) ? 1 : 0, creatorUserId,
+      );
+    });
+    return true;
+  }
+
+  async join(displayName: string, requireQuickPlayJoinable = false, userId: string | null = null): Promise<JoinResult> {
     const playerId = generatePlayerId();
     const roomToken = generateSessionToken();
     const tokenHash = await sha256Hex(roomToken);
@@ -195,13 +244,17 @@ export class RoomDO extends DurableObject<Env> {
       if (count >= room.capacity) return { status: "full" };
       this.ctx.storage.sql.exec(
         `INSERT INTO players
-          (player_id, display_name, token_selector, token_hash)
-         VALUES (?, ?, ?, ?)`,
+          (player_id, display_name, token_selector, token_hash, user_id)
+         VALUES (?, ?, ?, ?, ?)`,
         playerId,
         normalizeDisplayName(displayName),
         tokenSelector,
         tokenHash,
+        userId,
       );
+      if (room.host_player_id === null) {
+        this.ctx.storage.sql.exec("UPDATE room SET host_player_id = ? WHERE singleton = 1", playerId);
+      }
       this.ctx.storage.sql.exec(
         "INSERT OR IGNORE INTO active_players (player_id) VALUES (?)",
         playerId,
@@ -244,6 +297,56 @@ export class RoomDO extends DurableObject<Env> {
       this.scheduleIndexMetadataUpdate();
     }
     return result;
+  }
+
+  hostPlayerId(): string | null { return this.room()?.host_player_id ?? null; }
+
+  async endWithToken(roomToken: string): Promise<"ended" | "unauthorized" | "host_only" | "unavailable"> {
+    const playerId = await this.authenticateRoomToken(roomToken);
+    if (playerId === null) return "unauthorized";
+    const room = this.requiredRoom();
+    if (room.host_player_id !== playerId) return "host_only";
+    return await this.end("host_ended") ? "ended" : "unavailable";
+  }
+
+  async saveSnapshot(roomToken: string, clientSnapshotDto?: GameSnapshotDto): Promise<SaveSnapshotOutcome> {
+    const clientSnapshot = clientSnapshotDto as GameSnapshot | undefined;
+    const playerId = await this.authenticateRoomToken(roomToken);
+    if (playerId === null) return { status: "unauthorized" };
+    const room = this.requiredRoom();
+    if (room.host_player_id !== playerId) return { status: "host_only" };
+    if (room.started !== 1 || room.ended_reason !== null || room.initial_snapshot === null) {
+      return { status: "unavailable" };
+    }
+    const core = this.loadCore(room);
+    if (!this.roomIsScripted(room)) {
+      try {
+        const base = this.storedCheckpoint(room) ?? this.requiredInitialSnapshot(room);
+        const computed = replayCheckpoint(base, core.state.actions);
+        return computed.sequence === room.last_sequence
+          ? { status: "ok", snapshotJson: JSON.stringify(computed), releaseId: computed.releaseId,
+              sequence: computed.sequence, stateHash: computed.stateHash }
+          : { status: "invalid", reason: "Mechanical save replay did not reach the room sequence" };
+      } catch (error) {
+        return { status: "invalid", reason: error instanceof Error ? error.message : String(error) };
+      }
+    }
+    const attested = this.storedCheckpoint(room, true);
+    const candidate = attested?.sequence === room.last_sequence ? attested : clientSnapshot;
+    if (candidate === undefined) return { status: "stale" };
+    if (candidate.sequence !== room.last_sequence) return { status: "stale" };
+    try {
+      loadSnapshot(candidate);
+      if (candidate.releaseId !== room.release_id) return { status: "invalid", reason: "Snapshot release does not match the room" };
+      if (attested?.sequence === room.last_sequence && clientSnapshot !== undefined &&
+        attested.stateHash !== clientSnapshot.stateHash) {
+        return { status: "invalid", reason: "Snapshot hash conflicts with the attested checkpoint" };
+      }
+      return { status: "ok", snapshotJson: JSON.stringify(candidate), releaseId: candidate.releaseId,
+        sequence: candidate.sequence, stateHash: candidate.stateHash };
+    } catch (error) {
+      return { status: "invalid", reason: error instanceof Error ? error.message : "Snapshot integrity check failed" };
+    }
   }
 
   async end(reason: "host_ended" | "expired" | "moderation" = "host_ended"): Promise<boolean> {
@@ -819,10 +922,15 @@ export class RoomDO extends DurableObject<Env> {
       playerId: player.player_id,
       displayName: player.display_name,
     }));
-    const builtinState = createBuiltinInitialState(before.release_id, roster);
-    const baseSnapshot = builtinState === null
-      ? await this.uploadedInitialSnapshot(before.release_id)
-      : snapshot(builtinState);
+    const resumed = before.resumed === 1;
+    const builtinState = resumed ? null : createBuiltinInitialState(before.release_id, roster);
+    const baseSnapshot = resumed
+      ? this.requiredInitialSnapshot(before)
+      : builtinState === null
+        ? await this.uploadedInitialSnapshot(before.release_id)
+        : snapshot(builtinState);
+    const resumeState = resumed ? loadSnapshot(baseSnapshot) : null;
+    const timersToArm = resumeState === null ? [] : scheduledTimersToArm(resumeState);
     this.ctx.storage.transactionSync(() => {
       const room = this.requiredRoom();
       if (room.started === 1 || room.ended_reason !== null) return;
@@ -836,12 +944,22 @@ export class RoomDO extends DurableObject<Env> {
       if (baseSnapshot.sequence !== 0) throw new Error("Room initial snapshot must start at sequence 0");
       const initialState = loadSnapshot(baseSnapshot);
       const core = this.loadCore(room);
-      const started = core.sequenceSystem(
-        { type: "system.game_start", payload: { settings: initialState.settings } },
-        "game_start",
-      );
-      this.persistSystemAction(started.orderedAction);
-      if (builtinState === null) {
+      if (!resumed) {
+        const started = core.sequenceSystem(
+          { type: "system.game_start", payload: { settings: initialState.settings } },
+          "game_start",
+        );
+        this.persistSystemAction(started.orderedAction);
+      } else {
+        for (const playerId of savedPlayerIdsToRemove(initialState)) {
+          const left = core.sequenceSystem(
+            { type: "system.player_left", payload: { playerId } },
+            `saved_player_left_${playerId}`,
+          );
+          this.persistSystemAction(left.orderedAction);
+        }
+      }
+      if (builtinState === null || resumed) {
         for (let index = 0; index < roster.length; index += 1) {
           const player = roster[index]!;
           const joined = core.sequenceSystem(
@@ -864,7 +982,17 @@ export class RoomDO extends DurableObject<Env> {
         core.state.lastSequence,
         snapshotRequiresScripts(baseSnapshot) ? 1 : 0,
       );
+      const now = Date.now();
+      for (const timer of timersToArm) {
+        this.ctx.storage.sql.exec(
+          `INSERT OR IGNORE INTO canonical_timers (timer_id, due_at, status, deferred_once)
+           VALUES (?, ?, 'scheduled', 0)`,
+          timer.timerId,
+          now + timer.delayMs,
+        );
+      }
     });
+    if (timersToArm.length > 0) await this.rescheduleAlarm(Date.now());
   }
 
   private async uploadedInitialSnapshot(releaseId: string): Promise<GameSnapshot> {
@@ -1021,6 +1149,16 @@ export class RoomDO extends DurableObject<Env> {
       });
       if (!samePlayerConnected) {
         this.ctx.storage.sql.exec("DELETE FROM active_players WHERE player_id = ?", state.playerId);
+        if (room.host_player_id === state.playerId) {
+          const connectedIds = peers.flatMap((peer) => {
+            const peerState = peer.deserializeAttachment() as SocketAttachment | null;
+            return peerState?.authenticated === true && peerState.playerId !== null ? [peerState.playerId] : [];
+          });
+          const successor = nextHost(this.playerRows().map((player) => player.player_id), connectedIds, room.host_player_id);
+          if (successor !== null && successor !== room.host_player_id) {
+            this.ctx.storage.sql.exec("UPDATE room SET host_player_id = ? WHERE singleton = 1", successor);
+          }
+        }
       }
     }
     if (peers.length === 0) {
@@ -1140,6 +1278,7 @@ export class RoomDO extends DurableObject<Env> {
               started, initial_snapshot, checkpoint_snapshot, checkpoint_sequence,
               checkpoint_attested, scripted, quickplay_joinable, last_heartbeat_at, empty_since_at,
               last_action_at, last_multi_bootstrap_at, bootstrap_unavailable_logged_at
+              , host_player_id, creator_user_id, resumed
        FROM room WHERE singleton = 1`,
     ).toArray()[0] ?? null;
   }
@@ -1168,17 +1307,19 @@ export class RoomDO extends DurableObject<Env> {
 
   private players(): PlayerInfo[] {
     const connected = new Set(this.connectedPlayerIds());
+    const hostPlayerId = this.requiredRoom().host_player_id;
     return this.playerRows().map((player, index) => ({
       playerId: player.player_id,
       displayName: player.display_name,
       seatId: `seat_${index + 1}`,
       connected: connected.has(player.player_id),
+      ...(player.player_id === hostPlayerId ? { host: true } : {}),
     }));
   }
 
   private playerRows(): PlayerRow[] {
     return this.ctx.storage.sql.exec<PlayerRow>(
-      "SELECT player_id, display_name FROM players ORDER BY rowid",
+      "SELECT player_id, display_name, user_id FROM players ORDER BY rowid",
     ).toArray();
   }
 
@@ -1289,12 +1430,16 @@ export class RoomDO extends DurableObject<Env> {
         last_action_at INTEGER,
         last_multi_bootstrap_at INTEGER,
         bootstrap_unavailable_logged_at INTEGER
+        , host_player_id TEXT,
+        creator_user_id TEXT,
+        resumed INTEGER NOT NULL DEFAULT 0 CHECK (resumed IN (0, 1))
       );
       CREATE TABLE players (
         player_id TEXT PRIMARY KEY,
         display_name TEXT NOT NULL,
         token_selector TEXT NOT NULL,
         token_hash TEXT NOT NULL UNIQUE
+        , user_id TEXT
       );
       CREATE INDEX players_token_selector_idx ON players(token_selector);
       CREATE TABLE actions (
@@ -1391,6 +1536,19 @@ export class RoomDO extends DurableObject<Env> {
     if (!columns.has("bootstrap_unavailable_logged_at")) {
       this.ctx.storage.sql.exec("ALTER TABLE room ADD COLUMN bootstrap_unavailable_logged_at INTEGER");
     }
+    if (!columns.has("host_player_id")) {
+      this.ctx.storage.sql.exec("ALTER TABLE room ADD COLUMN host_player_id TEXT");
+    }
+    if (!columns.has("creator_user_id")) {
+      this.ctx.storage.sql.exec("ALTER TABLE room ADD COLUMN creator_user_id TEXT");
+    }
+    if (!columns.has("resumed")) {
+      this.ctx.storage.sql.exec("ALTER TABLE room ADD COLUMN resumed INTEGER NOT NULL DEFAULT 0 CHECK (resumed IN (0, 1))");
+    }
+    const playerColumns = new Set(
+      this.ctx.storage.sql.exec<{ name: string }>("PRAGMA table_info(players)").toArray().map((column) => column.name),
+    );
+    if (!playerColumns.has("user_id")) this.ctx.storage.sql.exec("ALTER TABLE players ADD COLUMN user_id TEXT");
     this.ctx.storage.sql.exec(`
       CREATE TABLE IF NOT EXISTS active_players (
         player_id TEXT PRIMARY KEY
