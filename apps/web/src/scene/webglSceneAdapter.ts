@@ -1,8 +1,10 @@
 import { Engine } from "@babylonjs/core/Engines/engine";
+import { Ray } from "@babylonjs/core/Culling/ray.core";
+import { HighlightLayer } from "@babylonjs/core/Layers/highlightLayer";
 import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
+import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { CreateBox } from "@babylonjs/core/Meshes/Builders/boxBuilder";
 import { CreatePlane } from "@babylonjs/core/Meshes/Builders/planeBuilder";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
@@ -13,9 +15,11 @@ import type { KernelStoreSnapshot } from "../state/kernelStore";
 import {
   attachDragBehavior,
   type AttachedDragBehavior,
+  type HighlightLayerFacade,
   type HighlightLayerFactory,
 } from "./dragBehavior";
 import { createDragActionCallbacks } from "./dragActions";
+import { intersectRayWithHorizontalPlaneToRef } from "./dragPlane";
 import { hardwareScalingLevel } from "./rendererPolicy";
 import type {
   HighlightKind,
@@ -64,10 +68,13 @@ function cardFaceUp(entity: EntityRecord): boolean {
 }
 
 function displaySignature(entity: EntityRecord): string {
-  const { card, die, counter } = entity.components;
+  const { card, die, counter, deck, container, button, text } = entity.components;
+  if (deck !== undefined) return `deck:${deck.enabled}:${container?.items.length ?? 0}`;
   if (card !== undefined) return `card:${card.definitionId}:${cardFaceUp(entity)}`;
   if (die !== undefined) return `die:${String(die.value)}`;
   if (counter !== undefined) return `counter:${counter.value}`;
+  if (button !== undefined) return `button:${button.enabled}:${button.label}`;
+  if (text !== undefined) return `text:${text.value}`;
   return "other";
 }
 
@@ -167,7 +174,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
   let shadows: ReturnType<typeof buildLighting>["shadows"] = null;
   let paused = false;
   let rendering = false;
-  let selectedEntityId: string | null = null;
+  let presentationHighlight: HighlightLayerFacade | null = null;
   let activeDrag: { entityId: string; pointerId: number } | null = null;
   let currentView: KernelStoreSnapshot | null = null;
   let lastDisplayedState: KernelStoreSnapshot["displayedState"] = null;
@@ -175,6 +182,36 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
   let lastCorrectionId: number | null = null;
   let dprQuery: MediaQueryList | null = null;
   const pieces = new Map<string, PieceGraph>();
+  const highlights = {
+    hover: null as string | null,
+    selected: null as string | null,
+    held: new Set<string>(),
+    locked: new Set<string>(),
+  };
+
+  function refreshHighlight(entityId: string): void {
+    const piece = pieces.get(entityId);
+    if (piece === undefined || presentationHighlight === null) return;
+    presentationHighlight.removeMesh(piece.mesh);
+    const kind: HighlightKind | undefined = highlights.held.has(entityId) ? "held"
+      : highlights.locked.has(entityId) ? "locked"
+        : highlights.selected === entityId ? "selected"
+          : highlights.hover === entityId ? "hover" : undefined;
+    if (kind === undefined) return;
+    const colors: Record<HighlightKind, Color3> = {
+      hover: Color3.FromHexString("#f7d89b"), selected: Color3.FromHexString("#f7d89b"),
+      held: Color3.FromHexString("#fff2be"), locked: Color3.FromHexString("#ff9f7a"),
+    };
+    presentationHighlight.addMesh(piece.mesh, colors[kind]);
+  }
+
+  function containedIds(view: KernelStoreSnapshot): Set<string> {
+    const result = new Set<string>();
+    for (const entity of Object.values(view.displayedState?.entities ?? {})) {
+      for (const item of entity.components.container?.items ?? []) result.add(item);
+    }
+    return result;
+  }
 
   const render = () => scene?.render();
 
@@ -189,6 +226,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
     piece.drag?.dispose();
     piece.cancelCorrection?.();
     piece.label?.dispose();
+    presentationHighlight?.removeMesh(piece.mesh);
     piece.mesh.dispose(false, true);
   }
 
@@ -208,12 +246,21 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       canvas: mounted.canvas,
       mesh: piece.mesh,
       bounds,
-      canInteract: () => !paused,
+      canInteract: () => !paused && isEntityGrabbable(entityId),
       ...(dependencies.createHighlightLayer === undefined
         ? {}
         : { createHighlightLayer: dependencies.createHighlightLayer }),
       ...actionCallbacks,
     });
+  }
+
+  function isEntityGrabbable(entityId: string): boolean {
+    const entity = currentView?.displayedState?.entities[entityId];
+    const grabbable = entity?.components.grabbable;
+    return pieces.has(entityId)
+      && grabbable?.enabled === true
+      && grabbable.heldBy === null
+      && entity?.components.lockable?.locked !== true;
   }
 
   function makePiece(entity: EntityRecord): PieceGraph | null {
@@ -224,13 +271,21 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
     let width = 0.9;
     let depth = 0.9;
     let height = 0.18;
-    if (components.card !== undefined) {
+    if (components.hand !== undefined) {
+      return null;
+    } else if (components.deck !== undefined) {
+      width = 1.02;
+      depth = 1.42;
+      height = 0.14 + Math.min(components.container?.items.length ?? 0, 20) * 0.012;
+      label = `Deck · ${components.container?.items.length ?? 0}`;
+      color = components.deck.enabled ? "#754331" : "#4b4540";
+    } else if (components.card !== undefined) {
       width = 0.86;
       depth = 1.22;
       height = 0.09;
       const definition = currentView?.definitions[components.card.definitionId];
       const faceUp = cardFaceUp(entity);
-      label = faceUp ? definition?.label ?? components.card.definitionId : "DIGIPOLOGY";
+      label = faceUp ? definition?.label ?? "Card" : "DIGIPOLOGY";
       color = faceUp ? definition?.color ?? "#e7dfc8" : "#9e402d";
     } else if (components.die !== undefined) {
       width = depth = height = 0.72;
@@ -241,12 +296,15 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       height = 0.2;
       label = String(components.counter.value);
       color = "#d5ff76";
+    } else if (components.transform !== undefined) {
+      label = components.button?.label || components.text?.value || "Table object";
+      color = components.button?.enabled === false ? "#716b62" : "#d7b26d";
     } else {
       return null;
     }
     const restingY = TABLE_SURFACE_Y + height / 2;
     const mesh = CreateBox(`entity-${entity.id}`, { width, depth, height }, mounted.scene);
-    mesh.metadata = { entityId: entity.id };
+    mesh.metadata = { entityId: entity.id, displayLabel: label };
     mesh.isPickable = true;
     mesh.material = material(mounted.scene, entity.id, color);
     applyTransform(mesh, components.transform, restingY);
@@ -279,7 +337,6 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
         restingY,
       });
     }
-    graph.drag?.setTouchSelected(entity.id === selectedEntityId);
     return graph;
   }
 
@@ -311,6 +368,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       const table = buildTableSurface(scene);
       shadows = buildLighting(scene, highQuality).shadows;
       table.receiveShadows = shadows !== null;
+      presentationHighlight = dependencies.createHighlightLayer?.(scene) ?? new HighlightLayer("presentation-highlight", scene);
     },
     dispose(): void {
       adapter.setRenderLoop(false);
@@ -318,6 +376,8 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       dprQuery = null;
       for (const piece of pieces.values()) destroyPiece(piece);
       pieces.clear();
+      presentationHighlight?.dispose();
+      presentationHighlight = null;
       cameraGraph?.detachControl();
       scene?.dispose();
       engine?.dispose();
@@ -336,9 +396,11 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       lastDisplayedState = state;
       lastDefinitions = view.definitions;
       lastCorrectionId = correctionId;
-      const ids = Object.keys(state.entities).sort();
+      const contained = containedIds(view);
+      const ids = Object.keys(state.entities).sort().filter((id) => !contained.has(id) && state.entities[id]?.components.hand === undefined);
+      const visible = new Set(ids);
       for (const [id, piece] of pieces) {
-        if (!(id in state.entities)) {
+        if (!visible.has(id)) {
           destroyPiece(piece);
           pieces.delete(id);
         }
@@ -376,6 +438,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
           }
           existing.transformSignature = nextTransformSignature;
         }
+        refreshHighlight(id);
       }
     },
     async pick(x: number, y: number): Promise<string | null> {
@@ -387,8 +450,15 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       const entityId = (result?.pickedMesh?.metadata as { entityId?: unknown } | null)?.entityId;
       return typeof entityId === "string" ? entityId : null;
     },
+    projectToTable(x: number, y: number) {
+      if (scene === null || cameraGraph === null || canvas === null || x < 0 || y < 0 || x > canvas.clientWidth || y > canvas.clientHeight) return null;
+      const ray = new Ray(Vector3.Zero(), Vector3.Down());
+      scene.createPickingRayToRef(x, y, Matrix.Identity(), ray, cameraGraph);
+      const point = Vector3.Zero();
+      return intersectRayWithHorizontalPlaneToRef(ray, TABLE_SURFACE_Y, point) ? { x: point.x, y: point.y, z: point.z } : null;
+    },
     isGrabbable(entityId: string): boolean {
-      return pieces.get(entityId)?.drag !== undefined;
+      return pieces.get(entityId)?.drag !== undefined && isEntityGrabbable(entityId);
     },
     beginDrag(entityId: string, pointerId: number, x: number, y: number): void {
       const drag = pieces.get(entityId)?.drag;
@@ -412,9 +482,22 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       activeDrag = null;
     },
     setHighlight(entityId: string | null, kind: HighlightKind): void {
-      if (kind !== "selected") return;
-      selectedEntityId = entityId;
-      for (const [id, piece] of pieces) piece.drag?.setTouchSelected(id === entityId);
+      if (kind === "held" || kind === "locked") {
+        const targets = highlights[kind];
+        if (entityId === null) {
+          const previous = [...targets];
+          targets.clear();
+          for (const id of previous) refreshHighlight(id);
+        } else {
+          targets.add(entityId);
+          refreshHighlight(entityId);
+        }
+        return;
+      }
+      const previous = highlights[kind];
+      highlights[kind] = entityId;
+      if (previous !== null) refreshHighlight(previous);
+      if (entityId !== null) refreshHighlight(entityId);
     },
     camera: {
       attach(): void {

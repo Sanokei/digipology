@@ -10,12 +10,17 @@ import { api, type ApiClient } from "../api/client";
 import type { SavedRoomSession } from "../utils/roomSession";
 import { isPredictableAction, type KernelStore } from "../state/kernelStore";
 
-export type RoomConnectionState = "connecting" | "loading_release" | "starting" | "connected" | "reconnecting" | "ended" | "error";
+export const MAX_RECONNECT_ATTEMPTS = 8;
+export const SYNCHRONIZING_RESUME_THRESHOLD = 50;
+
+export type RoomConnectionState = "connecting" | "loading_release" | "starting" | "connected" | "reconnecting" | "synchronizing" | "ended" | "error";
 
 export interface RoomClientStatus {
   state: RoomConnectionState;
   message: string;
   detail?: string;
+  recoverable?: boolean;
+  progress?: { applied: number; total: number };
 }
 
 type SocketFactory = (url: string) => WebSocket;
@@ -27,6 +32,11 @@ type TimerMetadataReporter = (input: {
 type CheckpointAttestationReporter = (
   input: Omit<CheckpointAttestationRequest, "roomToken">,
 ) => Promise<void>;
+type ReconnectTimer = ReturnType<typeof setTimeout>;
+interface ReconnectTimerScheduler {
+  set(callback: () => void, delay: number): ReconnectTimer;
+  clear(timer: ReconnectTimer): void;
+}
 
 export class CheckpointAttestationError extends Error {
   constructor(
@@ -51,6 +61,8 @@ export class RoomClient {
   private bootstrapCadenceState: CanonicalGameState | null = null;
   private bootstrapFlushTimer: ReturnType<typeof setTimeout> | null = null;
   private bootstrapGeneration = 0;
+  private hasCompletedHandshake = false;
+  private synchronizingBootstrap = false;
 
   constructor(
     private readonly session: SavedRoomSession,
@@ -92,21 +104,26 @@ export class RoomClient {
         throw new CheckpointAttestationError(response.status, code, message);
       }
     },
+    private readonly reconnectTimers: ReconnectTimerScheduler = {
+      set: (callback, delay) => setTimeout(callback, delay),
+      clear: (timer) => clearTimeout(timer),
+    },
   ) {}
 
   start(): void {
-    if (this.reconnectTimer !== null) clearTimeout(this.reconnectTimer);
+    if (this.reconnectTimer !== null) this.reconnectTimers.clear(this.reconnectTimer);
     this.reconnectTimer = null;
     this.cancelBootstrapCatchUp();
     this.stopped = false;
     this.reconnectAttempt = 0;
     this.forceFullResync = false;
+    this.hasCompletedHandshake = false;
     this.connect(false);
   }
 
   stop(): void {
     this.stopped = true;
-    if (this.reconnectTimer !== null) clearTimeout(this.reconnectTimer);
+    if (this.reconnectTimer !== null) this.reconnectTimers.clear(this.reconnectTimer);
     this.cancelBootstrapCatchUp();
     this.socket?.close(1000, "Leaving table");
     this.socket = null;
@@ -133,7 +150,7 @@ export class RoomClient {
 
   private connect(resync: boolean): void {
     if (this.stopped) return;
-    this.onStatus({ state: this.reconnectAttempt === 0 ? "connecting" : "reconnecting", message: this.reconnectAttempt === 0 ? "Connecting to table" : "Reconnecting…" });
+    this.onStatus({ state: this.reconnectAttempt === 0 ? "connecting" : "reconnecting", message: this.reconnectAttempt === 0 ? "Joining Table" : "Reconnecting" });
     let socket: WebSocket;
     try { socket = this.socketFactory(this.session.wsUrl); }
     catch { this.scheduleReconnect(); return; }
@@ -146,18 +163,18 @@ export class RoomClient {
 
   private async opened(socket: WebSocket, resync: boolean): Promise<void> {
     if (!this.releaseLoaded || resync) {
-      this.onStatus({ state: "loading_release", message: "Loading game release" });
+      this.onStatus({ state: "loading_release", message: "Loading Game" });
       const result = await this.apiClient.getReleaseBundle(this.session.releaseId);
-      if (!result.ok) { this.onStatus({ state: "error", message: result.error.message }); this.stopped = true; socket.close(); return; }
+      if (!result.ok) { this.store.setDiagnostic(result.error.message); this.onStatus({ state: "error", message: "This game could not be loaded.", recoverable: true }); this.stopped = true; socket.close(); return; }
       try {
         this.store.loadRelease(result.value);
         await this.store.loadScriptRuntime(result.value);
         this.releaseLoaded = true;
       }
-      catch { this.onStatus({ state: "error", message: "This game release could not be started." }); this.stopped = true; socket.close(); return; }
+      catch { this.onStatus({ state: "error", message: "This game could not be started.", recoverable: true }); this.stopped = true; socket.close(); return; }
     }
     if (this.stopped || socket !== this.socket || socket.readyState !== WebSocket.OPEN) return;
-    this.onStatus({ state: "starting", message: "Starting simulation" });
+    this.onStatus({ state: "starting", message: "Joining Table" });
     const firstHandshake = this.reconnectAttempt === 0 && !resync;
     this.send({
       type: "hello", protocolVersion: PROTOCOL_VERSION, sessionToken: this.session.roomToken,
@@ -187,14 +204,22 @@ export class RoomClient {
   private async handle(message: ServerMessage): Promise<void> {
     switch (message.type) {
       case "bootstrap": {
+        const synchronizing = this.hasCompletedHandshake;
+        if (synchronizing) this.onStatus({ state: "synchronizing", message: "Synchronizing Table" });
         const result = this.store.bootstrap(message.sequence, message.players, message.snapshot);
         if (!result.ok) { this.recoverFromGap(`Bootstrap sequence mismatch: ${result.actual}`); return; }
-        this.reconnectAttempt = 0; this.onStatus({ state: "connected", message: "Connected" }); return;
+        this.hasCompletedHandshake = true;
+        this.reconnectAttempt = 0;
+        if (!this.store.hasScriptRuntime() || !synchronizing) this.onStatus({ state: "connected", message: "Connected" });
+        return;
       }
       case "resume": {
+        const synchronizing = message.actions.length > SYNCHRONIZING_RESUME_THRESHOLD;
+        if (synchronizing) this.onStatus({ state: "synchronizing", message: "Synchronizing Table", progress: { applied: 0, total: message.actions.length } });
         if (!this.store.hasScriptRuntime()) {
           const result = this.store.applyResume(message);
           if (!result.ok) { this.recoverFromGap(`Resume gap at ${result.actual}`); return; }
+          if (synchronizing) this.onStatus({ state: "synchronizing", message: "Synchronizing Table", progress: { applied: message.actions.length, total: message.actions.length } });
         } else {
           const expected = (this.store.getSnapshot().state?.sequence ?? -1) + 1;
           if (message.fromSequence !== expected) {
@@ -203,10 +228,12 @@ export class RoomClient {
           }
           const resumeBase = message.fromSequence - 1;
           let cadenceState: CanonicalGameState | null = null;
-          for (const action of message.actions) {
+          for (let index = 0; index < message.actions.length; index += 1) {
+            const action = message.actions[index]!;
             const result = await this.store.applyOrderedWithScriptRuntime(action);
             if (!result.ok) { this.recoverFromGap(`Resume gap at ${result.actual}`); return; }
             await this.reportCanonicalTimerEvents();
+            if (synchronizing) this.onStatus({ state: "synchronizing", message: "Synchronizing Table", progress: { applied: index + 1, total: message.actions.length } });
             if (action.sequence > resumeBase &&
               action.sequence % CHECKPOINT_ATTESTATION_INTERVAL === 0) {
               cadenceState = this.store.getSnapshot().state;
@@ -214,7 +241,7 @@ export class RoomClient {
           }
           await this.reportCatchUpCheckpoint(resumeBase, cadenceState);
         }
-        this.reconnectAttempt = 0; this.onStatus({ state: "connected", message: "Connected" }); return;
+        this.hasCompletedHandshake = true; this.reconnectAttempt = 0; this.onStatus({ state: "connected", message: "Connected" }); return;
       }
       case "ordered_action": {
         const result = this.store.hasScriptRuntime()
@@ -242,6 +269,7 @@ export class RoomClient {
             state: "error",
             message: "This table isn't ready for new players yet.",
             detail: message.message,
+            recoverable: true,
           });
           this.stopped = true;
           this.socket?.close(4002, "Bootstrap unavailable");
@@ -249,7 +277,7 @@ export class RoomClient {
         }
         this.store.setDiagnostic(`${message.code}: ${message.message}`);
         this.cancelBootstrapCatchUp();
-        this.onStatus({ state: "error", message: "The table connection could not be restored." });
+        this.onStatus({ state: "error", message: "The table connection could not be restored.", recoverable: true });
         this.stopped = true;
         this.socket?.close(4001, "Protocol error");
         return;
@@ -294,6 +322,7 @@ export class RoomClient {
     if (this.bootstrapFlushTimer !== null) clearTimeout(this.bootstrapFlushTimer);
     this.bootstrapBase = baseSequence;
     this.bootstrapCadenceState = null;
+    this.synchronizingBootstrap = this.hasCompletedHandshake;
     this.bootstrapGeneration += 1;
   }
 
@@ -311,6 +340,7 @@ export class RoomClient {
     this.bootstrapFlushTimer = null;
     this.bootstrapBase = null;
     this.bootstrapCadenceState = null;
+    this.synchronizingBootstrap = false;
     this.bootstrapGeneration += 1;
   }
 
@@ -322,6 +352,11 @@ export class RoomClient {
     this.bootstrapBase = null;
     this.bootstrapCadenceState = null;
     await this.reportCatchUpCheckpoint(baseSequence, cadenceState);
+    if (this.synchronizingBootstrap) {
+      this.synchronizingBootstrap = false;
+      this.reconnectAttempt = 0;
+      this.onStatus({ state: "connected", message: "Connected" });
+    }
   }
 
   private async reportCatchUpCheckpoint(
@@ -366,10 +401,20 @@ export class RoomClient {
   private scheduleReconnect(): void {
     if (this.stopped || this.reconnectTimer !== null) return;
     this.store.dropPendingRequests();
+    if (this.reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
+      this.stopped = true;
+      this.onStatus({
+        state: "error",
+        message: "The table connection could not be restored.",
+        detail: "Reload the table to try joining again.",
+        recoverable: true,
+      });
+      return;
+    }
     this.reconnectAttempt += 1;
-    this.onStatus({ state: "reconnecting", message: "Connection lost. Rejoining the table…" });
+    this.onStatus({ state: "reconnecting", message: "Reconnecting" });
     const delay = Math.min(500 * 2 ** (this.reconnectAttempt - 1), 8_000);
-    this.reconnectTimer = setTimeout(() => {
+    this.reconnectTimer = this.reconnectTimers.set(() => {
       this.reconnectTimer = null;
       const resync = this.forceFullResync;
       this.forceFullResync = false;
