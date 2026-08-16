@@ -15,6 +15,19 @@ Use the **File** menu to create a new draft, open a local draft by ID, import a 
 
 Edits autosave to local storage 2.5 seconds after the latest change. The status area reports whether the draft is saving, saved, or could not be saved. Export important work when you want a portable backup.
 
+### Choose a starting template
+
+Open **File → New draft**, choose **New draft** in the command palette, press **Ctrl+N**, or visit `/edit` without a draft ID. The **New draft** picker says "Choose a playable starting table. Everything stays editable." and offers:
+
+- **Blank Table** — An empty sandbox with one editable game script.
+- **Card Game** — A deck, player hand, and working deal/draw loop.
+- **Dice Game** — A rollable die that adds each result to a score.
+- **Zone Game** — A draggable piece, snap slot, and scoring zone.
+
+Use any arrow key to move through the choices, **Home** or **End** to jump to an endpoint, **Enter** or **Space** to create the selected template, and **Escape** to close the picker. Closing the picker on the `/edit` landing route returns to the home page.
+
+Every template is an editable starting table that can be played immediately. After you choose one, it is an ordinary autosaved local draft, with the same history, export, and publish paths documented in this guide.
+
 ## Work in the docked editor
 
 The default layout groups eight panels. Tabs can be docked and resized, and closable panels can be reopened from the Window menu:
@@ -46,7 +59,44 @@ Lua standard library v1 includes [`turns`](./lua-api.md#turns) for deterministic
 
 Choose **Play draft** from the Play menu, press **F5**, or use the **Play** button in the status bar. The editor validates and compiles the current draft, starts an isolated in-tab kernel and Lua runtime, and switches the Table panel to that runtime. Interactions and script output appear in the shared viewport and Console.
 
+Templates boot in this same in-tab kernel and Lua runtime; the executable-template tests exercise their deal/draw, roll/score, and drop/snap/score interactions.
+
 While playing, **F5** advances one kernel tick so scheduled callbacks can run. Use **Shift+F5** or **Stop** to end the playtest; its runtime state is discarded, leaving the editable draft unchanged.
+
+## How Zone Runner is built
+
+Zone Runner is the canonical end-to-end creator API example. The latest shipped release is `builtin_zone_runner_2`; it keeps v1's Lua behavior and raises the configured turn limit from 2 seconds to 20 seconds. Its read-only [`settings`](./lua-api.md#read-only-settings) are `targetScore = 2` and `turnSeconds = 20`.
+
+### Compose the table
+
+The initial table is ordinary authored data:
+
+- A rules entity binds `scripts/game.lua` with [`props.role = "game"`](./lua-api.md#props).
+- The scoring zone accepts the `runner` tag and binds the same script with [`props.role = "scoring_zone"`](./lua-api.md#props).
+- A text entity starts as "Waiting for runners" and is exposed to Lua as the stable [`refs.status`](./lua-api.md#stable-refs) reference.
+- Four snap points each accept the `runner` tag and have capacity 1.
+- Each of four seat hands contains two grabbable pieces tagged `runner`.
+- Each seat has a counter bounded from 0 to `targetScore`.
+
+The picker's [Zone Game](#choose-a-starting-template) is the trimmed starting point: one draggable runner, one snap slot, one scoring zone, and one counter.
+
+### Follow the Lua in execution order
+
+1. The game binding's [`on_start`](./lua-api.md#7-callbacks-and-guards) clears the winner and timeout count, starts rotation with [`turns:start()`](./lua-api.md#turns), and initializes every player with [`scores:set(player, 0)`](./lua-api.md#scores). It names the current player in [`refs.status`](./lua-api.md#stable-refs).
+
+2. Startup creates the structured `opening_move` choice with [`ui:prompt`](./lua-api.md#6-timers-and-prompts): the shipped choices are only `"run"` and `"wait"`. It then schedules the named callback with `timer:after(settings.turnSeconds, "turn_timeout")`; in v2 that delay is 20 seconds.
+
+3. After a valid response, [`on_prompt`](./lua-api.md#7-callbacks-and-guards) accepts only the game binding's `opening_move`, stores the response as canonical [`state.opening_choice`](./lua-api.md#2-persistent-state), and changes the status text to show the player's choice.
+
+4. The named [`turn_timeout`](./lua-api.md#6-timers-and-prompts) callback increments `state.timeouts`, advances with [`turns:next()`](./lua-api.md#turns), updates the status, and arms the next turn timer.
+
+5. The zone binding's [`on_enter`](./lua-api.md#7-callbacks-and-guards) ignores a finished game, an entry without a player actor, and any player who fails [`turns:is_current`](./lua-api.md#turns). A valid entry calls [`scores:add(ctx.player, 1)`](./lua-api.md#scores), mirrors the result to the seat's [counter proxy](./lua-api.md#counter) through [`scene:get("score_" .. ctx.player.seat.id):set(value)`](./lua-api.md#scenegetid), and cancels the current timer through [`timer:cancel`](./lua-api.md#6-timers-and-prompts).
+
+6. At `settings.targetScore`, the same callback takes [`scores:leader()`](./lua-api.md#scores), saves the winner ID, calls [`turns:stop()`](./lua-api.md#turns), and writes the win message. Otherwise it advances the turn, updates the status, and schedules the next limit.
+
+7. The separate [`on_player_join`](./lua-api.md#7-callbacks-and-guards) path gives a late guest a score of zero and, while a game is active, rebuilds the rotation around the current player with `turns:start(current)`.
+
+The frozen [v2 golden replay](https://github.com/Sanokei/digipology/blob/main/packages/demo-games/fixtures/zone-runner-replay-v2.json) proves the prompt, zone entry, score, timer, and win sequence deterministically. The [Zone Runner smoke](https://github.com/Sanokei/digipology/blob/main/scripts/smoke-zone-runner.ts) exercises `builtin_zone_runner_2` through guest quick play with two converged clients, then verifies a late client catches up.
 
 ## Publish through the validated create flow
 
