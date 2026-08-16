@@ -6,8 +6,8 @@ Use this checklist before changing either table scene adapter. Test the same rel
 
 - `rendererPolicy.test.ts`: WebGPU present/absent, both overrides, invalid override, and the no-WebGPU Lite fallback decision.
 - `mountSceneAdapter.test.ts`: Lite mount failure disposal and WebGL remount; WebGL failures remain visible.
-- `sceneInteraction.test.ts`: async target resolution preserves the 450 ms long-press and drag thresholds.
-- `sceneAdapter.contract.test.ts`: shared sync/create/update/destroy, async pick-to-gesture, drag payload, highlight, and disposal contract against WebGL and Lite thin engine fakes.
+- `sceneInteraction.test.ts`: async target resolution preserves the 450 ms long-press and drag thresholds, stale cancellation preserves double-tap state, and hover picks are coalesced.
+- `sceneAdapter.contract.test.ts`: the real Lite adapter runs against a thin mocked Lite engine for sync/create/update/destroy, async pick-to-gesture, drag payload, highlight, correction, and disposal. WebGL's unchanged interaction path remains covered by the shared behavior tests below.
 - Existing `dragBehavior.test.ts`, `dragActions.test.ts`, `touchGestures.test.ts`, and `rendererTier.test.ts` remain the shared pure behavior floor.
 - `bun run --filter digipology-web check-chunks` verifies the built vendor chunks do not contain symbols from the other engine.
 
@@ -20,7 +20,7 @@ Use this checklist before changing either table scene adapter. Test the same rel
 | Long-press opens the object menu near 450 ms | Not yet executed | Not yet executed | Not yet executed | Moving beyond slop must cancel |
 | Double-tap/double-click flips | Not yet executed | Not yet executed | Not yet executed | Compare `entity.flip` payloads |
 | Two-finger orbit/pan | Not yet executed | Not yet executed | Not yet executed | |
-| Pinch zoom | Not yet executed | Not yet executed | Not yet executed | |
+| Pinch zoom | Not yet executed | Not yet executed | Not yet executed | Lite blocks `attachControl`'s native touch path so only the shared gesture machine applies pinch |
 | Rejected prediction animates correction | Not yet executed | Not yet executed | Not yet executed | Both use a 180 ms easing window |
 | Card, die, and counter labels remain legible | Not yet executed | Not yet executed | Not yet executed | Lite labels are top-facing planes |
 | Hover/selected/held feedback is clear | Not yet executed | Not yet executed | Not yet executed | WebGL outline vs Lite emissive affordance |
@@ -28,4 +28,3 @@ Use this checklist before changing either table scene adapter. Test the same rel
 | Forced Lite without WebGPU shows WebGL, not black canvas | Not yet executed | Not applicable | Not yet executed | Confirm informational console message |
 
 Record the phone model, OS/browser versions, WebGPU desktop GPU/driver, date, result, and any screenshots or console diagnostics in the PR before merging.
-

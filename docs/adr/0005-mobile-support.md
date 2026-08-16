@@ -48,5 +48,6 @@ The target-device list is: the owner's phone (model/browser to be recorded in th
 - Lite has no `HighlightLayer`. Hover, selected, and held feedback use the piece material's emissive color. A reusable main-scene outline/highlight facility should be upstreamed.
 - Lite's `createPointerDrag` targets utility-layer gizmo colliders rather than arbitrary table meshes. The adapter uses `pickAsync` plus its own camera ray and reuses `intersectRayWithHorizontalPlaneToRef`; general main-scene pointer drag should be upstreamed.
 - Lite labels use `createDynamicTexture`/`updateDynamicTexture` on child planes. The current Lite affordance keeps labels flat on piece tops; a small native billboard helper suitable for child label meshes would close counter-label parity.
+- Lite's `attachControl` always installs native two-finger touch gestures and has no touch opt-out. The adapter blocks those listeners so the shared gesture machine remains the single touch-camera path; an `AttachControlOptions` flag to disable built-in touch gestures should be upstreamed.
 - Lite intentionally runs the low-cost lighting path without shadows. This is a quality choice, not canonical state.
 - Corrections are interpolated from Lite's render-loop callback using the same 180 ms easing window as WebGL.

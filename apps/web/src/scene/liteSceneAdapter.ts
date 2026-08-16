@@ -285,6 +285,12 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
   const highlights: Record<HighlightKind, string | null> = { hover: null, selected: null, held: null };
   const pieces = new Map<string, PieceGraph>();
 
+  function blockLiteTouchGesture(event: TouchEvent): void {
+    // Lite attachControl has no touch opt-out, so the shared gesture machine owns touch input.
+    event.stopImmediatePropagation();
+    if (event.cancelable) event.preventDefault();
+  }
+
   function requireMounted() {
     if (canvas === null || engine === null || scene === null || cameraGraph === null) {
       throw new Error("Babylon-Lite scene adapter is not mounted");
@@ -455,6 +461,10 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
         lowerRadiusLimit: 7.3,
         upperRadiusLimit: 16,
       }, scene);
+      canvas.addEventListener("touchstart", blockLiteTouchGesture, { passive: false });
+      canvas.addEventListener("touchmove", blockLiteTouchGesture, { passive: false });
+      canvas.addEventListener("touchend", blockLiteTouchGesture, { passive: false });
+      canvas.addEventListener("touchcancel", blockLiteTouchGesture, { passive: false });
       attachCamera();
 
       const felt = createStandardMaterial();
@@ -487,6 +497,10 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
     },
     dispose(): void {
       detachCamera();
+      canvas?.removeEventListener("touchstart", blockLiteTouchGesture);
+      canvas?.removeEventListener("touchmove", blockLiteTouchGesture);
+      canvas?.removeEventListener("touchend", blockLiteTouchGesture);
+      canvas?.removeEventListener("touchcancel", blockLiteTouchGesture);
       detachCameraLimits?.();
       detachCameraLimits = null;
       if (picker !== null) disposePicker(picker);

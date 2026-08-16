@@ -1,124 +1,390 @@
-import { describe, expect, test } from "bun:test";
+/**
+ * The Lite contract below executes the real adapter against a thin engine mock.
+ * The WebGL adapter constructs Babylon's DOM/WebGL Engine directly, so it cannot
+ * accept a NullEngine without a production refactor; its unchanged interaction
+ * logic remains covered by dragBehavior, dragActions, and touchGestures tests.
+ */
+import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import { createInitialState, type EntityRecord } from "digipology-kernel";
 
 import type { KernelStoreSnapshot } from "../state/kernelStore";
-import { createDragActionCallbacks } from "./dragActions";
 import { handleTouchPointerInput } from "./sceneInteraction";
-import type { HighlightKind, SceneAdapter } from "./sceneAdapter";
+import type { SceneAdapter } from "./sceneAdapter";
 import { TouchGestureMachine, type TouchGestureDecision } from "./touchGestures";
 
-interface FakePiece {
-  position: { x: number; y: number; z: number };
-  grabbable: boolean;
+interface FakeVec3 {
+  x: number;
+  y: number;
+  z: number;
+  set(x: number, y: number, z: number): void;
 }
 
-class ContractFakeAdapter implements SceneAdapter {
-  readonly handlesDesktopDrag: boolean;
-  readonly pieces = new Map<string, FakePiece>();
-  readonly highlights: Record<HighlightKind, string | null> = { hover: null, selected: null, held: null };
-  mounted = false;
-  disposed = false;
-  paused = false;
-  renderLoop = false;
-  cameraAttached = true;
-  pickResult: string | null = null;
-  private view: KernelStoreSnapshot | null = null;
-  private activeDrag: { entityId: string; pointerId: number; callbacks: ReturnType<typeof createDragActionCallbacks> } | null = null;
+interface FakeQuaternion {
+  x: number;
+  y: number;
+  z: number;
+  w: number;
+  set(x: number, y: number, z: number, w: number): void;
+}
 
-  constructor(
-    renderer: "webgl" | "lite",
-    private readonly send: (action: { type: string; payload: unknown }) => unknown,
-  ) {
-    this.handlesDesktopDrag = renderer === "webgl";
-  }
+interface FakeMaterial {
+  diffuseColor?: [number, number, number];
+  specularColor?: [number, number, number];
+  emissiveColor?: [number, number, number];
+  diffuseTexture?: object;
+  emissiveTexture?: object;
+  disableLighting?: boolean;
+  specularPower?: number;
+}
 
-  async mount(_canvas: HTMLCanvasElement, _options: { tier: "default" | "low" }): Promise<void> {
-    this.mounted = true;
-  }
+interface FakeMesh {
+  kind: "mesh";
+  shape: "box" | "plane";
+  name: string;
+  position: FakeVec3;
+  scaling: FakeVec3;
+  rotation: FakeVec3;
+  rotationQuaternion: FakeQuaternion;
+  metadata?: unknown;
+  material?: FakeMaterial;
+  pickable: boolean;
+  parent: FakeMesh | null;
+}
 
-  dispose(): void {
-    this.pieces.clear();
-    this.disposed = true;
-    this.mounted = false;
-  }
+interface FakeCamera {
+  kind: "camera";
+  alpha: number;
+  beta: number;
+  radius: number;
+  target: FakeVec3;
+  fov: number;
+  panningSensibility: number;
+  wheelPrecision: number;
+  inertia: number;
+  angularSensibility: number;
+  inertialAlphaOffset: number;
+  inertialBetaOffset: number;
+  inertialRadiusOffset: number;
+}
 
-  syncEntities(view: KernelStoreSnapshot): void {
-    this.view = view;
-    const entities = view.displayedState?.entities ?? {};
-    for (const id of this.pieces.keys()) {
-      if (!(id in entities)) this.pieces.delete(id);
-    }
-    for (const [id, entity] of Object.entries(entities)) {
-      const position = entity.components.transform?.position ?? { x: 0, y: 0, z: 0 };
-      this.pieces.set(id, {
-        position: { ...position },
-        grabbable: entity.components.grabbable?.enabled === true,
-      });
-    }
-  }
+interface FakeEngine {
+  canvas: HTMLCanvasElement;
+  started: boolean;
+  stopped: boolean;
+  resized: boolean;
+  disposed: boolean;
+}
 
-  async pick(): Promise<string | null> {
-    return this.pickResult;
-  }
+interface FakeScene {
+  camera: FakeCamera | null;
+  clearColor?: { r: number; g: number; b: number; a: number };
+  meshes: FakeMesh[];
+  added: object[];
+  removed: object[];
+  beforeRender: ((deltaMs: number) => void) | null;
+  registered: boolean;
+  disposed: boolean;
+}
 
-  isGrabbable(entityId: string): boolean {
-    return this.pieces.get(entityId)?.grabbable === true;
-  }
+interface FakePicker {
+  disposed: boolean;
+}
 
-  beginDrag(entityId: string, pointerId: number): void {
-    if (this.paused || !this.isGrabbable(entityId)) return;
-    const callbacks = createDragActionCallbacks(
-      entityId,
-      this.send,
-      () => this.view?.displayedState?.entities[entityId]?.components.transform,
-      () => !this.paused,
-    );
-    this.activeDrag = { entityId, pointerId, callbacks };
-    this.highlights.held = entityId;
-    callbacks.onGrab();
-  }
+interface FakePickOptions {
+  filter?: (mesh: FakeMesh) => boolean;
+}
 
-  updateDrag(pointerId: number, x: number, y: number): void {
-    if (this.activeDrag?.pointerId !== pointerId) return;
-    const piece = this.pieces.get(this.activeDrag.entityId);
-    if (piece !== undefined) piece.position = { x, y: 0.2, z: y };
-  }
+const fakeState: {
+  engine: FakeEngine | null;
+  scene: FakeScene | null;
+  picker: FakePicker | null;
+  pickMesh: FakeMesh | null;
+  createdBoxes: FakeMesh[];
+  createdPlanes: FakeMesh[];
+  markedMaterials: FakeMaterial[];
+  controlAttachListenerCounts: number[];
+  controlDetachCount: number;
+} = {
+  engine: null,
+  scene: null,
+  picker: null,
+  pickMesh: null,
+  createdBoxes: [],
+  createdPlanes: [],
+  markedMaterials: [],
+  controlAttachListenerCounts: [],
+  controlDetachCount: 0,
+};
 
-  endDrag(pointerId: number): void {
-    if (this.activeDrag?.pointerId !== pointerId) return;
-    const piece = this.pieces.get(this.activeDrag.entityId);
-    if (piece !== undefined) this.activeDrag.callbacks.onDrop(piece.position);
-    this.activeDrag = null;
-    this.highlights.held = null;
-  }
-
-  cancelDrag(pointerId: number): void {
-    this.endDrag(pointerId);
-  }
-
-  setHighlight(entityId: string | null, kind: HighlightKind): void {
-    this.highlights[kind] = entityId;
-  }
-
-  camera = {
-    attach: (): void => { this.cameraAttached = true; },
-    detach: (): void => { this.cameraAttached = false; },
-    pan: (_dx: number, _dy: number): void => undefined,
-    pinch: (_previous: number, _next: number): void => undefined,
+function vector3(x = 0, y = 0, z = 0): FakeVec3 {
+  return {
+    x,
+    y,
+    z,
+    set(nextX, nextY, nextZ): void {
+      this.x = nextX;
+      this.y = nextY;
+      this.z = nextZ;
+    },
   };
+}
 
-  setPaused(paused: boolean): void {
-    this.paused = paused;
+function quaternion(): FakeQuaternion {
+  return {
+    ...vector3(),
+    w: 1,
+    set(x, y, z, w): void {
+      this.x = x;
+      this.y = y;
+      this.z = z;
+      this.w = w;
+    },
+  };
+}
+
+function mesh(shape: "box" | "plane"): FakeMesh {
+  return {
+    kind: "mesh",
+    shape,
+    name: "",
+    position: vector3(),
+    scaling: vector3(1, 1, 1),
+    rotation: vector3(),
+    rotationQuaternion: quaternion(),
+    pickable: true,
+    parent: null,
+  };
+}
+
+function resetFakeState(): void {
+  fakeState.engine = null;
+  fakeState.scene = null;
+  fakeState.picker = null;
+  fakeState.pickMesh = null;
+  fakeState.createdBoxes = [];
+  fakeState.createdPlanes = [];
+  fakeState.markedMaterials = [];
+  fakeState.controlAttachListenerCounts = [];
+  fakeState.controlDetachCount = 0;
+}
+
+class FakeCanvas {
+  readonly clientWidth = 100;
+  readonly clientHeight = 100;
+  private readonly listeners = new Map<string, EventListenerOrEventListenerObject[]>();
+  private readonly capturedPointers = new Set<number>();
+
+  addEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
+    const listeners = this.listeners.get(type) ?? [];
+    listeners.push(listener);
+    this.listeners.set(type, listeners);
   }
 
-  resize(): void {}
+  removeEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
+    const listeners = this.listeners.get(type);
+    if (listeners === undefined) return;
+    const index = listeners.indexOf(listener);
+    if (index >= 0) listeners.splice(index, 1);
+  }
 
-  setRenderLoop(running: boolean): void {
-    this.renderLoop = running;
+  listenerCount(type: string): number {
+    return this.listeners.get(type)?.length ?? 0;
+  }
+
+  setPointerCapture(pointerId: number): void {
+    this.capturedPointers.add(pointerId);
+  }
+
+  releasePointerCapture(pointerId: number): void {
+    this.capturedPointers.delete(pointerId);
+  }
+
+  hasPointerCapture(pointerId: number): boolean {
+    return this.capturedPointers.has(pointerId);
   }
 }
 
-function snapshot(entities: Record<string, EntityRecord>): KernelStoreSnapshot {
+mock.module("@babylonjs/lite", () => ({
+  createEngine: async (canvas: HTMLCanvasElement): Promise<FakeEngine> => {
+    const engine = { canvas, started: false, stopped: false, resized: false, disposed: false };
+    fakeState.engine = engine;
+    return engine;
+  },
+  createSceneContext: (): FakeScene => {
+    const scene: FakeScene = {
+      camera: null,
+      meshes: [],
+      added: [],
+      removed: [],
+      beforeRender: null,
+      registered: false,
+      disposed: false,
+    };
+    fakeState.scene = scene;
+    return scene;
+  },
+  createArcRotateCamera: (alpha: number, beta: number, radius: number, target: FakeVec3): FakeCamera => ({
+    kind: "camera",
+    alpha,
+    beta,
+    radius,
+    target: vector3(target.x, target.y, target.z),
+    fov: 0.8,
+    panningSensibility: 0,
+    wheelPrecision: 0,
+    inertia: 0,
+    angularSensibility: 0,
+    inertialAlphaOffset: 0,
+    inertialBetaOffset: 0,
+    inertialRadiusOffset: 0,
+  }),
+  attachControl: (_camera: FakeCamera, canvas: HTMLCanvasElement): (() => void) => {
+    const count = "listenerCount" in canvas
+      ? (canvas as HTMLCanvasElement & { listenerCount(type: string): number }).listenerCount("touchstart")
+      : -1;
+    fakeState.controlAttachListenerCounts.push(count);
+    let detached = false;
+    return () => {
+      if (detached) return;
+      detached = true;
+      fakeState.controlDetachCount += 1;
+    };
+  },
+  setCameraLimits: (): (() => void) => () => undefined,
+  createBox: (): FakeMesh => {
+    const result = mesh("box");
+    fakeState.createdBoxes.push(result);
+    return result;
+  },
+  createPlane: (): FakeMesh => {
+    const result = mesh("plane");
+    fakeState.createdPlanes.push(result);
+    return result;
+  },
+  createStandardMaterial: (): FakeMaterial => ({}),
+  createDynamicTexture: (): object => ({}),
+  updateDynamicTexture: (): void => undefined,
+  createGpuPicker: (): FakePicker => {
+    const picker = { disposed: false };
+    fakeState.picker = picker;
+    return picker;
+  },
+  pickAsync: async (_picker: FakePicker, _x: number, _y: number, options?: FakePickOptions) => {
+    const pickedMesh = fakeState.pickMesh;
+    const hit = pickedMesh !== null && (options?.filter?.(pickedMesh) ?? true);
+    return { hit, pickedMesh: hit ? pickedMesh : null };
+  },
+  disposePicker: (picker: FakePicker): void => {
+    picker.disposed = true;
+  },
+  createHemisphericLight: () => ({ kind: "light", diffuseColor: [0, 0, 0], groundColor: [0, 0, 0] }),
+  createDirectionalLight: () => ({ kind: "light", position: vector3(), diffuse: [0, 0, 0] }),
+  addToScene: (scene: FakeScene, entity: object): void => {
+    scene.added.push(entity);
+    if ((entity as { kind?: unknown }).kind === "mesh") scene.meshes.push(entity as FakeMesh);
+  },
+  removeFromScene: (scene: FakeScene, entity: object): void => {
+    scene.removed.push(entity);
+    const index = scene.meshes.indexOf(entity as FakeMesh);
+    if (index >= 0) scene.meshes.splice(index, 1);
+  },
+  setParent: (child: FakeMesh, parent: FakeMesh | null): void => {
+    child.parent = parent;
+  },
+  markMaterialUboDirty: (material: FakeMaterial): void => {
+    fakeState.markedMaterials.push(material);
+  },
+  onBeforeRender: (scene: FakeScene, callback: (deltaMs: number) => void): void => {
+    scene.beforeRender = callback;
+  },
+  registerScene: async (scene: FakeScene): Promise<void> => {
+    scene.registered = true;
+  },
+  startEngine: async (engine: FakeEngine): Promise<void> => {
+    engine.started = true;
+    engine.stopped = false;
+  },
+  stopEngine: (engine: FakeEngine): void => {
+    engine.stopped = true;
+  },
+  resizeEngine: (engine: FakeEngine): void => {
+    engine.resized = true;
+  },
+  disposeScene: (scene: FakeScene): void => {
+    scene.disposed = true;
+  },
+  disposeEngine: (engine: FakeEngine): void => {
+    engine.disposed = true;
+  },
+}));
+
+const { createLiteSceneAdapter } = await import("./liteSceneAdapter");
+
+const originalDocument = globalThis.document;
+
+beforeAll(() => {
+  Object.defineProperty(globalThis, "document", {
+    configurable: true,
+    value: {
+      createElement: () => ({
+        width: 0,
+        height: 0,
+        getContext: () => null,
+      }),
+    },
+  });
+});
+
+afterAll(() => {
+  if (originalDocument === undefined) Reflect.deleteProperty(globalThis, "document");
+  else Object.defineProperty(globalThis, "document", { configurable: true, value: originalDocument });
+});
+
+beforeEach(resetFakeState);
+
+function transform(x: number, z = 2) {
+  return {
+    position: { x, y: 0.2, z },
+    rotation: { x: 0, y: 0, z: 0, w: 1 },
+    scale: { x: 2, y: 1, z: 2 },
+  };
+}
+
+function card(x = 1, faceUp = true): EntityRecord {
+  return {
+    id: "card-1",
+    components: {
+      card: { definitionId: "card", faceUp },
+      grabbable: { enabled: true, heldBy: null },
+      transform: transform(x),
+    },
+  };
+}
+
+function die(): EntityRecord {
+  return {
+    id: "die-1",
+    components: {
+      die: { definitionId: "d6", value: 4 },
+      transform: transform(-1),
+    },
+  };
+}
+
+function counter(): EntityRecord {
+  return {
+    id: "counter-1",
+    components: {
+      counter: { value: 7, default: 0, min: null, max: null },
+      transform: transform(0, -2),
+    },
+  };
+}
+
+function snapshot(
+  entities: Record<string, EntityRecord>,
+  correction: KernelStoreSnapshot["correction"] = null,
+): KernelStoreSnapshot {
   const state = createInitialState({
     releaseId: "contract-release",
     rng: { algorithm: "sfc32-v1", state: [1, 2, 3, 4], draws: 0 },
@@ -131,28 +397,28 @@ function snapshot(entities: Record<string, EntityRecord>): KernelStoreSnapshot {
     players: [],
     pendingRequestIds: new Set(),
     predictionLedger: [],
-    correction: null,
+    correction,
     endedReason: null,
     stateHash: null,
     diagnostic: null,
-    definitions: {},
+    definitions: { card: { label: "Contract Card", color: "#abcdef" } },
     gameTitle: null,
   };
 }
 
-function piece(x = 1): EntityRecord {
-  return {
-    id: "piece-1",
-    components: {
-      card: { definitionId: "card", faceUp: true },
-      grabbable: { enabled: true, heldBy: null },
-      transform: {
-        position: { x, y: 0.2, z: 2 },
-        rotation: { x: 0, y: 0, z: 0, w: 1 },
-        scale: { x: 2, y: 1, z: 2 },
-      },
-    },
-  };
+function pieceMesh(entityId: string): FakeMesh {
+  const result = fakeState.scene?.meshes.find((candidate) =>
+    (candidate.metadata as { entityId?: unknown } | undefined)?.entityId === entityId
+  );
+  if (result === undefined) throw new Error(`Missing fake mesh for ${entityId}`);
+  return result;
+}
+
+async function mountAdapter(sendAction?: (action: { type: string; payload: unknown }) => unknown) {
+  const canvas = new FakeCanvas();
+  const adapter = createLiteSceneAdapter(sendAction === undefined ? {} : { sendAction });
+  await adapter.mount(canvas as unknown as HTMLCanvasElement, { tier: "default" });
+  return { adapter, canvas };
 }
 
 function applyDecisions(adapter: SceneAdapter, decisions: readonly TouchGestureDecision[]): void {
@@ -168,70 +434,154 @@ function applyDecisions(adapter: SceneAdapter, decisions: readonly TouchGestureD
   }
 }
 
-for (const renderer of ["webgl", "lite"] as const) {
-  describe(`${renderer} SceneAdapter contract through its thin engine fake`, () => {
-    test("syncs lifecycle, awaits picks, preserves drag payloads, highlights, and disposes", async () => {
-      const actions: Array<{ type: string; payload: unknown }> = [];
-      const adapter = new ContractFakeAdapter(renderer, (action) => actions.push(action));
-      await adapter.mount({} as HTMLCanvasElement, { tier: "default" });
-      adapter.syncEntities(snapshot({ "piece-1": piece() }));
-      expect(adapter.pieces.get("piece-1")?.position.x).toBe(1);
-      adapter.syncEntities(snapshot({ "piece-1": piece(3) }));
-      expect(adapter.pieces.get("piece-1")?.position.x).toBe(3);
+describe("real Lite SceneAdapter contract through a thin engine mock", () => {
+  test("creates, updates, recreates, removes, and picks real adapter pieces", async () => {
+    const { adapter } = await mountAdapter(() => undefined);
+    adapter.syncEntities(snapshot({ "card-1": card(), "die-1": die(), "counter-1": counter() }));
 
-      adapter.pickResult = "piece-1";
-      const gestures = new TouchGestureMachine();
-      applyDecisions(adapter, await handleTouchPointerInput(gestures, adapter, {
-        type: "down",
-        pointerId: 4,
-        x: 10,
-        y: 10,
-        pickX: 10,
-        pickY: 10,
-        timestamp: 0,
-        pointerType: "touch",
-      }));
-      applyDecisions(adapter, await handleTouchPointerInput(gestures, adapter, {
-        type: "move",
-        pointerId: 4,
-        x: 20,
-        y: 12,
-        pickX: 20,
-        pickY: 12,
-        timestamp: 10,
-        pointerType: "touch",
-      }));
-      applyDecisions(adapter, await handleTouchPointerInput(gestures, adapter, {
-        type: "up",
-        pointerId: 4,
-        x: 24,
-        y: 14,
-        pickX: 24,
-        pickY: 14,
-        timestamp: 20,
-        pointerType: "touch",
-      }));
-      expect(actions).toEqual([
-        { type: "entity.grab", payload: { entityId: "piece-1" } },
-        {
-          type: "entity.drop",
-          payload: {
-            entityId: "piece-1",
-            transform: {
-              position: { x: 24, y: 0.2, z: 14 },
-              rotation: { x: 0, y: 0, z: 0, w: 1 },
-              scale: { x: 2, y: 1, z: 2 },
-            },
+    const initialCard = pieceMesh("card-1");
+    const initialDie = pieceMesh("die-1");
+    const initialCounter = pieceMesh("counter-1");
+    for (const piece of [initialCard, initialDie, initialCounter]) {
+      const label = fakeState.createdPlanes.find((candidate) => candidate.parent === piece);
+      expect(label?.name).toBe(`${piece.name}-label-plane`);
+    }
+
+    adapter.syncEntities(snapshot({ "card-1": card(3), "die-1": die(), "counter-1": counter() }));
+    expect(pieceMesh("card-1")).toBe(initialCard);
+    expect(initialCard.position.x).toBe(3);
+
+    adapter.syncEntities(snapshot({ "card-1": card(3, false), "die-1": die(), "counter-1": counter() }));
+    const flippedCard = pieceMesh("card-1");
+    expect(flippedCard).not.toBe(initialCard);
+    expect(fakeState.scene?.removed).toContain(initialCard);
+
+    fakeState.pickMesh = flippedCard;
+    expect(await adapter.pick(12, 18)).toBe("card-1");
+    fakeState.pickMesh = null;
+    expect(await adapter.pick(12, 18)).toBeNull();
+    fakeState.pickMesh = fakeState.createdBoxes.find((candidate) => candidate.name === "table-surface") ?? null;
+    expect(await adapter.pick(12, 18)).toBeNull();
+
+    adapter.syncEntities(snapshot({ "card-1": card(3, false) }));
+    expect(fakeState.scene?.removed).toContain(initialDie);
+    expect(fakeState.scene?.removed).toContain(initialCounter);
+    expect(() => pieceMesh("die-1")).toThrow();
+    adapter.dispose();
+  });
+
+  test("routes touch drag through the real adapter with canonical grab/drop payloads", async () => {
+    const actions: Array<{ type: string; payload: unknown }> = [];
+    const { adapter, canvas } = await mountAdapter((action) => actions.push(action));
+    adapter.syncEntities(snapshot({ "card-1": card() }));
+    fakeState.pickMesh = pieceMesh("card-1");
+    const gestures = new TouchGestureMachine();
+
+    applyDecisions(adapter, await handleTouchPointerInput(gestures, adapter, {
+      type: "down", pointerId: 4, x: 50, y: 50, pickX: 50, pickY: 50,
+      timestamp: 0, pointerType: "touch",
+    }));
+    applyDecisions(adapter, await handleTouchPointerInput(gestures, adapter, {
+      type: "move", pointerId: 4, x: 60, y: 50, pickX: 60, pickY: 50,
+      timestamp: 10, pointerType: "touch",
+    }));
+    applyDecisions(adapter, await handleTouchPointerInput(gestures, adapter, {
+      type: "up", pointerId: 4, x: 65, y: 50, pickX: 65, pickY: 50,
+      timestamp: 20, pointerType: "touch",
+    }));
+
+    expect(actions).toEqual([
+      { type: "entity.grab", payload: { entityId: "card-1" } },
+      {
+        type: "entity.drop",
+        payload: {
+          entityId: "card-1",
+          transform: {
+            position: { x: expect.any(Number), y: 0.045, z: expect.any(Number) },
+            rotation: { x: 0, y: 0, z: 0, w: 1 },
+            scale: { x: 2, y: 1, z: 2 },
           },
         },
-      ]);
-
-      adapter.setHighlight("piece-1", "selected");
-      expect(adapter.highlights.selected).toBe("piece-1");
-      adapter.syncEntities(snapshot({}));
-      expect(adapter.pieces.size).toBe(0);
-      adapter.dispose();
-      expect(adapter.disposed).toBeTrue();
-    });
+      },
+    ]);
+    expect(canvas.hasPointerCapture(4)).toBeFalse();
+    expect(fakeState.controlAttachListenerCounts.every((count) => count === 1)).toBeTrue();
+    adapter.dispose();
   });
-}
+
+  test("does not expose grabbability or begin a drag without sendAction", async () => {
+    const { adapter, canvas } = await mountAdapter();
+    adapter.syncEntities(snapshot({ "card-1": card() }));
+    const piece = pieceMesh("card-1");
+    const originalY = piece.position.y;
+
+    expect(adapter.isGrabbable("card-1")).toBeFalse();
+    adapter.beginDrag("card-1", 9, 50, 50);
+    expect(canvas.hasPointerCapture(9)).toBeFalse();
+    expect(piece.position.y).toBe(originalY);
+    adapter.dispose();
+  });
+
+  test("updates emissive highlights and restores black when cleared", async () => {
+    const { adapter } = await mountAdapter(() => undefined);
+    adapter.syncEntities(snapshot({ "card-1": card() }));
+    const material = pieceMesh("card-1").material;
+    if (material === undefined) throw new Error("Piece material was not assigned");
+    fakeState.markedMaterials = [];
+
+    adapter.setHighlight("card-1", "hover");
+    expect(material.emissiveColor).toEqual([0.18, 0.12, 0.04]);
+    adapter.setHighlight("card-1", "selected");
+    expect(material.emissiveColor).toEqual([0.23, 0.16, 0.05]);
+    adapter.setHighlight("card-1", "held");
+    expect(material.emissiveColor).toEqual([0.42, 0.34, 0.13]);
+    adapter.setHighlight(null, "held");
+    adapter.setHighlight(null, "selected");
+    adapter.setHighlight(null, "hover");
+    expect(material.emissiveColor).toEqual([0, 0, 0]);
+    expect(fakeState.markedMaterials).toHaveLength(6);
+    adapter.dispose();
+  });
+
+  test("eases corrections to the target over 180 ms", async () => {
+    const { adapter } = await mountAdapter(() => undefined);
+    adapter.syncEntities(snapshot({ "card-1": card(0) }));
+    const piece = pieceMesh("card-1");
+    adapter.syncEntities(snapshot(
+      { "card-1": card(6) },
+      { id: 1, entityId: "card-1", message: "corrected" },
+    ));
+
+    expect(piece.position.x).toBe(0);
+    fakeState.scene?.beforeRender?.(90);
+    expect(piece.position.x).toBeGreaterThan(0);
+    expect(piece.position.x).toBeLessThan(6);
+    fakeState.scene?.beforeRender?.(90);
+    expect(piece.position.x).toBe(6);
+    adapter.dispose();
+  });
+
+  test("disposes controls, picker, engine, scene, and adapter pieces", async () => {
+    const { adapter, canvas } = await mountAdapter(() => undefined);
+    adapter.syncEntities(snapshot({ "card-1": card() }));
+    const engine = fakeState.engine;
+    const scene = fakeState.scene;
+    const picker = fakeState.picker;
+
+    expect(canvas.listenerCount("touchstart")).toBe(1);
+    expect(canvas.listenerCount("touchmove")).toBe(1);
+    expect(canvas.listenerCount("touchend")).toBe(1);
+    expect(canvas.listenerCount("touchcancel")).toBe(1);
+    adapter.dispose();
+
+    expect(engine?.stopped).toBeTrue();
+    expect(engine?.disposed).toBeTrue();
+    expect(scene?.disposed).toBeTrue();
+    expect(picker?.disposed).toBeTrue();
+    expect(adapter.isGrabbable("card-1")).toBeFalse();
+    expect(canvas.listenerCount("touchstart")).toBe(0);
+    expect(canvas.listenerCount("touchmove")).toBe(0);
+    expect(canvas.listenerCount("touchend")).toBe(0);
+    expect(canvas.listenerCount("touchcancel")).toBe(0);
+  });
+});

@@ -9,7 +9,7 @@ import {
   type RendererAdapterKind,
 } from "./rendererPolicy";
 import { mountSceneAdapter } from "./mountSceneAdapter";
-import { handleTouchPointerInput } from "./sceneInteraction";
+import { createHoverPicker, handleTouchPointerInput } from "./sceneInteraction";
 import type { SceneAdapter, SceneAdapterDependencies } from "./sceneAdapter";
 import { TouchGestureMachine, type TouchGestureDecision } from "./touchGestures";
 
@@ -110,7 +110,9 @@ export function useBabylonScene(
       let gestureTimer: ReturnType<typeof setTimeout> | null = null;
       let touchQueue = Promise.resolve();
       let disposed = false;
-      let hoverSequence = 0;
+      const hoverPicker = createHoverPicker(adapter, (entityId) => {
+        adapter.setHighlight(entityId, "hover");
+      });
 
       function applyGestureDecisions(decisions: readonly TouchGestureDecision[]): void {
         const rect = canvas.getBoundingClientRect();
@@ -239,10 +241,8 @@ export function useBabylonScene(
           return;
         }
         if (adapter.handlesDesktopDrag) return;
-        const sequence = ++hoverSequence;
-        void adapter.pick(event.clientX - rect.left, event.clientY - rect.top).then((entityId) => {
-          if (!disposed && sequence === hoverSequence) adapter.setHighlight(entityId, "hover");
-        });
+        if (event.buttons !== 0) return;
+        hoverPicker.request(event.clientX - rect.left, event.clientY - rect.top);
       };
       const handlePointerUp = (event: PointerEvent): void => {
         if (event.pointerType === "touch") {
@@ -300,6 +300,7 @@ export function useBabylonScene(
 
       cleanupMounted = () => {
         disposed = true;
+        hoverPicker.dispose();
         cancelTouchRef.current = null;
         abortTouch();
         unsubscribe();
