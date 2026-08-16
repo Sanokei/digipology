@@ -13,10 +13,9 @@ import { CreateBox } from "@babylonjs/core/Meshes/Builders/boxBuilder";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import type { Scene } from "@babylonjs/core/scene";
 
-export const TABLE_WIDTH = 12;
-export const TABLE_DEPTH = 7.2;
-export const TABLE_SURFACE_Y = 0;
-export const GRABBABLE_SIZE = 0.9;
+import { TABLE_DEPTH, TABLE_SURFACE_Y, TABLE_WIDTH } from "./tableDimensions";
+
+export { GRABBABLE_SIZE, TABLE_DEPTH, TABLE_SURFACE_Y, TABLE_WIDTH } from "./tableDimensions";
 
 export interface LightingGraph {
   shadows: ShadowGenerator | null;
