@@ -355,6 +355,8 @@ export class RoomClient {
 
   private recoverFromGap(diagnostic: string, fullResync = false): void {
     this.store.setDiagnostic(diagnostic);
+    // The stream restarts (resume or full bootstrap); drop any pending catch-up attestation.
+    this.cancelBootstrapCatchUp();
     this.forceFullResync ||= fullResync;
     this.socket?.close(4000, "Resynchronizing");
     if (fullResync) this.releaseLoaded = false;
