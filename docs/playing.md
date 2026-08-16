@@ -45,3 +45,15 @@ The table attempts to reconnect automatically. The table remains visible while i
 Occasionally an older, long-running scripted table needs a seated player to create a fresh recovery point before anyone new can enter. If you see the message that the table is not ready for new players, ask someone who is already at the table to keep playing for a few minutes, then choose **Try again**. You can also leave the table and reopen the invitation later; the client will not loop through silent reconnect attempts while it waits.
 
 Rooms do not remain active forever after everyone leaves. After sustained inactivity, an empty room expires; returning players can host a new table from the catalog.
+
+## Your hand and playing cards
+
+Your private hand tray stays along the bottom of the table and shows each card's label and color. Choose **None** to keep the game's canonical hand order or **By label** for a local, room-specific sort; sorting never changes the shared game. Tap a card to inspect it, or drag it onto the table. On touch, hold a hand card for **Inspect** and **Play to table**.
+
+## Inspect and object actions
+
+Inspect is a local, read-only view: it does not take a game action. Owned cards show their face, while a face-down card you do not own stays a card back. Open the object action menu with right-click on desktop or a hold on touch. The menu only offers actions the object supports, such as Flip, Roll, Press, Draw to hand, Shuffle, counter changes, taking a stack top, or sandbox Lock/Unlock. It also identifies another player who is holding the object.
+
+## Reconnecting and synchronizing
+
+**Reconnecting** and **Synchronizing Table** appear as small non-blocking cards, so you can still orbit, pan, or pinch the visible table while shared game actions pause. Synchronizing may show how many catch-up actions have been applied. If repeated attempts cannot restore the room, choose **Reload table** to create a fresh connection without leaving the page, or **Leave table** to return home. Technical connection details remain in Diagnostics.

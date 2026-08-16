@@ -11,6 +11,7 @@ function adapterThat(mount: () => Promise<void>, disposed: string[], name: strin
     dispose: () => disposed.push(name),
     syncEntities: () => undefined,
     pick: async () => null,
+    projectToTable: () => null,
     isGrabbable: () => false,
     beginDrag: () => undefined,
     updateDrag: () => undefined,

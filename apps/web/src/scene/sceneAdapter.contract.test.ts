@@ -457,7 +457,7 @@ function applyDecisions(adapter: SceneAdapter, decisions: readonly TouchGestureD
 runSceneAdapterContract({
   name: "lite",
   handlesDesktopDrag: false,
-  supportedHighlights: ["hover", "selected", "held"],
+  supportedHighlights: ["hover", "selected", "held", "locked"],
   async mount(sendAction) {
     const mounted = await mountAdapter(sendAction);
     return {
@@ -471,6 +471,7 @@ runSceneAdapterContract({
           identity: value,
           get x() { return value.position.x; },
           get y() { return value.position.y; },
+          get label() { return typeof (value.metadata as { displayLabel?: unknown } | undefined)?.displayLabel === "string" ? (value.metadata as { displayLabel: string }).displayLabel : null; },
           get disposed() { return value.disposed; },
         };
       },
@@ -486,6 +487,7 @@ runSceneAdapterContract({
           hover: [0.18, 0.12, 0.04],
           selected: [0.23, 0.16, 0.05],
           held: [0.42, 0.34, 0.13],
+          locked: [0.42, 0.12, 0.06],
         }[kind];
         return color?.every((component, index) => component === expected[index]) === true;
       },

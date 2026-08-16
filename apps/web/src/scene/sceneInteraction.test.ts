@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { createHoverPicker, handleTouchPointerInput } from "./sceneInteraction";
+import { createHoverPicker, handleTouchPointerInput, pickContextRequest } from "./sceneInteraction";
 import { TouchGestureMachine } from "./touchGestures";
 
 describe("async adapter picking preserves gesture thresholds", () => {
@@ -157,4 +157,14 @@ describe("hover picker", () => {
     await Promise.resolve();
     expect(results).toEqual(["piece-1", "piece-2"]);
   });
+});
+
+test("right-click picking produces a context request without choosing a primary action", async () => {
+  const picks: Array<{ x: number; y: number }> = [];
+  const request = await pickContextRequest({
+    pick: async (x, y) => { picks.push({ x, y }); return "deck-1"; },
+  }, 20, 30, 120, 230);
+  expect(picks).toEqual([{ x: 20, y: 30 }]);
+  expect(request).toEqual({ entityId: "deck-1", x: 120, y: 230 });
+  expect(await pickContextRequest({ pick: async () => null }, 1, 2, 3, 4)).toBeNull();
 });

@@ -15,6 +15,17 @@ export interface HoverPicker {
   dispose(): void;
 }
 
+export async function pickContextRequest(
+  adapter: Pick<SceneAdapter, "pick">,
+  canvasX: number,
+  canvasY: number,
+  clientX: number,
+  clientY: number,
+): Promise<{ entityId: string; x: number; y: number } | null> {
+  const entityId = await adapter.pick(canvasX, canvasY);
+  return entityId === null ? null : { entityId, x: clientX, y: clientY };
+}
+
 /**
  * Coalesces hover requests to one in-flight pick plus the latest queued point.
  * A rejected pick is reported as a null result and does not wedge later picks.

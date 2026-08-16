@@ -75,6 +75,34 @@ function predictionStore(sequence = 0): KernelStore {
   return store;
 }
 
+function containedPredictionStore(): KernelStore {
+  const state = createInitialState({
+    releaseId: "release_contained_prediction",
+    rng: { algorithm: "sfc32-v1", state: [11, 22, 33, 44], draws: 0 },
+    entities: {
+      hand: {
+        id: "hand",
+        components: {
+          hand: { owner: "alice", canonicalOrder: true },
+          container: { items: ["card"], capacity: 10, ordering: "canonical", visibility: "owner:alice" },
+        },
+      },
+      card: {
+        id: "card",
+        components: {
+          card: { definitionId: "red-card", faceUp: false },
+          transform: IDENTITY,
+          grabbable: { enabled: true, heldBy: null },
+        },
+      },
+    },
+  });
+  const store = new KernelStore();
+  store.loadRelease({ releaseId: state.releaseId, initialSnapshot: snapshot(state) } as unknown as Parameters<KernelStore["loadRelease"]>[0]);
+  expect(store.bootstrap(0, PLAYERS)).toEqual({ ok: true });
+  return store;
+}
+
 function predictionOrdered(
   sequence: number,
   action: PredictionAction,
@@ -216,6 +244,21 @@ describe("KernelStore", () => {
     expect(store.getSnapshot().displayedState).toBe(predicted);
     store.applyOrdered(predictionOrdered(2, drop("token_a", 3, -2), "alice", "req-drop"));
     expect(store.getSnapshot().displayedState).toBe(predicted);
+    expect(store.getSnapshot().predictionLedger).toHaveLength(0);
+  });
+
+  it("removes a hand card from the displayed container when its predicted drop lands", () => {
+    const store = containedPredictionStore();
+    store.predictLocal({ requestId: "req-hand-grab", action: grab("card"), predictedAtSequence: 0 }, "alice");
+    store.predictLocal({ requestId: "req-hand-drop", action: drop("card", 4, -3), predictedAtSequence: 0 }, "alice");
+
+    expect(store.getSnapshot().state?.entities.hand?.components.container?.items).toEqual(["card"]);
+    expect(store.getSnapshot().displayedState?.entities.hand?.components.container?.items).toEqual([]);
+    expect(store.getSnapshot().displayedState?.entities.card?.components.transform?.position).toEqual({ x: 4, y: 0.1, z: -3 });
+
+    store.applyOrdered(predictionOrdered(1, grab("card"), "alice", "req-hand-grab"));
+    store.applyOrdered(predictionOrdered(2, drop("card", 4, -3), "alice", "req-hand-drop"));
+    expect(store.getSnapshot().state?.entities.hand?.components.container?.items).toEqual([]);
     expect(store.getSnapshot().predictionLedger).toHaveLength(0);
   });
 
