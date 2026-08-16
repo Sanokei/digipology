@@ -110,6 +110,9 @@ test("passthrough overlays and motion affordances have safe CSS", async () => {
   expect(css).toMatch(/\.connection-overlay--passthrough \.reconnect-card\s*\{[^}]*pointer-events:\s*auto/s);
   expect(css).toContain("@media (prefers-reduced-motion: reduce)");
   expect(css).not.toContain(".hand-inspect");
+  // Drag-to-table needs the vertical axis, but the tray must still scroll
+  // horizontally on touch, so the cards may never claim both axes.
+  expect(css).toMatch(/\.hand-strip__cards button\s*\{[^}]*touch-action:\s*pan-x/s);
 });
 
 test("renderer diagnostics expose the mounted adapter, fallback, and tier", () => {
