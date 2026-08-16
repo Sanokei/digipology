@@ -77,7 +77,8 @@ const releases: readonly CatalogRelease[] = BUILTIN_GAMES.flatMap(
 );
 
 function fixtureRoster(releaseId: string): readonly InitialStatePlayer[] {
-  const roster = (fixtureRosters as Record<string, InitialStatePlayer[]>)[releaseId];
+  const rosterId = releaseId === "builtin_zone_runner_2" ? "builtin_zone_runner_1" : releaseId;
+  const roster = (fixtureRosters as Record<string, InitialStatePlayer[]>)[rosterId];
   if (roster === undefined) throw new Error(`Missing fixture roster for ${releaseId}`);
   return roster;
 }

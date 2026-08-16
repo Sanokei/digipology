@@ -30,6 +30,7 @@ describe("built-in game catalog", () => {
       "dice-dash-replay-v1",
       "dice-dash-replay-v2",
       "zone-runner-replay-v1",
+      "zone-runner-replay-v2",
     ]) {
       const fixture = await Bun.file(
         new URL(`../../../packages/demo-games/fixtures/${name}.json`, import.meta.url),
@@ -67,7 +68,7 @@ describe("built-in game catalog", () => {
   });
 
   test("builds Zone Runner hands, zones, snap slots, and script bindings for a live roster", () => {
-    const state = createBuiltinInitialState("builtin_zone_runner_1", [
+    const state = createBuiltinInitialState("builtin_zone_runner_2", [
       { playerId: "player_host", displayName: "Host" },
       { playerId: "player_guest", displayName: "Guest" },
     ])!;
@@ -85,6 +86,20 @@ describe("built-in game catalog", () => {
     expect(builtinCatalog.resolveRelease("dice-dash")?.releaseId).toBe(
       "builtin_dice_dash_2",
     );
+  });
+
+  test("keeps Zone Runner v1 resolvable while new rooms pin the 20-second v2", () => {
+    expect(builtinCatalog.getGame("zone-runner")?.latestReleaseId).toBe("builtin_zone_runner_2");
+    expect(builtinCatalog.getRelease("builtin_zone_runner_1")?.releaseId).toBe(
+      "builtin_zone_runner_1",
+    );
+    expect(builtinCatalog.resolveRelease("zone-runner")?.releaseId).toBe(
+      "builtin_zone_runner_2",
+    );
+    expect(
+      (builtinCatalog.getRelease("builtin_zone_runner_2")?.bundle.initialSnapshot as GameSnapshot)
+        .state.settings.turnSeconds,
+    ).toBe(20);
   });
 
   test("projects exact API summary shapes", () => {

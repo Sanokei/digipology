@@ -6,6 +6,7 @@ import firstDealFixture from "../fixtures/first-deal-replay-v1.json";
 import diceDashFixture from "../fixtures/dice-dash-replay-v1.json";
 import diceDashV2Fixture from "../fixtures/dice-dash-replay-v2.json";
 import zoneRunnerFixture from "../fixtures/zone-runner-replay-v1.json";
+import zoneRunnerV2Fixture from "../fixtures/zone-runner-replay-v2.json";
 import builtinRosters from "../fixtures/builtin-rosters.json";
 import packageJson from "../package.json";
 import { BUILTIN_GAMES, getBuiltinRelease } from "./index";
@@ -98,7 +99,7 @@ function validateManifestShape(release: ReleaseBundle): void {
 }
 
 describe("built-in catalog", () => {
-  test("exports all immutable releases and points Dice Dash at v2", () => {
+  test("exports all immutable releases and points latest games at v2", () => {
     expect(
       BUILTIN_GAMES.map(({ slug, latestReleaseId, releases }) => [
         slug,
@@ -112,7 +113,11 @@ describe("built-in catalog", () => {
         "builtin_dice_dash_2",
         ["builtin_dice_dash_1", "builtin_dice_dash_2"],
       ],
-      ["zone-runner", "builtin_zone_runner_1", ["builtin_zone_runner_1"]],
+      [
+        "zone-runner",
+        "builtin_zone_runner_2",
+        ["builtin_zone_runner_1", "builtin_zone_runner_2"],
+      ],
     ]);
     for (const game of BUILTIN_GAMES) {
       const latest = getBuiltinRelease(game.latestReleaseId)!;
@@ -129,11 +134,21 @@ describe("built-in catalog", () => {
     expect(getBuiltinRelease("builtin_dice_dash_1")?.integrity.manifestHash).toBe(
       "sha256:f672353e5b6df79aa7157e9bd8a4eb9802e30991b1cc1adf07a25a3e015e0b12",
     );
+    expect(getBuiltinRelease("builtin_zone_runner_1")?.integrity.manifestHash).toBe(
+      "sha256:5b9d3ecc68a79acdd3e6a981a8f6cb5ddedf5c4d82c3b3a688100fb9b056eadc",
+    );
+    expect(zoneRunnerFixture.expectedFinalStateHash).toBe(
+      "sha256:385b13cf95139d68b655bd85623743e0d1c7928384708c0712b209f8ce09196b",
+    );
     expect(getBuiltinRelease("missing_release")).toBeUndefined();
     expect(getBuiltinRelease("builtin_zone_runner_1")?.luaStdlibVersion).toBe(1);
-    expect(Object.keys(builtinRosters).sort()).toEqual(
-      BUILTIN_GAMES.flatMap((game) => game.releases.map((release) => release.releaseId)).sort(),
-    );
+    expect(Object.keys(builtinRosters).sort()).toEqual([
+      "builtin_dice_dash_1",
+      "builtin_dice_dash_2",
+      "builtin_first_deal_1",
+      "builtin_zone_runner_1",
+    ]);
+    expect(getBuiltinRelease("builtin_zone_runner_2")?.luaStdlibVersion).toBe(1);
   });
 
   test("has no runtime dependencies and only the allowed workspace dev dependencies", () => {
@@ -171,6 +186,7 @@ describe("merged action and Lua surfaces", () => {
       ...diceDashFixture.actions,
       ...diceDashV2Fixture.actions,
       ...zoneRunnerFixture.actions,
+      ...zoneRunnerV2Fixture.actions,
     ]
       .map((ordered) => ordered.action.type);
     expect(registered).toEqual(new Set([

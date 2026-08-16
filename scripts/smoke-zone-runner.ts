@@ -13,7 +13,9 @@
 //   6. every timer.registered / timer.canceled report is accepted (204),
 //   7. neither client records an unexpected rejection (a stale timer fire that
 //      races a reported cancel is tolerated) and both event streams match,
-//   8. the room advances by more than the 500-action retention window,
+//   8. the room advances by more than the 500-action retention window (driven
+//      by a grab/drop action loop, so it does not wait on the 20 s turn timer)
+//      and both clients' checkpoint attestations are accepted,
 //   9. a late-bootstrap client catches up to the live hash.
 import {
   applyOrderedWithScripts,
@@ -37,11 +39,12 @@ import type {
 import { CHECKPOINT_ATTESTATION_INTERVAL } from "digipology-protocol/http";
 
 const NETWORK_TIMEOUT_MS = 7_000;
-const FRAME_TIMEOUT_MS = 15_000;
+const FRAME_TIMEOUT_MS = 30_000;
 const MAX_FRAMES_PER_STEP = 60;
 const SCORE_ATTEMPTS = 3;
 const LONG_ROOM_ACTIONS = 501;
 const SLUG = "zone-runner";
+const EXPECTED_RELEASE_ID = "builtin_zone_runner_2";
 const JSON_HEADERS = { "Content-Type": "application/json", "X-Digipology-CSRF": "1" };
 const origin = parseOrigin(Bun.argv[2] ?? "http://127.0.0.1:8787");
 const sockets = new Set<WebSocket>();
@@ -132,6 +135,10 @@ async function runChecks(): Promise<void> {
       );
       expect(first.value.playerId !== second.value.playerId, "both quickplay joins received the same playerId");
       expect(first.value.releaseId === second.value.releaseId, "quickplay pair disagrees on releaseId");
+      expect(
+        first.value.releaseId === EXPECTED_RELEASE_ID,
+        `quickplay selected ${first.value.releaseId}, expected ${EXPECTED_RELEASE_ID}`,
+      );
       return { first: first.value, second: second.value };
     },
     (value) => `room ${value.first.joinCode}`,
@@ -197,7 +204,7 @@ async function runChecks(): Promise<void> {
       if (scoreAfter === scoreBefore + 1) {
         return `${actor.name} scored ${scoreBefore} -> ${scoreAfter} on attempt ${attempt}`;
       }
-      // The 2s turn timer can hand the turn over between grab and drop; retry with the new current player.
+      // A turn timer can still hand the turn over between grab and drop; retry with the new current player.
       lastDetail = `attempt ${attempt}: ${actor.name} dropped ${runner} but score stayed ${scoreAfter} (turn index ${turnBefore} -> ${turnState(actor).index})`;
     }
     throw new Error(lastDetail);
@@ -244,10 +251,29 @@ async function runChecks(): Promise<void> {
     const connected = requireValue(pair, "both clients bootstrap and converge after system.game_start");
     const startSequence = Math.max(requireState(connected.a).sequence, requireState(connected.b).sequence);
     const targetSequence = startSequence + LONG_ROOM_ACTIONS;
+    // Drive the window with kernel-level grab/drop round trips on one of the
+    // driver's own runners, parked well outside the scoring zone so the Lua
+    // rules stay idle; turn-timer frames interleave naturally.
+    const driver = handItems(connected.a, seatOf(connected.a).handId).length > 0 ? connected.a : connected.b;
+    const follower = driver === connected.a ? connected.b : connected.a;
+    const runner = handItems(driver, seatOf(driver).handId)[0];
+    expect(runner !== undefined, `${driver.name} has no runner left in hand to drive the long room`);
+    const parked = { position: { x: 6, y: 0, z: 5 }, rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: { x: 1, y: 1, z: 1 } };
+    let holding = false;
+    const rejectionsBefore = unexpectedRejections(driver).length;
+    while (requireState(driver).sequence < targetSequence) {
+      const requestId = holding
+        ? sendAction(driver, "entity.drop", { entityId: runner, transform: parked })
+        : sendAction(driver, "entity.grab", { entityId: runner });
+      holding = !holding;
+      await applyUntil(driver, isRequest(requestId));
+    }
     const reached = (message: ServerMessage): boolean =>
-      message.type === "ordered_action" && message.sequence >= targetSequence;
-    await applyOnBoth(connected, reached, LONG_ROOM_ACTIONS + MAX_FRAMES_PER_STEP);
+      message.type === "ordered_action" && message.sequence >= requireState(driver).sequence;
+    await applyUntil(follower, reached, LONG_ROOM_ACTIONS + MAX_FRAMES_PER_STEP);
     expectConverged(connected);
+    const driverRejections = unexpectedRejections(driver).slice(rejectionsBefore);
+    expect(driverRejections.length === 0, `${driver.name} rejections while driving: ${JSON.stringify(driverRejections)}`);
     const posts = [...connected.a.checkpointPosts, ...connected.b.checkpointPosts];
     const rejected = posts.filter((post) => post.status !== 204);
     expect(posts.length >= 4, `expected checkpoint attestations from both clients, received ${posts.length}`);
@@ -425,13 +451,9 @@ async function reportCheckpoint(client: Client): Promise<void> {
   client.checkpointPosts.push({ sequence: checkpoint.sequence, status: response.status });
 }
 
-async function applyOnBoth(
-  pair: Pair,
-  done: (message: ServerMessage) => boolean,
-  maxFrames = MAX_FRAMES_PER_STEP,
-): Promise<void> {
-  await applyUntil(pair.a, done, maxFrames);
-  await applyUntil(pair.b, done, maxFrames);
+async function applyOnBoth(pair: Pair, done: (message: ServerMessage) => boolean): Promise<void> {
+  await applyUntil(pair.a, done);
+  await applyUntil(pair.b, done);
 }
 
 async function reportTimers(client: Client, events: readonly KernelEvent[]): Promise<void> {

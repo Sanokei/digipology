@@ -151,7 +151,15 @@ export function createDiceDashV2InitialState(): CanonicalGameState {
 }
 
 export function createZoneRunnerInitialState(): CanonicalGameState {
-  const runtime = JSON.parse(releaseFile("builtin_zone_runner_1", "runtime/game.json")) as {
+  return createZoneRunnerState("builtin_zone_runner_1");
+}
+
+export function createZoneRunnerV2InitialState(): CanonicalGameState {
+  return createZoneRunnerState("builtin_zone_runner_2");
+}
+
+function createZoneRunnerState(releaseId: string): CanonicalGameState {
+  const runtime = JSON.parse(releaseFile(releaseId, "runtime/game.json")) as {
     handIds: string[];
     pieceIds: string[];
     rulesId: string;
@@ -229,7 +237,7 @@ export function createZoneRunnerInitialState(): CanonicalGameState {
     });
   }
   return createInitialState({
-    releaseId: "builtin_zone_runner_1",
+    releaseId,
     rng: ZONE_RUNNER_RNG,
     settings: runtime.settings,
     players: {

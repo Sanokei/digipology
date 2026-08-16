@@ -57,6 +57,7 @@ export interface KernelStoreSnapshot {
 export type ApplyStreamResult = { ok: true } | { ok: false; expected: number; actual: number };
 
 const PREDICTED_ACTION_TYPES = new Set(["entity.grab", "entity.drop", "entity.flip"]);
+const STALE_TIMER_FIRE_REASON = "Timer has already fired or was canceled";
 
 export function isPredictableAction(action: PredictionAction): boolean {
   return PREDICTED_ACTION_TYPES.has(action.type);
@@ -92,6 +93,15 @@ function actionEntityId(action: PredictionAction): string | null {
   if (typeof action.payload !== "object" || action.payload === null || Array.isArray(action.payload)) return null;
   const entityId = (action.payload as Record<string, unknown>).entityId;
   return typeof entityId === "string" ? entityId : null;
+}
+
+function isToleratedStaleTimerFire(
+  message: OrderedAction,
+  rejectionReason: string,
+): boolean {
+  return message.actor.type === "system" &&
+    message.action.type === "system.timer_fire" &&
+    rejectionReason === STALE_TIMER_FIRE_REASON;
 }
 
 export class KernelStore {
@@ -257,7 +267,9 @@ export class KernelStore {
       stateHash: confirmedHash,
       diagnostic: confirmedResult.rejection === undefined
         ? `Applied sequence ${message.sequence}; hash ${confirmedHash}`
-        : `Sequence ${message.sequence} rejected by kernel: ${confirmedResult.rejection.reason}`,
+        : isToleratedStaleTimerFire(message, confirmedResult.rejection.reason)
+          ? `Sequence ${message.sequence}: stale timer fire ignored (canceled before delivery)`
+          : `Sequence ${message.sequence} rejected by kernel: ${confirmedResult.rejection.reason}`,
     });
     return { ok: true };
   }
