@@ -85,6 +85,7 @@ const HIGHLIGHT_COLORS: Record<HighlightKind, [number, number, number]> = {
   hover: [0.18, 0.12, 0.04],
   selected: [0.23, 0.16, 0.05],
   held: [0.42, 0.34, 0.13],
+  locked: [0.42, 0.12, 0.06],
 };
 
 function clamp(value: number, minimum: number, maximum: number): number {
@@ -107,10 +108,13 @@ function cardFaceUp(entity: EntityRecord): boolean {
 }
 
 function displaySignature(entity: EntityRecord): string {
-  const { card, die, counter } = entity.components;
+  const { card, die, counter, deck, container, button, text } = entity.components;
+  if (deck !== undefined) return `deck:${deck.enabled}:${container?.items.length ?? 0}`;
   if (card !== undefined) return `card:${card.definitionId}:${cardFaceUp(entity)}`;
   if (die !== undefined) return `die:${String(die.value)}`;
   if (counter !== undefined) return `counter:${counter.value}`;
+  if (button !== undefined) return `button:${button.enabled}:${button.label}`;
+  if (text !== undefined) return `text:${text.value}`;
   return "other";
 }
 
@@ -319,7 +323,13 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
     pointerId: number;
     callbacks: ReturnType<typeof createDragActionCallbacks>;
   } | null = null;
-  const highlights: Record<HighlightKind, string | null> = { hover: null, selected: null, held: null };
+  const highlights = {
+    hover: null as string | null,
+    selected: null as string | null,
+    held: new Set<string>(),
+    locked: new Set<string>(),
+  };
+  let localHeld: string | null = null;
   const pieces = new Map<string, PieceGraph>();
 
   function blockLiteTouchGesture(event: TouchEvent): void {
@@ -337,9 +347,13 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
 
   function applyPieceHighlight(piece: PieceGraph): void {
     let color: [number, number, number] = [0, 0, 0];
-    for (const kind of ["hover", "selected", "held"] as const) {
-      const entityId = (piece.mesh.metadata as { entityId?: unknown } | undefined)?.entityId;
-      if (highlights[kind] === entityId) color = HIGHLIGHT_COLORS[kind];
+    const entityId = (piece.mesh.metadata as { entityId?: unknown } | undefined)?.entityId;
+    if (typeof entityId === "string") {
+      if (highlights.hover === entityId) color = HIGHLIGHT_COLORS.hover;
+      if (highlights.selected === entityId) color = HIGHLIGHT_COLORS.selected;
+      if (highlights.locked.has(entityId)) color = HIGHLIGHT_COLORS.locked;
+      if (highlights.held.has(entityId)) color = HIGHLIGHT_COLORS.held;
+      if (localHeld === entityId) color = HIGHLIGHT_COLORS.held;
     }
     piece.material.emissiveColor = color;
     markMaterialUboDirty(piece.material);
@@ -389,13 +403,21 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
     let width = 0.9;
     let depth = 0.9;
     let height = 0.18;
-    if (components.card !== undefined) {
+    if (components.hand !== undefined) {
+      return null;
+    } else if (components.deck !== undefined) {
+      width = 1.02;
+      depth = 1.42;
+      height = 0.14 + Math.min(components.container?.items.length ?? 0, 20) * 0.012;
+      label = `Deck · ${components.container?.items.length ?? 0}`;
+      color = components.deck.enabled ? "#754331" : "#4b4540";
+    } else if (components.card !== undefined) {
       width = 0.86;
       depth = 1.22;
       height = 0.09;
       const definition = currentView?.definitions[components.card.definitionId];
       const faceUp = cardFaceUp(entity);
-      label = faceUp ? definition?.label ?? components.card.definitionId : "DIGIPOLOGY";
+      label = faceUp ? definition?.label ?? "Card" : "DIGIPOLOGY";
       color = faceUp ? definition?.color ?? "#e7dfc8" : "#9e402d";
     } else if (components.die !== undefined) {
       width = depth = height = 0.72;
@@ -406,13 +428,16 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       height = 0.2;
       label = String(components.counter.value);
       color = "#d5ff76";
+    } else if (components.transform !== undefined) {
+      label = components.button?.label || components.text?.value || "Table object";
+      color = components.button?.enabled === false ? "#716b62" : "#d7b26d";
     } else {
       return null;
     }
     const restingY = TABLE_SURFACE_Y + height / 2;
     const mesh = createBox(mounted.engine, { width, depth, height });
     mesh.name = `entity-${entity.id}`;
-    mesh.metadata = { entityId: entity.id };
+    mesh.metadata = { entityId: entity.id, displayLabel: label };
     mesh.pickable = true;
     const pieceMaterial = makeMaterial(color);
     mesh.material = pieceMaterial;
@@ -424,7 +449,10 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       signature: displaySignature(entity),
       transformSignature: transformSignature(components.transform, restingY),
       restingY,
-      grabbable: dependencies.sendAction !== undefined && components.grabbable?.enabled === true,
+      grabbable: dependencies.sendAction !== undefined
+        && components.grabbable?.enabled === true
+        && components.grabbable.heldBy === null
+        && components.lockable?.locked !== true,
     };
     if (graph.grabbable) {
       graph.bounds = {
@@ -472,7 +500,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       });
     }
     activeDrag = null;
-    highlights.held = null;
+    localHeld = null;
     if (piece !== undefined) applyPieceHighlight(piece);
     attachCamera();
     if (canvas?.hasPointerCapture(pointerId)) canvas.releasePointerCapture(pointerId);
@@ -570,9 +598,14 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       lastDisplayedState = state;
       lastDefinitions = view.definitions;
       lastCorrectionId = correctionId;
-      const ids = Object.keys(state.entities).sort();
+      const contained = new Set<string>();
+      for (const entity of Object.values(state.entities)) {
+        for (const item of entity.components.container?.items ?? []) contained.add(item);
+      }
+      const ids = Object.keys(state.entities).sort().filter((id) => !contained.has(id) && state.entities[id]?.components.hand === undefined);
+      const visible = new Set(ids);
       for (const [id, piece] of pieces) {
-        if (!(id in state.entities)) {
+        if (!visible.has(id)) {
           destroyPiece(piece);
           pieces.delete(id);
         }
@@ -602,7 +635,10 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
             applyTransform(existing.mesh, entity.components.transform, existing.restingY);
           }
           existing.transformSignature = nextTransformSignature;
-          existing.grabbable = dependencies.sendAction !== undefined && entity.components.grabbable?.enabled === true;
+          existing.grabbable = dependencies.sendAction !== undefined
+            && entity.components.grabbable?.enabled === true
+            && entity.components.grabbable.heldBy === null
+            && entity.components.lockable?.locked !== true;
         }
       }
     },
@@ -622,6 +658,13 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
         pickPending = false;
       }
     },
+    projectToTable(x: number, y: number) {
+      if (canvas === null || cameraGraph === null || x < 0 || y < 0 || x > canvas.clientWidth || y > canvas.clientHeight) return null;
+      const ray = createScreenRay(cameraGraph, canvas, x, y);
+      if (ray === null) return null;
+      const point = { x: 0, y: 0, z: 0 };
+      return intersectRayWithHorizontalPlaneToRef(ray, TABLE_SURFACE_Y, point) ? point : null;
+    },
     isGrabbable(entityId: string): boolean {
       return pieces.get(entityId)?.grabbable === true;
     },
@@ -637,7 +680,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       );
       activeDrag = { entityId, pointerId, callbacks };
       piece.mesh.position.y = piece.bounds.restingY + LIFT_HEIGHT;
-      highlights.held = entityId;
+      localHeld = entityId;
       applyPieceHighlight(piece);
       detachCamera();
       canvas?.setPointerCapture(pointerId);
@@ -663,6 +706,22 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       finishDrag(pointerId);
     },
     setHighlight(entityId: string | null, kind: HighlightKind): void {
+      if (kind === "held" || kind === "locked") {
+        const targets = highlights[kind];
+        if (entityId === null) {
+          const previous = [...targets];
+          targets.clear();
+          for (const id of previous) {
+            const piece = pieces.get(id);
+            if (piece !== undefined) applyPieceHighlight(piece);
+          }
+        } else {
+          targets.add(entityId);
+          const piece = pieces.get(entityId);
+          if (piece !== undefined) applyPieceHighlight(piece);
+        }
+        return;
+      }
       const previous = highlights[kind];
       highlights[kind] = entityId;
       if (previous !== null) {

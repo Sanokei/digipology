@@ -18,7 +18,7 @@ Use this checklist before changing either table scene adapter. Test the same rel
 | Tap selects a piece | Not yet executed | Not yet executed | Not yet executed | |
 | Drag/drop reaches the expected zone or snap | Not yet executed | Not yet executed | Not yet executed | Compare `entity.grab`/`entity.drop` payloads |
 | Long-press opens the object menu near 450 ms | Not yet executed | Not yet executed | Not yet executed | Moving beyond slop must cancel |
-| Double-tap/double-click flips | Not yet executed | Not yet executed | Not yet executed | Compare `entity.flip` payloads |
+| Double-tap/double-click runs the primary action | Not yet executed | Not yet executed | Not yet executed | Card/flippable flips, die rolls, deck draws to hand, button presses, and other pieces inspect |
 | Two-finger orbit/pan | Not yet executed | Not yet executed | Not yet executed | |
 | Pinch zoom | Not yet executed | Not yet executed | Not yet executed | Lite blocks `attachControl`'s native touch path so only the shared gesture machine applies pinch |
 | Rejected prediction animates correction | Not yet executed | Not yet executed | Not yet executed | Both use a 180 ms easing window |
@@ -26,5 +26,9 @@ Use this checklist before changing either table scene adapter. Test the same rel
 | Hover/selected/held feedback is clear | Not yet executed | Not yet executed | Not yet executed | WebGL outline vs Lite emissive affordance |
 | Dispose/remount leaves one responsive canvas | Not yet executed | Not yet executed | Not yet executed | Navigate away/back or remount the component |
 | Forced Lite without WebGPU shows WebGL, not black canvas | Not yet executed | Not applicable | Not yet executed | Confirm the override hint and Diagnostics Renderer/reason/fallback rows |
+| Drag a hand card from the tray onto the table | Not yet executed | Not yet executed | Not yet executed | Card leaves the private hand and appears at the projected drop point |
+| Long-press a hand card | Not yet executed | Not yet executed | Not yet executed | Inspect and Play to table are available; moving beyond slop cancels |
+| Right-click a table object | Not yet executed | Not yet executed | Not applicable | Opens the same capability menu as touch hold and does not flip immediately |
+| Reconnect banner keeps the camera usable | Not yet executed | Not yet executed | Not yet executed | Orbit/pan/pinch remain live while canonical interactions are paused |
 
 Record the phone model, OS/browser versions, WebGPU desktop GPU/driver, date, result, and any screenshots or console diagnostics in the PR before merging.

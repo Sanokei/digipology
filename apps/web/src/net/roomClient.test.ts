@@ -14,6 +14,32 @@ class MockSocket extends EventTarget {
   close() { this.readyState = WebSocket.CLOSED; this.dispatchEvent(new CloseEvent("close")); }
 }
 
+class ManualReconnectTimers {
+  readonly delays: number[] = [];
+  private nextId = 1;
+  private readonly callbacks = new Map<number, () => void>();
+
+  set(callback: () => void, delay: number): ReturnType<typeof setTimeout> {
+    const id = this.nextId++;
+    this.callbacks.set(id, callback);
+    this.delays.push(delay);
+    return id as unknown as ReturnType<typeof setTimeout>;
+  }
+
+  clear(timer: ReturnType<typeof setTimeout>): void {
+    this.callbacks.delete(timer as unknown as number);
+  }
+
+  runNext(): void {
+    const entry = this.callbacks.entries().next().value as [number, () => void] | undefined;
+    if (entry === undefined) throw new Error("No reconnect timer is pending");
+    this.callbacks.delete(entry[0]);
+    entry[1]();
+  }
+
+  get pending(): number { return this.callbacks.size; }
+}
+
 const session = { roomId: "room", joinCode: "ABCD-EFGH", inviteUrl: "https://play.digipology.com/join/ABCD-EFGH", playerId: "p1", roomToken: "token", wsUrl: "wss://example.test/ws", releaseId: "release_test", gameTitle: "Test" };
 
 async function waitFor(predicate: () => boolean): Promise<void> {
@@ -507,6 +533,121 @@ return {}`;
       type: "hello",
       lastSequence: null,
     });
+    client.stop();
+  });
+
+  it("reports synchronization for a bootstrap after the first handshake", async () => {
+    const initial = createInitialState({ releaseId: "release_test", rng: { algorithm: "sfc32-v1", state: [1, 2, 3, 4], draws: 0 } });
+    const api = createApiClient(async () => Response.json({ releaseId: "release_test", initialSnapshot: snapshot(initial) }));
+    const sockets = [new MockSocket(), new MockSocket()];
+    const timers = new ManualReconnectTimers();
+    const statuses: RoomClientStatus[] = [];
+    let socketIndex = 0;
+    const client = new RoomClient(
+      session, new KernelStore(), (status) => statuses.push(status), api,
+      () => sockets[socketIndex++] as unknown as WebSocket,
+      async () => undefined, async () => undefined, timers,
+    );
+    client.start();
+    sockets[0]!.open();
+    await waitFor(() => sockets[0]!.sent.length > 0);
+    sockets[0]!.message({ type: "bootstrap", protocolVersion: 1, sequence: 0, players: [] });
+    await waitFor(() => statuses.at(-1)?.state === "connected");
+    sockets[0]!.close();
+    expect(timers.pending).toBe(1);
+    timers.runNext();
+    sockets[1]!.open();
+    await waitFor(() => sockets[1]!.sent.length > 0);
+    sockets[1]!.message({ type: "bootstrap", protocolVersion: 1, sequence: 0, players: [] });
+    await waitFor(() => statuses.at(-1)?.state === "connected");
+    expect(statuses.slice(-2).map((status) => status.state)).toEqual(["synchronizing", "connected"]);
+    expect(statuses.at(-2)?.message).toBe("Synchronizing Table");
+    client.stop();
+  });
+
+  it("reports synchronization progress for resume batches longer than 50 actions", async () => {
+    const initial = createInitialState({
+      releaseId: "release_test",
+      rng: { algorithm: "sfc32-v1", state: [1, 2, 3, 4], draws: 0 },
+      entities: { counter: { id: "counter", components: { counter: { value: 0, default: 0, min: 0, max: 100 } } } },
+    });
+    const api = createApiClient(async () => Response.json({ releaseId: "release_test", initialSnapshot: snapshot(initial) }));
+    const socket = new MockSocket();
+    const statuses: RoomClientStatus[] = [];
+    const store = new KernelStore();
+    const client = new RoomClient(session, store, (status) => statuses.push(status), api, () => socket as unknown as WebSocket);
+    client.start(); socket.open(); await waitFor(() => socket.sent.length > 0);
+    socket.message({ type: "bootstrap", protocolVersion: 1, sequence: 0, players: [] });
+    await waitFor(() => statuses.at(-1)?.state === "connected");
+    socket.message({
+      type: "resume", protocolVersion: 1, fromSequence: 1,
+      actions: Array.from({ length: 51 }, (_, index) => counterAction(index + 1)),
+    });
+    await waitFor(() => store.getSnapshot().state?.sequence === 51);
+    expect(statuses.some((status) => status.state === "synchronizing" && status.progress?.applied === 0 && status.progress.total === 51)).toBeTrue();
+    expect(statuses.at(-2)).toMatchObject({ state: "synchronizing", progress: { applied: 51, total: 51 } });
+    expect(statuses.at(-1)?.state).toBe("connected");
+    client.stop();
+  });
+
+  it("stops after eight reconnect attempts with a recoverable player-language error", () => {
+    const timers = new ManualReconnectTimers();
+    const statuses: RoomClientStatus[] = [];
+    const client = new RoomClient(
+      session, new KernelStore(), (status) => statuses.push(status), undefined,
+      () => { throw new Error("offline"); },
+      async () => undefined, async () => undefined, timers,
+    );
+    client.start();
+    for (let attempt = 0; attempt < 8; attempt += 1) timers.runNext();
+    expect(timers.pending).toBe(0);
+    expect(statuses.at(-1)).toEqual({
+      state: "error",
+      message: "The table connection could not be restored.",
+      detail: "Reload the table to try joining again.",
+      recoverable: true,
+    });
+    expect(statuses.at(-1)?.message).not.toContain("protocol");
+    client.stop();
+  });
+
+  it("a fresh client starts after stop without opening duplicate sockets", () => {
+    const sockets = [new MockSocket(), new MockSocket()];
+    let socketIndex = 0;
+    const socketFactory = () => sockets[socketIndex++] as unknown as WebSocket;
+    const first = new RoomClient(session, new KernelStore(), () => undefined, undefined, socketFactory);
+    first.start();
+    first.stop();
+    const fresh = new RoomClient(session, new KernelStore(), () => undefined, undefined, socketFactory);
+    fresh.start();
+    expect(socketIndex).toBe(2);
+    expect(sockets[0]?.readyState).toBe(WebSocket.CLOSED);
+    expect(sockets[1]?.readyState).toBe(WebSocket.CONNECTING);
+    fresh.stop();
+  });
+
+  it("resets reconnect backoff after a successful handshake", async () => {
+    const initial = createInitialState({ releaseId: "release_test", rng: { algorithm: "sfc32-v1", state: [1, 2, 3, 4], draws: 0 } });
+    const api = createApiClient(async () => Response.json({ releaseId: "release_test", initialSnapshot: snapshot(initial) }));
+    const sockets = [new MockSocket(), new MockSocket(), new MockSocket()];
+    const timers = new ManualReconnectTimers();
+    let socketIndex = 0;
+    const client = new RoomClient(
+      session, new KernelStore(), () => undefined, api,
+      () => sockets[socketIndex++] as unknown as WebSocket,
+      async () => undefined, async () => undefined, timers,
+    );
+    client.start(); sockets[0]!.open(); await waitFor(() => sockets[0]!.sent.length > 0);
+    sockets[0]!.message({ type: "bootstrap", protocolVersion: 1, sequence: 0, players: [] });
+    sockets[0]!.close();
+    timers.runNext();
+    sockets[1]!.close();
+    timers.runNext();
+    sockets[2]!.open(); await waitFor(() => sockets[2]!.sent.length > 0);
+    sockets[2]!.message({ type: "resume", protocolVersion: 1, fromSequence: 1, actions: [] });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    sockets[2]!.close();
+    expect(timers.delays).toEqual([500, 1_000, 500]);
     client.stop();
   });
 });

@@ -10,6 +10,7 @@ export interface ContractPiece {
   readonly identity: object;
   readonly x: number;
   readonly y: number;
+  readonly label: string | null;
   readonly disposed: boolean;
 }
 
@@ -72,6 +73,27 @@ export function contractCounter(): EntityRecord {
   };
 }
 
+export function contractDeck(): EntityRecord {
+  return {
+    id: "deck-1",
+    components: {
+      deck: { enabled: true },
+      container: { items: ["card-1"], capacity: null, ordering: "top", visibility: "public" },
+      transform: contractTransform(0),
+    },
+  };
+}
+
+export function contractButton(): EntityRecord {
+  return {
+    id: "button-1",
+    components: {
+      button: { enabled: true, label: "Press me" },
+      transform: contractTransform(2, -1),
+    },
+  };
+}
+
 export function contractSnapshot(
   entities: Record<string, EntityRecord>,
   correction: KernelStoreSnapshot["correction"] = null,
@@ -120,15 +142,18 @@ export function runSceneAdapterContract(harness: SceneAdapterContractHarness): v
         "card-1": contractCard(),
         "die-1": contractDie(),
         "counter-1": contractCounter(),
+        "button-1": contractButton(),
       }));
       const initialCard = mounted.piece("card-1");
       expect(initialCard).not.toBeNull();
-      expect(mounted.livePieceCount()).toBe(3);
+      expect(mounted.piece("button-1")?.label).toBe("Press me");
+      expect(mounted.livePieceCount()).toBe(4);
 
       adapter.syncEntities(contractSnapshot({
         "card-1": contractCard(3),
         "die-1": contractDie(),
         "counter-1": contractCounter(),
+        "button-1": contractButton(),
       }));
       expect(mounted.piece("card-1")?.identity).toBe(initialCard?.identity);
       expect(mounted.piece("card-1")?.x).toBe(3);
@@ -137,6 +162,7 @@ export function runSceneAdapterContract(harness: SceneAdapterContractHarness): v
         "card-1": contractCard(3, false),
         "die-1": contractDie(),
         "counter-1": contractCounter(),
+        "button-1": contractButton(),
       }));
       expect(mounted.piece("card-1")?.identity).not.toBe(initialCard?.identity);
       expect(initialCard?.disposed).toBeTrue();
@@ -203,14 +229,68 @@ export function runSceneAdapterContract(harness: SceneAdapterContractHarness): v
       mounted.adapter.dispose();
     });
 
+    test("does not expose remotely held or locked pieces as grabbable", async () => {
+      const mounted = await harness.mount(() => undefined);
+      const held = contractCard();
+      held.components.grabbable!.heldBy = "other";
+      const locked = { ...contractCard(2), id: "card-2" };
+      locked.components.lockable = { locked: true };
+      mounted.adapter.syncEntities(contractSnapshot({ "card-1": held, "card-2": locked }));
+      expect(mounted.adapter.isGrabbable("card-1")).toBeFalse();
+      expect(mounted.adapter.isGrabbable("card-2")).toBeFalse();
+      mounted.adapter.dispose();
+    });
+
+    test("projects canvas points to the table plane and rejects off-canvas points", async () => {
+      const mounted = await harness.mount();
+      const point = mounted.adapter.projectToTable(50, 50);
+      expect(point).not.toBeNull();
+      expect(point?.y).toBe(0);
+      expect(mounted.adapter.projectToTable(-1, 50)).toBeNull();
+      expect(mounted.adapter.projectToTable(101, 50)).toBeNull();
+      mounted.adapter.dispose();
+    });
+
+    test("hides contained pieces and hands while rendering a pickable deck pile count", async () => {
+      const mounted = await harness.mount(() => undefined);
+      mounted.adapter.syncEntities(contractSnapshot({
+        "card-1": contractCard(),
+        "deck-1": contractDeck(),
+        hand: { id: "hand", components: { hand: { owner: "seat_1", canonicalOrder: true }, container: { items: [], capacity: null, ordering: "canonical", visibility: "owner:seat_1" } } },
+      }));
+      expect(mounted.piece("card-1")).toBeNull();
+      expect(mounted.piece("hand")).toBeNull();
+      expect(mounted.piece("deck-1")?.label).toBe("Deck · 1");
+      mounted.setPick("deck-1");
+      expect(await mounted.adapter.pick(50, 50)).toBe("deck-1");
+      expect(mounted.livePieceCount()).toBe(1);
+      mounted.adapter.dispose();
+    });
+
     test("applies the adapter's documented hover/selected/held highlight affordances", async () => {
       const mounted = await harness.mount(() => undefined);
       mounted.adapter.syncEntities(contractSnapshot({ "card-1": contractCard() }));
-      for (const kind of ["hover", "selected", "held"] as const) {
+      for (const kind of ["hover", "selected", "held", "locked"] as const) {
         mounted.adapter.setHighlight("card-1", kind);
         expect(mounted.highlight("card-1", kind)).toBe(harness.supportedHighlights.includes(kind));
         mounted.adapter.setHighlight(null, kind);
       }
+      mounted.adapter.dispose();
+    });
+
+    test("keeps held and locked highlights on multiple pieces", async () => {
+      const mounted = await harness.mount(() => undefined);
+      const second = { ...contractCard(2), id: "card-2" };
+      mounted.adapter.syncEntities(contractSnapshot({ "card-1": contractCard(), "card-2": second }));
+      mounted.adapter.setHighlight("card-1", "held");
+      mounted.adapter.setHighlight("card-2", "held");
+      expect(mounted.highlight("card-1", "held")).toBeTrue();
+      expect(mounted.highlight("card-2", "held")).toBeTrue();
+      mounted.adapter.setHighlight(null, "held");
+      mounted.adapter.setHighlight("card-1", "locked");
+      mounted.adapter.setHighlight("card-2", "locked");
+      expect(mounted.highlight("card-1", "locked")).toBeTrue();
+      expect(mounted.highlight("card-2", "locked")).toBeTrue();
       mounted.adapter.dispose();
     });
 

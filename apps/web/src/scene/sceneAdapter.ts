@@ -1,7 +1,7 @@
 import type { KernelStoreSnapshot } from "../state/kernelStore";
 import type { RendererTier } from "./rendererPolicy";
 
-export type HighlightKind = "hover" | "selected" | "held";
+export type HighlightKind = "hover" | "selected" | "held" | "locked";
 
 export interface SceneAdapterMountOptions {
   tier: RendererTier;
@@ -13,6 +13,7 @@ export interface SceneAdapter {
   dispose(): void;
   syncEntities(view: KernelStoreSnapshot): void;
   pick(x: number, y: number): Promise<string | null>;
+  projectToTable(x: number, y: number): { x: number; y: number; z: number } | null;
   isGrabbable(entityId: string): boolean;
   beginDrag(entityId: string, pointerId: number, x: number, y: number): void;
   updateDrag(pointerId: number, x: number, y: number): void;

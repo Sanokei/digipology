@@ -79,7 +79,7 @@ beforeEach(() => {
 runSceneAdapterContract({
   name: "webgl",
   handlesDesktopDrag: true,
-  supportedHighlights: ["selected"],
+  supportedHighlights: ["hover", "selected", "held", "locked"],
   async mount(sendAction) {
     const canvas = new ContractCanvas();
     let engine: NullEngine | null = null;
@@ -188,6 +188,7 @@ runSceneAdapterContract({
           identity: value,
           get x() { return value.position.x; },
           get y() { return value.position.y; },
+          get label() { return typeof (value.metadata as { displayLabel?: unknown } | null)?.displayLabel === "string" ? (value.metadata as { displayLabel: string }).displayLabel : null; },
           get disposed() { return value.isDisposed(); },
         };
       },
