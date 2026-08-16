@@ -15,7 +15,7 @@ class MockSocket implements MessageSocket {
 }
 
 function context(core = new RoomCore("room123"), token = "valid"): MessageHandlerContext & { broadcasts: ServerMessage[] } {
-  const state: ConnectionState = { authenticated: false, playerId: null };
+  const state: ConnectionState = { authenticated: false, playerId: null, bootstrapped: false };
   const broadcasts: ServerMessage[] = [];
   return {
     state,
@@ -104,11 +104,35 @@ describe("protocol message handler", () => {
     const originalSend = socket.send.bind(socket);
     socket.send = (wire) => { originalSend(wire); events.push("sent"); };
     const ctx = context();
-    ctx.afterHelloSent = async () => { events.push("counted"); };
+    ctx.afterHelloSent = async () => {
+      ctx.state.bootstrapped = true;
+      events.push("counted");
+    };
     await handleTextFrame(socket, JSON.stringify({
       type: "hello", protocolVersion: 1, sessionToken: "valid", lastSequence: null,
     }), ctx);
     expect(events).toEqual(["sent", "counted"]);
+    expect(ctx.state.bootstrapped).toBe(true);
+  });
+
+  test("sends bootstrap_unavailable before closing with the terminal bootstrap code", async () => {
+    const socket = new MockSocket();
+    const ctx = context();
+    ctx.hello = () => ({
+      type: "protocol_error",
+      protocolVersion: 1,
+      code: "bootstrap_unavailable",
+      message: "This table is not ready for new players.",
+    });
+    await expect(handleTextFrame(socket, JSON.stringify({
+      type: "hello", protocolVersion: 1, sessionToken: "valid", lastSequence: null,
+    }), ctx)).resolves.toBeUndefined();
+    expect(socket.sent).toEqual([expect.objectContaining({
+      type: "protocol_error",
+      code: "bootstrap_unavailable",
+    })]);
+    expect(socket.closed).toEqual([4002, "Bootstrap unavailable"]);
+    expect(ctx.state.bootstrapped).toBe(false);
   });
 
   test("sends room_ended and closes cleanly for legacy and subsequent hellos", async () => {

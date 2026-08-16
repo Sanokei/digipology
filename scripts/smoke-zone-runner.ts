@@ -16,7 +16,8 @@
 //   8. the room advances by more than the 500-action retention window (driven
 //      by a grab/drop action loop, so it does not wait on the 20 s turn timer)
 //      and both clients' checkpoint attestations are accepted,
-//   9. a late-bootstrap client catches up to the live hash.
+//   9. a late-bootstrap client catches up to the live hash and makes exactly
+//      one accepted checkpoint post (catch-up or the next live cadence).
 import {
   applyOrderedWithScripts,
   loadSnapshot,
@@ -36,7 +37,10 @@ import type {
   QuickPlayResponse,
   ReleaseBundleDto,
 } from "digipology-protocol/http";
-import { CHECKPOINT_ATTESTATION_INTERVAL } from "digipology-protocol/http";
+import {
+  ACTION_RETENTION,
+  CHECKPOINT_ATTESTATION_INTERVAL,
+} from "digipology-protocol/http";
 
 const NETWORK_TIMEOUT_MS = 7_000;
 const FRAME_TIMEOUT_MS = 30_000;
@@ -286,16 +290,56 @@ async function runChecks(): Promise<void> {
     const quick = requireValue(seats, "two guest quickplay calls share a zone-runner room");
     const release = requireValue(bundle, "release bundle carries a scripted Lua runtime");
     const late = await connect("C", quick.first, release);
-    await applyUntil(late, (message) => message.type === "bootstrap");
-    // The turn timer keeps sequencing frames; park both clients on the same sequence before comparing.
-    const goal = Math.max(requireState(connected.a).sequence, requireState(late).sequence);
-    const reached = (message: ServerMessage): boolean => message.type === "ordered_action" && message.sequence >= goal;
-    if (requireState(connected.a).sequence < goal) await applyUntil(connected.a, reached);
-    if (requireState(late).sequence < goal) {
-      await applyUntil(late, reached, LONG_ROOM_ACTIONS + MAX_FRAMES_PER_STEP);
+    // Model the web client's hello burst: retain the highest eligible cadence
+    // while replaying and submit it once after reaching the live tail.
+    const bootstrapGoal = requireState(connected.a).sequence;
+    const reachedBootstrapTail = (message: ServerMessage): boolean =>
+      (message.type === "bootstrap" || message.type === "ordered_action") &&
+      message.sequence >= bootstrapGoal;
+    await applyUntil(
+      late,
+      reachedBootstrapTail,
+      LONG_ROOM_ACTIONS + MAX_FRAMES_PER_STEP,
+      { checkpointMode: "catch-up" },
+    );
+
+    if (late.checkpointPosts.length === 0) {
+      // A confirmed checkpoint base can leave no later cadence in its short
+      // tail. Advance to the next live cadence to verify live behavior too.
+      const driver = handItems(connected.a, seatOf(connected.a).handId).length > 0
+        ? connected.a
+        : connected.b;
+      const follower = driver === connected.a ? connected.b : connected.a;
+      const runner = handItems(driver, seatOf(driver).handId)[0];
+      expect(runner !== undefined, `${driver.name} has no runner available for late-attestation drive`);
+      const target = Math.ceil((requireState(driver).sequence + 1) /
+        CHECKPOINT_ATTESTATION_INTERVAL) * CHECKPOINT_ATTESTATION_INTERVAL;
+      const parked = {
+        position: { x: 6, y: 0, z: 5 },
+        rotation: { x: 0, y: 0, z: 0, w: 1 },
+        scale: { x: 1, y: 1, z: 1 },
+      };
+      let holding = false;
+      while (requireState(driver).sequence < target) {
+        const requestId = holding
+          ? sendAction(driver, "entity.drop", { entityId: runner, transform: parked })
+          : sendAction(driver, "entity.grab", { entityId: runner });
+        holding = !holding;
+        await applyUntil(driver, isRequest(requestId));
+      }
+      const reachedLiveTail = (message: ServerMessage): boolean =>
+        message.type === "ordered_action" && message.sequence >= requireState(driver).sequence;
+      await applyUntil(follower, reachedLiveTail, CHECKPOINT_ATTESTATION_INTERVAL + MAX_FRAMES_PER_STEP);
+      await applyUntil(late, reachedLiveTail, CHECKPOINT_ATTESTATION_INTERVAL + MAX_FRAMES_PER_STEP);
     }
+
+    const goal = requireState(connected.a).sequence;
     const liveHash = hashOf(connected.a);
     expect(hashOf(late) === liveHash, `late client hash ${hashOf(late)} differs from live ${liveHash} at sequence ${goal}`);
+    expect(late.checkpointPosts.length === 1,
+      `expected exactly one late-client checkpoint post, received ${JSON.stringify(late.checkpointPosts)}`);
+    expect(late.checkpointPosts.every((post) => post.status === 204),
+      `late-client checkpoint was rejected: ${JSON.stringify(late.checkpointPosts)}`);
     const unexpected = unexpectedRejections(late);
     expect(unexpected.length === 0, `late client rejections: ${JSON.stringify(unexpected)}`);
     return `sequence ${goal}`;
@@ -402,12 +446,27 @@ async function applyUntil(
   client: Client,
   done: (message: ServerMessage) => boolean,
   maxFrames = MAX_FRAMES_PER_STEP,
+  options: { checkpointMode?: "per-action" | "catch-up" } = {},
 ): Promise<ServerMessage> {
+  let bootstrapBase: number | null = null;
+  let catchUpCadence: CanonicalGameState | null = null;
+  const finishCatchUp = async (): Promise<void> => {
+    if (options.checkpointMode !== "catch-up" || bootstrapBase === null || catchUpCadence === null) return;
+    const currentSequence = requireState(client).sequence;
+    if (catchUpCadence.sequence > bootstrapBase &&
+      catchUpCadence.sequence >= currentSequence - ACTION_RETENTION + 1) {
+      await reportCheckpoint(client, catchUpCadence);
+    }
+  };
   for (let index = 0; index < maxFrames; index += 1) {
     const message = await client.next();
     if (message.type === "bootstrap") {
       client.state = loadSnapshot(message.snapshot as GameSnapshot);
-      if (done(message)) return message;
+      if (options.checkpointMode === "catch-up") bootstrapBase = message.sequence;
+      if (done(message)) {
+        await finishCatchUp();
+        return message;
+      }
       continue;
     }
     if (message.type !== "ordered_action") {
@@ -428,14 +487,26 @@ async function applyUntil(
       client.rejections.push(`${message.sequence}:${message.action.type}:${result.rejection.reason}`);
     }
     await reportTimers(client, result.events);
-    await reportCheckpoint(client);
-    if (done(message)) return message;
+    if (options.checkpointMode === "catch-up" && bootstrapBase !== null) {
+      if (result.state.sequence > bootstrapBase &&
+        result.state.sequence % CHECKPOINT_ATTESTATION_INTERVAL === 0) {
+        catchUpCadence = result.state;
+      }
+    } else {
+      await reportCheckpoint(client);
+    }
+    if (done(message)) {
+      await finishCatchUp();
+      return message;
+    }
   }
   throw new Error(`${client.name}: predicate not met within ${maxFrames} frames`);
 }
 
-async function reportCheckpoint(client: Client): Promise<void> {
-  const state = requireState(client);
+async function reportCheckpoint(
+  client: Client,
+  state: CanonicalGameState = requireState(client),
+): Promise<void> {
   if (state.sequence <= 0 || state.sequence % CHECKPOINT_ATTESTATION_INTERVAL !== 0) return;
   const checkpoint = snapshot(state);
   const response = await fetch(`${origin}/api/rooms/${encodeURIComponent(client.roomId)}/checkpoints`, {

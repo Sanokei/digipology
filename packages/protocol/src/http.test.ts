@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
+  ACTION_RETENTION,
+  CHECKPOINT_ATTESTATION_INTERVAL,
   effectiveLuaStdlibVersion,
   rawContentHash,
   releaseManifestHash,
@@ -18,6 +20,12 @@ import {
   type GameSnapshotDto,
   type ReleaseBundleDto,
 } from "./http";
+
+test("keeps checkpoint cadence below the shared action retention window", () => {
+  expect(ACTION_RETENTION).toBe(500);
+  expect(CHECKPOINT_ATTESTATION_INTERVAL).toBe(200);
+  expect(CHECKPOINT_ATTESTATION_INTERVAL).toBeLessThan(ACTION_RETENTION);
+});
 
 function stable(value: unknown): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value);

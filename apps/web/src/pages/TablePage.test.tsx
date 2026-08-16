@@ -46,3 +46,10 @@ test("only exposes the local player's open canonical prompts", () => {
   } as unknown as import("digipology-kernel").CanonicalGameState;
   expect(openPromptsForPlayer(state, "p1").map((prompt) => prompt.id)).toEqual(["mine"]);
 });
+
+test("the terminal connection error overlay offers an explicit retry", async () => {
+  const source = await Bun.file(new URL("./TablePage.tsx", import.meta.url)).text();
+  expect(source).toContain("Try again");
+  expect(source).toContain("onClick={() => client.start()}");
+  expect(source).toContain("Leave table");
+});

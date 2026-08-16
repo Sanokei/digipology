@@ -15,6 +15,7 @@ export interface MessageSocket {
 export interface ConnectionState {
   authenticated: boolean;
   playerId: string | null;
+  bootstrapped: boolean;
 }
 
 export interface MessageHandlerContext {
@@ -99,6 +100,10 @@ async function handleHello(
   await context.afterHelloSent?.(playerId, messages);
   if (messages.some((message) => message.type === "room_ended")) {
     socket.close(1000, "Room ended");
+  } else if (messages.some(
+    (message) => message.type === "protocol_error" && message.code === "bootstrap_unavailable",
+  )) {
+    socket.close(4002, "Bootstrap unavailable");
   }
 }
 
