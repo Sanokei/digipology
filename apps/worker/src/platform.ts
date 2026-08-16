@@ -69,7 +69,7 @@ import {
   type AiGameDependencies,
 } from "./ai-games";
 import { handleCoverGeneration } from "./cover-generation";
-import { loadSnapshot, type GameSnapshot } from "digipology-kernel";
+import { loadSnapshot, snapshotRequiresScripts, type GameSnapshot } from "digipology-kernel";
 
 const HTTP_BODY_LIMIT = 4 * 1024;
 const MAGIC_EMAIL_LIMIT = 3;
@@ -823,6 +823,7 @@ export async function handlePlatformRequest(
     }
     const savedSnapshot = JSON.parse(outcome.snapshotJson) as GameSnapshotDto;
     if (savedSnapshot.releaseId !== metadata.release_id) return jsonError(422, "save_invalid", "Snapshot release does not match the room index");
+    const requiresScripts = snapshotRequiresScripts(savedSnapshot as unknown as GameSnapshot);
     const bucket = saveBucket(env);
     if (bucket === null) return jsonError(503, "save_storage_unavailable", "Save storage is unavailable");
     const saveId = `save_${crypto.randomUUID()}`;
@@ -834,7 +835,8 @@ export async function handlePlatformRequest(
       id: saveId, ownerUserId: session.user.id, releaseId: savedSnapshot.releaseId,
       gameSlug: metadata.game_slug, sourceRoomId: roomSaveMatch[1]!,
       sequence: savedSnapshot.sequence, stateHash: savedSnapshot.stateHash,
-      objectKey, byteLength, ...(parsed.value.label === undefined ? {} : { label: parsed.value.label }),
+      objectKey, byteLength, requiresScripts,
+      ...(parsed.value.label === undefined ? {} : { label: parsed.value.label }),
       createdAt: now, deletedAt: null,
     }));
     const response: SaveTableResponse = {
@@ -858,6 +860,8 @@ export async function handlePlatformRequest(
         gameTitle: builtinGame?.title ?? uploaded?.gameTitle ?? record.gameSlug,
         releaseId: record.releaseId, sequence: record.sequence,
         createdAt: new Date(record.createdAt).toISOString(), byteLength: record.byteLength,
+        resumable: !record.requiresScripts,
+        ...(record.requiresScripts ? { resumeBlockedReason: "scripted_resume_unsupported" } : {}),
         ...(record.label === undefined ? {} : { label: record.label }),
       });
     }
@@ -903,6 +907,9 @@ export async function handlePlatformRequest(
       loadSnapshot(saved as unknown as GameSnapshot);
       if (saved.releaseId !== record.releaseId || saved.sequence !== record.sequence || saved.stateHash !== record.stateHash) throw new Error("Save metadata mismatch");
     } catch { return jsonError(422, "save_invalid", "The saved snapshot failed its integrity check"); }
+    if (snapshotRequiresScripts(saved as unknown as GameSnapshot)) {
+      return jsonError(409, "scripted_resume_unsupported", "Scripted games can't be resumed yet. Your save is kept safe and will resume once support lands.");
+    }
     const gameTitle = builtinGame?.title ?? uploaded?.gameTitle ?? record.gameSlug;
     const created = await allocateRoomForPlayer(env, {
       releaseId: record.releaseId, gameSlug: record.gameSlug,

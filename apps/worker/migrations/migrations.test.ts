@@ -108,7 +108,9 @@ describe("D1 migrations", () => {
     expect(db.query("SELECT creator_user_id, resumed_from_save_id FROM rooms_index WHERE room_id = 'legacy'").get())
       .toEqual({ creator_user_id: null, resumed_from_save_id: null });
     expect(db.query("PRAGMA table_info(saved_tables)").all().map((row) => (row as { name: string }).name))
-      .toEqual(expect.arrayContaining(["owner_user_id", "release_id", "state_hash", "object_key", "deleted_at"]));
+      .toEqual(expect.arrayContaining([
+        "owner_user_id", "release_id", "state_hash", "object_key", "requires_scripts", "deleted_at",
+      ]));
     db.close();
   });
 
@@ -126,12 +128,13 @@ describe("D1 migrations", () => {
        state_hash, object_key, byte_length, created_at)
       VALUES ('save_1', 'owner', 'builtin_first_deal_1', 'first-deal',
               'room_1', 7, 'sha256:test', 'saves/save_1.json', 100, 2)`).run();
-    expect(db.query("SELECT owner_user_id, release_id, state_hash, object_key FROM saved_tables").get())
+    expect(db.query("SELECT owner_user_id, release_id, state_hash, object_key, requires_scripts FROM saved_tables").get())
       .toEqual({
         owner_user_id: "owner",
         release_id: "builtin_first_deal_1",
         state_hash: "sha256:test",
         object_key: "saves/save_1.json",
+        requires_scripts: 0,
       });
     db.close();
   });

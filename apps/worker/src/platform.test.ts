@@ -549,11 +549,29 @@ describe("saved tables routes", () => {
     const objectKey = `saves/${body.saveId}.json`;
     expect(JSON.parse(harness.bucket.objects.get(objectKey)!)).toEqual(harness.snapshot);
     expect(harness.db.query(`SELECT id, owner_user_id, release_id, game_slug, source_room_id,
-      sequence, state_hash, object_key, label, deleted_at FROM saved_tables WHERE id = ?`).get(body.saveId)).toEqual({
+      sequence, state_hash, object_key, requires_scripts, label, deleted_at FROM saved_tables WHERE id = ?`).get(body.saveId)).toEqual({
       id: body.saveId, owner_user_id: harness.userId, release_id: harness.snapshot.releaseId,
       game_slug: "first-deal", source_room_id: harness.roomId, sequence: harness.snapshot.sequence,
-      state_hash: harness.snapshot.stateHash, object_key: objectKey, label: "Friday table", deleted_at: null,
+      state_hash: harness.snapshot.stateHash, object_key: objectKey, requires_scripts: 0,
+      label: "Friday table", deleted_at: null,
     });
+  });
+
+  test("persists requires_scripts for a scripted save", async () => {
+    const harness = await savedTablesTestEnv();
+    const release = builtinCatalog.getRelease("builtin_zone_runner_2");
+    if (release === null) throw new Error("Missing scripted saved-tables test release");
+    const scriptedSnapshot = structuredClone(release.bundle.initialSnapshot);
+    harness.db.query("UPDATE rooms_index SET release_id = ?, game_slug = ? WHERE room_id = ?")
+      .run(release.releaseId, release.gameSlug, harness.roomId);
+    harness.saveOutcome = { status: "ok", snapshotJson: JSON.stringify(scriptedSnapshot) };
+    const response = await harness.request("POST", `/api/rooms/${harness.roomId}/save`, {
+      roomToken: "host-token", snapshot: scriptedSnapshot,
+    });
+    expect(response.status).toBe(201);
+    const body = await response.json() as { saveId: string };
+    expect(harness.db.query("SELECT requires_scripts FROM saved_tables WHERE id = ?").get(body.saveId))
+      .toEqual({ requires_scripts: 1 });
   });
 
   test("lists only the owner's active saves newest first with resolved and fallback titles", async () => {
@@ -563,6 +581,10 @@ describe("saved tables routes", () => {
     insertSavedTable(harness.db, {
       id: "save_builtin", ownerUserId: harness.userId, releaseId: harnessReleaseId(),
       gameSlug: "first-deal", createdAt: 100,
+    });
+    insertSavedTable(harness.db, {
+      id: "save_scripted", ownerUserId: harness.userId, releaseId: "builtin_zone_runner_2",
+      gameSlug: "zone-runner", createdAt: 250, requiresScripts: true,
     });
     insertSavedTable(harness.db, {
       id: "save_uploaded", ownerUserId: harness.userId, releaseId: "release_community",
@@ -583,12 +605,20 @@ describe("saved tables routes", () => {
 
     const response = await harness.request("GET", "/api/saves");
     expect(response.status).toBe(200);
-    const body = await response.json() as { saves: Array<{ saveId: string; gameTitle: string }> };
+    const body = await response.json() as { saves: Array<{
+      saveId: string; gameTitle: string; resumable?: boolean; resumeBlockedReason?: string;
+    }> };
     expect(body.saves).toEqual([
-      expect.objectContaining({ saveId: "save_fallback", gameTitle: "lost-game" }),
-      expect.objectContaining({ saveId: "save_uploaded", gameTitle: "Community Game" }),
-      expect.objectContaining({ saveId: "save_builtin", gameTitle: "First Deal" }),
+      expect.objectContaining({ saveId: "save_fallback", gameTitle: "lost-game", resumable: true }),
+      expect.objectContaining({
+        saveId: "save_scripted", gameTitle: "Zone Runner", resumable: false,
+        resumeBlockedReason: "scripted_resume_unsupported",
+      }),
+      expect.objectContaining({ saveId: "save_uploaded", gameTitle: "Community Game", resumable: true }),
+      expect.objectContaining({ saveId: "save_builtin", gameTitle: "First Deal", resumable: true }),
     ]);
+    expect(body.saves.filter((save) => save.resumable === true)
+      .every((save) => save.resumeBlockedReason === undefined)).toBe(true);
   });
 
   test("soft-deletes only an owner's save and removes its R2 object", async () => {
@@ -666,6 +696,26 @@ describe("saved tables routes", () => {
       room_id: harness.newRoomId, release_id: harnessReleaseId(), origin: "hosted",
       creator_user_id: harness.userId, resumed_from_save_id: "save_resume",
     });
+  });
+
+  test("refuses scripted resume before allocating a room", async () => {
+    const harness = await savedTablesTestEnv();
+    const release = builtinCatalog.getRelease("builtin_zone_runner_2");
+    if (release === null) throw new Error("Missing scripted saved-tables test release");
+    const scriptedSnapshot = structuredClone(release.bundle.initialSnapshot);
+    insertSavedTable(harness.db, {
+      id: "save_scripted", ownerUserId: harness.userId, releaseId: release.releaseId,
+      gameSlug: release.gameSlug, createdAt: 100, sequence: scriptedSnapshot.sequence,
+      stateHash: scriptedSnapshot.stateHash, requiresScripts: true,
+    });
+    harness.bucket.objects.set("saves/save_scripted.json", JSON.stringify(scriptedSnapshot));
+
+    const response = await harness.request("POST", "/api/saves/save_scripted/resume", {});
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ error: { code: "scripted_resume_unsupported" } });
+    expect(harness.db.query("SELECT COUNT(*) AS count FROM rooms_index WHERE room_id = ?")
+      .get(harness.newRoomId)).toEqual({ count: 0 });
+    expect(harness.initializedFromSave).toBeNull();
   });
 });
 
@@ -926,12 +976,13 @@ function insertSavedTable(db: Database, input: {
   createdAt: number;
   sequence?: number;
   stateHash?: string;
+  requiresScripts?: boolean;
   deletedAt?: number;
 }): void {
   db.query(`INSERT INTO saved_tables
     (id, owner_user_id, release_id, game_slug, source_room_id, sequence,
-     state_hash, object_key, byte_length, label, created_at, deleted_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 100, NULL, ?, ?)`)
+     state_hash, object_key, byte_length, requires_scripts, label, created_at, deleted_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 100, ?, NULL, ?, ?)`)
     .run(
       input.id,
       input.ownerUserId,
@@ -941,6 +992,7 @@ function insertSavedTable(db: Database, input: {
       input.sequence ?? 0,
       input.stateHash ?? `sha256:${"1".repeat(64)}`,
       `saves/${input.id}.json`,
+      input.requiresScripts ? 1 : 0,
       input.createdAt,
       input.deletedAt ?? null,
     );

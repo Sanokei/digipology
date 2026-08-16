@@ -13,6 +13,7 @@ CREATE TABLE saved_tables (
   state_hash TEXT NOT NULL,
   object_key TEXT NOT NULL,
   byte_length INTEGER NOT NULL,
+  requires_scripts INTEGER NOT NULL DEFAULT 0,
   label TEXT,
   created_at INTEGER NOT NULL,
   deleted_at INTEGER

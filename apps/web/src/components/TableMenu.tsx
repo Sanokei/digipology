@@ -5,8 +5,8 @@ import type { GameSnapshotDto } from "digipology-protocol/http";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 
-export function TableMenuContent({ isHost, signedIn, saveHidden, busy, onDiagnostics, onSave, onEnd }: {
-  isHost: boolean; signedIn: boolean; saveHidden: boolean; busy: boolean;
+export function TableMenuContent({ isHost, signedIn, saveHidden, scripted, busy, onDiagnostics, onSave, onEnd }: {
+  isHost: boolean; signedIn: boolean; saveHidden: boolean; scripted: boolean; busy: boolean;
   onDiagnostics(): void; onSave(): void; onEnd(): void;
 }) {
   return <div className="table-menu__sheet table-sheet" role="menu">
@@ -14,13 +14,14 @@ export function TableMenuContent({ isHost, signedIn, saveHidden, busy, onDiagnos
     {isHost && !saveHidden ? <button type="button" role="menuitem" disabled={busy} onClick={onSave}>
       {signedIn ? busy ? "Saving…" : "Save table" : "Sign in to save this table"}
     </button> : null}
+    {isHost && scripted && !saveHidden ? <p className="table-menu__note">Scripted games can't be resumed yet — you can save now and resume once support lands.</p> : null}
     {isHost ? <button type="button" role="menuitem" disabled={busy} onClick={onEnd}>End table</button> : null}
     <Link role="menuitem" to="/">Leave</Link>
   </div>;
 }
 
-export function TableMenu({ roomId, roomToken, isHost, confirmedSnapshot, onDiagnostics }: {
-  roomId: string; roomToken: string; isHost: boolean;
+export function TableMenu({ roomId, roomToken, isHost, scripted, confirmedSnapshot, onDiagnostics }: {
+  roomId: string; roomToken: string; isHost: boolean; scripted: boolean;
   confirmedSnapshot(): GameSnapshotDto | null; onDiagnostics(): void;
 }) {
   const { user, refresh } = useAuth();
@@ -32,7 +33,9 @@ export function TableMenu({ roomId, roomToken, isHost, confirmedSnapshot, onDiag
   const [notice, setNotice] = useState<string | null>(null);
 
   const save = useCallback(async () => {
-    if (!window.confirm("Save this table? You can resume it later from Saved tables.")) return;
+    if (!window.confirm(scripted
+      ? "Save this table? Scripted games can't be resumed yet — the save is kept until resume support lands."
+      : "Save this table? You can resume it later from Saved tables.")) return;
     setBusy(true); setNotice(null);
     let result = await api.saveTable(roomId, roomToken, confirmedSnapshot() ?? undefined);
     if (!result.ok && result.error.code === "save_stale") {
@@ -42,7 +45,7 @@ export function TableMenu({ roomId, roomToken, isHost, confirmedSnapshot, onDiag
     if (result.ok) setNotice("saved");
     else if (result.error.code === "save_host_only") setSaveHidden(true);
     else setNotice(result.error.message);
-  }, [confirmedSnapshot, roomId, roomToken]);
+  }, [confirmedSnapshot, roomId, roomToken, scripted]);
 
   useEffect(() => {
     if (!pendingSignIn) return;
@@ -74,7 +77,7 @@ export function TableMenu({ roomId, roomToken, isHost, confirmedSnapshot, onDiag
 
   return <details className="table-menu">
     <summary className="icon-button" aria-label="Open table menu">•••</summary>
-    <TableMenuContent isHost={isHost} signedIn={user !== null} saveHidden={saveHidden} busy={busy}
+    <TableMenuContent isHost={isHost} signedIn={user !== null} saveHidden={saveHidden} scripted={scripted} busy={busy}
       onDiagnostics={onDiagnostics} onSave={requestSave} onEnd={() => void endTable()} />
     {notice === "saved" ? <div className="table-menu__toast" role="status">Saved · <Link to="/saves">View saved tables</Link></div>
       : notice === null ? null : <div className="table-menu__toast" role="alert">{notice}</div>}

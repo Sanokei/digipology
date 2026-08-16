@@ -97,9 +97,10 @@ export function SavesPageContent({
     </section> : error !== null ? <section role="alert"><p>{error}</p><button type="button" onClick={onRetry}>Retry</button></section>
       : saves.length === 0 ? <section className="empty-state"><h2>No saved tables yet</h2><p>Hosts can save a live table from its table menu.</p></section>
       : <div className="saved-tables-list">{saves.map((save) => <article key={save.saveId} className="saved-table-card">
-        <div><span>{save.label ?? save.gameTitle}</span><strong>{save.gameTitle}</strong>
-          <small>Saved {relativeSavedTime(save.createdAt)} · sequence {save.sequence} · {save.releaseId.slice(0, 18)}</small></div>
-        <div><button type="button" disabled={pending !== null} onClick={() => onResume(save.saveId)}>
+        <div><strong>{save.label ?? save.gameTitle}</strong>{save.label === undefined ? null : <span>{save.gameTitle}</span>}
+          <small>Saved {relativeSavedTime(save.createdAt)} · sequence {save.sequence} · {save.releaseId.slice(0, 18)}</small>
+          {save.resumable === false ? <p className="saved-table-card__note">Scripted games can't be resumed yet. This save is kept until resume support lands.</p> : null}</div>
+        <div><button type="button" disabled={pending !== null || save.resumable === false} onClick={() => onResume(save.saveId)}>
           {pending === save.saveId ? "Resuming table" : "Resume"}</button>
           <button type="button" disabled={pending !== null} onClick={() => onDelete(save.saveId)}>Delete</button></div>
       </article>)}</div>}

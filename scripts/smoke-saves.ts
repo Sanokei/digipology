@@ -1,8 +1,8 @@
 // Saved-table production smoke: authenticated host save + new-room resume.
 // Usage: SMOKE_SESSION=<dgp_session token> bun scripts/smoke-saves.ts https://play.digipology.com
 //
-// Runs the same convergence scenario for unscripted First Deal and scripted
-// Zone Runner v2, including a mid-grab save and authorization spot checks.
+// Runs full convergence for unscripted First Deal and verifies that scripted
+// Zone Runner v2 saves successfully while resume remains explicitly gated.
 import {
   applyOrdered,
   applyOrderedWithScripts,
@@ -24,6 +24,7 @@ import type {
   ReleaseBundleDto,
   ResumeSaveResponse,
   SaveTableResponse,
+  SavesResponse,
 } from "digipology-protocol/http";
 
 const NETWORK_TIMEOUT_MS = 7_000;
@@ -87,7 +88,8 @@ async function main(): Promise<void> {
 
 async function runScenario(slug: "first-deal" | "zone-runner", scripted: boolean): Promise<void> {
   const label = scripted ? "scripted Zone Runner v2" : "unscripted First Deal";
-  await check(`${label}: save/resume convergence`, async () => {
+  const checkName = scripted ? `${label}: save allowed, resume gated` : `${label}: save/resume convergence`;
+  await check(checkName, async () => {
     const created = await postJson<CreateRoomResponse>(
       "/api/rooms",
       { releaseSlugOrId: slug, visibility: "private", displayName: `${label} Host` },
@@ -159,6 +161,46 @@ async function runScenario(slug: "first-deal" | "zone-runner", scripted: boolean
     expect(saved.value.sequence === savedState.sequence, "save response sequence differs from confirmed state");
     expect(saved.value.stateHash === savedState.stateHash, "save response hash differs from confirmed state");
 
+    const listed = await httpJson<SavesResponse>("/api/saves", {
+      method: "GET",
+      headers: authHeaders(),
+    });
+    expect(listed.status === 200, `save listing returned ${listed.status}`);
+    const listedSave = listed.value.saves.find((save) => save.saveId === saved.value.saveId);
+    expect(listedSave !== undefined, "new save is missing from the saved-tables list");
+    if (scripted) {
+      expect(listedSave.resumable === false, "scripted save is not marked non-resumable");
+      expect(
+        listedSave.resumeBlockedReason === "scripted_resume_unsupported",
+        `scripted save has unexpected block reason ${listedSave.resumeBlockedReason}`,
+      );
+      const refused = await postJson<ApiErrorResponse>(
+        `/api/saves/${encodeURIComponent(saved.value.saveId)}/resume`,
+        { visibility: "private", displayName: `${label} Resumed Host` },
+        authHeaders(),
+      );
+      expect(refused.status === 409, `scripted resume returned ${refused.status}`);
+      expect(
+        refused.value.error.code === "scripted_resume_unsupported",
+        `scripted resume returned ${refused.value.error.code}`,
+      );
+      const afterRefusal = await httpJson<SavesResponse>("/api/saves", {
+        method: "GET",
+        headers: authHeaders(),
+      });
+      expect(afterRefusal.status === 200, `post-refusal save listing returned ${afterRefusal.status}`);
+      const retained = afterRefusal.value.saves.find((save) => save.saveId === saved.value.saveId);
+      expect(retained !== undefined, "scripted save was consumed by refused resume");
+      expect(retained.resumable === false, "retained scripted save is not marked non-resumable");
+      const removed = await httpJson<unknown>(`/api/saves/${encodeURIComponent(saved.value.saveId)}`, {
+        method: "DELETE",
+        headers: { ...JSON_HEADERS, ...authHeaders() },
+      });
+      expect(removed.status === 204, `save cleanup returned ${removed.status}`);
+      return `${saved.value.saveId} gated and retained`;
+    }
+    expect(listedSave.resumable !== false, "unscripted save is marked non-resumable");
+
     const resumed = await postJson<ResumeSaveResponse>(
       `/api/saves/${encodeURIComponent(saved.value.saveId)}/resume`,
       { visibility: "private", displayName: `${label} Resumed Host` },
@@ -189,11 +231,10 @@ async function runScenario(slug: "first-deal" | "zone-runner", scripted: boolean
     expect(heldBy(requireState(roomB.a), entityId) === null, "mid-grab entity remained held after resume");
     expectConvergedAtEverySequence(roomB);
 
-    const roomBActor = scripted ? currentPlayer(roomB) : roomB.a;
-    await sendAndApply(roomB, roomBActor, "entity.grab", { entityId });
-    await sendAndApply(roomB, roomBActor, "entity.drop", {
+    await sendAndApply(roomB, roomB.a, "entity.grab", { entityId });
+    await sendAndApply(roomB, roomB.a, "entity.drop", {
       entityId,
-      transform: entityTransform(requireState(roomBActor), entityId),
+      transform: entityTransform(requireState(roomB.a), entityId),
     });
     expectConvergedAtEverySequence(roomB);
     expect(roomB.a.rejections.length === 0, `room B host rejections: ${JSON.stringify(roomB.a.rejections)}`);
@@ -357,19 +398,6 @@ function expectConvergedAtEverySequence(pair: Pair): void {
   }
 }
 
-function currentPlayer(pair: Pair): Client {
-  const scriptState = requireState(pair.a).scriptState;
-  const stdlib = isRecord(scriptState) ? scriptState.__stdlib : undefined;
-  const turns = isRecord(stdlib) ? stdlib.turns : undefined;
-  expect(isRecord(turns) && Array.isArray(turns.order) && typeof turns.index === "number", "turn state is missing");
-  const order = turns.order.map(String);
-  const playerId = order[(turns.index - 1 + order.length) % order.length];
-  expect(playerId !== undefined, "turn order is empty");
-  if (pair.a.playerId === playerId) return pair.a;
-  if (pair.b.playerId === playerId) return pair.b;
-  throw new Error(`current player ${playerId} is not in room B`);
-}
-
 function findGrabbable(state: CanonicalGameState): string {
   const entityId = Object.keys(state.entities).sort().find((id) => state.entities[id]?.components.grabbable !== undefined);
   expect(entityId !== undefined, "room has no grabbable entity");
@@ -454,10 +482,6 @@ async function check<T>(name: string, action: () => Promise<T>, detail?: (value:
 
 function expect(condition: boolean, detail: string): asserts condition {
   if (!condition) throw new Error(detail);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function errorDetail(error: unknown): string {

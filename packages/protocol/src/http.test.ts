@@ -99,11 +99,16 @@ describe("HTTP v1 request validators", () => {
     expect(validateSaveTableRequest({ roomToken: "token", snapshot: { ...snapshot, stateHash: "bad" } }).ok).toBe(false);
     expect(validateResumeSaveRequest({ visibility: "private", displayName: "Host" }).ok).toBe(true);
     expect(validateResumeSaveRequest({ visibility: "friends" }).ok).toBe(false);
-    expect(validateSavedTableDto({
+    const savedTable = {
       saveId: "save_1", gameSlug: "first-deal", gameTitle: "First Deal",
       releaseId: "builtin_first_deal_1", sequence: 7,
       createdAt: "2026-08-16T12:00:00.000Z", byteLength: 123,
+    };
+    expect(validateSavedTableDto(savedTable).ok).toBe(true);
+    expect(validateSavedTableDto({
+      ...savedTable, resumable: false, resumeBlockedReason: "scripted_resume_unsupported",
     }).ok).toBe(true);
+    expect(validateSavedTableDto({ ...savedTable, resumable: "no" }).ok).toBe(false);
   });
   test("validates magic-link request bodies", () => {
     expect(validateRequestMagicLinkRequest({ email: "player@example.com" })).toEqual({

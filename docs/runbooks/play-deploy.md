@@ -148,10 +148,12 @@ public-room creation; without it, that check is skipped (creating a session requ
 magic-link login, which cannot be automated in production by design).
 
 `smoke-saves.ts` requires the value of an authenticated `dgp_session` cookie in
-`SMOKE_SESSION`. It runs the two-client save/resume convergence scenario for both
-unscripted First Deal and scripted Zone Runner v2, checks the sequence-zero rebase and
-mid-grab release, verifies signed-out and non-host save authorization, then deletes its
-saved-table rows. Omit the URL to target local `wrangler dev`.
+`SMOKE_SESSION`. It runs full two-client save/resume convergence for unscripted First Deal,
+including the sequence-zero rebase and mid-grab release. For scripted Zone Runner v2 it
+verifies that saving succeeds, the saved-tables list marks the save non-resumable, and resume
+returns the documented `409 scripted_resume_unsupported` gate without consuming the save. It
+also checks signed-out and non-host save authorization, then deletes its saved-table rows.
+Omit the URL to target local `wrangler dev`.
 
 ## Rollback
 

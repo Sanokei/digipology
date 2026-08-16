@@ -106,13 +106,15 @@ interface ReleaseRow {
 interface SavedTableRow {
   id: string; owner_user_id: string; release_id: string; game_slug: string;
   source_room_id: string; sequence: number; state_hash: string; object_key: string;
-  byte_length: number; label: string | null; created_at: number; deleted_at: number | null;
+  byte_length: number; requires_scripts: number; label: string | null;
+  created_at: number; deleted_at: number | null;
 }
 
 export interface SavedTableRecord {
   id: string; ownerUserId: string; releaseId: string; gameSlug: string;
   sourceRoomId: string; sequence: number; stateHash: string; objectKey: string;
-  byteLength: number; label?: string; createdAt: number; deletedAt: number | null;
+  byteLength: number; requiresScripts: boolean; label?: string;
+  createdAt: number; deletedAt: number | null;
 }
 
 export class D1Repositories implements MagicLinkRepository, SessionRepository, RateLimitStore {
@@ -245,17 +247,17 @@ export class D1Repositories implements MagicLinkRepository, SessionRepository, R
     await this.db.prepare(
       `INSERT INTO saved_tables
        (id, owner_user_id, release_id, game_slug, source_room_id, sequence,
-        state_hash, object_key, byte_length, label, created_at, deleted_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+        state_hash, object_key, byte_length, requires_scripts, label, created_at, deleted_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
     ).bind(record.id, record.ownerUserId, record.releaseId, record.gameSlug,
       record.sourceRoomId, record.sequence, record.stateHash, record.objectKey,
-      record.byteLength, record.label ?? null, record.createdAt).run();
+      record.byteLength, record.requiresScripts ? 1 : 0, record.label ?? null, record.createdAt).run();
   }
 
   async listSavedTables(userId: string): Promise<SavedTableRecord[]> {
     const rows = await this.db.prepare(
       `SELECT id, owner_user_id, release_id, game_slug, source_room_id, sequence,
-              state_hash, object_key, byte_length, label, created_at, deleted_at
+              state_hash, object_key, byte_length, requires_scripts, label, created_at, deleted_at
        FROM saved_tables WHERE owner_user_id = ? AND deleted_at IS NULL
        ORDER BY created_at DESC, id DESC`,
     ).bind(userId).all<SavedTableRow>();
@@ -265,7 +267,7 @@ export class D1Repositories implements MagicLinkRepository, SessionRepository, R
   async getOwnedSavedTable(saveId: string, userId: string): Promise<SavedTableRecord | null> {
     const row = await this.db.prepare(
       `SELECT id, owner_user_id, release_id, game_slug, source_room_id, sequence,
-              state_hash, object_key, byte_length, label, created_at, deleted_at
+              state_hash, object_key, byte_length, requires_scripts, label, created_at, deleted_at
        FROM saved_tables WHERE id = ? AND owner_user_id = ? AND deleted_at IS NULL`,
     ).bind(saveId, userId).first<SavedTableRow>();
     return row === null ? null : savedTableRecord(row);
@@ -493,7 +495,8 @@ function savedTableRecord(row: SavedTableRow): SavedTableRecord {
     id: row.id, ownerUserId: row.owner_user_id, releaseId: row.release_id,
     gameSlug: row.game_slug, sourceRoomId: row.source_room_id,
     sequence: row.sequence, stateHash: row.state_hash, objectKey: row.object_key,
-    byteLength: row.byte_length, ...(row.label === null ? {} : { label: row.label }),
+    byteLength: row.byte_length, requiresScripts: row.requires_scripts === 1,
+    ...(row.label === null ? {} : { label: row.label }),
     createdAt: row.created_at, deletedAt: row.deleted_at,
   };
 }

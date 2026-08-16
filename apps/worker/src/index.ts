@@ -338,7 +338,8 @@ export class RoomDO extends DurableObject<Env> {
     try {
       loadSnapshot(candidate);
       if (candidate.releaseId !== room.release_id) return { status: "invalid", reason: "Snapshot release does not match the room" };
-      if (attested?.sequence === room.last_sequence && attested.stateHash !== candidate.stateHash) {
+      if (attested?.sequence === room.last_sequence && clientSnapshot !== undefined &&
+        attested.stateHash !== clientSnapshot.stateHash) {
         return { status: "invalid", reason: "Snapshot hash conflicts with the attested checkpoint" };
       }
       return { status: "ok", snapshotJson: JSON.stringify(candidate), releaseId: candidate.releaseId,

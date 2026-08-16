@@ -180,6 +180,9 @@ export interface SavedTableDto {
   createdAt: string;
   byteLength: number;
   label?: string;
+  /** Absent means resumable: older workers do not send resume metadata. */
+  resumable?: boolean;
+  resumeBlockedReason?: string;
 }
 
 export interface SavesResponse { saves: SavedTableDto[]; }
@@ -481,9 +484,13 @@ export function validateResumeSaveRequest(value: unknown): HttpValidationResult<
 export function validateSavedTableDto(value: unknown): HttpValidationResult<SavedTableDto> {
   const object = exactObject(value, [
     "saveId", "gameSlug", "gameTitle", "releaseId", "sequence", "createdAt", "byteLength", "label",
+    "resumable", "resumeBlockedReason",
   ]);
   if (!object.ok) return object;
-  const { saveId, gameSlug, gameTitle, releaseId, sequence, createdAt, byteLength, label } = object.value;
+  const {
+    saveId, gameSlug, gameTitle, releaseId, sequence, createdAt, byteLength, label,
+    resumable, resumeBlockedReason,
+  } = object.value;
   if (typeof saveId !== "string" || saveId.length < 1) return invalid("$.saveId", "saveId is required");
   if (typeof gameSlug !== "string" || !isGameSlug(gameSlug)) return invalid("$.gameSlug", "gameSlug is invalid");
   if (typeof gameTitle !== "string" || !boundedTrimmedText(gameTitle, 1, GAME_TITLE_MAX_LENGTH)) return invalid("$.gameTitle", "gameTitle is invalid");
@@ -492,9 +499,13 @@ export function validateSavedTableDto(value: unknown): HttpValidationResult<Save
   if (typeof createdAt !== "string" || Number.isNaN(Date.parse(createdAt))) return invalid("$.createdAt", "createdAt must be an ISO date");
   if (!isNonNegativeInteger(byteLength)) return invalid("$.byteLength", "byteLength must be a non-negative integer");
   if (label !== undefined && (typeof label !== "string" || !boundedTrimmedText(label, 1, 80))) return invalid("$.label", "label is invalid");
+  if (resumable !== undefined && typeof resumable !== "boolean") return invalid("$.resumable", "resumable must be a boolean");
+  if (resumeBlockedReason !== undefined && (typeof resumeBlockedReason !== "string" || !boundedTrimmedText(resumeBlockedReason, 1, 64))) return invalid("$.resumeBlockedReason", "resumeBlockedReason is invalid");
   return { ok: true, value: {
     saveId, gameSlug, gameTitle, releaseId, sequence, createdAt, byteLength,
     ...(label === undefined ? {} : { label }),
+    ...(resumable === undefined ? {} : { resumable }),
+    ...(resumeBlockedReason === undefined ? {} : { resumeBlockedReason }),
   } };
 }
 
