@@ -1,10 +1,31 @@
 export type RendererTier = "default" | "low";
 export type RendererAdapterKind = "lite" | "webgl";
 export type RendererOverride = RendererAdapterKind | null;
+export type RendererSelectionReason =
+  | "webgpu"
+  | "no-webgpu"
+  | "override-lite"
+  | "override-webgl"
+  | "override-lite-no-webgpu";
 
 export interface RendererAdapterSelection {
   renderer: RendererAdapterKind;
   requestedLiteFallback: boolean;
+  reason: RendererSelectionReason;
+}
+
+export interface RendererFallback {
+  from: "lite";
+  to: "webgl";
+  error: string;
+}
+
+export interface RendererStatus {
+  requested: RendererAdapterKind;
+  mounted: RendererAdapterKind | null;
+  reason: RendererSelectionReason;
+  fallback: RendererFallback | null;
+  tier: RendererTier;
 }
 
 export interface RendererDeviceProfile {
@@ -54,12 +75,19 @@ export function selectRendererAdapter(
   webGpuAvailable: boolean,
   override: RendererOverride,
 ): RendererAdapterSelection {
-  if (override === "webgl") return { renderer: "webgl", requestedLiteFallback: false };
+  if (override === "webgl") {
+    return { renderer: "webgl", requestedLiteFallback: false, reason: "override-webgl" };
+  }
   if (override === "lite" && !webGpuAvailable) {
-    return { renderer: "webgl", requestedLiteFallback: true };
+    return {
+      renderer: "webgl",
+      requestedLiteFallback: true,
+      reason: "override-lite-no-webgpu",
+    };
   }
   return {
     renderer: override === "lite" || webGpuAvailable ? "lite" : "webgl",
     requestedLiteFallback: false,
+    reason: override === "lite" ? "override-lite" : webGpuAvailable ? "webgpu" : "no-webgpu",
   };
 }

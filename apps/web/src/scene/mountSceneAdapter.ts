@@ -1,4 +1,9 @@
-import type { RendererAdapterKind, RendererAdapterSelection, RendererTier } from "./rendererPolicy";
+import type {
+  RendererAdapterKind,
+  RendererAdapterSelection,
+  RendererFallback,
+  RendererTier,
+} from "./rendererPolicy";
 import type { SceneAdapter } from "./sceneAdapter";
 
 export type SceneAdapterLoader = (renderer: RendererAdapterKind) => Promise<SceneAdapter>;
@@ -8,7 +13,7 @@ export async function mountSceneAdapter(
   load: SceneAdapterLoader,
   canvas: HTMLCanvasElement,
   tier: RendererTier,
-  onLiteFallback: (error: unknown) => void,
+  onLiteFallback: (fallback: RendererFallback, error: unknown) => void,
 ): Promise<SceneAdapter> {
   let adapter = await load(selection.renderer);
   try {
@@ -17,10 +22,16 @@ export async function mountSceneAdapter(
   } catch (error) {
     adapter.dispose();
     if (selection.renderer !== "lite") throw error;
-    onLiteFallback(error);
+    onLiteFallback(
+      {
+        from: "lite",
+        to: "webgl",
+        error: error instanceof Error ? error.message : String(error),
+      },
+      error,
+    );
     adapter = await load("webgl");
     await adapter.mount(canvas, { tier });
     return adapter;
   }
 }
-

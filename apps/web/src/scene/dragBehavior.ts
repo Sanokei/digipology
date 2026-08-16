@@ -31,6 +31,14 @@ interface DragBounds {
   restingY: number;
 }
 
+export interface HighlightLayerFacade {
+  addMesh(mesh: Mesh, color: Color3): void;
+  removeMesh(mesh: Mesh): void;
+  dispose(): void;
+}
+
+export type HighlightLayerFactory = (scene: Scene) => HighlightLayerFacade;
+
 interface AttachDragBehaviorOptions {
   scene: Scene;
   camera: ArcRotateCamera;
@@ -40,6 +48,7 @@ interface AttachDragBehaviorOptions {
   onGrab?: () => void;
   onDrop?: (position: Vector3Like) => void;
   canInteract?: () => boolean;
+  createHighlightLayer?: HighlightLayerFactory;
 }
 
 export interface AttachedDragBehavior {
@@ -72,8 +81,9 @@ export function attachDragBehavior({
   onGrab,
   onDrop,
   canInteract,
+  createHighlightLayer = (targetScene) => new HighlightLayer("grab-highlight", targetScene),
 }: AttachDragBehaviorOptions): AttachedDragBehavior {
-  const highlight = new HighlightLayer("grab-highlight", scene);
+  const highlight = createHighlightLayer(scene);
   const pickingRay = new Ray(Vector3.Zero(), Vector3.Down());
   const dragPoint = Vector3.Zero();
   const identityMatrix = Matrix.Identity();

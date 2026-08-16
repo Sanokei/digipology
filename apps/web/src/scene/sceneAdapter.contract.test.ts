@@ -1,9 +1,4 @@
-/**
- * The Lite contract below executes the real adapter against a thin engine mock.
- * The WebGL adapter constructs Babylon's DOM/WebGL Engine directly, so it cannot
- * accept a NullEngine without a production refactor; its unchanged interaction
- * logic remains covered by dragBehavior, dragActions, and touchGestures tests.
- */
+/** The shared contract executes the real Lite adapter through a thin Lite engine mock. */
 import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import { createInitialState, type EntityRecord } from "digipology-kernel";
 
@@ -11,6 +6,7 @@ import type { KernelStoreSnapshot } from "../state/kernelStore";
 import { handleTouchPointerInput } from "./sceneInteraction";
 import type { SceneAdapter } from "./sceneAdapter";
 import { TouchGestureMachine, type TouchGestureDecision } from "./touchGestures";
+import { runSceneAdapterContract } from "./sceneAdapter.contract.shared";
 
 interface FakeVec3 {
   x: number;
@@ -49,6 +45,7 @@ interface FakeMesh {
   material?: FakeMaterial;
   pickable: boolean;
   parent: FakeMesh | null;
+  disposed: boolean;
 }
 
 interface FakeCamera {
@@ -142,6 +139,27 @@ function quaternion(): FakeQuaternion {
   };
 }
 
+type QuaternionLike = { x: number; y: number; z: number; w: number };
+
+function quaternionMultiply(a: QuaternionLike, b: QuaternionLike): QuaternionLike {
+  return {
+    x: a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
+    y: a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
+    z: a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w,
+    w: a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z,
+  };
+}
+
+function rotateVector(q: QuaternionLike, v: [number, number, number]): [number, number, number] {
+  const p = quaternionMultiply(quaternionMultiply(q, { x: v[0], y: v[1], z: v[2], w: 0 }), {
+    x: -q.x,
+    y: -q.y,
+    z: -q.z,
+    w: q.w,
+  });
+  return [p.x, p.y, p.z];
+}
+
 function mesh(shape: "box" | "plane"): FakeMesh {
   return {
     kind: "mesh",
@@ -153,6 +171,7 @@ function mesh(shape: "box" | "plane"): FakeMesh {
     rotationQuaternion: quaternion(),
     pickable: true,
     parent: null,
+    disposed: false,
   };
 }
 
@@ -285,6 +304,7 @@ mock.module("@babylonjs/lite", () => ({
   },
   removeFromScene: (scene: FakeScene, entity: object): void => {
     scene.removed.push(entity);
+    if ((entity as { kind?: unknown }).kind === "mesh") (entity as FakeMesh).disposed = true;
     const index = scene.meshes.indexOf(entity as FakeMesh);
     if (index >= 0) scene.meshes.splice(index, 1);
   },
@@ -434,7 +454,124 @@ function applyDecisions(adapter: SceneAdapter, decisions: readonly TouchGestureD
   }
 }
 
+runSceneAdapterContract({
+  name: "lite",
+  handlesDesktopDrag: false,
+  supportedHighlights: ["hover", "selected", "held"],
+  async mount(sendAction) {
+    const mounted = await mountAdapter(sendAction);
+    return {
+      adapter: mounted.adapter,
+      hasPointerCapture: (pointerId) => mounted.canvas.hasPointerCapture(pointerId),
+      piece(entityId) {
+        const value = fakeState.scene?.meshes.find((candidate) => (
+          (candidate.metadata as { entityId?: unknown } | undefined)?.entityId === entityId
+        ));
+        return value === undefined ? null : {
+          identity: value,
+          get x() { return value.position.x; },
+          get y() { return value.position.y; },
+          get disposed() { return value.disposed; },
+        };
+      },
+      setPick(entityId) {
+        fakeState.pickMesh = entityId === null ? null : pieceMesh(entityId);
+      },
+      tick(deltaMs) {
+        fakeState.scene?.beforeRender?.(deltaMs);
+      },
+      highlight(entityId, kind) {
+        const color = pieceMesh(entityId).material?.emissiveColor;
+        const expected = {
+          hover: [0.18, 0.12, 0.04],
+          selected: [0.23, 0.16, 0.05],
+          held: [0.42, 0.34, 0.13],
+        }[kind];
+        return color?.every((component, index) => component === expected[index]) === true;
+      },
+      cameraCounts: () => ({
+        attached: fakeState.controlAttachListenerCounts.length,
+        detached: fakeState.controlDetachCount,
+      }),
+      livePieceCount: () => fakeState.scene?.meshes.filter((candidate) => (
+        typeof (candidate.metadata as { entityId?: unknown } | undefined)?.entityId === "string"
+      )).length ?? 0,
+      listenerCount: () => ["touchstart", "touchmove", "touchend", "touchcancel"]
+        .reduce((count, type) => count + mounted.canvas.listenerCount(type), 0),
+      disposed: () => fakeState.engine?.disposed === true && fakeState.scene?.disposed === true,
+    };
+  },
+});
+
 describe("real Lite SceneAdapter contract through a thin engine mock", () => {
+  test("raises and reorients only counter labels while compensating parent yaw", async () => {
+    const { adapter } = await mountAdapter(() => undefined);
+    const rotatedCounter = counter();
+    const rotation = rotatedCounter.components.transform?.rotation;
+    if (rotation === undefined) throw new Error("Counter transform missing");
+    rotation.y = 1;
+    rotation.w = 0;
+    adapter.syncEntities(snapshot({
+      "card-1": card(),
+      "die-1": die(),
+      "counter-1": rotatedCounter,
+    }));
+    const labelFor = (entityId: string) => {
+      const parent = pieceMesh(entityId);
+      const label = fakeState.createdPlanes.find((candidate) => candidate.parent === parent);
+      if (label === undefined) throw new Error(`Missing label for ${entityId}`);
+      return label;
+    };
+    const cardLabel = labelFor("card-1");
+    const dieLabel = labelFor("die-1");
+    const counterLabel = labelFor("counter-1");
+    const counterPiece = pieceMesh("counter-1");
+    expect(cardLabel.position.y).toBe(0.052);
+    expect(dieLabel.position.y).toBe(0.052);
+    expect(cardLabel.rotation.x).toBe(Math.PI / 2);
+    expect(dieLabel.rotation.x).toBe(Math.PI / 2);
+    expect(counterLabel.position.y).toBe(0.68);
+    expect(counterLabel.rotation.x).toBe(0);
+    expect(counterPiece.rotationQuaternion.y).toBe(1);
+
+    if (fakeState.scene?.camera === null || fakeState.scene === null) throw new Error("Camera missing");
+    const camera = fakeState.scene.camera;
+    // World-space facing check: label world rotation = parent ⊗ local; the plane's
+    // front normal is local -Z and must point along the camera's direction from its
+    // target; local +X must stay horizontal so the text is upright (no roll).
+    const facing = () => {
+      const world = quaternionMultiply(counterPiece.rotationQuaternion, counterLabel.rotationQuaternion);
+      const normal = rotateVector(world, [0, 0, -1]);
+      const right = rotateVector(world, [1, 0, 0]);
+      const toCamera: [number, number, number] = [
+        Math.cos(camera.alpha) * Math.sin(camera.beta),
+        Math.cos(camera.beta),
+        Math.sin(camera.alpha) * Math.sin(camera.beta),
+      ];
+      return {
+        dot: normal[0] * toCamera[0] + normal[1] * toCamera[1] + normal[2] * toCamera[2],
+        rightY: right[1],
+      };
+    };
+    const initial = facing();
+    expect(initial.dot).toBeCloseTo(1, 10);
+    expect(initial.rightY).toBeCloseTo(0, 10);
+    const initialLabelRotation = { ...counterLabel.rotationQuaternion };
+
+    camera.alpha = 0;
+    camera.beta = 1.1;
+    fakeState.scene.beforeRender?.(16);
+    const reoriented = facing();
+    expect(reoriented.dot).toBeCloseTo(1, 10);
+    expect(reoriented.rightY).toBeCloseTo(0, 10);
+    expect(counterLabel.rotationQuaternion.y).not.toBeCloseTo(initialLabelRotation.y, 6);
+    expect(cardLabel.rotation.x).toBe(Math.PI / 2);
+    expect(dieLabel.rotation.x).toBe(Math.PI / 2);
+    expect(cardLabel.rotationQuaternion).toMatchObject({ x: 0, y: 0, z: 0, w: 1 });
+    expect(dieLabel.rotationQuaternion).toMatchObject({ x: 0, y: 0, z: 0, w: 1 });
+    adapter.dispose();
+  });
+
   test("creates, updates, recreates, removes, and picks real adapter pieces", async () => {
     const { adapter } = await mountAdapter(() => undefined);
     adapter.syncEntities(snapshot({ "card-1": card(), "die-1": die(), "counter-1": counter() }));
