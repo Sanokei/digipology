@@ -75,6 +75,7 @@ interface PieceGraph {
   bounds?: DragBounds;
   labelMesh?: Mesh;
   labelTexture?: DynamicTexture2D;
+  labelBillboard?: boolean;
   lastCorrectionId?: number;
   correction?: CorrectionAnimation;
 }
@@ -244,6 +245,42 @@ function updateCorrection(piece: PieceGraph, deltaMs: number): void {
   if (linear === 1) delete piece.correction;
 }
 
+/**
+ * Camera-facing orientation for counter labels (Lite has no `billboardMode`).
+ *
+ * The plane's front normal is local -Z. Pitch it about local X by (PI/2 - beta)
+ * and then yaw about world Y by (-alpha - PI/2) so the normal equals the
+ * camera's direction from its target while local +X stays horizontal (text
+ * upright, no roll). Lite's Euler proxy composes X-then-Y, which is the wrong
+ * order for a billboard, so the quaternion is built directly (qYaw ⊗ qPitch).
+ * The label is a child of the piece, so the piece's rotation is removed
+ * (conj(parent) ⊗ world) to keep the world-space orientation camera-facing.
+ */
+function orientBillboardLabel(piece: PieceGraph, camera: ArcRotateCamera | null): void {
+  if (piece.labelBillboard !== true || piece.labelMesh === undefined || camera === null) return;
+  const halfPitch = (Math.PI / 2 - camera.beta) / 2;
+  const halfYaw = (-camera.alpha - Math.PI / 2) / 2;
+  const sinPitch = Math.sin(halfPitch);
+  const cosPitch = Math.cos(halfPitch);
+  const sinYaw = Math.sin(halfYaw);
+  const cosYaw = Math.cos(halfYaw);
+  const wx = cosYaw * sinPitch;
+  const wy = cosPitch * sinYaw;
+  const wz = -sinYaw * sinPitch;
+  const ww = cosYaw * cosPitch;
+  const parent = piece.mesh.rotationQuaternion;
+  const px = -parent.x;
+  const py = -parent.y;
+  const pz = -parent.z;
+  const pw = parent.w;
+  piece.labelMesh.rotationQuaternion.set(
+    pw * wx + px * ww + py * wz - pz * wy,
+    pw * wy - px * wz + py * ww + pz * wx,
+    pw * wz + px * wy - py * wx + pz * ww,
+    pw * ww - px * wx - py * wy - pz * wz,
+  );
+}
+
 function makeLabelCanvas(text: string): HTMLCanvasElement {
   const label = document.createElement("canvas");
   label.width = 512;
@@ -322,7 +359,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
     return result;
   }
 
-  function addLabel(parent: Mesh, text: string, width: number, depth: number): {
+  function addLabel(parent: Mesh, text: string, width: number, depth: number, billboard: boolean): {
     labelMesh: Mesh;
     labelTexture: DynamicTexture2D;
   } {
@@ -338,8 +375,8 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
     labelMesh.material = labelMaterial;
     labelMesh.pickable = false;
     setParent(labelMesh, parent);
-    labelMesh.position.set(0, 0.052, 0);
-    labelMesh.rotation.x = Math.PI / 2;
+    labelMesh.position.set(0, billboard ? 0.68 : 0.052, 0);
+    labelMesh.rotation.x = billboard ? 0 : Math.PI / 2;
     addToScene(mounted.scene, labelMesh);
     return { labelMesh, labelTexture: texture };
   }
@@ -398,7 +435,11 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
         restingY,
       };
     }
-    if (label !== "") Object.assign(graph, addLabel(mesh, label, width, depth));
+    if (label !== "") {
+      Object.assign(graph, addLabel(mesh, label, width, depth, components.counter !== undefined));
+      graph.labelBillboard = components.counter !== undefined;
+      orientBillboardLabel(graph, cameraGraph);
+    }
     applyPieceHighlight(graph);
     return graph;
   }
@@ -489,7 +530,10 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
 
       picker = createGpuPicker(scene);
       onBeforeRender(scene, (deltaMs) => {
-        for (const piece of pieces.values()) updateCorrection(piece, deltaMs);
+        for (const piece of pieces.values()) {
+          updateCorrection(piece, deltaMs);
+          orientBillboardLabel(piece, cameraGraph);
+        }
       });
       await registerScene(scene);
       await startEngine(engine);
@@ -507,9 +551,10 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       picker = null;
       if (engine !== null) stopEngine(engine);
       rendering = false;
+      for (const piece of pieces.values()) destroyPiece(piece);
+      pieces.clear();
       if (scene !== null) disposeScene(scene);
       if (engine !== null) disposeEngine(engine);
-      pieces.clear();
       activeDrag = null;
       cameraGraph = null;
       scene = null;

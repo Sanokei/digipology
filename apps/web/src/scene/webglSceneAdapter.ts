@@ -10,7 +10,11 @@ import { Scene } from "@babylonjs/core/scene";
 import type { EntityRecord, TransformComponent } from "digipology-kernel";
 
 import type { KernelStoreSnapshot } from "../state/kernelStore";
-import { attachDragBehavior, type AttachedDragBehavior } from "./dragBehavior";
+import {
+  attachDragBehavior,
+  type AttachedDragBehavior,
+  type HighlightLayerFactory,
+} from "./dragBehavior";
 import { createDragActionCallbacks } from "./dragActions";
 import { hardwareScalingLevel } from "./rendererPolicy";
 import type {
@@ -40,6 +44,18 @@ interface PieceGraph {
   cancelCorrection?: () => void;
   lastCorrectionId?: number;
   label?: DynamicTexture;
+}
+
+interface WebglSceneAdapterDependencies extends SceneAdapterDependencies {
+  createEngine?: (
+    canvas: HTMLCanvasElement,
+    antialias: boolean,
+    options: ConstructorParameters<typeof Engine>[2],
+  ) => Engine;
+  createLabelTexture?: (name: string, scene: Scene) => DynamicTexture;
+  createHighlightLayer?: HighlightLayerFactory;
+  matchMedia?: (query: string) => MediaQueryList;
+  devicePixelRatio?: () => number;
 }
 
 function cardFaceUp(entity: EntityRecord): boolean {
@@ -74,8 +90,11 @@ function labelPlane(
   width: number,
   height: number,
   billboard = false,
+  createLabelTexture: NonNullable<WebglSceneAdapterDependencies["createLabelTexture"]> = (name, targetScene) => (
+    new DynamicTexture(name, { width: 512, height: 256 }, targetScene, false)
+  ),
 ): DynamicTexture {
-  const texture = new DynamicTexture(`${parent.name}-label`, { width: 512, height: 256 }, scene, false);
+  const texture = createLabelTexture(`${parent.name}-label`, scene);
   texture.hasAlpha = true;
   texture.drawText(text.slice(0, 28), null, 150, "bold 54px Manrope", "#102018", "transparent", true, true);
   const mat = new StandardMaterial(`${parent.name}-label-material`, scene);
@@ -140,7 +159,7 @@ function animateTransform(
   return () => scene.onBeforeRenderObservable.remove(observer);
 }
 
-export function createWebglSceneAdapter(dependencies: SceneAdapterDependencies): SceneAdapter {
+export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependencies): SceneAdapter {
   let canvas: HTMLCanvasElement | null = null;
   let engine: Engine | null = null;
   let scene: Scene | null = null;
@@ -190,6 +209,9 @@ export function createWebglSceneAdapter(dependencies: SceneAdapterDependencies):
       mesh: piece.mesh,
       bounds,
       canInteract: () => !paused,
+      ...(dependencies.createHighlightLayer === undefined
+        ? {}
+        : { createHighlightLayer: dependencies.createHighlightLayer }),
       ...actionCallbacks,
     });
   }
@@ -235,7 +257,17 @@ export function createWebglSceneAdapter(dependencies: SceneAdapterDependencies):
       transformSignature: transformSignature(components.transform, restingY),
       restingY,
       ...(label
-        ? { label: labelPlane(mounted.scene, mesh, label, width * 0.78, depth * 0.46, components.counter !== undefined) }
+        ? {
+            label: labelPlane(
+              mounted.scene,
+              mesh,
+              label,
+              width * 0.78,
+              depth * 0.46,
+              components.counter !== undefined,
+              dependencies.createLabelTexture,
+            ),
+          }
         : {}),
     };
     if (dependencies.sendAction !== undefined && components.grabbable?.enabled === true) {
@@ -254,8 +286,10 @@ export function createWebglSceneAdapter(dependencies: SceneAdapterDependencies):
   function handleDprChange(): void {
     if (engine === null) return;
     dprQuery?.removeEventListener("change", handleDprChange);
-    engine.setHardwareScalingLevel(hardwareScalingLevel(window.devicePixelRatio));
-    dprQuery = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+    const devicePixelRatio = dependencies.devicePixelRatio?.() ?? window.devicePixelRatio;
+    engine.setHardwareScalingLevel(hardwareScalingLevel(devicePixelRatio));
+    dprQuery = dependencies.matchMedia?.(`(resolution: ${devicePixelRatio}dppx)`)
+      ?? window.matchMedia(`(resolution: ${devicePixelRatio}dppx)`);
     dprQuery.addEventListener("change", handleDprChange);
     engine.resize();
   }
@@ -265,7 +299,11 @@ export function createWebglSceneAdapter(dependencies: SceneAdapterDependencies):
     async mount(nextCanvas: HTMLCanvasElement, options: SceneAdapterMountOptions): Promise<void> {
       canvas = nextCanvas;
       const highQuality = options.tier === "default";
-      engine = new Engine(canvas, highQuality, { preserveDrawingBuffer: false, stencil: true });
+      engine = dependencies.createEngine?.(
+        canvas,
+        highQuality,
+        { preserveDrawingBuffer: false, stencil: true },
+      ) ?? new Engine(canvas, highQuality, { preserveDrawingBuffer: false, stencil: true });
       handleDprChange();
       scene = new Scene(engine);
       scene.clearColor = Color4.FromHexString("#08110eff");

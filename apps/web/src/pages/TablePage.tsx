@@ -5,6 +5,11 @@ import { HandStrip } from "../components/HandStrip";
 import { TableTopBar } from "../components/TableTopBar";
 import { RoomClient, type RoomClientStatus } from "../net/roomClient";
 import { TableScene } from "../scene/TableScene";
+import {
+  rendererOverrideFromSearch,
+  type RendererSelectionReason,
+  type RendererStatus,
+} from "../scene/rendererPolicy";
 import { KernelStore } from "../state/kernelStore";
 import { useKernelStore } from "../state/useKernelStore";
 import { loadRoomSession } from "../utils/roomSession";
@@ -12,6 +17,23 @@ import { localHandItems } from "./tableHandModel";
 import type { CanonicalGameState, PromptRecord } from "digipology-kernel";
 
 const INITIAL_STATUS: RoomClientStatus = { state: "connecting", message: "Connecting to table" };
+
+const RENDERER_REASON_TEXT: Record<RendererSelectionReason, string> = {
+  webgpu: "WebGPU is available (webgpu)",
+  "no-webgpu": "WebGPU is unavailable (no-webgpu)",
+  "override-lite": "Lite was requested by URL override (override-lite)",
+  "override-webgl": "WebGL was requested by URL override (override-webgl)",
+  "override-lite-no-webgpu": "Lite was requested, but WebGPU is unavailable (override-lite-no-webgpu)",
+};
+
+export function RendererDiagnostics({ status }: { status: RendererStatus | null }) {
+  return <>
+    <dt>Renderer</dt><dd>{status?.mounted ?? "Starting…"}</dd>
+    <dt>Selected because</dt><dd>{status === null ? "Renderer selection pending" : RENDERER_REASON_TEXT[status.reason]}</dd>
+    <dt>Fallback</dt><dd>{status?.fallback === null || status === null ? "none" : `Lite failed to start: ${status.fallback.error}`}</dd>
+    <dt>Tier</dt><dd>{status?.tier ?? "—"}</dd>
+  </>;
+}
 
 export function playersPanelOpenByDefault(matchesDesktop: boolean): boolean {
   return matchesDesktop;
@@ -63,6 +85,9 @@ export function TablePage() {
     typeof window !== "undefined" && window.matchMedia("(min-width: 769px)").matches,
   ));
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
+  const [rendererStatus, setRendererStatus] = useState<RendererStatus | null>(null);
+  const rendererOverrideActive = typeof window !== "undefined"
+    && rendererOverrideFromSearch(window.location.search) !== null;
 
   useEffect(() => { client?.start(); return () => client?.stop(); }, [client]);
   useEffect(() => {
@@ -85,6 +110,7 @@ export function TablePage() {
 
   return <TableScene
     store={store} client={client} interactionsPaused={status.state !== "connected"}
+    onRendererStatus={setRendererStatus} rendererStatus={rendererStatus} rendererOverrideActive={rendererOverrideActive}
     topBar={<TableTopBar gameTitle={gameTitle} playerCount={view.players.length} joinCode={session.joinCode} inviteUrl={session.inviteUrl} onPlayers={() => setPlayersOpen((value) => !value)} onDiagnostics={() => setDiagnosticsOpen((value) => !value)} />}
     panels={<>
       {view.correction === null ? null : <div key={view.correction.id} className="prediction-correction" role="status">{view.correction.message}</div>}
@@ -95,7 +121,7 @@ export function TablePage() {
       {prompts.map((prompt) => <PromptPanel key={prompt.id} prompt={prompt} disabled={status.state !== "connected"} respond={(response) => {
         client.sendAction({ type: "prompt.respond", payload: { promptId: prompt.id, response } });
       }} />)}
-      {diagnosticsOpen ? <aside className="diagnostics-panel table-sheet" aria-label="Diagnostics"><div className="panel-heading"><span>Diagnostics</span><button type="button" aria-label="Close diagnostics" onClick={() => setDiagnosticsOpen(false)}>×</button></div><dl><dt>Sequence</dt><dd>{view.state?.sequence ?? "—"}</dd><dt>State hash</dt><dd>{view.stateHash ?? "—"}</dd><dt>Pending</dt><dd>{view.pendingRequestIds.size}</dd><dt>Transport</dt><dd>{status.state}</dd></dl><p>{view.diagnostic ?? "No diagnostics yet."}</p></aside> : null}
+      {diagnosticsOpen ? <aside className="diagnostics-panel table-sheet" aria-label="Diagnostics"><div className="panel-heading"><span>Diagnostics</span><button type="button" aria-label="Close diagnostics" onClick={() => setDiagnosticsOpen(false)}>×</button></div><dl><dt>Sequence</dt><dd>{view.state?.sequence ?? "—"}</dd><dt>State hash</dt><dd>{view.stateHash ?? "—"}</dd><dt>Pending</dt><dd>{view.pendingRequestIds.size}</dd><dt>Transport</dt><dd>{status.state}</dd><RendererDiagnostics status={rendererStatus} /></dl><p>{view.diagnostic ?? "No diagnostics yet."}</p></aside> : null}
       <HandStrip items={handItems} />
     </>}
     overlay={loading ? <div className="connection-overlay connection-overlay--solid"><div className="loading-spinner" /><p className="eyebrow">{status.state.replace("_", " ")}</p><h2>{status.message}</h2><ol className="loading-steps"><li className={status.state === "connecting" ? "active" : "done"}>Connecting</li><li className={status.state === "loading_release" ? "active" : status.state === "starting" ? "done" : ""}>Loading release</li><li className={status.state === "starting" ? "active" : ""}>Starting simulation</li></ol></div> : interrupted ? <div className="connection-overlay"><div className="reconnect-card"><span className="connection-pulse" /><h2>{status.message}</h2><p>{status.state === "reconnecting" ? "The table stays visible while we catch up. Canonical interactions are paused." : status.state === "ended" ? "No further actions can be played." : "Try returning home and reopening the invite."}</p>{status.state === "ended" || status.state === "error" ? <Link className="button-link" to="/">Leave table</Link> : null}</div></div> : null}

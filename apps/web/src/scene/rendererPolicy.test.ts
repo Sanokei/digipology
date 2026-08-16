@@ -24,10 +24,10 @@ test("renderer override parsing accepts only supported adapter names", () => {
 });
 
 test("renderer adapter selection covers WebGPU availability and overrides", () => {
-  expect(selectRendererAdapter(true, null)).toEqual({ renderer: "lite", requestedLiteFallback: false });
-  expect(selectRendererAdapter(false, null)).toEqual({ renderer: "webgl", requestedLiteFallback: false });
-  expect(selectRendererAdapter(true, "webgl")).toEqual({ renderer: "webgl", requestedLiteFallback: false });
-  expect(selectRendererAdapter(false, "webgl")).toEqual({ renderer: "webgl", requestedLiteFallback: false });
-  expect(selectRendererAdapter(true, "lite")).toEqual({ renderer: "lite", requestedLiteFallback: false });
-  expect(selectRendererAdapter(false, "lite")).toEqual({ renderer: "webgl", requestedLiteFallback: true });
+  expect(selectRendererAdapter(true, null)).toEqual({ renderer: "lite", requestedLiteFallback: false, reason: "webgpu" });
+  expect(selectRendererAdapter(false, null)).toEqual({ renderer: "webgl", requestedLiteFallback: false, reason: "no-webgpu" });
+  expect(selectRendererAdapter(true, "webgl")).toEqual({ renderer: "webgl", requestedLiteFallback: false, reason: "override-webgl" });
+  expect(selectRendererAdapter(false, "webgl")).toEqual({ renderer: "webgl", requestedLiteFallback: false, reason: "override-webgl" });
+  expect(selectRendererAdapter(true, "lite")).toEqual({ renderer: "lite", requestedLiteFallback: false, reason: "override-lite" });
+  expect(selectRendererAdapter(false, "lite")).toEqual({ renderer: "webgl", requestedLiteFallback: true, reason: "override-lite-no-webgpu" });
 });

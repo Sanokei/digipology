@@ -7,6 +7,8 @@ import {
   rendererOverrideFromSearch,
   selectRendererAdapter,
   type RendererAdapterKind,
+  type RendererFallback,
+  type RendererStatus,
 } from "./rendererPolicy";
 import { mountSceneAdapter } from "./mountSceneAdapter";
 import { createHoverPicker, handleTouchPointerInput } from "./sceneInteraction";
@@ -37,11 +39,14 @@ export function useBabylonScene(
   client: TableActionSender | null,
   interactionsPaused: boolean,
   onContextRequest?: (request: TableContextRequest) => void,
+  onRendererStatus?: (status: RendererStatus) => void,
 ): void {
   const pausedRef = useRef(interactionsPaused);
   pausedRef.current = interactionsPaused;
   const contextRequestRef = useRef(onContextRequest);
   contextRequestRef.current = onContextRequest;
+  const rendererStatusRef = useRef(onRendererStatus);
+  rendererStatusRef.current = onRendererStatus;
   const adapterRef = useRef<SceneAdapter | null>(null);
   const cancelTouchRef = useRef<(() => void) | null>(null);
 
@@ -73,6 +78,17 @@ export function useBabylonScene(
         "gpu" in navigator,
         rendererOverrideFromSearch(window.location.search),
       );
+      let fallback: RendererFallback | null = null;
+      const publishRendererStatus = (mounted: RendererAdapterKind | null): void => {
+        rendererStatusRef.current?.({
+          requested: selection.renderer,
+          mounted,
+          reason: selection.reason,
+          fallback,
+          tier,
+        });
+      };
+      publishRendererStatus(null);
       if (selection.requestedLiteFallback) {
         console.info("Babylon-Lite requires WebGPU; using the WebGL renderer instead.");
       }
@@ -88,7 +104,9 @@ export function useBabylonScene(
         },
         canvas,
         tier,
-        (error) => {
+        (nextFallback, error) => {
+          fallback = nextFallback;
+          publishRendererStatus(null);
           console.info("Babylon-Lite could not start; using the WebGL renderer instead.", error);
         },
       );
@@ -98,6 +116,7 @@ export function useBabylonScene(
       }
       pendingAdapter = null;
       adapterRef.current = adapter;
+      publishRendererStatus(fallback === null ? selection.renderer : "webgl");
       adapter.setPaused(pausedRef.current);
       const sync = () => adapter.syncEntities(store.getSnapshot());
       const unsubscribe = store.subscribe(sync);
