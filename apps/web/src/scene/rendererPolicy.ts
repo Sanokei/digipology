@@ -1,4 +1,11 @@
 export type RendererTier = "default" | "low";
+export type RendererAdapterKind = "lite" | "webgl";
+export type RendererOverride = RendererAdapterKind | null;
+
+export interface RendererAdapterSelection {
+  renderer: RendererAdapterKind;
+  requestedLiteFallback: boolean;
+}
 
 export interface RendererDeviceProfile {
   deviceMemory?: number | undefined;
@@ -36,4 +43,23 @@ export function clampDevicePixelRatio(devicePixelRatio: number): number {
 
 export function hardwareScalingLevel(devicePixelRatio: number): number {
   return 1 / clampDevicePixelRatio(devicePixelRatio);
+}
+
+export function rendererOverrideFromSearch(search: string): RendererOverride {
+  const requested = new URLSearchParams(search).get("renderer");
+  return requested === "lite" || requested === "webgl" ? requested : null;
+}
+
+export function selectRendererAdapter(
+  webGpuAvailable: boolean,
+  override: RendererOverride,
+): RendererAdapterSelection {
+  if (override === "webgl") return { renderer: "webgl", requestedLiteFallback: false };
+  if (override === "lite" && !webGpuAvailable) {
+    return { renderer: "webgl", requestedLiteFallback: true };
+  }
+  return {
+    renderer: override === "lite" || webGpuAvailable ? "lite" : "webgl",
+    requestedLiteFallback: false,
+  };
 }

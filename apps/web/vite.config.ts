@@ -11,6 +11,12 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          if (id === "\0vite/preload-helper.js") {
+            return "vite-runtime";
+          }
+          if (id.includes("/node_modules/@babylonjs/lite/") || id.includes("\\node_modules\\@babylonjs\\lite\\")) {
+            return "babylon-lite-vendor";
+          }
           if (id.includes("/node_modules/@babylonjs/core/") || id.includes("\\node_modules\\@babylonjs\\core\\")) {
             return "babylon-vendor";
           }

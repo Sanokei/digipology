@@ -7,6 +7,8 @@ description: "Quick Play, public and private rooms, guest access, invitations, a
 
 Digipology games run in the browser. Browse the catalog, choose a game, and use Quick Play or open a room of your own. An invitation is enough to join a private table.
 
+Tables use WebGPU with a permanent WebGL fallback; for renderer testing, add `?renderer=lite` or `?renderer=webgl` to a table URL (Lite still falls back safely when WebGPU cannot start).
+
 ## Quick Play
 
 Choose **Quick Play** on a game to go straight to a table. Digipology looks for a fresh public room for that game with an open seat, preferring the room that already has the most players. If no suitable room remains, it creates a new public room and seats you there.

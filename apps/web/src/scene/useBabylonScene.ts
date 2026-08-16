@@ -1,37 +1,17 @@
 import { useEffect, useRef, type RefObject } from "react";
-import { Engine } from "@babylonjs/core/Engines/engine";
-import { PointerEventTypes } from "@babylonjs/core/Events/pointerEvents";
-import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
-import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
-import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
-import { CreateBox } from "@babylonjs/core/Meshes/Builders/boxBuilder";
-import { CreatePlane } from "@babylonjs/core/Meshes/Builders/planeBuilder";
-import { Mesh } from "@babylonjs/core/Meshes/mesh";
-import { Scene } from "@babylonjs/core/scene";
-import type { EntityRecord, TransformComponent } from "digipology-kernel";
 
 import type { TableActionSender } from "./TableScene";
 import type { KernelStore } from "../state/kernelStore";
-import { attachDragBehavior, type AttachedDragBehavior } from "./dragBehavior";
-import { createDragActionCallbacks } from "./dragActions";
-import { classifyRendererTier, hardwareScalingLevel } from "./rendererPolicy";
-import { TABLE_DEPTH, TABLE_SURFACE_Y, TABLE_WIDTH, buildCamera, buildLighting, buildTableSurface } from "./table";
+import {
+  classifyRendererTier,
+  rendererOverrideFromSearch,
+  selectRendererAdapter,
+  type RendererAdapterKind,
+} from "./rendererPolicy";
+import { mountSceneAdapter } from "./mountSceneAdapter";
+import { handleTouchPointerInput } from "./sceneInteraction";
+import type { SceneAdapter, SceneAdapterDependencies } from "./sceneAdapter";
 import { TouchGestureMachine, type TouchGestureDecision } from "./touchGestures";
-
-type PieceDragBounds = Parameters<typeof attachDragBehavior>[0]["bounds"];
-
-interface PieceGraph {
-  mesh: Mesh;
-  signature: string;
-  transformSignature: string;
-  restingY: number;
-  dragBounds?: PieceDragBounds;
-  drag?: AttachedDragBehavior;
-  cancelCorrection?: () => void;
-  lastCorrectionId?: number;
-  label?: DynamicTexture;
-}
 
 export interface TableContextRequest {
   entityId: string;
@@ -39,76 +19,16 @@ export interface TableContextRequest {
   y: number;
 }
 
-function cardFaceUp(entity: EntityRecord): boolean {
-  const { card, flippable } = entity.components;
-  return flippable?.flipped ?? card?.faceUp ?? false;
-}
-
-function displaySignature(entity: EntityRecord): string {
-  const { card, die, counter } = entity.components;
-  if (card !== undefined) return `card:${card.definitionId}:${cardFaceUp(entity)}`;
-  if (die !== undefined) return `die:${String(die.value)}`;
-  if (counter !== undefined) return `counter:${counter.value}`;
-  return "other";
-}
-
-function material(scene: Scene, name: string, color: string): StandardMaterial {
-  const result = new StandardMaterial(`${name}-material`, scene);
-  try { result.diffuseColor = Color3.FromHexString(color); }
-  catch { result.diffuseColor = Color3.FromHexString("#d7b26d"); }
-  result.specularColor = Color3.FromHexString("#271d10"); result.roughness = 0.72;
-  return result;
-}
-
-function labelPlane(scene: Scene, parent: Mesh, text: string, width: number, height: number, billboard = false): DynamicTexture {
-  const texture = new DynamicTexture(`${parent.name}-label`, { width: 512, height: 256 }, scene, false);
-  texture.hasAlpha = true; texture.drawText(text.slice(0, 28), null, 150, "bold 54px Manrope", "#102018", "transparent", true, true);
-  const mat = new StandardMaterial(`${parent.name}-label-material`, scene); mat.diffuseTexture = texture; mat.opacityTexture = texture; mat.emissiveColor = Color3.FromHexString("#dce8d8");
-  const plane = CreatePlane(`${parent.name}-label-plane`, { width, height }, scene); plane.parent = parent; plane.position.y = billboard ? 0.68 : 0.052; plane.rotation.x = billboard ? 0 : Math.PI / 2; plane.billboardMode = billboard ? Mesh.BILLBOARDMODE_ALL : Mesh.BILLBOARDMODE_NONE; plane.material = mat; plane.isPickable = false;
-  return texture;
-}
-
-function transformSignature(transform: TransformComponent | undefined, restingY: number): string {
-  if (transform === undefined) return `default:0:${restingY}:0:0:0:0:1:1:1:1`;
-  const { position, rotation, scale } = transform;
-  return `${position.x}:${position.y}:${position.z}:${rotation.x}:${rotation.y}:${rotation.z}:${rotation.w}:${scale.x}:${scale.y}:${scale.z}`;
-}
-
-function transformTarget(transform: TransformComponent | undefined, restingY: number) {
-  return transform === undefined
-    ? { position: new Vector3(0, restingY, 0), scaling: Vector3.One(), rotation: Quaternion.Identity() }
-    : {
-        position: new Vector3(transform.position.x, transform.position.y, transform.position.z),
-        scaling: new Vector3(transform.scale.x, transform.scale.y, transform.scale.z),
-        rotation: new Quaternion(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
-      };
-}
-
-function applyTransform(mesh: Mesh, transform: TransformComponent | undefined, restingY: number): void {
-  const target = transformTarget(transform, restingY);
-  mesh.position.copyFrom(target.position);
-  mesh.scaling.copyFrom(target.scaling);
-  mesh.rotationQuaternion ??= Quaternion.Identity();
-  mesh.rotationQuaternion.copyFrom(target.rotation);
-}
-
-function animateTransform(scene: Scene, mesh: Mesh, transform: TransformComponent | undefined, restingY: number): () => void {
-  const fromPosition = mesh.position.clone();
-  const fromScaling = mesh.scaling.clone();
-  const fromRotation = mesh.rotationQuaternion?.clone() ?? Quaternion.Identity();
-  const target = transformTarget(transform, restingY);
-  mesh.rotationQuaternion ??= Quaternion.Identity();
-  let elapsed = 0;
-  const observer = scene.onBeforeRenderObservable.add(() => {
-    elapsed += scene.getEngine().getDeltaTime();
-    const linear = Math.min(elapsed / 180, 1);
-    const eased = 1 - (1 - linear) ** 3;
-    Vector3.LerpToRef(fromPosition, target.position, eased, mesh.position);
-    Vector3.LerpToRef(fromScaling, target.scaling, eased, mesh.scaling);
-    Quaternion.SlerpToRef(fromRotation, target.rotation, eased, mesh.rotationQuaternion!);
-    if (linear === 1) scene.onBeforeRenderObservable.remove(observer);
-  });
-  return () => scene.onBeforeRenderObservable.remove(observer);
+async function loadAdapter(
+  renderer: RendererAdapterKind,
+  dependencies: SceneAdapterDependencies,
+): Promise<SceneAdapter> {
+  if (renderer === "lite") {
+    const { createLiteSceneAdapter } = await import("./liteSceneAdapter");
+    return createLiteSceneAdapter(dependencies);
+  }
+  const { createWebglSceneAdapter } = await import("./webglSceneAdapter");
+  return createWebglSceneAdapter(dependencies);
 }
 
 export function useBabylonScene(
@@ -122,288 +42,294 @@ export function useBabylonScene(
   pausedRef.current = interactionsPaused;
   const contextRequestRef = useRef(onContextRequest);
   contextRequestRef.current = onContextRequest;
+  const adapterRef = useRef<SceneAdapter | null>(null);
   const cancelTouchRef = useRef<(() => void) | null>(null);
+
   useEffect(() => {
+    adapterRef.current?.setPaused(interactionsPaused);
     if (interactionsPaused) cancelTouchRef.current?.();
   }, [interactionsPaused]);
+
   useEffect(() => {
-    const currentCanvas = canvasRef.current; if (currentCanvas === null) return;
+    const currentCanvas = canvasRef.current;
+    if (currentCanvas === null) return;
     const canvas: HTMLCanvasElement = currentCanvas;
-    const deviceNavigator = navigator as Navigator & {
-      deviceMemory?: number;
-      userAgentData?: { mobile?: boolean };
-    };
-    const rendererTier = classifyRendererTier({
-      deviceMemory: deviceNavigator.deviceMemory,
-      hardwareConcurrency: deviceNavigator.hardwareConcurrency,
-      userAgent: deviceNavigator.userAgent,
-      mobile: deviceNavigator.userAgentData?.mobile,
-    });
-    const highQuality = rendererTier === "default";
-    const engine = new Engine(canvas, highQuality, { preserveDrawingBuffer: false, stencil: true });
-    let dprQuery: MediaQueryList | null = null;
-    const handleDprChange = () => {
-      dprQuery?.removeEventListener("change", handleDprChange);
-      engine.setHardwareScalingLevel(hardwareScalingLevel(window.devicePixelRatio));
-      dprQuery = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
-      dprQuery.addEventListener("change", handleDprChange);
-      engine.resize();
-    };
-    handleDprChange();
-    const scene = new Scene(engine); scene.clearColor = Color4.FromHexString("#08110eff");
-    const camera = buildCamera(scene, canvas); const table = buildTableSurface(scene); const { shadows } = buildLighting(scene, highQuality); table.receiveShadows = shadows !== null;
-    const pieces = new Map<string, PieceGraph>();
-    let selectedEntityId: string | null = null;
+    let effectDisposed = false;
+    let cleanupMounted: (() => void) | null = null;
+    let pendingAdapter: SceneAdapter | null = null;
 
-    function destroyPiece(piece: PieceGraph) { piece.drag?.dispose(); piece.cancelCorrection?.(); piece.label?.dispose(); piece.mesh.dispose(false, true); }
-    function attachPieceDrag(piece: PieceGraph, entityId: string, bounds: PieceDragBounds): void {
-      if (client === null) return;
-      piece.dragBounds = bounds;
-      const actionCallbacks = createDragActionCallbacks(
-        entityId,
-        (action) => client.sendAction(action),
-        () => store.getSnapshot().displayedState?.entities[entityId]?.components.transform,
-        () => !pausedRef.current,
-      );
-      piece.drag = attachDragBehavior({
-        scene, camera, canvas: canvas as HTMLCanvasElement, mesh: piece.mesh, bounds,
-        canInteract: () => !pausedRef.current,
-        ...actionCallbacks,
+    const mount = async (): Promise<void> => {
+      const deviceNavigator = navigator as Navigator & {
+        deviceMemory?: number;
+        userAgentData?: { mobile?: boolean };
+      };
+      const tier = classifyRendererTier({
+        deviceMemory: deviceNavigator.deviceMemory,
+        hardwareConcurrency: deviceNavigator.hardwareConcurrency,
+        userAgent: deviceNavigator.userAgent,
+        mobile: deviceNavigator.userAgentData?.mobile,
       });
-    }
-    function makePiece(entity: EntityRecord): PieceGraph | null {
-      const { components } = entity; let mesh: Mesh; let label = ""; let color = "#d7b26d"; let width = 0.9; let depth = 0.9; let height = 0.18;
-      if (components.card !== undefined) {
-        width = 0.86; depth = 1.22; height = 0.09;
-        const definition = store.getSnapshot().definitions[components.card.definitionId];
-        const faceUp = cardFaceUp(entity);
-        label = faceUp ? definition?.label ?? components.card.definitionId : "DIGIPOLOGY";
-        color = faceUp ? definition?.color ?? "#e7dfc8" : "#9e402d";
-      } else if (components.die !== undefined) { width = depth = height = 0.72; label = String(components.die.value); color = "#e8dfc9"; }
-      else if (components.counter !== undefined) { width = depth = 0.72; height = 0.2; label = String(components.counter.value); color = "#d5ff76"; }
-      else return null;
-      const restingY = TABLE_SURFACE_Y + height / 2;
-      mesh = CreateBox(`entity-${entity.id}`, { width, depth, height }, scene); mesh.metadata = { entityId: entity.id }; mesh.isPickable = true; mesh.material = material(scene, entity.id, color); applyTransform(mesh, components.transform, restingY);
-      shadows?.addShadowCaster(mesh);
-      const graph: PieceGraph = { mesh, signature: displaySignature(entity), transformSignature: transformSignature(components.transform, restingY), restingY, ...(label ? { label: labelPlane(scene, mesh, label, width * 0.78, depth * 0.46, components.counter !== undefined) } : {}) };
-      if (client !== null && components.grabbable?.enabled === true) attachPieceDrag(graph, entity.id, { minX: -TABLE_WIDTH / 2 + width / 2, maxX: TABLE_WIDTH / 2 - width / 2, minZ: -TABLE_DEPTH / 2 + depth / 2, maxZ: TABLE_DEPTH / 2 - depth / 2, restingY });
-      graph.drag?.setTouchSelected(entity.id === selectedEntityId);
-      return graph;
-    }
-    let lastDisplayedState: ReturnType<KernelStore["getSnapshot"]>["displayedState"] = null;
-    let lastDefinitions: ReturnType<KernelStore["getSnapshot"]>["definitions"] | null = null;
-    let lastCorrectionId: number | null = null;
-    function sync() {
-      const view = store.getSnapshot();
-      const state = view.displayedState;
-      const correctionId = view.correction?.id ?? null;
-      if (state === null) return;
-      if (state === lastDisplayedState && view.definitions === lastDefinitions && correctionId === lastCorrectionId) return;
-      lastDisplayedState = state; lastDefinitions = view.definitions; lastCorrectionId = correctionId;
-      const ids = Object.keys(state.entities).sort();
-      for (const [id, piece] of pieces) if (!(id in state.entities)) { destroyPiece(piece); pieces.delete(id); }
-      for (const id of ids) {
-        const entity = state.entities[id]; if (entity === undefined) continue;
-        const existing = pieces.get(id);
-        if (existing === undefined) { const created = makePiece(entity); if (created !== null) pieces.set(id, created); }
-        else if (existing.signature !== displaySignature(entity)) { destroyPiece(existing); const created = makePiece(entity); if (created === null) pieces.delete(id); else pieces.set(id, created); }
-        else {
-          const nextTransformSignature = transformSignature(entity.components.transform, existing.restingY);
-          const correction = view.correction?.entityId === id && existing.lastCorrectionId !== view.correction.id
-            ? view.correction
-            : null;
-          if (correction !== null) {
-            existing.lastCorrectionId = correction.id;
-            existing.drag?.dispose(); delete existing.drag;
-            existing.cancelCorrection?.();
-            existing.cancelCorrection = animateTransform(scene, existing.mesh, entity.components.transform, existing.restingY);
-            if (existing.dragBounds !== undefined && entity.components.grabbable?.enabled === true) {
-              attachPieceDrag(existing, entity.id, existing.dragBounds);
-            }
-          } else if (existing.transformSignature !== nextTransformSignature) {
-            existing.cancelCorrection?.(); delete existing.cancelCorrection;
-            applyTransform(existing.mesh, entity.components.transform, existing.restingY);
-          }
-          existing.transformSignature = nextTransformSignature;
-        }
+      const selection = selectRendererAdapter(
+        "gpu" in navigator,
+        rendererOverrideFromSearch(window.location.search),
+      );
+      if (selection.requestedLiteFallback) {
+        console.info("Babylon-Lite requires WebGPU; using the WebGL renderer instead.");
       }
-    }
-    const unsubscribe = store.subscribe(sync); sync();
-    const gestures = new TouchGestureMachine();
-    const releasedPointerIds = new Set<number>();
-    let gestureTimer: ReturnType<typeof setTimeout> | null = null;
-    let gestureTimestamp = 0;
-
-    function setSelected(entityId: string | null) {
-      selectedEntityId = entityId;
-      for (const [id, piece] of pieces) piece.drag?.setTouchSelected(id === entityId);
-    }
-
-    function applyGestureDecisions(decisions: readonly TouchGestureDecision[]) {
-      const rect = canvas.getBoundingClientRect();
-      for (const decision of decisions) {
-        if (decision.type === "drag-start") {
-          if (pausedRef.current) continue;
-          const drag = pieces.get(decision.entityId)?.drag;
-          drag?.beginTouchDrag(decision.pointerId);
-          drag?.moveTouchDrag(decision.pointerId, decision.x - rect.left, decision.y - rect.top);
-        } else if (decision.type === "drag-move") {
-          pieces.get(decision.entityId)?.drag?.moveTouchDrag(
-            decision.pointerId,
-            decision.x - rect.left,
-            decision.y - rect.top,
-          );
-        } else if (decision.type === "drag-end") {
-          const drag = pieces.get(decision.entityId)?.drag;
-          drag?.moveTouchDrag(decision.pointerId, decision.x - rect.left, decision.y - rect.top);
-          releasedPointerIds.add(decision.pointerId);
-          drag?.finishTouchDrag(decision.pointerId);
-        } else if (decision.type === "drag-cancel") {
-          releasedPointerIds.add(decision.pointerId);
-          pieces.get(decision.entityId)?.drag?.cancelTouchDrag(decision.pointerId);
-        } else if (decision.type === "tap") {
-          setSelected(decision.entityId);
-        } else if (decision.type === "double-tap") {
-          if (client !== null && !pausedRef.current && decision.entityId !== null) {
-            client.sendAction({ type: "entity.flip", payload: { entityId: decision.entityId } });
-          }
-        } else if (decision.type === "long-press") {
-          if (!pausedRef.current) contextRequestRef.current?.({
-            entityId: decision.entityId,
-            x: decision.x,
-            y: decision.y,
-          });
-        } else if (decision.type === "camera-start") {
-          camera.attachControl(canvas, true);
-        } else if (decision.type === "camera-pan") {
-          camera.inertialAlphaOffset -= decision.deltaX / 1_000;
-          camera.inertialBetaOffset -= decision.deltaY / 1_000;
-        } else if (decision.type === "camera-pinch") {
-          camera.inertialRadiusOffset += (decision.distance - decision.previousDistance) / 60;
-        }
-      }
-    }
-
-    function scheduleGestureDeadline(timestamp: number) {
-      if (gestureTimer !== null) clearTimeout(gestureTimer);
-      gestureTimer = null;
-      const deadline = gestures.nextDeadline();
-      if (deadline === null) return;
-      gestureTimer = setTimeout(() => {
-        gestureTimer = null;
-        gestureTimestamp = deadline;
-        applyGestureDecisions(gestures.advance(deadline));
-        scheduleGestureDeadline(deadline);
-      }, Math.max(0, deadline - timestamp));
-    }
-
-    function abortTouch() {
-      if (gestureTimer !== null) clearTimeout(gestureTimer);
-      gestureTimer = null;
-      applyGestureDecisions(gestures.abort());
-    }
-    cancelTouchRef.current = abortTouch;
-
-    const touchPointer = scene.onPointerObservable.add((info) => {
-      const event = info.event as PointerEvent;
-      if (event.pointerType !== "touch") return;
-      if (
-        info.type !== PointerEventTypes.POINTERDOWN &&
-        info.type !== PointerEventTypes.POINTERMOVE &&
-        info.type !== PointerEventTypes.POINTERUP
-      ) return;
-      event.preventDefault();
-      if (info.type === PointerEventTypes.POINTERDOWN) releasedPointerIds.delete(event.pointerId);
-      if (pausedRef.current) {
-        abortTouch();
+      const dependencies: SceneAdapterDependencies = {
+        sendAction: client === null ? undefined : (action) => client.sendAction(action),
+      };
+      const adapter = await mountSceneAdapter(
+        selection,
+        async (renderer) => {
+          const loaded = await loadAdapter(renderer, dependencies);
+          pendingAdapter = loaded;
+          return loaded;
+        },
+        canvas,
+        tier,
+        (error) => {
+          console.info("Babylon-Lite could not start; using the WebGL renderer instead.", error);
+        },
+      );
+      if (effectDisposed) {
+        adapter.dispose();
         return;
       }
-      const entityId = (info.pickInfo?.pickedMesh?.metadata as { entityId?: unknown } | null)?.entityId;
-      const target = typeof entityId === "string"
-        ? { entityId, grabbable: pieces.get(entityId)?.drag !== undefined }
-        : null;
-      gestureTimestamp = event.timeStamp;
-      applyGestureDecisions(gestures.handle({
-        type: info.type === PointerEventTypes.POINTERDOWN
-          ? "down"
-          : info.type === PointerEventTypes.POINTERMOVE
-            ? "move"
-            : "up",
-        pointerId: event.pointerId,
-        x: event.clientX,
-        y: event.clientY,
-        timestamp: event.timeStamp,
-        pointerType: event.pointerType,
-        target,
-      }));
-      scheduleGestureDeadline(gestureTimestamp);
-    });
+      pendingAdapter = null;
+      adapterRef.current = adapter;
+      adapter.setPaused(pausedRef.current);
+      const sync = () => adapter.syncEntities(store.getSnapshot());
+      const unsubscribe = store.subscribe(sync);
+      sync();
 
-    const preventBrowserTouch = (event: TouchEvent) => event.preventDefault();
-    const handlePointerCancel = (event: PointerEvent) => {
-      if (event.pointerType !== "touch" || !gestures.hasActivePointer(event.pointerId)) return;
-      gestureTimestamp = event.timeStamp;
-      applyGestureDecisions(gestures.handle({
-        type: "cancel",
-        pointerId: event.pointerId,
-        x: event.clientX,
-        y: event.clientY,
-        timestamp: event.timeStamp,
-        pointerType: event.pointerType,
-      }));
-      scheduleGestureDeadline(gestureTimestamp);
-    };
-    const handleLostPointerCapture = (event: PointerEvent) => {
-      if (releasedPointerIds.delete(event.pointerId)) return;
-      handlePointerCancel(event);
-    };
-    canvas.addEventListener("touchstart", preventBrowserTouch, { passive: false });
-    canvas.addEventListener("touchmove", preventBrowserTouch, { passive: false });
-    canvas.addEventListener("pointercancel", handlePointerCancel);
-    canvas.addEventListener("lostpointercapture", handleLostPointerCapture);
+      const gestures = new TouchGestureMachine();
+      const releasedPointerIds = new Set<number>();
+      const mousePointers = new Map<number, string>();
+      const pressedMousePointers = new Set<number>();
+      let gestureTimer: ReturnType<typeof setTimeout> | null = null;
+      let touchQueue = Promise.resolve();
+      let disposed = false;
+      let hoverSequence = 0;
 
-    const pointer = scene.onPointerObservable.add((info) => {
-      const event = info.event as PointerEvent;
-      const isDesktopDoubleTap = info.type === PointerEventTypes.POINTERDOUBLETAP && event.pointerType !== "touch";
-      const isRightClick = info.type === PointerEventTypes.POINTERDOWN && event.button === 2;
-      if (client === null || pausedRef.current || (!isDesktopDoubleTap && !isRightClick)) return;
-      const entityId = (info.pickInfo?.pickedMesh?.metadata as { entityId?: unknown } | null)?.entityId;
-      if (typeof entityId === "string") client.sendAction({ type: "entity.flip", payload: { entityId } });
-    });
-    const render = () => scene.render();
-    let rendering = false;
-    const syncRenderLoop = () => {
-      if (document.visibilityState === "hidden") {
-        if (rendering) engine.stopRenderLoop(render);
-        rendering = false;
-        abortTouch();
-      } else if (!rendering) {
-        engine.runRenderLoop(render);
-        rendering = true;
+      function applyGestureDecisions(decisions: readonly TouchGestureDecision[]): void {
+        const rect = canvas.getBoundingClientRect();
+        for (const decision of decisions) {
+          if (decision.type === "drag-start") {
+            if (!pausedRef.current) {
+              adapter.beginDrag(
+                decision.entityId,
+                decision.pointerId,
+                decision.x - rect.left,
+                decision.y - rect.top,
+              );
+            }
+          } else if (decision.type === "drag-move") {
+            adapter.updateDrag(decision.pointerId, decision.x - rect.left, decision.y - rect.top);
+          } else if (decision.type === "drag-end") {
+            adapter.updateDrag(decision.pointerId, decision.x - rect.left, decision.y - rect.top);
+            releasedPointerIds.add(decision.pointerId);
+            adapter.endDrag(decision.pointerId);
+          } else if (decision.type === "drag-cancel") {
+            releasedPointerIds.add(decision.pointerId);
+            adapter.cancelDrag(decision.pointerId);
+          } else if (decision.type === "tap") {
+            adapter.setHighlight(decision.entityId, "selected");
+          } else if (decision.type === "double-tap") {
+            if (client !== null && !pausedRef.current && decision.entityId !== null) {
+              client.sendAction({ type: "entity.flip", payload: { entityId: decision.entityId } });
+            }
+          } else if (decision.type === "long-press") {
+            if (!pausedRef.current) {
+              contextRequestRef.current?.({ entityId: decision.entityId, x: decision.x, y: decision.y });
+            }
+          } else if (decision.type === "camera-start") {
+            adapter.camera.attach();
+          } else if (decision.type === "camera-pan") {
+            adapter.camera.pan(decision.deltaX, decision.deltaY);
+          } else if (decision.type === "camera-pinch") {
+            adapter.camera.pinch(decision.previousDistance, decision.distance);
+          }
+        }
       }
+
+      function scheduleGestureDeadline(timestamp: number): void {
+        if (gestureTimer !== null) clearTimeout(gestureTimer);
+        gestureTimer = null;
+        const deadline = gestures.nextDeadline();
+        if (deadline === null) return;
+        gestureTimer = setTimeout(() => {
+          gestureTimer = null;
+          applyGestureDecisions(gestures.advance(deadline));
+          scheduleGestureDeadline(deadline);
+        }, Math.max(0, deadline - timestamp));
+      }
+
+      function abortTouch(): void {
+        if (gestureTimer !== null) clearTimeout(gestureTimer);
+        gestureTimer = null;
+        applyGestureDecisions(gestures.abort());
+      }
+      cancelTouchRef.current = abortTouch;
+
+      function queueTouch(event: PointerEvent, type: "down" | "move" | "up" | "cancel"): void {
+        const rect = canvas.getBoundingClientRect();
+        const input = {
+          type,
+          pointerId: event.pointerId,
+          x: event.clientX,
+          y: event.clientY,
+          pickX: event.clientX - rect.left,
+          pickY: event.clientY - rect.top,
+          timestamp: event.timeStamp,
+          pointerType: event.pointerType,
+        } as const;
+        touchQueue = touchQueue.then(async () => {
+          if (disposed || pausedRef.current) {
+            abortTouch();
+            return;
+          }
+          const decisions = await handleTouchPointerInput(gestures, adapter, input);
+          if (disposed) return;
+          applyGestureDecisions(decisions);
+          scheduleGestureDeadline(event.timeStamp);
+        }).catch((error: unknown) => {
+          console.info("Table pointer input was ignored after a renderer pick failed.", error);
+          abortTouch();
+        });
+      }
+
+      const handlePointerDown = (event: PointerEvent): void => {
+        if (event.pointerType === "touch") {
+          event.preventDefault();
+          releasedPointerIds.delete(event.pointerId);
+          queueTouch(event, "down");
+          return;
+        }
+        if (pausedRef.current) return;
+        const rect = canvas.getBoundingClientRect();
+        if (event.button === 2) {
+          if (client !== null) {
+            void adapter.pick(event.clientX - rect.left, event.clientY - rect.top).then((entityId) => {
+              if (!disposed && entityId !== null) {
+                client.sendAction({ type: "entity.flip", payload: { entityId } });
+              }
+            });
+          }
+          return;
+        }
+        if (event.button !== 0 || adapter.handlesDesktopDrag) return;
+        const pointerId = event.pointerId;
+        pressedMousePointers.add(pointerId);
+        void adapter.pick(event.clientX - rect.left, event.clientY - rect.top).then((entityId) => {
+          if (disposed || !pressedMousePointers.has(pointerId) || entityId === null || !adapter.isGrabbable(entityId)) return;
+          mousePointers.set(pointerId, entityId);
+          adapter.beginDrag(entityId, pointerId, event.clientX - rect.left, event.clientY - rect.top);
+        });
+      };
+      const handlePointerMove = (event: PointerEvent): void => {
+        if (event.pointerType === "touch") {
+          event.preventDefault();
+          queueTouch(event, "move");
+          return;
+        }
+        const rect = canvas.getBoundingClientRect();
+        if (mousePointers.has(event.pointerId)) {
+          adapter.updateDrag(event.pointerId, event.clientX - rect.left, event.clientY - rect.top);
+          return;
+        }
+        if (adapter.handlesDesktopDrag) return;
+        const sequence = ++hoverSequence;
+        void adapter.pick(event.clientX - rect.left, event.clientY - rect.top).then((entityId) => {
+          if (!disposed && sequence === hoverSequence) adapter.setHighlight(entityId, "hover");
+        });
+      };
+      const handlePointerUp = (event: PointerEvent): void => {
+        if (event.pointerType === "touch") {
+          event.preventDefault();
+          queueTouch(event, "up");
+          return;
+        }
+        pressedMousePointers.delete(event.pointerId);
+        if (!mousePointers.delete(event.pointerId)) return;
+        const rect = canvas.getBoundingClientRect();
+        adapter.updateDrag(event.pointerId, event.clientX - rect.left, event.clientY - rect.top);
+        adapter.endDrag(event.pointerId);
+      };
+      const handlePointerCancel = (event: PointerEvent): void => {
+        if (event.pointerType === "touch") {
+          queueTouch(event, "cancel");
+          return;
+        }
+        pressedMousePointers.delete(event.pointerId);
+        if (mousePointers.delete(event.pointerId)) adapter.cancelDrag(event.pointerId);
+      };
+      const handleLostPointerCapture = (event: PointerEvent): void => {
+        if (releasedPointerIds.delete(event.pointerId)) return;
+        handlePointerCancel(event);
+      };
+      const handleDoubleClick = (event: MouseEvent): void => {
+        if (client === null || pausedRef.current) return;
+        const rect = canvas.getBoundingClientRect();
+        void adapter.pick(event.clientX - rect.left, event.clientY - rect.top).then((entityId) => {
+          if (!disposed && entityId !== null) {
+            client.sendAction({ type: "entity.flip", payload: { entityId } });
+          }
+        });
+      };
+      const preventBrowserTouch = (event: TouchEvent) => event.preventDefault();
+
+      canvas.addEventListener("pointerdown", handlePointerDown);
+      canvas.addEventListener("pointermove", handlePointerMove);
+      canvas.addEventListener("pointerup", handlePointerUp);
+      canvas.addEventListener("pointercancel", handlePointerCancel);
+      canvas.addEventListener("lostpointercapture", handleLostPointerCapture);
+      canvas.addEventListener("dblclick", handleDoubleClick);
+      canvas.addEventListener("touchstart", preventBrowserTouch, { passive: false });
+      canvas.addEventListener("touchmove", preventBrowserTouch, { passive: false });
+
+      const syncRenderLoop = (): void => {
+        const running = document.visibilityState !== "hidden";
+        adapter.setRenderLoop(running);
+        if (!running) abortTouch();
+      };
+      document.addEventListener("visibilitychange", syncRenderLoop);
+      syncRenderLoop();
+      const resize = new ResizeObserver(() => adapter.resize());
+      resize.observe(canvas);
+
+      cleanupMounted = () => {
+        disposed = true;
+        cancelTouchRef.current = null;
+        abortTouch();
+        unsubscribe();
+        resize.disconnect();
+        document.removeEventListener("visibilitychange", syncRenderLoop);
+        canvas.removeEventListener("pointerdown", handlePointerDown);
+        canvas.removeEventListener("pointermove", handlePointerMove);
+        canvas.removeEventListener("pointerup", handlePointerUp);
+        canvas.removeEventListener("pointercancel", handlePointerCancel);
+        canvas.removeEventListener("lostpointercapture", handleLostPointerCapture);
+        canvas.removeEventListener("dblclick", handleDoubleClick);
+        canvas.removeEventListener("touchstart", preventBrowserTouch);
+        canvas.removeEventListener("touchmove", preventBrowserTouch);
+        adapter.dispose();
+        if (adapterRef.current === adapter) adapterRef.current = null;
+      };
     };
-    document.addEventListener("visibilitychange", syncRenderLoop);
-    syncRenderLoop();
-    const resize = new ResizeObserver(() => engine.resize()); resize.observe(canvas);
+
+    void mount().catch((error: unknown) => {
+      pendingAdapter?.dispose();
+      pendingAdapter = null;
+      console.error("Unable to start a table renderer.", error);
+    });
+
     return () => {
-      cancelTouchRef.current = null;
-      abortTouch();
-      unsubscribe();
-      resize.disconnect();
-      dprQuery?.removeEventListener("change", handleDprChange);
-      document.removeEventListener("visibilitychange", syncRenderLoop);
-      canvas.removeEventListener("touchstart", preventBrowserTouch);
-      canvas.removeEventListener("touchmove", preventBrowserTouch);
-      canvas.removeEventListener("pointercancel", handlePointerCancel);
-      canvas.removeEventListener("lostpointercapture", handleLostPointerCapture);
-      for (const piece of pieces.values()) destroyPiece(piece);
-      scene.onPointerObservable.remove(touchPointer);
-      scene.onPointerObservable.remove(pointer);
-      camera.detachControl();
-      engine.stopRenderLoop(render);
-      scene.dispose();
-      engine.dispose();
+      effectDisposed = true;
+      cleanupMounted?.();
+      cleanupMounted = null;
+      pendingAdapter?.dispose();
+      pendingAdapter = null;
     };
   }, [canvasRef, client, store]);
-
 }
