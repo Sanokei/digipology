@@ -611,8 +611,7 @@ describe("saved tables routes", () => {
     expect(body.saves).toEqual([
       expect.objectContaining({ saveId: "save_fallback", gameTitle: "lost-game", resumable: true }),
       expect.objectContaining({
-        saveId: "save_scripted", gameTitle: "Zone Runner", resumable: false,
-        resumeBlockedReason: "scripted_resume_unsupported",
+        saveId: "save_scripted", gameTitle: "Zone Runner", resumable: true,
       }),
       expect.objectContaining({ saveId: "save_uploaded", gameTitle: "Community Game", resumable: true }),
       expect.objectContaining({ saveId: "save_builtin", gameTitle: "First Deal", resumable: true }),
@@ -698,7 +697,7 @@ describe("saved tables routes", () => {
     });
   });
 
-  test("refuses scripted resume before allocating a room", async () => {
+  test("resumes scripted saves through the same pinned-room allocation path", async () => {
     const harness = await savedTablesTestEnv();
     const release = builtinCatalog.getRelease("builtin_zone_runner_2");
     if (release === null) throw new Error("Missing scripted saved-tables test release");
@@ -711,11 +710,16 @@ describe("saved tables routes", () => {
     harness.bucket.objects.set("saves/save_scripted.json", JSON.stringify(scriptedSnapshot));
 
     const response = await harness.request("POST", "/api/saves/save_scripted/resume", {});
-    expect(response.status).toBe(409);
-    expect(await response.json()).toMatchObject({ error: { code: "scripted_resume_unsupported" } });
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({
+      roomId: harness.newRoomId,
+      playerId: "player_resumed",
+      releaseId: release.releaseId,
+      gameTitle: "Zone Runner",
+    });
     expect(harness.db.query("SELECT COUNT(*) AS count FROM rooms_index WHERE room_id = ?")
-      .get(harness.newRoomId)).toEqual({ count: 0 });
-    expect(harness.initializedFromSave).toBeNull();
+      .get(harness.newRoomId)).toEqual({ count: 1 });
+    expect(harness.initializedFromSave).toEqual(scriptedSnapshot);
   });
 });
 
@@ -867,6 +871,7 @@ async function savedTablesTestEnv(): Promise<SavedTablesTestHarness> {
     initializedFromSave: null,
   } as SavedTablesTestHarness;
   let ended = false;
+  let allocatedReleaseId = harnessReleaseId();
   const room = {
     async saveSnapshot(_roomToken: string, _snapshot?: GameSnapshotDto) {
       return harness.saveOutcome;
@@ -885,6 +890,7 @@ async function savedTablesTestEnv(): Promise<SavedTablesTestHarness> {
       _capacity: number,
       saved: GameSnapshotDto,
     ) {
+      allocatedReleaseId = _releaseId;
       harness.initializedFromSave = saved;
       return true;
     },
@@ -893,7 +899,7 @@ async function savedTablesTestEnv(): Promise<SavedTablesTestHarness> {
         status: "ok" as const,
         playerId: "player_resumed",
         roomToken: "resumed-token",
-        releaseId: harnessReleaseId(),
+        releaseId: allocatedReleaseId,
         playerCount: 1,
       };
     },

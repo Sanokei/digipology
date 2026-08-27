@@ -359,6 +359,8 @@ All three methods require an existing canonical player. `title` defaults to the 
 
 Deterministic turn convenience state stored under canonical `state`; **implemented (kernel v1, #65 / PR #74)** as `luaStdlibVersion: 1`, not a kernel primitive.
 
+Before an `on_game_resumed` callback, the standard library reconciles stored turn state with `ctx.roster`: saved player IDs are remapped to their corresponding live IDs, removed players are pruned, and unmatched live players are appended in roster order. The current player and active state are preserved when possible, so creators do not need to restart turns or rerun setup.
+
 #### `turns:start(first?)`
 
 **implemented (kernel v1, #65 / PR #74).** Rebuilds the turn order from `players:list()`, selects one-based index `1`, optionally selects the matching `Player` or `PlayerId`, marks turns active only when at least one player exists, and returns `turns:current()`. An unmatched `first` leaves index `1` selected.
@@ -400,6 +402,8 @@ end
 ### `scores`
 
 Deterministic score convenience state stored under canonical `state`; **implemented (kernel v1, #65 / PR #74)** as `luaStdlibVersion: 1`. Leader ties use stable player ordering.
+
+Before an `on_game_resumed` callback, scores keyed by a saved player ID are moved to the corresponding live player ID and scores for removed players are pruned. Non-player score keys remain unchanged.
 
 #### `scores:set(subject, value)`
 
@@ -629,6 +633,7 @@ All callbacks in this table are **implemented (kernel v1, #65 / PR #74)**.
 | Callback | Trigger contract |
 | --- | --- |
 | `on_start(ctx)` | After `game.started`; context contains canonical `settings` and `actor`. |
+| `on_game_resumed(ctx)` | After `game.resumed` and standard-library roster reconciliation; `ctx.roster` contains the live roster with optional saved-player mappings, `ctx.removedPlayerIds` contains saved players without a live successor, and `ctx.actor` is the system actor. |
 | `on_player_join(ctx)` | After `player.joined`; `ctx.player` contains the joined canonical player record and `ctx.actor` is the system actor. |
 | `on_prompt(ctx)` | After a valid `prompt.respond`; context contains `promptId`, `playerId`, `response`, `actor`, and the responding `Player` proxy as `ctx.player`. |
 

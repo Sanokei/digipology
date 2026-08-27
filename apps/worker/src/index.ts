@@ -39,7 +39,7 @@ import {
   TIMER_CANCEL_GRACE_MS,
   timerFireDedupKey,
   nextHost,
-  savedPlayerIdsToRemove,
+  resumedRosterFromSave,
   scheduledTimersToArm,
   validateCheckpointAttestationSnapshot,
   type RoomCoreState,
@@ -931,6 +931,7 @@ export class RoomDO extends DurableObject<Env> {
         : snapshot(builtinState);
     const resumeState = resumed ? loadSnapshot(baseSnapshot) : null;
     const timersToArm = resumeState === null ? [] : scheduledTimersToArm(resumeState);
+    const resumedRoster = resumeState === null ? [] : resumedRosterFromSave(resumeState, roster);
     this.ctx.storage.transactionSync(() => {
       const room = this.requiredRoom();
       if (room.started === 1 || room.ended_reason !== null) return;
@@ -951,15 +952,13 @@ export class RoomDO extends DurableObject<Env> {
         );
         this.persistSystemAction(started.orderedAction);
       } else {
-        for (const playerId of savedPlayerIdsToRemove(initialState)) {
-          const left = core.sequenceSystem(
-            { type: "system.player_left", payload: { playerId } },
-            `saved_player_left_${playerId}`,
-          );
-          this.persistSystemAction(left.orderedAction);
-        }
+        const resumedAction = core.sequenceSystem(
+          { type: "system.game_resumed", payload: { roster: resumedRoster } },
+          "game_resumed",
+        );
+        this.persistSystemAction(resumedAction.orderedAction);
       }
-      if (builtinState === null || resumed) {
+      if (builtinState === null && !resumed) {
         for (let index = 0; index < roster.length; index += 1) {
           const player = roster[index]!;
           const joined = core.sequenceSystem(

@@ -15,6 +15,7 @@ import {
   loadSnapshot,
   snapshot,
   type CanonicalGameState,
+  type GameResumedPayload,
   type GameSnapshot,
 } from "digipology-kernel";
 import { hashValue } from "digipology-canonical-json";
@@ -342,9 +343,24 @@ export function resumeBaseFromSave(saved: GameSnapshot): GameSnapshot {
   return snapshot({ ...state, sequence: 0 });
 }
 
-/** Canonical ghost cleanup order is independent of object insertion order. */
-export function savedPlayerIdsToRemove(state: CanonicalGameState): string[] {
-  return Object.keys(state.players).sort((left, right) => left.localeCompare(right));
+/** Build the deterministic saved-id to live-roster mapping for sequence one. */
+export function resumedRosterFromSave(
+  state: CanonicalGameState,
+  livePlayers: readonly { playerId: string; displayName: string }[],
+): GameResumedPayload["roster"] {
+  const seatIds = Object.keys(state.seats).sort((left, right) => left.localeCompare(right));
+  return livePlayers.map((player, index) => {
+    const seatId = seatIds[index] ?? `seat_${index + 1}`;
+    const previousPlayerId = state.seats[seatId]?.playerId;
+    return {
+      playerId: player.playerId,
+      name: player.displayName,
+      seatId,
+      ...(typeof previousPlayerId === "string" && state.players[previousPlayerId] !== undefined
+        ? { previousPlayerId }
+        : {}),
+    };
+  });
 }
 
 export interface ScheduledTimerPlan { timerId: string; delayMs: number; }

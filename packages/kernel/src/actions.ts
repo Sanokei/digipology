@@ -18,13 +18,16 @@ import type {
   EntityId,
   EntityRecord,
   FlippableComponent,
+  GameResumedPayload,
   GrabbableComponent,
+  HandComponent,
   JsonValue,
   LockableComponent,
   PlayerRecord,
   PromptKind,
   PromptRecord,
   Reject,
+  ResumedRosterEntry,
   Settings,
   SnapPointComponent,
   StackId,
@@ -649,6 +652,117 @@ const gameStart: ActionDefinition<unknown> = {
     const payload = action.payload as { settings?: Settings };
     if (payload.settings !== undefined) draft.settings = cloneCanonical(payload.settings);
     ctx.emit("game.started", { settings: cloneCanonical(draft.settings) });
+  },
+};
+
+function resumedRosterPayload(action: ActionInstance<unknown>): GameResumedPayload | Reject {
+  if (!isRecord(action.payload) || !onlyKeys(action.payload, ["roster"]) ||
+    !Array.isArray(action.payload.roster) || action.payload.roster.length === 0) {
+    return reject("Payload must contain a non-empty roster array");
+  }
+  const roster: ResumedRosterEntry[] = [];
+  for (const candidate of action.payload.roster) {
+    if (!isRecord(candidate) ||
+      !onlyKeys(candidate, ["playerId", "name", "seatId", "previousPlayerId"]) ||
+      typeof candidate.playerId !== "string" || candidate.playerId.length === 0 ||
+      typeof candidate.seatId !== "string" || candidate.seatId.length === 0 ||
+      (hasOwn.call(candidate, "name") && typeof candidate.name !== "string") ||
+      (hasOwn.call(candidate, "previousPlayerId") &&
+        (typeof candidate.previousPlayerId !== "string" || candidate.previousPlayerId.length === 0))) {
+      return reject("Each roster entry requires playerId and seatId strings with optional name and previousPlayerId strings");
+    }
+    roster.push({
+      playerId: candidate.playerId,
+      ...(typeof candidate.name === "string" ? { name: candidate.name } : {}),
+      seatId: candidate.seatId,
+      ...(typeof candidate.previousPlayerId === "string"
+        ? { previousPlayerId: candidate.previousPlayerId }
+        : {}),
+    });
+  }
+  return { roster };
+}
+
+const gameResumed: ActionDefinition<unknown> = {
+  type: "system.game_resumed",
+  version: 1,
+  sources: ["system"],
+  validate(state, action) {
+    if (state.sequence !== 0) return reject("A resumed roster can only be applied at sequence zero");
+    const payload = resumedRosterPayload(action);
+    if (isReject(payload)) return payload;
+    const playerIds = new Set<string>();
+    const seatIds = new Set<string>();
+    const previousPlayerIds = new Set<string>();
+    for (const entry of payload.roster) {
+      if (playerIds.has(entry.playerId)) return reject(`Duplicate resumed player: ${entry.playerId}`);
+      if (seatIds.has(entry.seatId)) return reject(`Duplicate resumed seat: ${entry.seatId}`);
+      playerIds.add(entry.playerId);
+      seatIds.add(entry.seatId);
+      if (entry.previousPlayerId === undefined) continue;
+      if (!hasOwn.call(state.players, entry.previousPlayerId)) {
+        return reject(`Unknown previous player: ${entry.previousPlayerId}`);
+      }
+      if (previousPlayerIds.has(entry.previousPlayerId)) {
+        return reject(`Duplicate previous player: ${entry.previousPlayerId}`);
+      }
+      previousPlayerIds.add(entry.previousPlayerId);
+    }
+    return OK;
+  },
+  apply(draft, action, ctx) {
+    const { roster } = action.payload as GameResumedPayload;
+    const removedPlayerIds = Object.keys(draft.players).sort(compareIds);
+    const removed = new Set(removedPlayerIds);
+    const remap = new Map(roster.flatMap((entry) => entry.previousPlayerId === undefined
+      ? []
+      : [[entry.previousPlayerId, entry.playerId] as const]));
+    for (const entityId of sortedEntityIds(draft)) {
+      const components = draft.entities[entityId]?.components;
+      const grabbable = components?.grabbable as
+        | GrabbableComponent
+        | undefined;
+      if (grabbable?.heldBy !== null && grabbable?.heldBy !== undefined && removed.has(grabbable.heldBy)) {
+        grabbable.heldBy = null;
+      }
+      const hand = components?.hand as HandComponent | undefined;
+      if (hand !== undefined && removed.has(hand.owner)) {
+        const replacement = remap.get(hand.owner);
+        if (replacement !== undefined) hand.owner = replacement;
+      }
+      const container = components?.container as ContainerComponent | undefined;
+      if (container?.visibility.startsWith("owner:") === true) {
+        const owner = container.visibility.slice("owner:".length);
+        const replacement = remap.get(owner);
+        if (replacement !== undefined) container.visibility = `owner:${replacement}`;
+      }
+    }
+    for (const seatId of Object.keys(draft.seats).sort(compareIds)) {
+      const seat = draft.seats[seatId];
+      if (seat !== undefined && typeof seat.playerId === "string") seat.playerId = null;
+    }
+    draft.players = {};
+    for (const entry of roster) {
+      draft.players[entry.playerId] = {
+        id: entry.playerId,
+        ...(entry.name === undefined ? {} : { name: entry.name }),
+      };
+      const seat = draft.seats[entry.seatId];
+      draft.seats[entry.seatId] = seat === undefined
+        ? { id: entry.seatId, playerId: entry.playerId }
+        : { ...seat, playerId: entry.playerId };
+    }
+    for (const promptId of Object.keys(draft.prompts).sort(compareIds)) {
+      const prompt = draft.prompts[promptId];
+      if (prompt === undefined || !removed.has(prompt.playerId)) continue;
+      const replacement = remap.get(prompt.playerId);
+      if (replacement === undefined) delete draft.prompts[promptId];
+      else prompt.playerId = replacement;
+    }
+    ctx.emit("game.resumed", {
+      roster: cloneCanonical(roster as unknown as JsonValue),
+      removedPlayerIds,
+    });
   },
 };
 
@@ -1807,6 +1921,7 @@ const timerFire: ActionDefinition<unknown> = {
 
 export const builtInActions: ReadonlyArray<ActionDefinition<unknown>> = [
   gameStart,
+  gameResumed,
   playerJoined,
   playerLeft,
   seatAssign,

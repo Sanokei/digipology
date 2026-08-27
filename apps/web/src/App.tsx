@@ -3,13 +3,14 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-route
 import type { Location } from "react-router-dom";
 
 import { AuthProvider } from "./auth/AuthContext";
-import { CreatePage } from "./pages/CreatePage";
-import { GamesPage } from "./pages/GamesPage";
-import { GameDetailPage } from "./pages/GameDetailPage";
 import { HomePage } from "./pages/HomePage";
-import { JoinPage } from "./pages/JoinPage";
-import { LoginPage } from "./pages/LoginPage";
-import { SavesPage } from "./pages/SavesPage";
+
+const JoinPage = lazy(async () => ({ default: (await import("./pages/JoinPage")).JoinPage }));
+const GamesPage = lazy(async () => ({ default: (await import("./pages/GamesPage")).GamesPage }));
+const GameDetailPage = lazy(async () => ({ default: (await import("./pages/GameDetailPage")).GameDetailPage }));
+const CreatePage = lazy(async () => ({ default: (await import("./pages/CreatePage")).CreatePage }));
+const SavesPage = lazy(async () => ({ default: (await import("./pages/SavesPage")).SavesPage }));
+const LoginPage = lazy(async () => ({ default: (await import("./pages/LoginPage")).LoginPage }));
 
 const TablePage = lazy(async () => {
   const module = await import("./pages/TablePage");
@@ -27,7 +28,7 @@ export function AppRoutes() {
   const backgroundLocation = state?.backgroundLocation;
   const loginOpen = location.pathname === "/login";
   return (
-    <>
+    <Suspense fallback={<RouteLoading />}>
       <Routes location={loginOpen ? backgroundLocation ?? "/" : location}>
         <Route path="/" element={<HomePage />} />
         <Route path="/join/:code" element={<JoinPage />} />
@@ -62,10 +63,14 @@ export function AppRoutes() {
         <Route path="*" element={<Navigate replace to="/" />} />
       </Routes>
       {loginOpen ? <LoginPage restoreHistory={backgroundLocation !== undefined} /> : null}
-    </>
+    </Suspense>
   );
 }
 
 export function App() {
-  return <BrowserRouter><AuthProvider><AppRoutes /></AuthProvider></BrowserRouter>;
+  return <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}><AuthProvider><AppRoutes /></AuthProvider></BrowserRouter>;
+}
+
+function RouteLoading() {
+  return <div className="route-loading" role="status"><span aria-hidden="true" />Loading Digipology…</div>;
 }

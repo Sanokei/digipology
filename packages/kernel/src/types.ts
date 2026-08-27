@@ -17,6 +17,19 @@ export interface PlayerRecord {
   [key: string]: JsonValue;
 }
 
+/** One live player replacing an optional saved-room identity during resume. */
+export interface ResumedRosterEntry {
+  playerId: PlayerId;
+  name?: string;
+  seatId: SeatId;
+  previousPlayerId?: PlayerId;
+}
+
+/** Trusted payload for the first canonical action in a resumed room. */
+export interface GameResumedPayload {
+  roster: ResumedRosterEntry[];
+}
+
 export interface SeatRecord {
   id: SeatId;
   [key: string]: JsonValue;

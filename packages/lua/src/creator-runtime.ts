@@ -315,6 +315,67 @@ state.__stdlib = state.__stdlib or {}
 state.__stdlib.turns = state.__stdlib.turns or { active = false, order = {}, index = 0 }
 state.__stdlib.scores = state.__stdlib.scores or {}
 
+-- system.game_resumed may be delivered to several bindings. Persist the exact
+-- roster transition so each distinct resume reconciles once, including when a
+-- resumed table is saved and resumed again later.
+local resume_roster_key = nil
+if ctx.roster ~= nil then
+  resume_roster_key = ""
+  for _, entry in ipairs(ctx.roster) do
+    resume_roster_key = resume_roster_key .. string.len(entry.playerId) .. ":" .. entry.playerId .. ";"
+  end
+end
+if ctx.roster ~= nil and ctx.removedPlayerIds ~= nil and
+    state.__stdlib.last_resume_roster_key ~= resume_roster_key then
+  local live, remap, removed = {}, {}, {}
+  for _, player in ipairs(players:list()) do live[player.id] = true end
+  for _, entry in ipairs(ctx.roster) do
+    if entry.previousPlayerId ~= nil then remap[entry.previousPlayerId] = entry.playerId end
+  end
+  for _, id in ipairs(ctx.removedPlayerIds) do removed[id] = true end
+
+  local old_order = state.__stdlib.turns.order
+  local old_index = state.__stdlib.turns.index
+  local old_current = old_order[old_index]
+  local order, seen = {}, {}
+  for _, id in ipairs(old_order) do
+    local candidate = remap[id] or id
+    if live[candidate] and not seen[candidate] then
+      table.insert(order, candidate)
+      seen[candidate] = true
+    end
+  end
+  for _, player in ipairs(players:list()) do
+    if not seen[player.id] then
+      table.insert(order, player.id)
+      seen[player.id] = true
+    end
+  end
+  state.__stdlib.turns.order = order
+  state.__stdlib.turns.index = #order == 0 and 0 or 1
+  local current = remap[old_current] or old_current
+  for index, id in ipairs(order) do
+    if id == current then state.__stdlib.turns.index = index end
+  end
+  state.__stdlib.turns.active = state.__stdlib.turns.active and #order > 0
+
+  local score_keys = {}
+  for id in pairs(state.__stdlib.scores) do table.insert(score_keys, id) end
+  table.sort(score_keys)
+  local scores_after_resume = {}
+  for _, id in ipairs(score_keys) do
+    if removed[id] then
+      local replacement = remap[id]
+      if replacement ~= nil then scores_after_resume[replacement] = state.__stdlib.scores[id] end
+    elseif scores_after_resume[id] == nil then
+      scores_after_resume[id] = state.__stdlib.scores[id]
+    end
+  end
+  state.__stdlib.scores = scores_after_resume
+
+  state.__stdlib.last_resume_roster_key = resume_roster_key
+end
+
 turns = {
   start = function(_, first)
     local ordered = players:list()
@@ -444,8 +505,9 @@ function invocationEnvironment(
   for (const id of entityIds) entities[id] = componentRecord(request.state, id);
   for (const containerId of entityIds) {
     const container = asRecord(request.state.entities[containerId]?.components.container);
-    if (!Array.isArray(container?.items)) continue;
-    for (const itemId of container.items) if (typeof itemId === "string") locations[itemId] = containerId;
+    const items = container?.items;
+    if (!Array.isArray(items)) continue;
+    for (const itemId of items) if (typeof itemId === "string") locations[itemId] = containerId;
   }
   return {
     state: request.scriptState,

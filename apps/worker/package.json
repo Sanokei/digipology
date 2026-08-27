@@ -5,7 +5,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "wrangler dev --var PUBLIC_ORIGIN:http://127.0.0.1:8787",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "smoke": "bun scripts/smoke.ts"

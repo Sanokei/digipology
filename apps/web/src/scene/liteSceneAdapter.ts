@@ -3,6 +3,7 @@ import {
   attachControl,
   createArcRotateCamera,
   createBox,
+  createCylinder,
   createDirectionalLight,
   createDynamicTexture,
   createEngine,
@@ -11,6 +12,7 @@ import {
   createPlane,
   createSceneContext,
   createStandardMaterial,
+  createTorus,
   disposeEngine,
   disposePicker,
   disposeScene,
@@ -46,6 +48,7 @@ import type {
   SceneAdapterMountOptions,
 } from "./sceneAdapter";
 import { TABLE_DEPTH, TABLE_SURFACE_Y, TABLE_WIDTH } from "./tableDimensions";
+import { piecePresentation, piecePresentationSignature } from "./piecePresentation";
 
 interface DragBounds {
   minX: number;
@@ -78,6 +81,16 @@ interface PieceGraph {
   labelBillboard?: boolean;
   lastCorrectionId?: number;
   correction?: CorrectionAnimation;
+  spawn?: {
+    elapsed: number;
+    fromY: number;
+    toY: number;
+    toScaling: [number, number, number];
+  };
+  landing?: {
+    elapsed: number;
+    scaling: [number, number, number];
+  };
 }
 
 const LIFT_HEIGHT = 0.22;
@@ -100,22 +113,6 @@ function hexColor(value: string, fallback: string): [number, number, number] {
     Number.parseInt(source.slice(2, 4), 16) / 255,
     Number.parseInt(source.slice(4, 6), 16) / 255,
   ];
-}
-
-function cardFaceUp(entity: EntityRecord): boolean {
-  const { card, flippable } = entity.components;
-  return flippable?.flipped ?? card?.faceUp ?? false;
-}
-
-function displaySignature(entity: EntityRecord): string {
-  const { card, die, counter, deck, container, button, text } = entity.components;
-  if (deck !== undefined) return `deck:${deck.enabled}:${container?.items.length ?? 0}`;
-  if (card !== undefined) return `card:${card.definitionId}:${cardFaceUp(entity)}`;
-  if (die !== undefined) return `die:${String(die.value)}`;
-  if (counter !== undefined) return `counter:${counter.value}`;
-  if (button !== undefined) return `button:${button.enabled}:${button.label}`;
-  if (text !== undefined) return `text:${text.value}`;
-  return "other";
 }
 
 function transformSignature(transform: TransformComponent | undefined, restingY: number): string {
@@ -249,6 +246,35 @@ function updateCorrection(piece: PieceGraph, deltaMs: number): void {
   if (linear === 1) delete piece.correction;
 }
 
+function updateSpawnAndLanding(piece: PieceGraph, deltaMs: number): void {
+  const spawn = piece.spawn;
+  if (spawn !== undefined) {
+    spawn.elapsed += deltaMs;
+    const linear = Math.min(spawn.elapsed / 420, 1);
+    const offset = linear - 1;
+    const eased = 1 + 2.70158 * offset ** 3 + 1.70158 * offset ** 2;
+    piece.mesh.position.y = mix(spawn.fromY, spawn.toY, eased);
+    piece.mesh.scaling.set(
+      spawn.toScaling[0] * mix(0.72, 1, eased),
+      spawn.toScaling[1] * mix(0.72, 1, eased),
+      spawn.toScaling[2] * mix(0.72, 1, eased),
+    );
+    if (linear === 1) delete piece.spawn;
+    return;
+  }
+  const landing = piece.landing;
+  if (landing === undefined) return;
+  landing.elapsed += deltaMs;
+  const linear = Math.min(landing.elapsed / 260, 1);
+  const pulse = Math.sin(linear * Math.PI) * (1 - linear);
+  piece.mesh.scaling.set(
+    landing.scaling[0] * (1 + pulse * 0.08),
+    landing.scaling[1] * (1 - pulse * 0.12),
+    landing.scaling[2] * (1 + pulse * 0.08),
+  );
+  if (linear === 1) delete piece.landing;
+}
+
 /**
  * Camera-facing orientation for counter labels (Lite has no `billboardMode`).
  *
@@ -285,17 +311,22 @@ function orientBillboardLabel(piece: PieceGraph, camera: ArcRotateCamera | null)
   );
 }
 
-function makeLabelCanvas(text: string): HTMLCanvasElement {
+function makeLabelCanvas(text: string, color: string, background: string, compact: boolean): HTMLCanvasElement {
   const label = document.createElement("canvas");
   label.width = 512;
   label.height = 256;
   const context = label.getContext("2d");
   if (context !== null) {
     context.clearRect(0, 0, label.width, label.height);
-    context.fillStyle = "#dce8d8";
-    context.fillRect(0, 0, label.width, label.height);
-    context.fillStyle = "#102018";
-    context.font = "bold 54px Manrope, sans-serif";
+    context.beginPath();
+    context.roundRect(compact ? 112 : 12, 12, compact ? 288 : 488, 232, compact ? 116 : 28);
+    context.fillStyle = background;
+    context.fill();
+    context.strokeStyle = "rgba(255, 255, 255, 0.22)";
+    context.lineWidth = 8;
+    context.stroke();
+    context.fillStyle = color;
+    context.font = `bold ${compact ? 108 : 54}px Manrope, sans-serif`;
     context.textAlign = "center";
     context.textBaseline = "middle";
     context.fillText(text.slice(0, 28), label.width / 2, label.height / 2, label.width - 24);
@@ -365,32 +396,42 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
     removeFromScene(scene, piece.mesh);
   }
 
-  function makeMaterial(color: string): StandardMaterialProps {
+  function makeMaterial(appearance: ReturnType<typeof piecePresentation>): StandardMaterialProps {
     const result = createStandardMaterial();
-    result.diffuseColor = hexColor(color, "#d7b26d");
-    result.specularColor = hexColor("#271d10", "#271d10");
-    result.specularPower = 18;
+    result.diffuseColor = hexColor(appearance.color, "#d7b26d");
+    result.specularColor = hexColor(appearance.specular, "#271d10");
+    result.emissiveColor = hexColor(appearance.emissive, "#000000");
+    result.alpha = appearance.alpha;
+    result.specularPower = 28;
     return result;
   }
 
-  function addLabel(parent: Mesh, text: string, width: number, depth: number, billboard: boolean): {
+  function addLabel(parent: Mesh, appearance: ReturnType<typeof piecePresentation>): {
     labelMesh: Mesh;
     labelTexture: DynamicTexture2D;
   } {
     const mounted = requireMounted();
     const texture = createDynamicTexture(mounted.engine, 512, 256, { srgb: true });
-    updateDynamicTexture(mounted.engine, texture, makeLabelCanvas(text));
+    updateDynamicTexture(mounted.engine, texture, makeLabelCanvas(
+      appearance.label,
+      appearance.labelColor,
+      appearance.labelBackground,
+      appearance.billboardLabel,
+    ));
     const labelMaterial = createStandardMaterial();
     labelMaterial.diffuseTexture = texture;
-    labelMaterial.emissiveTexture = texture;
-    labelMaterial.disableLighting = true;
-    const labelMesh = createPlane(mounted.engine, { width: width * 0.78, height: depth * 0.46 });
+    labelMaterial.diffuseColor = [1, 1, 1];
+    labelMaterial.ambientColor = [0.38, 0.38, 0.38];
+    labelMaterial.specularColor = [0.05, 0.05, 0.05];
+    labelMaterial.alphaCutOff = 0.04;
+    labelMaterial.backFaceCulling = false;
+    const labelMesh = createPlane(mounted.engine, { width: appearance.width * 0.78, height: appearance.depth * 0.46 });
     labelMesh.name = `${parent.name}-label-plane`;
     labelMesh.material = labelMaterial;
     labelMesh.pickable = false;
     setParent(labelMesh, parent);
-    labelMesh.position.set(0, billboard ? 0.68 : 0.052, 0);
-    labelMesh.rotation.x = billboard ? 0 : Math.PI / 2;
+    labelMesh.position.set(0, appearance.billboardLabel ? 0.48 : appearance.height / 2 + 0.006, 0);
+    labelMesh.rotation.x = appearance.billboardLabel ? 0 : Math.PI / 2;
     addToScene(mounted.scene, labelMesh);
     return { labelMesh, labelTexture: texture };
   }
@@ -398,55 +439,46 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
   function makePiece(entity: EntityRecord): PieceGraph | null {
     const mounted = requireMounted();
     const { components } = entity;
-    let label = "";
-    let color = "#d7b26d";
-    let width = 0.9;
-    let depth = 0.9;
-    let height = 0.18;
     if (components.hand !== undefined) {
       return null;
-    } else if (components.deck !== undefined) {
-      width = 1.02;
-      depth = 1.42;
-      height = 0.14 + Math.min(components.container?.items.length ?? 0, 20) * 0.012;
-      label = `Deck · ${components.container?.items.length ?? 0}`;
-      color = components.deck.enabled ? "#754331" : "#4b4540";
-    } else if (components.card !== undefined) {
-      width = 0.86;
-      depth = 1.22;
-      height = 0.09;
-      const definition = currentView?.definitions[components.card.definitionId];
-      const faceUp = cardFaceUp(entity);
-      label = faceUp ? definition?.label ?? "Card" : "DIGIPOLOGY";
-      color = faceUp ? definition?.color ?? "#e7dfc8" : "#9e402d";
-    } else if (components.die !== undefined) {
-      width = depth = height = 0.72;
-      label = String(components.die.value);
-      color = "#e8dfc9";
-    } else if (components.counter !== undefined) {
-      width = depth = 0.72;
-      height = 0.2;
-      label = String(components.counter.value);
-      color = "#d5ff76";
-    } else if (components.transform !== undefined) {
-      label = components.button?.label || components.text?.value || "Table object";
-      color = components.button?.enabled === false ? "#716b62" : "#d7b26d";
-    } else {
+    } else if (components.transform === undefined && components.counter === undefined &&
+      components.deck === undefined && components.card === undefined && components.die === undefined) {
       return null;
     }
-    const restingY = TABLE_SURFACE_Y + height / 2;
-    const mesh = createBox(mounted.engine, { width, depth, height });
+    const definitionId = components.card?.definitionId ?? components.die?.definitionId;
+    const appearance = piecePresentation(
+      entity,
+      definitionId === undefined ? undefined : currentView?.definitions[definitionId],
+    );
+    const restingY = TABLE_SURFACE_Y + appearance.height / 2;
+    const mesh = appearance.shape === "ring"
+      ? createTorus(mounted.engine, {
+          diameter: appearance.width,
+          thickness: appearance.height,
+          tessellation: 48,
+        })
+      : appearance.shape === "cylinder"
+      ? createCylinder(mounted.engine, {
+          height: appearance.height,
+          diameter: appearance.width,
+          tessellation: 48,
+        })
+      : createBox(mounted.engine, {
+          width: appearance.width,
+          depth: appearance.depth,
+          height: appearance.height,
+        });
     mesh.name = `entity-${entity.id}`;
-    mesh.metadata = { entityId: entity.id, displayLabel: label };
+    mesh.metadata = { entityId: entity.id, displayLabel: appearance.label };
     mesh.pickable = true;
-    const pieceMaterial = makeMaterial(color);
+    const pieceMaterial = makeMaterial(appearance);
     mesh.material = pieceMaterial;
     applyTransform(mesh, components.transform, restingY);
     addToScene(mounted.scene, mesh);
     const graph: PieceGraph = {
       mesh,
       material: pieceMaterial,
-      signature: displaySignature(entity),
+      signature: piecePresentationSignature(entity),
       transformSignature: transformSignature(components.transform, restingY),
       restingY,
       grabbable: dependencies.sendAction !== undefined
@@ -454,18 +486,23 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
         && components.grabbable.heldBy === null
         && components.lockable?.locked !== true,
     };
+    const targetScaling: [number, number, number] = [mesh.scaling.x, mesh.scaling.y, mesh.scaling.z];
+    const targetY = mesh.position.y;
+    graph.spawn = { elapsed: 0, fromY: targetY - 0.08, toY: targetY, toScaling: targetScaling };
+    mesh.position.y = targetY - 0.08;
+    mesh.scaling.set(targetScaling[0] * 0.72, targetScaling[1] * 0.72, targetScaling[2] * 0.72);
     if (graph.grabbable) {
       graph.bounds = {
-        minX: -TABLE_WIDTH / 2 + width / 2,
-        maxX: TABLE_WIDTH / 2 - width / 2,
-        minZ: -TABLE_DEPTH / 2 + depth / 2,
-        maxZ: TABLE_DEPTH / 2 - depth / 2,
+        minX: -TABLE_WIDTH / 2 + appearance.width / 2,
+        maxX: TABLE_WIDTH / 2 - appearance.width / 2,
+        minZ: -TABLE_DEPTH / 2 + appearance.depth / 2,
+        maxZ: TABLE_DEPTH / 2 - appearance.depth / 2,
         restingY,
       };
     }
-    if (label !== "") {
-      Object.assign(graph, addLabel(mesh, label, width, depth, components.counter !== undefined));
-      graph.labelBillboard = components.counter !== undefined;
+    if (appearance.label !== "") {
+      Object.assign(graph, addLabel(mesh, appearance));
+      graph.labelBillboard = appearance.billboardLabel;
       orientBillboardLabel(graph, cameraGraph);
     }
     applyPieceHighlight(graph);
@@ -498,6 +535,10 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
         y: piece.mesh.position.y,
         z: piece.mesh.position.z,
       });
+      piece.landing = {
+        elapsed: 0,
+        scaling: [piece.mesh.scaling.x, piece.mesh.scaling.y, piece.mesh.scaling.z],
+      };
     }
     activeDrag = null;
     localHeld = null;
@@ -516,8 +557,8 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
         srgb: true,
       });
       scene = createSceneContext(engine);
-      scene.clearColor = { r: 0.031, g: 0.067, b: 0.055, a: 1 };
-      cameraGraph = createArcRotateCamera(-Math.PI / 2, 0.92, 11.8, { x: 0, y: 0, z: 0 });
+      scene.clearColor = { r: 0.018, g: 0.027, b: 0.024, a: 1 };
+      cameraGraph = createArcRotateCamera(-1.46, 0.82, 13.2, { x: 0, y: 0, z: 0 });
       cameraGraph.panningSensibility = 175;
       cameraGraph.wheelPrecision = 42;
       cameraGraph.inertia = 0.72;
@@ -536,29 +577,55 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       canvas.addEventListener("touchcancel", blockLiteTouchGesture, { passive: false });
       attachCamera();
 
-      const felt = createStandardMaterial();
-      felt.diffuseColor = hexColor("#173f32", "#173f32");
-      felt.specularColor = hexColor("#07130f", "#07130f");
-      felt.specularPower = 8;
-      const table = createBox(engine, { width: TABLE_WIDTH, depth: TABLE_DEPTH, height: 0.42 });
-      table.name = "table-surface";
-      table.position.y = TABLE_SURFACE_Y - 0.21;
-      table.material = felt;
-      table.pickable = false;
-      addToScene(scene, table);
+      const mountedEngine = engine;
+      const mountedScene = scene;
+      const addStaticBox = (name: string, width: number, depth: number, height: number, y: number, color: string) => {
+        const staticMaterial = createStandardMaterial();
+        staticMaterial.diffuseColor = hexColor(color, color);
+        staticMaterial.specularColor = hexColor("#120d0a", "#120d0a");
+        staticMaterial.specularPower = 20;
+        const mesh = createBox(mountedEngine, { width, depth, height });
+        mesh.name = name;
+        mesh.position.y = y;
+        mesh.material = staticMaterial;
+        mesh.pickable = false;
+        addToScene(mountedScene, mesh);
+        return mesh;
+      };
+      addStaticBox("floor", 40, 40, 0.08, -0.82, "#090d0c");
+      addStaticBox("table-base", TABLE_WIDTH + 0.62, TABLE_DEPTH + 0.62, 0.34, TABLE_SURFACE_Y - 0.29, "#17110f");
+      addStaticBox("table-surface", TABLE_WIDTH, TABLE_DEPTH, 0.12, TABLE_SURFACE_Y - 0.06, "#123529");
+      const railNorth = addStaticBox("table-rail-north", TABLE_WIDTH + 0.7, 0.3, 0.28, TABLE_SURFACE_Y + 0.02, "#33231b");
+      const railSouth = addStaticBox("table-rail-south", TABLE_WIDTH + 0.7, 0.3, 0.28, TABLE_SURFACE_Y + 0.02, "#33231b");
+      const railWest = addStaticBox("table-rail-west", 0.3, TABLE_DEPTH + 0.1, 0.28, TABLE_SURFACE_Y + 0.02, "#2b1d17");
+      const railEast = addStaticBox("table-rail-east", 0.3, TABLE_DEPTH + 0.1, 0.28, TABLE_SURFACE_Y + 0.02, "#2b1d17");
+      railNorth.position.z = -TABLE_DEPTH / 2 - 0.14;
+      railSouth.position.z = TABLE_DEPTH / 2 + 0.14;
+      railWest.position.x = -TABLE_WIDTH / 2 - 0.14;
+      railEast.position.x = TABLE_WIDTH / 2 + 0.14;
 
-      const ambient = createHemisphericLight([0, 1, 0], 0.78);
-      ambient.diffuseColor = hexColor("#d7eadf", "#d7eadf");
-      ambient.groundColor = hexColor("#101913", "#101913");
+      const ambient = createHemisphericLight([0, 1, 0], 0.44);
+      ambient.diffuseColor = hexColor("#c7ddd1", "#c7ddd1");
+      ambient.groundColor = hexColor("#090d0b", "#090d0b");
       addToScene(scene, ambient);
-      const key = createDirectionalLight([-0.55, -1, 0.4], 1.5);
+      const key = createDirectionalLight([-0.55, -1, 0.4], 0.95);
       key.position.set(5, 9, -5);
       key.diffuse = hexColor("#fff1d7", "#fff1d7");
       addToScene(scene, key);
 
       picker = createGpuPicker(scene);
+      let cameraIntroMs = 0;
       onBeforeRender(scene, (deltaMs) => {
+        if (cameraGraph !== null && cameraIntroMs < 900) {
+          cameraIntroMs += deltaMs;
+          const linear = Math.min(cameraIntroMs / 900, 1);
+          const eased = 1 - (1 - linear) ** 3;
+          cameraGraph.alpha = mix(-1.46, -Math.PI / 2, eased);
+          cameraGraph.beta = mix(0.82, 0.92, eased);
+          cameraGraph.radius = mix(13.2, 11.8, eased);
+        }
         for (const piece of pieces.values()) {
+          updateSpawnAndLanding(piece, deltaMs);
           updateCorrection(piece, deltaMs);
           orientBillboardLabel(piece, cameraGraph);
         }
@@ -617,7 +684,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
         if (existing === undefined) {
           const created = makePiece(entity);
           if (created !== null) pieces.set(id, created);
-        } else if (existing.signature !== displaySignature(entity)) {
+        } else if (existing.signature !== piecePresentationSignature(entity)) {
           destroyPiece(existing);
           const created = makePiece(entity);
           if (created === null) pieces.delete(id);

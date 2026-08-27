@@ -14,7 +14,7 @@ export function TableMenuContent({ isHost, signedIn, saveHidden, scripted, busy,
     {isHost && !saveHidden ? <button type="button" role="menuitem" disabled={busy} onClick={onSave}>
       {signedIn ? busy ? "Saving…" : "Save table" : "Sign in to save this table"}
     </button> : null}
-    {isHost && scripted && !saveHidden ? <p className="table-menu__note">Scripted games can't be resumed yet — you can save now and resume once support lands.</p> : null}
+    {isHost && scripted && !saveHidden ? <p className="table-menu__note">Script state, turns, and scores will resume with the new room roster.</p> : null}
     {isHost ? <button type="button" role="menuitem" disabled={busy} onClick={onEnd}>End table</button> : null}
     <Link role="menuitem" to="/">Leave</Link>
   </div>;
@@ -34,7 +34,7 @@ export function TableMenu({ roomId, roomToken, isHost, scripted, confirmedSnapsh
 
   const save = useCallback(async () => {
     if (!window.confirm(scripted
-      ? "Save this table? Scripted games can't be resumed yet — the save is kept until resume support lands."
+      ? "Save this table? Script state, turns, and scores will resume with the new room roster."
       : "Save this table? You can resume it later from Saved tables.")) return;
     setBusy(true); setNotice(null);
     let result = await api.saveTable(roomId, roomToken, confirmedSnapshot() ?? undefined);

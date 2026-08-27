@@ -263,6 +263,7 @@ function eventDeliveries(event: KernelEvent): CallbackDelivery[] {
   };
   switch (event.type) {
     case "game.started": return [{ functionName: "on_start", context: cloneCanonical(event.data) }];
+    case "game.resumed": return [{ functionName: "on_game_resumed", context: cloneCanonical(event.data) }];
     case "player.joined": return [{ functionName: "on_player_join", context: cloneCanonical(event.data) }];
     case "entity.grabbed": return entity("on_grab");
     case "entity.dropped": return entity("on_drop");

@@ -303,6 +303,13 @@
       "owner": "Entity callbacks"
     },
     {
+      "label": "on_game_resumed",
+      "signature": "on_game_resumed(ctx)",
+      "documentation": "After game.resumed and standard-library roster reconciliation; ctx.roster contains the live roster with optional saved-player mappings, ctx.removedPlayerIds contains saved players without a live successor, and ctx.actor is the system actor.",
+      "kind": "callback",
+      "owner": "Game callbacks"
+    },
+    {
       "label": "on_grab",
       "signature": "on_grab(ctx)",
       "documentation": "The bound entity is successfully grabbed.",
