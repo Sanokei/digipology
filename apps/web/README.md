@@ -1,13 +1,24 @@
 # Digipology web
 
-The private React and Babylon.js player shell for Digipology. It contains the
-action-oriented home and placeholder routes, plus a presentation-only tabletop
-scene that demonstrates immediate local pointer dragging.
+The React and Babylon.js player and creator app for Digipology. It includes the
+game catalog, room join and hosting flows, saved tables, browser editor, and the
+presentation-only tabletop scene.
 
 ## Development
 
-From the repository root, install workspace dependencies with `bun install`.
-Then run the app with `bun run --cwd apps/web dev`.
+From the repository root, install workspace dependencies with `bun install`,
+apply local D1 migrations once, then start the full application:
+
+```sh
+cd apps/worker
+bunx wrangler d1 migrations apply digipology --local
+cd ../..
+bun run dev
+```
+
+The full stack is served at `http://127.0.0.1:8787`. For frontend hot reload,
+leave the worker running and start `bun run dev:web` in another terminal; Vite
+serves `http://127.0.0.1:5173` and proxies `/api` to the local worker.
 
 Useful checks:
 

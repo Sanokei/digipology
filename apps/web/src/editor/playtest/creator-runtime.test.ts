@@ -213,4 +213,63 @@ end`;
     expect(first.stateHash).toBe("sha256:7531016d794e95936ccc80cefea2032d9cbdbe6005bb80d247082048935ccc44");
     expect((first.state.scriptState as { leader?: string }).leader).toBe("b");
   }, 20_000);
+
+  test("resume remaps stdlib turns and scores before the game hook", async () => {
+    const source = `
+function on_game_resumed(ctx)
+  local before = turns:current()
+  local after = turns:next()
+  state.resume_probe = {
+    before = before and before.id or nil,
+    after = after and after.id or nil,
+    is_current = turns:is_current(after),
+    leader = scores:leader().id,
+    roster_count = #ctx.roster,
+  }
+end`;
+    const replay = async () => {
+      const initial = createInitialState({
+        releaseId: "stdlib-resume",
+        rng: RNG,
+        players: { old_b: { id: "old_b" }, old_a: { id: "old_a" } },
+        seats: {
+          seat_2: { id: "seat_2", playerId: "old_b" },
+          seat_1: { id: "seat_1", playerId: "old_a" },
+        },
+        entities: {
+          rules: { id: "rules", components: { script: { scriptId: "rules", bindingId: "rules", props: {} } } },
+        },
+        scriptState: {
+          __stdlib: {
+            turns: { active: true, order: ["old_a", "old_b"], index: 2 },
+            scores: { old_a: 3, old_b: 5, entity_score: 9 },
+          },
+        },
+      });
+      const runtime = await createCreatorScriptRuntime({ scripts: { rules: source }, instructionBudget: 50_000 });
+      const result = await applyOrderedWithScripts(initial, action(initial, "system.game_resumed", {
+        roster: [
+          { playerId: "new_a", name: "New A", seatId: "seat_1", previousPlayerId: "old_a" },
+          { playerId: "new_b", name: "New B", seatId: "seat_2", previousPlayerId: "old_b" },
+        ],
+      }, { type: "system" }), { runtime });
+      runtime.close();
+      expect(result.rejection).toBeUndefined();
+      return snapshot(result.state);
+    };
+    const first = await replay();
+    const second = await replay();
+    expect(first.stateHash).toBe(second.stateHash);
+    expect(first.state.scriptState).toEqual({
+      __stdlib: {
+        last_resume_roster_key: "5:new_a;5:new_b;",
+        turns: { active: true, order: ["new_a", "new_b"], index: 1 },
+        scores: { entity_score: 9, new_a: 3, new_b: 5 },
+      },
+      resume_probe: {
+        before: "new_b", after: "new_a", is_current: true, leader: "new_b", roster_count: 2,
+      },
+    });
+    expect(JSON.stringify(first.state.scriptState)).not.toContain("old_");
+  }, 20_000);
 });

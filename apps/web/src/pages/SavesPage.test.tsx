@@ -17,11 +17,11 @@ test("table menu exposes host actions additively", () => {
   expect(nonHost).not.toContain("Save table"); expect(nonHost).not.toContain("End table");
 });
 
-test("table menu warns scripted hosts before saving", () => {
+test("table menu explains scripted resume before saving", () => {
   const scripted = renderToStaticMarkup(<MemoryRouter><TableMenuContent isHost signedIn saveHidden={false} scripted busy={false} onDiagnostics={() => {}} onSave={() => {}} onEnd={() => {}} /></MemoryRouter>);
-  expect(scripted).toContain("Scripted games can&#x27;t be resumed yet — you can save now and resume once support lands.");
+  expect(scripted).toContain("Script state, turns, and scores will resume with the new room roster.");
   const unscripted = renderToStaticMarkup(<MemoryRouter><TableMenuContent isHost signedIn saveHidden={false} scripted={false} busy={false} onDiagnostics={() => {}} onSave={() => {}} onEnd={() => {}} /></MemoryRouter>);
-  expect(unscripted).not.toContain("Scripted games can&#x27;t be resumed yet");
+  expect(unscripted).not.toContain("Script state, turns, and scores");
 });
 
 test("saved tables page renders a populated account list", () => {
@@ -69,7 +69,7 @@ test("saved tables page renders the empty state", () => {
   expect(html).toContain("Hosts can save a live table from its table menu.");
 });
 
-test("saved tables page disables scripted resume and explains why", () => {
+test("saved tables page disables legacy blocked saves and explains why", () => {
   const savedTable = {
     saveId: "save_1", gameSlug: "zone-runner", gameTitle: "Zone Runner",
     releaseId: "builtin_zone_runner_2", sequence: 42,
@@ -87,7 +87,7 @@ test("saved tables page disables scripted resume and explains why", () => {
     onDelete={() => {}}
   />);
   expect(blocked).toContain('<button type="button" disabled="">Resume</button>');
-  expect(blocked).toContain("Scripted games can&#x27;t be resumed yet. This save is kept until resume support lands.");
+  expect(blocked).toContain("This save cannot be resumed by the current server.");
   const resumable = renderToStaticMarkup(<SavesPageContent
     user={{ id: "user_1", name: "Ada", email: "ada@example.com" }}
     loading={false}
@@ -100,7 +100,7 @@ test("saved tables page disables scripted resume and explains why", () => {
     onDelete={() => {}}
   />);
   expect(resumable).toContain('<button type="button">Resume</button>');
-  expect(resumable).not.toContain("Scripted games can&#x27;t be resumed yet");
+  expect(resumable).not.toContain("cannot be resumed by the current server");
 });
 
 test("saved tables page renders a signed-out sign-in prompt", () => {

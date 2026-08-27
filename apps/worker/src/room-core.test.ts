@@ -25,7 +25,7 @@ import {
   roomBootstrapMessages,
   timerFireDedupKey,
   nextHost,
-  savedPlayerIdsToRemove,
+  resumedRosterFromSave,
   scheduledTimersToArm,
   validateCheckpointAttestationSnapshot,
 } from "./room-core";
@@ -74,7 +74,17 @@ describe("RoomCore sequencing", () => {
     expect(base.sequence).toBe(0);
     expect(base.stateHash).not.toBe(saved.stateHash);
     const loaded = loadSnapshot(base);
-    expect(savedPlayerIdsToRemove(loaded)).toEqual(["alice", "zed"]);
+    loaded.seats = {
+      seat_2: { id: "seat_2", playerId: "zed" },
+      seat_1: { id: "seat_1", playerId: "alice" },
+    };
+    expect(resumedRosterFromSave(loaded, [
+      { playerId: "new_host", displayName: "Host" },
+      { playerId: "new_guest", displayName: "Guest" },
+    ])).toEqual([
+      { playerId: "new_host", name: "Host", seatId: "seat_1", previousPlayerId: "alice" },
+      { playerId: "new_guest", name: "Guest", seatId: "seat_2", previousPlayerId: "zed" },
+    ]);
     expect(scheduledTimersToArm(loaded)).toEqual([{ timerId: "later", delayMs: 3000 }]);
     expect(nextHost(["old", "new"], ["new"], "old")).toBe("new");
     expect(nextHost(["old", "new"], [], "old")).toBe("old");

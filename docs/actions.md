@@ -74,6 +74,17 @@ Every implemented action rejects unknown top-level payload keys. This `onlyKeys`
 
 Requires sequence zero. When present, `settings` replaces canonical room-start settings; nested values are not accepted. The action emits `game.started`, which invokes `on_start` through the creator runtime.
 
+### system.game_resumed
+
+| Property | Contract |
+| --- | --- |
+| Allowed source | `system` |
+| Payload | `{ roster: Array<{ playerId: PlayerId; name?: string; seatId: SeatId; previousPlayerId?: PlayerId }> }` |
+| Prediction default | No |
+| Status | **implemented (kernel v1, #94)** |
+
+Requires sequence zero, a non-empty roster, unique live player IDs and seat IDs, and valid unique `previousPlayerId` values when supplied. It atomically replaces the saved roster with the live room roster, reassigns seats, releases entities held by removed saved players, remaps player-owned hands and owner visibility, and remaps or removes player prompts. `previousPlayerId` connects a saved seat occupant to its new live identity; omitting it adds a live player without inheriting another player's state. The action emits `game.resumed`, which lets the creator runtime reconcile standard-library turn and score state before invoking `on_game_resumed`. Resume never emits `game.started` or reruns `on_start`.
+
 ### system.player_joined
 
 | Property | Contract |
@@ -427,6 +438,7 @@ The table below is the kernel v1 emission matrix from `ctx.emit`, not an inferen
 | Implemented event | Emitting action or condition |
 | --- | --- |
 | `game.started` | `system.game_start` |
+| `game.resumed` | `system.game_resumed` |
 | `player.joined` | `system.player_joined` |
 | `player.left` | `system.player_left` |
 | `seat.assigned` | `system.seat_assign` |

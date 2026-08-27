@@ -6,7 +6,9 @@ import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
 import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { CreateBox } from "@babylonjs/core/Meshes/Builders/boxBuilder";
+import { CreateCylinder } from "@babylonjs/core/Meshes/Builders/cylinderBuilder";
 import { CreatePlane } from "@babylonjs/core/Meshes/Builders/planeBuilder";
+import { CreateTorus } from "@babylonjs/core/Meshes/Builders/torusBuilder";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { Scene } from "@babylonjs/core/scene";
 import type { EntityRecord, TransformComponent } from "digipology-kernel";
@@ -35,6 +37,7 @@ import {
   buildLighting,
   buildTableSurface,
 } from "./table";
+import { piecePresentation, piecePresentationSignature } from "./piecePresentation";
 
 type PieceDragBounds = Parameters<typeof attachDragBehavior>[0]["bounds"];
 
@@ -48,6 +51,7 @@ interface PieceGraph {
   cancelCorrection?: () => void;
   lastCorrectionId?: number;
   label?: DynamicTexture;
+  cancelMotion?: () => void;
 }
 
 interface WebglSceneAdapterDependencies extends SceneAdapterDependencies {
@@ -62,57 +66,58 @@ interface WebglSceneAdapterDependencies extends SceneAdapterDependencies {
   devicePixelRatio?: () => number;
 }
 
-function cardFaceUp(entity: EntityRecord): boolean {
-  const { card, flippable } = entity.components;
-  return flippable?.flipped ?? card?.faceUp ?? false;
-}
-
-function displaySignature(entity: EntityRecord): string {
-  const { card, die, counter, deck, container, button, text } = entity.components;
-  if (deck !== undefined) return `deck:${deck.enabled}:${container?.items.length ?? 0}`;
-  if (card !== undefined) return `card:${card.definitionId}:${cardFaceUp(entity)}`;
-  if (die !== undefined) return `die:${String(die.value)}`;
-  if (counter !== undefined) return `counter:${counter.value}`;
-  if (button !== undefined) return `button:${button.enabled}:${button.label}`;
-  if (text !== undefined) return `text:${text.value}`;
-  return "other";
-}
-
-function material(scene: Scene, name: string, color: string): StandardMaterial {
+function material(
+  scene: Scene,
+  name: string,
+  appearance: ReturnType<typeof piecePresentation>,
+): StandardMaterial {
   const result = new StandardMaterial(`${name}-material`, scene);
   try {
-    result.diffuseColor = Color3.FromHexString(color);
+    result.diffuseColor = Color3.FromHexString(appearance.color);
   } catch {
     result.diffuseColor = Color3.FromHexString("#d7b26d");
   }
-  result.specularColor = Color3.FromHexString("#271d10");
-  result.roughness = 0.72;
+  result.specularColor = Color3.FromHexString(appearance.specular);
+  result.emissiveColor = Color3.FromHexString(appearance.emissive);
+  result.alpha = appearance.alpha;
+  result.roughness = 0.8;
   return result;
 }
 
 function labelPlane(
   scene: Scene,
   parent: Mesh,
-  text: string,
-  width: number,
-  height: number,
-  billboard = false,
+  appearance: ReturnType<typeof piecePresentation>,
   createLabelTexture: NonNullable<WebglSceneAdapterDependencies["createLabelTexture"]> = (name, targetScene) => (
     new DynamicTexture(name, { width: 512, height: 256 }, targetScene, false)
   ),
 ): DynamicTexture {
   const texture = createLabelTexture(`${parent.name}-label`, scene);
   texture.hasAlpha = true;
-  texture.drawText(text.slice(0, 28), null, 150, "bold 54px Manrope", "#102018", "transparent", true, true);
+  texture.drawText(
+    appearance.label.slice(0, 28),
+    null,
+    150,
+    "bold 54px Manrope",
+    appearance.labelColor,
+    appearance.labelBackground,
+    true,
+    true,
+  );
   const mat = new StandardMaterial(`${parent.name}-label-material`, scene);
   mat.diffuseTexture = texture;
-  mat.opacityTexture = texture;
-  mat.emissiveColor = Color3.FromHexString("#dce8d8");
-  const plane = CreatePlane(`${parent.name}-label-plane`, { width, height }, scene);
+  mat.emissiveTexture = texture;
+  mat.useAlphaFromDiffuseTexture = true;
+  mat.disableLighting = true;
+  mat.backFaceCulling = false;
+  const plane = CreatePlane(`${parent.name}-label-plane`, {
+    width: appearance.width * 0.78,
+    height: appearance.depth * 0.46,
+  }, scene);
   plane.parent = parent;
-  plane.position.y = billboard ? 0.68 : 0.052;
-  plane.rotation.x = billboard ? 0 : Math.PI / 2;
-  plane.billboardMode = billboard ? Mesh.BILLBOARDMODE_ALL : Mesh.BILLBOARDMODE_NONE;
+  plane.position.y = appearance.billboardLabel ? 0.68 : appearance.height / 2 + 0.006;
+  plane.rotation.x = appearance.billboardLabel ? 0 : Math.PI / 2;
+  plane.billboardMode = appearance.billboardLabel ? Mesh.BILLBOARDMODE_ALL : Mesh.BILLBOARDMODE_NONE;
   plane.material = mat;
   plane.isPickable = false;
   return texture;
@@ -161,6 +166,41 @@ function animateTransform(
     Vector3.LerpToRef(fromPosition, target.position, eased, mesh.position);
     Vector3.LerpToRef(fromScaling, target.scaling, eased, mesh.scaling);
     Quaternion.SlerpToRef(fromRotation, target.rotation, eased, mesh.rotationQuaternion!);
+    if (linear === 1) scene.onBeforeRenderObservable.remove(observer);
+  });
+  return () => scene.onBeforeRenderObservable.remove(observer);
+}
+
+function animateSpawn(scene: Scene, mesh: Mesh): () => void {
+  const targetScaling = mesh.scaling.clone();
+  const targetY = mesh.position.y;
+  mesh.scaling.scaleInPlace(0.72);
+  mesh.position.y = targetY - 0.08;
+  let elapsed = 0;
+  const observer = scene.onBeforeRenderObservable.add(() => {
+    elapsed += scene.getEngine().getDeltaTime();
+    const linear = Math.min(elapsed / 420, 1);
+    const offset = linear - 1;
+    const eased = 1 + 2.70158 * offset ** 3 + 1.70158 * offset ** 2;
+    mesh.scaling.copyFrom(targetScaling).scaleInPlace(0.72 + 0.28 * eased);
+    mesh.position.y = targetY - 0.08 + 0.08 * eased;
+    if (linear === 1) scene.onBeforeRenderObservable.remove(observer);
+  });
+  return () => scene.onBeforeRenderObservable.remove(observer);
+}
+
+function animateLanding(scene: Scene, mesh: Mesh): () => void {
+  const targetScaling = mesh.scaling.clone();
+  let elapsed = 0;
+  const observer = scene.onBeforeRenderObservable.add(() => {
+    elapsed += scene.getEngine().getDeltaTime();
+    const linear = Math.min(elapsed / 260, 1);
+    const pulse = Math.sin(linear * Math.PI) * (1 - linear);
+    mesh.scaling.set(
+      targetScaling.x * (1 + pulse * 0.08),
+      targetScaling.y * (1 - pulse * 0.12),
+      targetScaling.z * (1 + pulse * 0.08),
+    );
     if (linear === 1) scene.onBeforeRenderObservable.remove(observer);
   });
   return () => scene.onBeforeRenderObservable.remove(observer);
@@ -226,6 +266,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
     piece.drag?.dispose();
     piece.cancelCorrection?.();
     piece.label?.dispose();
+    piece.cancelMotion?.();
     presentationHighlight?.removeMesh(piece.mesh);
     piece.mesh.dispose(false, true);
   }
@@ -251,6 +292,11 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
         ? {}
         : { createHighlightLayer: dependencies.createHighlightLayer }),
       ...actionCallbacks,
+      onDrop(position) {
+        piece.cancelMotion?.();
+        piece.cancelMotion = animateLanding(mounted.scene, piece.mesh);
+        actionCallbacks.onDrop(position);
+      },
     });
   }
 
@@ -266,63 +312,51 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
   function makePiece(entity: EntityRecord): PieceGraph | null {
     const mounted = requireMounted();
     const { components } = entity;
-    let label = "";
-    let color = "#d7b26d";
-    let width = 0.9;
-    let depth = 0.9;
-    let height = 0.18;
     if (components.hand !== undefined) {
       return null;
-    } else if (components.deck !== undefined) {
-      width = 1.02;
-      depth = 1.42;
-      height = 0.14 + Math.min(components.container?.items.length ?? 0, 20) * 0.012;
-      label = `Deck · ${components.container?.items.length ?? 0}`;
-      color = components.deck.enabled ? "#754331" : "#4b4540";
-    } else if (components.card !== undefined) {
-      width = 0.86;
-      depth = 1.22;
-      height = 0.09;
-      const definition = currentView?.definitions[components.card.definitionId];
-      const faceUp = cardFaceUp(entity);
-      label = faceUp ? definition?.label ?? "Card" : "DIGIPOLOGY";
-      color = faceUp ? definition?.color ?? "#e7dfc8" : "#9e402d";
-    } else if (components.die !== undefined) {
-      width = depth = height = 0.72;
-      label = String(components.die.value);
-      color = "#e8dfc9";
-    } else if (components.counter !== undefined) {
-      width = depth = 0.72;
-      height = 0.2;
-      label = String(components.counter.value);
-      color = "#d5ff76";
-    } else if (components.transform !== undefined) {
-      label = components.button?.label || components.text?.value || "Table object";
-      color = components.button?.enabled === false ? "#716b62" : "#d7b26d";
-    } else {
+    } else if (components.transform === undefined && components.counter === undefined &&
+      components.deck === undefined && components.card === undefined && components.die === undefined) {
       return null;
     }
-    const restingY = TABLE_SURFACE_Y + height / 2;
-    const mesh = CreateBox(`entity-${entity.id}`, { width, depth, height }, mounted.scene);
-    mesh.metadata = { entityId: entity.id, displayLabel: label };
+    const definitionId = components.card?.definitionId ?? components.die?.definitionId;
+    const appearance = piecePresentation(
+      entity,
+      definitionId === undefined ? undefined : currentView?.definitions[definitionId],
+    );
+    const restingY = TABLE_SURFACE_Y + appearance.height / 2;
+    const mesh = appearance.shape === "ring"
+      ? CreateTorus(`entity-${entity.id}`, {
+          diameter: appearance.width,
+          thickness: appearance.height,
+          tessellation: 48,
+        }, mounted.scene)
+      : appearance.shape === "cylinder"
+      ? CreateCylinder(`entity-${entity.id}`, {
+          height: appearance.height,
+          diameter: appearance.width,
+          tessellation: 48,
+        }, mounted.scene)
+      : CreateBox(`entity-${entity.id}`, {
+          width: appearance.width,
+          depth: appearance.depth,
+          height: appearance.height,
+        }, mounted.scene);
+    mesh.metadata = { entityId: entity.id, displayLabel: appearance.label };
     mesh.isPickable = true;
-    mesh.material = material(mounted.scene, entity.id, color);
+    mesh.material = material(mounted.scene, entity.id, appearance);
     applyTransform(mesh, components.transform, restingY);
     shadows?.addShadowCaster(mesh);
     const graph: PieceGraph = {
       mesh,
-      signature: displaySignature(entity),
+      signature: piecePresentationSignature(entity),
       transformSignature: transformSignature(components.transform, restingY),
       restingY,
-      ...(label
+      ...(appearance.label
         ? {
             label: labelPlane(
               mounted.scene,
               mesh,
-              label,
-              width * 0.78,
-              depth * 0.46,
-              components.counter !== undefined,
+              appearance,
               dependencies.createLabelTexture,
             ),
           }
@@ -330,13 +364,14 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
     };
     if (dependencies.sendAction !== undefined && components.grabbable?.enabled === true) {
       attachPieceDrag(graph, entity.id, {
-        minX: -TABLE_WIDTH / 2 + width / 2,
-        maxX: TABLE_WIDTH / 2 - width / 2,
-        minZ: -TABLE_DEPTH / 2 + depth / 2,
-        maxZ: TABLE_DEPTH / 2 - depth / 2,
+        minX: -TABLE_WIDTH / 2 + appearance.width / 2,
+        maxX: TABLE_WIDTH / 2 - appearance.width / 2,
+        minZ: -TABLE_DEPTH / 2 + appearance.depth / 2,
+        maxZ: TABLE_DEPTH / 2 - appearance.depth / 2,
         restingY,
       });
     }
+    graph.cancelMotion = animateSpawn(mounted.scene, mesh);
     return graph;
   }
 
@@ -363,12 +398,25 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       ) ?? new Engine(canvas, highQuality, { preserveDrawingBuffer: false, stencil: true });
       handleDprChange();
       scene = new Scene(engine);
-      scene.clearColor = Color4.FromHexString("#08110eff");
+      scene.clearColor = Color4.FromHexString("#050806ff");
       cameraGraph = buildCamera(scene, canvas);
+      cameraGraph.alpha = -1.46;
+      cameraGraph.beta = 0.82;
+      cameraGraph.radius = 13.2;
       const table = buildTableSurface(scene);
       shadows = buildLighting(scene, highQuality).shadows;
       table.receiveShadows = shadows !== null;
       presentationHighlight = dependencies.createHighlightLayer?.(scene) ?? new HighlightLayer("presentation-highlight", scene);
+      let cameraIntroMs = 0;
+      scene.onBeforeRenderObservable.add(() => {
+        if (cameraGraph === null || cameraIntroMs >= 900) return;
+        cameraIntroMs += scene?.getEngine().getDeltaTime() ?? 0;
+        const linear = Math.min(cameraIntroMs / 900, 1);
+        const eased = 1 - (1 - linear) ** 3;
+        cameraGraph.alpha = -1.46 + (-Math.PI / 2 + 1.46) * eased;
+        cameraGraph.beta = 0.82 + 0.1 * eased;
+        cameraGraph.radius = 13.2 - 1.4 * eased;
+      });
     },
     dispose(): void {
       adapter.setRenderLoop(false);
@@ -412,7 +460,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
         if (existing === undefined) {
           const created = makePiece(entity);
           if (created !== null) pieces.set(id, created);
-        } else if (existing.signature !== displaySignature(entity)) {
+        } else if (existing.signature !== piecePresentationSignature(entity)) {
           destroyPiece(existing);
           const created = makePiece(entity);
           if (created === null) pieces.delete(id);

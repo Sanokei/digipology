@@ -23,8 +23,8 @@ async function main(): Promise<void> {
   const bob = await join(` ${created.joinCode.toLowerCase().replace("-", " - ")} `, "Bob");
   pass("D1 code lookup + normalization", created.roomId === bob.roomId && bob.releaseId.length > 0);
 
-  const a = await connect(created.wsUrl);
-  const b = await connect(bob.wsUrl);
+  const a = await connect(smokeWebSocketUrl(created.wsUrl));
+  const b = await connect(smokeWebSocketUrl(bob.wsUrl));
   const startMessagesA = nextMany(a, 2);
   const startMessagesB = nextMany(b, 2);
   a.send(JSON.stringify({ type: "hello", protocolVersion: 1, sessionToken: created.roomToken, lastSequence: null }));
@@ -55,7 +55,7 @@ async function main(): Promise<void> {
   pass("duplicate mapping", JSON.stringify(duplicate) === JSON.stringify(orderedA));
 
   a.close();
-  const reconnected = await connect(created.wsUrl);
+  const reconnected = await connect(smokeWebSocketUrl(created.wsUrl));
   const resumePromise = next(reconnected);
   reconnected.send(JSON.stringify({ type: "hello", protocolVersion: 1, sessionToken: created.roomToken, lastSequence: 1 }));
   const resume = await resumePromise;
@@ -77,6 +77,15 @@ async function main(): Promise<void> {
 
 async function join(code: string, displayName: string): Promise<JoinRoomResponse> {
   return jsonRequest<JoinRoomResponse>("/api/rooms/join", { code, displayName });
+}
+
+function smokeWebSocketUrl(serverUrl: string): string {
+  const http = new URL(baseUrl);
+  if (http.hostname !== "127.0.0.1" && http.hostname !== "localhost") return serverUrl;
+  const websocket = new URL(serverUrl);
+  websocket.protocol = http.protocol === "https:" ? "wss:" : "ws:";
+  websocket.host = http.host;
+  return websocket.toString();
 }
 
 async function getJson<T>(path: string): Promise<T> {

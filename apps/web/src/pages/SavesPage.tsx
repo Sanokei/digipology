@@ -99,7 +99,7 @@ export function SavesPageContent({
       : <div className="saved-tables-list">{saves.map((save) => <article key={save.saveId} className="saved-table-card">
         <div><strong>{save.label ?? save.gameTitle}</strong>{save.label === undefined ? null : <span>{save.gameTitle}</span>}
           <small>Saved {relativeSavedTime(save.createdAt)} · sequence {save.sequence} · {save.releaseId.slice(0, 18)}</small>
-          {save.resumable === false ? <p className="saved-table-card__note">Scripted games can't be resumed yet. This save is kept until resume support lands.</p> : null}</div>
+          {save.resumable === false ? <p className="saved-table-card__note">This save cannot be resumed by the current server.</p> : null}</div>
         <div><button type="button" disabled={pending !== null || save.resumable === false} onClick={() => onResume(save.saveId)}>
           {pending === save.saveId ? "Resuming table" : "Resume"}</button>
           <button type="button" disabled={pending !== null} onClick={() => onDelete(save.saveId)}>Delete</button></div>

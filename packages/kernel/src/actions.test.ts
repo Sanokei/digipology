@@ -163,6 +163,63 @@ describe("die.roll", () => {
 });
 
 describe("player and seat lifecycle", () => {
+  test("resume atomically replaces the saved roster at sequence one", () => {
+    const initial = state();
+    initial.prompts.choice = {
+      id: "choice", kind: "confirm", playerId: "alice", title: "Continue?", status: "open",
+    };
+    initial.entities.hand = entity("hand", {
+      hand: { owner: "alice", canonicalOrder: true },
+      container: { items: [], capacity: null, ordering: "ordered", visibility: "owner:alice" },
+    });
+    const payload = {
+      roster: [
+        { playerId: "new_host", name: "Host", seatId: "seat_1", previousPlayerId: "alice" },
+        { playerId: "new_guest", name: "Guest", seatId: "seat_2", previousPlayerId: "bob" },
+      ],
+    };
+    const resume = () => applyOrdered(
+      cloneCanonical(initial),
+      ordered(initial, "resume", "system.game_resumed", payload, { type: "system" }),
+    );
+    const result = resume();
+    expect(result.rejection).toBeUndefined();
+    expect(result.state.players).toEqual({
+      new_guest: { id: "new_guest", name: "Guest" },
+      new_host: { id: "new_host", name: "Host" },
+    });
+    expect(result.state.seats.seat_1).toEqual({ id: "seat_1", marker: "keep", playerId: "new_host" });
+    expect(result.state.seats.seat_2).toEqual({ id: "seat_2", playerId: "new_guest" });
+    expect(result.state.entities.pawn_a?.components.grabbable?.heldBy).toBeNull();
+    expect(result.state.entities.hand?.components.hand?.owner).toBe("new_host");
+    expect(result.state.entities.hand?.components.container?.visibility).toBe("owner:new_host");
+    expect(result.state.prompts.choice?.playerId).toBe("new_host");
+    expect(result.events).toEqual([expect.objectContaining({
+      type: "game.resumed",
+      data: { roster: payload.roster, removedPlayerIds: ["alice", "bob"] },
+    })]);
+    expect(snapshot(result.state).stateHash).toBe(snapshot(resume().state).stateHash);
+  });
+
+  test("resume rejects non-system, repeated, duplicate, and unknown mappings", () => {
+    const initial = state();
+    const valid = { roster: [{ playerId: "new", seatId: "seat_1", previousPlayerId: "alice" }] };
+    expect(applyOrdered(initial, ordered(initial, "player_resume", "system.game_resumed", valid))
+      .rejection?.reason).toContain("does not allow source player");
+    const started = applyOrdered(initial, ordered(initial, "started", "system.game_start", {}, { type: "system" })).state;
+    expect(applyOrdered(started, ordered(started, "late_resume", "system.game_resumed", valid, { type: "system" }))
+      .rejection?.reason).toContain("sequence zero");
+    for (const [payload, reason] of [
+      [{ roster: [] }, "non-empty roster"],
+      [{ roster: [{ playerId: "new", seatId: "seat_1", previousPlayerId: "missing" }] }, "Unknown previous player"],
+      [{ roster: [{ playerId: "new", seatId: "seat_1" }, { playerId: "new", seatId: "seat_2" }] }, "Duplicate resumed player"],
+      [{ roster: [{ playerId: "one", seatId: "seat_1" }, { playerId: "two", seatId: "seat_1" }] }, "Duplicate resumed seat"],
+    ] as const) {
+      expect(applyOrdered(initial, ordered(initial, "bad_resume", "system.game_resumed", payload, { type: "system" }))
+        .rejection?.reason).toContain(reason);
+    }
+  });
+
   test("join and seat assignment add canonical records and emit derived events", () => {
     let current = state();
     const joined = applyOrdered(

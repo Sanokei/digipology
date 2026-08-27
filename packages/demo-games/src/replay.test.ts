@@ -13,6 +13,7 @@ import diceDashJson from "../fixtures/dice-dash-replay-v1.json";
 import diceDashV2Json from "../fixtures/dice-dash-replay-v2.json";
 import zoneRunnerJson from "../fixtures/zone-runner-replay-v1.json";
 import zoneRunnerV2Json from "../fixtures/zone-runner-replay-v2.json";
+import zoneRunnerResumeJson from "../fixtures/zone-runner-resume-v1.json";
 import {
   DemoLuaHost,
   createBuiltinCreatorRuntime,
@@ -29,6 +30,17 @@ const diceDash = diceDashJson as unknown as ReplayFixture;
 const diceDashV2 = diceDashV2Json as unknown as ReplayFixture;
 const zoneRunner = zoneRunnerJson as unknown as ReplayFixture;
 const zoneRunnerV2 = zoneRunnerV2Json as unknown as ReplayFixture;
+
+interface ResumeReplayFixture {
+  readonly releaseId: string;
+  readonly savedActions: readonly OrderedActionInput[];
+  readonly resumedActions: readonly OrderedActionInput[];
+  readonly expectedFinalStateHash: string;
+  readonly expectedWinnerId: string;
+  readonly expectedTimeouts: number;
+}
+
+const zoneRunnerResume = zoneRunnerResumeJson as unknown as ResumeReplayFixture;
 
 interface RunResult {
   readonly state: CanonicalGameState;
@@ -99,6 +111,33 @@ async function replay(fixture: ReplayFixture): Promise<RunResult> {
     0,
     fixture.actions.length,
   );
+}
+
+async function replayResumeFixture(fixture: ResumeReplayFixture): Promise<RunResult> {
+  const runtime = await createBuiltinCreatorRuntime(fixture.releaseId);
+  let state = createZoneRunnerV2InitialState();
+  let rejectionCount = 0;
+  const eventTypes: string[] = [];
+  try {
+    for (const ordered of fixture.savedActions) {
+      const result = await applyOrderedWithScripts(state, ordered, { runtime });
+      state = result.state;
+      if (result.rejection !== undefined) rejectionCount += 1;
+    }
+
+    const saved = snapshot(state);
+    state = loadSnapshot(snapshot({ ...loadSnapshot(saved), sequence: 0 }));
+
+    for (const ordered of fixture.resumedActions) {
+      const result = await applyOrderedWithScripts(state, ordered, { runtime });
+      state = result.state;
+      eventTypes.push(...result.events.map((event) => event.type));
+      if (result.rejection !== undefined) rejectionCount += 1;
+    }
+  } finally {
+    runtime.close();
+  }
+  return { state, rejectionCount, eventTypes };
 }
 
 function counterValue(state: CanonicalGameState, entityId: string): number {
@@ -243,6 +282,30 @@ describe("game contracts", () => {
       opening_choice: "run",
       timeouts: 1,
     });
+  }, 20_000);
+
+  test("Zone Runner save and resume survives turn timers and reaches the pinned winner", async () => {
+    const first = await replayResumeFixture(zoneRunnerResume);
+    const second = await replayResumeFixture(zoneRunnerResume);
+    const firstHash = snapshot(first.state).stateHash;
+
+    expect(first.rejectionCount).toBe(0);
+    expect(second.rejectionCount).toBe(0);
+    expect(firstHash).toBe(zoneRunnerResume.expectedFinalStateHash);
+    expect(snapshot(second.state).stateHash).toBe(zoneRunnerResume.expectedFinalStateHash);
+    expect(second.state).toEqual(first.state);
+    expect(first.eventTypes.filter((type) => type === "timer.fired")).toHaveLength(3);
+    expect(first.eventTypes[0]).toBe("game.resumed");
+    expect(first.state.scriptState).toMatchObject({
+      winner_id: zoneRunnerResume.expectedWinnerId,
+      timeouts: zoneRunnerResume.expectedTimeouts,
+    });
+    expect(first.state.scriptState.__stdlib).toMatchObject({
+      turns: { order: ["host_live", "guest_live"], active: false },
+      scores: { host_live: 2, guest_live: 0 },
+    });
+    expect(JSON.stringify(first.state.scriptState)).not.toContain("alice");
+    expect(JSON.stringify(first.state.scriptState)).not.toContain("bob");
   }, 20_000);
 
   test("Zone Runner seats a guest who joins after the live room started into the rotation", async () => {

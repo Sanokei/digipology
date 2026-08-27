@@ -7,6 +7,9 @@
     "apps/*"
   ],
   "scripts": {
+    "dev": "bun run --cwd apps/web build && bun run --cwd apps/worker dev",
+    "dev:web": "bun run --cwd apps/web dev",
+    "dev:worker": "bun run --cwd apps/worker dev",
     "test": "bun test",
     "typecheck": "bun run --filter '*' typecheck && tsc -p scripts"
   },

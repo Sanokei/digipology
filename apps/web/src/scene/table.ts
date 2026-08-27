@@ -48,29 +48,66 @@ class MultiTouchOnlyArcRotatePointersInput extends ArcRotateCameraPointersInput 
 }
 
 export function buildTableSurface(scene: Scene): Mesh {
-  const felt = new StandardMaterial("table-felt", scene);
-  felt.diffuseColor = Color3.FromHexString("#173f32");
-  felt.specularColor = Color3.FromHexString("#07130f");
-  felt.roughness = 0.92;
+  const makeMaterial = (name: string, diffuse: string, specular = "#120d0a") => {
+    const result = new StandardMaterial(name, scene);
+    result.diffuseColor = Color3.FromHexString(diffuse);
+    result.specularColor = Color3.FromHexString(specular);
+    result.roughness = 0.88;
+    return result;
+  };
+  const addBox = (
+    name: string,
+    width: number,
+    depth: number,
+    height: number,
+    y: number,
+    color: string,
+  ) => {
+    const mesh = CreateBox(name, { width, depth, height }, scene);
+    mesh.position.y = y;
+    mesh.material = makeMaterial(`${name}-material`, color);
+    mesh.receiveShadows = true;
+    mesh.isPickable = false;
+    return mesh;
+  };
+
+  addBox("floor", 40, 40, 0.08, -0.82, "#090d0c");
+  addBox(
+    "table-base",
+    TABLE_WIDTH + 0.62,
+    TABLE_DEPTH + 0.62,
+    0.34,
+    TABLE_SURFACE_Y - 0.29,
+    "#17110f",
+  );
 
   const table = CreateBox(
     "table-surface",
-    { width: TABLE_WIDTH, depth: TABLE_DEPTH, height: 0.42 },
+    { width: TABLE_WIDTH, depth: TABLE_DEPTH, height: 0.12 },
     scene,
   );
-  table.position.y = TABLE_SURFACE_Y - 0.21;
-  table.material = felt;
+  table.position.y = TABLE_SURFACE_Y - 0.06;
+  table.material = makeMaterial("table-felt-material", "#123529", "#06110d");
   table.receiveShadows = true;
   table.isPickable = false;
+
+  const north = addBox("table-rail-north", TABLE_WIDTH + 0.7, 0.3, 0.28, TABLE_SURFACE_Y + 0.02, "#33231b");
+  const south = addBox("table-rail-south", TABLE_WIDTH + 0.7, 0.3, 0.28, TABLE_SURFACE_Y + 0.02, "#33231b");
+  const west = addBox("table-rail-west", 0.3, TABLE_DEPTH + 0.1, 0.28, TABLE_SURFACE_Y + 0.02, "#2b1d17");
+  const east = addBox("table-rail-east", 0.3, TABLE_DEPTH + 0.1, 0.28, TABLE_SURFACE_Y + 0.02, "#2b1d17");
+  north.position.z = -TABLE_DEPTH / 2 - 0.14;
+  south.position.z = TABLE_DEPTH / 2 + 0.14;
+  west.position.x = -TABLE_WIDTH / 2 - 0.14;
+  east.position.x = TABLE_WIDTH / 2 + 0.14;
 
   return table;
 }
 
 export function buildLighting(scene: Scene, shadowsEnabled = true): LightingGraph {
   const ambient = new HemisphericLight("ambient-light", new Vector3(0, 1, 0), scene);
-  ambient.diffuse = Color3.FromHexString("#d7eadf");
-  ambient.groundColor = Color3.FromHexString("#101913");
-  ambient.intensity = 0.78;
+  ambient.diffuse = Color3.FromHexString("#c7ddd1");
+  ambient.groundColor = Color3.FromHexString("#090d0b");
+  ambient.intensity = 0.44;
 
   const key = new DirectionalLight(
     "key-light",
@@ -79,7 +116,7 @@ export function buildLighting(scene: Scene, shadowsEnabled = true): LightingGrap
   );
   key.position.set(5, 9, -5);
   key.diffuse = Color3.FromHexString("#fff1d7");
-  key.intensity = 1.5;
+  key.intensity = 0.95;
 
   const shadows = shadowsEnabled ? new ShadowGenerator(1024, key) : null;
   if (shadows !== null) {

@@ -211,6 +211,7 @@ describe("merged action and Lua surfaces", () => {
       "stack.dissolve",
       "stack.merge",
       "stack.remove_top",
+      "system.game_resumed",
       "system.game_start",
       "system.player_joined",
       "system.player_left",

@@ -45,6 +45,20 @@ bun test
 bun run typecheck
 ```
 
+For the local product, apply the D1 migrations once and run the single-origin
+Worker build:
+
+```bash
+cd apps/worker
+bunx wrangler d1 migrations apply digipology --local
+cd ../..
+bun run dev
+```
+
+This serves the app and API at `http://127.0.0.1:8787`. Run `bun run dev:web`
+alongside it when you want Vite hot reload on port 5173; API and WebSocket
+requests are proxied to the worker.
+
 ## Specification
 
 The product/architecture specification lives in [docs/spec](docs/spec/). Architecture decisions are recorded as ADRs in [docs/adr](docs/adr/).

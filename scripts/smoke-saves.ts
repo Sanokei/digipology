@@ -1,8 +1,8 @@
 // Saved-table production smoke: authenticated host save + new-room resume.
 // Usage: SMOKE_SESSION=<dgp_session token> bun scripts/smoke-saves.ts https://play.digipology.com
 //
-// Runs full convergence for unscripted First Deal and verifies that scripted
-// Zone Runner v2 saves successfully while resume remains explicitly gated.
+// Runs full save/resume convergence for unscripted First Deal and scripted
+// Zone Runner v2, including resumed Lua stdlib roster reconciliation.
 import {
   applyOrdered,
   applyOrderedWithScripts,
@@ -88,7 +88,7 @@ async function main(): Promise<void> {
 
 async function runScenario(slug: "first-deal" | "zone-runner", scripted: boolean): Promise<void> {
   const label = scripted ? "scripted Zone Runner v2" : "unscripted First Deal";
-  const checkName = scripted ? `${label}: save allowed, resume gated` : `${label}: save/resume convergence`;
+  const checkName = `${label}: save/resume convergence`;
   await check(checkName, async () => {
     const created = await postJson<CreateRoomResponse>(
       "/api/rooms",
@@ -168,38 +168,8 @@ async function runScenario(slug: "first-deal" | "zone-runner", scripted: boolean
     expect(listed.status === 200, `save listing returned ${listed.status}`);
     const listedSave = listed.value.saves.find((save) => save.saveId === saved.value.saveId);
     expect(listedSave !== undefined, "new save is missing from the saved-tables list");
-    if (scripted) {
-      expect(listedSave.resumable === false, "scripted save is not marked non-resumable");
-      expect(
-        listedSave.resumeBlockedReason === "scripted_resume_unsupported",
-        `scripted save has unexpected block reason ${listedSave.resumeBlockedReason}`,
-      );
-      const refused = await postJson<ApiErrorResponse>(
-        `/api/saves/${encodeURIComponent(saved.value.saveId)}/resume`,
-        { visibility: "private", displayName: `${label} Resumed Host` },
-        authHeaders(),
-      );
-      expect(refused.status === 409, `scripted resume returned ${refused.status}`);
-      expect(
-        refused.value.error.code === "scripted_resume_unsupported",
-        `scripted resume returned ${refused.value.error.code}`,
-      );
-      const afterRefusal = await httpJson<SavesResponse>("/api/saves", {
-        method: "GET",
-        headers: authHeaders(),
-      });
-      expect(afterRefusal.status === 200, `post-refusal save listing returned ${afterRefusal.status}`);
-      const retained = afterRefusal.value.saves.find((save) => save.saveId === saved.value.saveId);
-      expect(retained !== undefined, "scripted save was consumed by refused resume");
-      expect(retained.resumable === false, "retained scripted save is not marked non-resumable");
-      const removed = await httpJson<unknown>(`/api/saves/${encodeURIComponent(saved.value.saveId)}`, {
-        method: "DELETE",
-        headers: { ...JSON_HEADERS, ...authHeaders() },
-      });
-      expect(removed.status === 204, `save cleanup returned ${removed.status}`);
-      return `${saved.value.saveId} gated and retained`;
-    }
-    expect(listedSave.resumable !== false, "unscripted save is marked non-resumable");
+    expect(listedSave.resumable !== false, `${label} save is marked non-resumable`);
+    expect(listedSave.resumeBlockedReason === undefined, `${label} save still carries a resume block reason`);
 
     const resumed = await postJson<ResumeSaveResponse>(
       `/api/saves/${encodeURIComponent(saved.value.saveId)}/resume`,
@@ -228,8 +198,26 @@ async function runScenario(slug: "first-deal" | "zone-runner", scripted: boolean
     expect(roomB.b.bootstrapHash === expectedBase, `room B guest base hash ${roomB.b.bootstrapHash} differs from ${expectedBase}`);
     expect(!roomB.a.actions.includes("system.game_start"), "resume emitted system.game_start");
     expect(!roomB.b.actions.includes("system.game_start"), "resume emitted system.game_start to guest");
+    expect(roomB.a.actions.includes("system.game_resumed"), "resume did not emit system.game_resumed");
+    expect(roomB.b.actions.includes("system.game_resumed"), "guest did not receive system.game_resumed");
     expect(heldBy(requireState(roomB.a), entityId) === null, "mid-grab entity remained held after resume");
     expectConvergedAtEverySequence(roomB);
+
+    if (scripted) {
+      const scriptState = requireState(roomB.a).scriptState as {
+        __stdlib?: { turns?: { order?: unknown[]; index?: number }; scores?: Record<string, unknown> };
+      };
+      const turns = scriptState.__stdlib?.turns;
+      const scores = scriptState.__stdlib?.scores;
+      expect(Array.isArray(turns?.order), "resumed turn order is missing");
+      expect(turns!.order!.every((playerId) => playerId === roomB.a.playerId || playerId === roomB.b.playerId),
+        `resumed turn order contains a ghost: ${JSON.stringify(turns?.order)}`);
+      expect(Object.keys(scores ?? {}).every((key) => !oldPlayers.has(key)),
+        `resumed scores contain a ghost: ${JSON.stringify(scores)}`);
+      const current = turns!.order![Math.max(0, (turns?.index ?? 1) - 1)];
+      expect(current === roomB.a.playerId || current === roomB.b.playerId,
+        `current resumed player ${String(current)} is not live`);
+    }
 
     await sendAndApply(roomB, roomB.a, "entity.grab", { entityId });
     await sendAndApply(roomB, roomB.a, "entity.drop", {

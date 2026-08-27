@@ -25,17 +25,19 @@ interface FakeQuaternion {
 
 interface FakeMaterial {
   diffuseColor?: [number, number, number];
+  ambientColor?: [number, number, number];
   specularColor?: [number, number, number];
   emissiveColor?: [number, number, number];
   diffuseTexture?: object;
   emissiveTexture?: object;
   disableLighting?: boolean;
   specularPower?: number;
+  alphaCutOff?: number;
 }
 
 interface FakeMesh {
   kind: "mesh";
-  shape: "box" | "plane";
+  shape: "box" | "cylinder" | "plane" | "torus";
   name: string;
   position: FakeVec3;
   scaling: FakeVec3;
@@ -97,6 +99,8 @@ const fakeState: {
   picker: FakePicker | null;
   pickMesh: FakeMesh | null;
   createdBoxes: FakeMesh[];
+  createdCylinders: FakeMesh[];
+  createdToruses: FakeMesh[];
   createdPlanes: FakeMesh[];
   markedMaterials: FakeMaterial[];
   controlAttachListenerCounts: number[];
@@ -107,6 +111,8 @@ const fakeState: {
   picker: null,
   pickMesh: null,
   createdBoxes: [],
+  createdCylinders: [],
+  createdToruses: [],
   createdPlanes: [],
   markedMaterials: [],
   controlAttachListenerCounts: [],
@@ -160,7 +166,7 @@ function rotateVector(q: QuaternionLike, v: [number, number, number]): [number, 
   return [p.x, p.y, p.z];
 }
 
-function mesh(shape: "box" | "plane"): FakeMesh {
+function mesh(shape: "box" | "cylinder" | "plane" | "torus"): FakeMesh {
   return {
     kind: "mesh",
     shape,
@@ -181,6 +187,8 @@ function resetFakeState(): void {
   fakeState.picker = null;
   fakeState.pickMesh = null;
   fakeState.createdBoxes = [];
+  fakeState.createdCylinders = [];
+  fakeState.createdToruses = [];
   fakeState.createdPlanes = [];
   fakeState.markedMaterials = [];
   fakeState.controlAttachListenerCounts = [];
@@ -273,6 +281,16 @@ mock.module("@babylonjs/lite", () => ({
   createBox: (): FakeMesh => {
     const result = mesh("box");
     fakeState.createdBoxes.push(result);
+    return result;
+  },
+  createCylinder: (): FakeMesh => {
+    const result = mesh("cylinder");
+    fakeState.createdCylinders.push(result);
+    return result;
+  },
+  createTorus: (): FakeMesh => {
+    const result = mesh("torus");
+    fakeState.createdToruses.push(result);
     return result;
   },
   createPlane: (): FakeMesh => {
@@ -528,11 +546,11 @@ describe("real Lite SceneAdapter contract through a thin engine mock", () => {
     const dieLabel = labelFor("die-1");
     const counterLabel = labelFor("counter-1");
     const counterPiece = pieceMesh("counter-1");
-    expect(cardLabel.position.y).toBe(0.052);
-    expect(dieLabel.position.y).toBe(0.052);
+    expect(cardLabel.position.y).toBeCloseTo(0.051);
+    expect(dieLabel.position.y).toBeCloseTo(0.366);
     expect(cardLabel.rotation.x).toBe(Math.PI / 2);
     expect(dieLabel.rotation.x).toBe(Math.PI / 2);
-    expect(counterLabel.position.y).toBe(0.68);
+    expect(counterLabel.position.y).toBe(0.48);
     expect(counterLabel.rotation.x).toBe(0);
     expect(counterPiece.rotationQuaternion.y).toBe(1);
 
@@ -606,6 +624,30 @@ describe("real Lite SceneAdapter contract through a thin engine mock", () => {
     expect(fakeState.scene?.removed).toContain(initialDie);
     expect(fakeState.scene?.removed).toContain(initialCounter);
     expect(() => pieceMesh("die-1")).toThrow();
+    adapter.dispose();
+  });
+
+  test("eases new pieces into place and gives drops a short landing pulse", async () => {
+    const { adapter } = await mountAdapter(() => undefined);
+    adapter.syncEntities(snapshot({ "card-1": card() }));
+    const piece = pieceMesh("card-1");
+
+    expect(piece.position.y).toBeCloseTo(0.12);
+    expect(piece.scaling.x).toBeCloseTo(1.44);
+    fakeState.scene?.beforeRender?.(210);
+    expect(piece.position.y).toBeGreaterThan(0.12);
+    expect(piece.scaling.x).toBeGreaterThan(1.44);
+    fakeState.scene?.beforeRender?.(210);
+    expect(piece.position.y).toBeCloseTo(0.2);
+    expect(piece.scaling).toMatchObject({ x: 2, y: 1, z: 2 });
+
+    adapter.beginDrag("card-1", 8, 50, 50);
+    adapter.endDrag(8);
+    fakeState.scene?.beforeRender?.(130);
+    expect(piece.scaling.x).toBeGreaterThan(2);
+    expect(piece.scaling.y).toBeLessThan(1);
+    fakeState.scene?.beforeRender?.(130);
+    expect(piece.scaling).toMatchObject({ x: 2, y: 1, z: 2 });
     adapter.dispose();
   });
 

@@ -594,7 +594,7 @@ export async function handlePlatformRequest(
         joinCode: result.candidate.joinCode,
         playerId: result.value.playerId,
         roomToken: result.value.roomToken,
-        wsUrl: websocketUrl(url, result.candidate.roomId),
+        wsUrl: websocketUrl(configuredOrigin(env), result.candidate.roomId),
         releaseId: result.value.releaseId,
       };
       return jsonResponse(response, 200, sessionCookieHeaders(session));
@@ -617,7 +617,7 @@ export async function handlePlatformRequest(
       joinCode: created.joinCode,
       playerId: created.playerId,
       roomToken: created.roomToken,
-      wsUrl: websocketUrl(url, created.roomId),
+      wsUrl: websocketUrl(configuredOrigin(env), created.roomId),
       releaseId: created.releaseId,
     };
     return jsonResponse(response, 200, sessionCookieHeaders(session));
@@ -691,7 +691,7 @@ export async function handlePlatformRequest(
         inviteUrl: `${configuredOrigin(env)}/join/${joinCode}`,
         playerId: joined.playerId,
         roomToken: joined.roomToken,
-        wsUrl: websocketUrl(url, roomId),
+        wsUrl: websocketUrl(configuredOrigin(env), roomId),
       };
       return jsonResponse(response, 201, sessionCookieHeaders(session));
     }
@@ -738,7 +738,7 @@ export async function handlePlatformRequest(
       roomId: row.room_id,
       playerId: result.playerId,
       roomToken: result.roomToken,
-      wsUrl: websocketUrl(url, row.room_id),
+        wsUrl: websocketUrl(configuredOrigin(env), row.room_id),
       releaseId: result.releaseId,
     };
     return jsonResponse(response);
@@ -860,8 +860,7 @@ export async function handlePlatformRequest(
         gameTitle: builtinGame?.title ?? uploaded?.gameTitle ?? record.gameSlug,
         releaseId: record.releaseId, sequence: record.sequence,
         createdAt: new Date(record.createdAt).toISOString(), byteLength: record.byteLength,
-        resumable: !record.requiresScripts,
-        ...(record.requiresScripts ? { resumeBlockedReason: "scripted_resume_unsupported" } : {}),
+        resumable: true,
         ...(record.label === undefined ? {} : { label: record.label }),
       });
     }
@@ -907,9 +906,6 @@ export async function handlePlatformRequest(
       loadSnapshot(saved as unknown as GameSnapshot);
       if (saved.releaseId !== record.releaseId || saved.sequence !== record.sequence || saved.stateHash !== record.stateHash) throw new Error("Save metadata mismatch");
     } catch { return jsonError(422, "save_invalid", "The saved snapshot failed its integrity check"); }
-    if (snapshotRequiresScripts(saved as unknown as GameSnapshot)) {
-      return jsonError(409, "scripted_resume_unsupported", "Scripted games can't be resumed yet. Your save is kept safe and will resume once support lands.");
-    }
     const gameTitle = builtinGame?.title ?? uploaded?.gameTitle ?? record.gameSlug;
     const created = await allocateRoomForPlayer(env, {
       releaseId: record.releaseId, gameSlug: record.gameSlug,
@@ -923,7 +919,7 @@ export async function handlePlatformRequest(
       roomId: created.roomId, joinCode: created.joinCode,
       inviteUrl: `${configuredOrigin(env)}/join/${created.joinCode}`,
       playerId: created.playerId, roomToken: created.roomToken,
-      wsUrl: websocketUrl(url, created.roomId), releaseId: created.releaseId, gameTitle,
+      wsUrl: websocketUrl(configuredOrigin(env), created.roomId), releaseId: created.releaseId, gameTitle,
     };
     return jsonResponse(response, 201, sessionCookieHeaders(session));
   }
@@ -1409,9 +1405,10 @@ function normalizeDisplayName(value: string | undefined, fallback: string): stri
   return Array.from(normalized || fallback).slice(0, 64).join("");
 }
 
-function websocketUrl(requestUrl: URL, roomId: string): string {
-  const ws = new URL(`/api/rooms/${roomId}/ws`, requestUrl);
-  ws.protocol = requestUrl.protocol === "https:" ? "wss:" : "ws:";
+function websocketUrl(publicOrigin: string, roomId: string): string {
+  const origin = new URL(publicOrigin);
+  const ws = new URL(`/api/rooms/${roomId}/ws`, origin);
+  ws.protocol = origin.protocol === "https:" ? "wss:" : "ws:";
   return ws.toString();
 }
 
