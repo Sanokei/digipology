@@ -17,14 +17,19 @@ export interface SceneAdapter {
   isGrabbable(entityId: string): boolean;
   beginDrag(entityId: string, pointerId: number, x: number, y: number): void;
   updateDrag(pointerId: number, x: number, y: number): void;
+  rotateDrag(radians: number): void;
+  flipDrag(): void;
   endDrag(pointerId: number): void;
   cancelDrag(pointerId: number): void;
   setHighlight(entityId: string | null, kind: HighlightKind): void;
   camera: {
     attach(): void;
     detach(): void;
+    orbit(dx: number, dy: number): void;
     pan(dx: number, dy: number): void;
     pinch(previousDistance: number, distance: number): void;
+    zoom(deltaY: number): void;
+    reset(): void;
   };
   setPaused(paused: boolean): void;
   resize(): void;

@@ -50,7 +50,11 @@ export function TableHints({ event, initialCompleted = [] }: { event: TableHintE
   if (current === null) return null;
   const copy: Record<TableHintGesture, string> = touch
     ? { drag: "Drag pieces", primary: "Two fingers move table", actions: "Hold for actions" }
-    : { drag: "Drag to move", primary: "Double-click for primary action", actions: "Right-click for actions" };
+    : {
+        drag: "LMB drag · Q/E or wheel rotate · F flip",
+        primary: "RMB orbit · MMB pan · wheel zoom · Space reset",
+        actions: "Right-click an object for actions",
+      };
   return <aside className="table-hints" aria-live="polite">
     <span>{copy[current]}</span>
     <button type="button" aria-label="Dismiss table hint" onClick={() => {

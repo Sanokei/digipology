@@ -1,6 +1,4 @@
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
-import { ArcRotateCameraPointersInput } from "@babylonjs/core/Cameras/Inputs/arcRotateCameraPointersInput";
-import type { PointerTouch } from "@babylonjs/core/Events/pointerEvents";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator";
@@ -19,32 +17,6 @@ export { GRABBABLE_SIZE, TABLE_DEPTH, TABLE_SURFACE_Y, TABLE_WIDTH } from "./tab
 
 export interface LightingGraph {
   shadows: ShadowGenerator | null;
-}
-
-class MultiTouchOnlyArcRotatePointersInput extends ArcRotateCameraPointersInput {
-  override onTouch(point: PointerTouch | null, offsetX: number, offsetY: number): void {
-    if (point?.type === "touch") return;
-    super.onTouch(point, offsetX, offsetY);
-  }
-
-  override onMultiTouch(
-    pointA: PointerTouch | null,
-    pointB: PointerTouch | null,
-    previousPinchSquaredDistance: number,
-    pinchSquaredDistance: number,
-    previousMultiTouchPanPosition: PointerTouch | null,
-    multiTouchPanPosition: PointerTouch | null,
-  ): void {
-    if (pointA?.type === "touch" || pointB?.type === "touch") return;
-    super.onMultiTouch(
-      pointA,
-      pointB,
-      previousPinchSquaredDistance,
-      pinchSquaredDistance,
-      previousMultiTouchPanPosition,
-      multiTouchPanPosition,
-    );
-  }
 }
 
 export function buildTableSurface(scene: Scene): Mesh {
@@ -128,7 +100,7 @@ export function buildLighting(scene: Scene, shadowsEnabled = true): LightingGrap
   return { shadows };
 }
 
-export function buildCamera(scene: Scene, canvas: HTMLCanvasElement): ArcRotateCamera {
+export function buildCamera(scene: Scene): ArcRotateCamera {
   const camera = new ArcRotateCamera(
     "table-camera",
     -Math.PI / 2,
@@ -146,14 +118,6 @@ export function buildCamera(scene: Scene, canvas: HTMLCanvasElement): ArcRotateC
   camera.panningSensibility = 175;
   camera.wheelPrecision = 42;
   camera.inertia = 0.72;
-  camera.inputs.removeByType("ArcRotateCameraPointersInput");
-  const pointers = new MultiTouchOnlyArcRotatePointersInput();
-  pointers.angularSensibilityX = 1_000;
-  pointers.angularSensibilityY = 1_000;
-  pointers.pinchPrecision = 12;
-  pointers.panningSensibility = camera.panningSensibility;
-  camera.inputs.add(pointers);
-  camera.attachControl(canvas, true);
   scene.activeCamera = camera;
 
   return camera;

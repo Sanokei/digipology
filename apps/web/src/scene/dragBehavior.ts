@@ -2,19 +2,16 @@ import type { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import { Ray } from "@babylonjs/core/Culling/ray.core";
 // Patches Scene with the picking methods used by pointer and touch dragging.
 import "@babylonjs/core/Culling/ray";
-import {
-  PointerEventTypes,
-  type PointerInfo,
-} from "@babylonjs/core/Events/pointerEvents";
 import { HighlightLayer } from "@babylonjs/core/Layers/highlightLayer";
 // Registers effect-layer render stages with Scene; HighlightLayer construction otherwise throws.
 import "@babylonjs/core/Layers/effectLayerSceneComponent";
 import { Color3 } from "@babylonjs/core/Maths/math.color";
-import { Matrix, Vector3 } from "@babylonjs/core/Maths/math.vector";
+import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh";
 import type { Scene } from "@babylonjs/core/scene";
 
 import { intersectRayWithHorizontalPlaneToRef, type Vector3Like } from "./dragPlane";
+import { flipQuaternion, rotateQuaternionY } from "./interactionMath";
 
 export {
   intersectRayWithHorizontalPlaneToRef,
@@ -46,21 +43,23 @@ interface AttachDragBehaviorOptions {
   mesh: Mesh;
   bounds: DragBounds;
   onGrab?: () => void;
-  onDrop?: (position: Vector3Like) => void;
+  onDrop?: (position: Vector3Like, rotation: { x: number; y: number; z: number; w: number }) => void;
   canInteract?: () => boolean;
   createHighlightLayer?: HighlightLayerFactory;
 }
 
 export interface AttachedDragBehavior {
-  beginTouchDrag(pointerId: number): void;
+  beginTouchDrag(pointerId: number, x: number, y: number): void;
   moveTouchDrag(pointerId: number, x: number, y: number): void;
+  rotateDrag(radians: number): void;
+  flipDrag(): void;
   finishTouchDrag(pointerId: number): void;
   cancelTouchDrag(pointerId: number): void;
   setTouchSelected(selected: boolean): void;
   dispose(): void;
 }
 
-const HOVER_COLOR = Color3.FromHexString("#f7d89b");
+const SELECTED_COLOR = Color3.FromHexString("#f7d89b");
 const HELD_COLOR = Color3.FromHexString("#fff2be");
 const LIFT_HEIGHT = 0.22;
 
@@ -89,11 +88,16 @@ export function attachDragBehavior({
   const identityMatrix = Matrix.Identity();
   const dragPlaneY = bounds.restingY + LIFT_HEIGHT;
   let heldPointerId: number | null = null;
-  let isHovered = false;
   let isTouchSelected = false;
+  let grabOffsetX = 0;
+  let grabOffsetZ = 0;
+  let origin: {
+    position: { x: number; y: number; z: number };
+    rotation: { x: number; y: number; z: number; w: number };
+  } | null = null;
 
   function idleHighlight(): Color3 | null {
-    return isHovered || isTouchSelected ? HOVER_COLOR : null;
+    return isTouchSelected ? SELECTED_COLOR : null;
   }
 
   function setHighlight(color: Color3 | null) {
@@ -103,42 +107,55 @@ export function attachDragBehavior({
     }
   }
 
-  function setHovered(hovered: boolean) {
-    if (isHovered === hovered || heldPointerId !== null) {
-      return;
-    }
-    isHovered = hovered;
-    canvas.style.cursor = hovered ? "grab" : "default";
-    setHighlight(idleHighlight());
-  }
-
-  function finishDrag(pointerId?: number, submit = true) {
+  function finishDrag(pointerId?: number, submit = true, restore = false) {
     if (heldPointerId === null || (pointerId !== undefined && pointerId !== heldPointerId)) {
       return;
     }
 
     const capturedPointerId = heldPointerId;
     heldPointerId = null;
-    mesh.position.x = clamp(mesh.position.x, bounds.minX, bounds.maxX);
-    mesh.position.z = clamp(mesh.position.z, bounds.minZ, bounds.maxZ);
-    mesh.position.y = bounds.restingY;
-    canvas.style.cursor = isHovered ? "grab" : "default";
+    if (restore && origin !== null) {
+      mesh.position.set(origin.position.x, origin.position.y, origin.position.z);
+      const quaternion = mesh.rotationQuaternion ?? Quaternion.Identity();
+      quaternion.set(origin.rotation.x, origin.rotation.y, origin.rotation.z, origin.rotation.w);
+      mesh.rotationQuaternion = quaternion;
+    } else {
+      mesh.position.x = clamp(mesh.position.x, bounds.minX, bounds.maxX);
+      mesh.position.z = clamp(mesh.position.z, bounds.minZ, bounds.maxZ);
+      mesh.position.y = bounds.restingY;
+    }
+    canvas.style.cursor = "grab";
     setHighlight(idleHighlight());
-    camera.attachControl(canvas, true);
 
-    if (submit) onDrop?.({ x: mesh.position.x, y: mesh.position.y, z: mesh.position.z });
+    const rotation = mesh.rotationQuaternion ?? Quaternion.Identity();
+    if (submit) onDrop?.(
+      { x: mesh.position.x, y: mesh.position.y, z: mesh.position.z },
+      { x: rotation.x, y: rotation.y, z: rotation.z, w: rotation.w },
+    );
+    origin = null;
 
     if (canvas.hasPointerCapture(capturedPointerId)) {
       canvas.releasePointerCapture(capturedPointerId);
     }
   }
 
-  function beginDrag(pointerId: number) {
+  function beginDrag(pointerId: number, x: number, y: number) {
     if (heldPointerId !== null || canInteract?.() === false) return;
+    const rotation = mesh.rotationQuaternion ?? Quaternion.Identity();
+    origin = {
+      position: { x: mesh.position.x, y: mesh.position.y, z: mesh.position.z },
+      rotation: { x: rotation.x, y: rotation.y, z: rotation.z, w: rotation.w },
+    };
+    scene.createPickingRayToRef(x, y, identityMatrix, pickingRay, camera);
+    if (intersectRayWithHorizontalPlaneToRef(pickingRay, dragPlaneY, dragPoint)) {
+      grabOffsetX = mesh.position.x - dragPoint.x;
+      grabOffsetZ = mesh.position.z - dragPoint.z;
+    } else {
+      grabOffsetX = 0;
+      grabOffsetZ = 0;
+    }
     heldPointerId = pointerId;
-    isHovered = true;
     mesh.position.y = dragPlaneY;
-    camera.detachControl();
     canvas.setPointerCapture(pointerId);
     canvas.style.cursor = "grabbing";
     setHighlight(HELD_COLOR);
@@ -150,72 +167,36 @@ export function attachDragBehavior({
     scene.createPickingRayToRef(x, y, identityMatrix, pickingRay, camera);
 
     if (intersectRayWithHorizontalPlaneToRef(pickingRay, dragPlaneY, dragPoint)) {
-      mesh.position.x = clamp(dragPoint.x, bounds.minX, bounds.maxX);
-      mesh.position.z = clamp(dragPoint.z, bounds.minZ, bounds.maxZ);
+      mesh.position.x = clamp(dragPoint.x + grabOffsetX, bounds.minX, bounds.maxX);
+      mesh.position.z = clamp(dragPoint.z + grabOffsetZ, bounds.minZ, bounds.maxZ);
     }
   }
 
-  function handlePointer(pointerInfo: PointerInfo) {
-    const event = pointerInfo.event as PointerEvent;
-    if (event.pointerType === "touch") return;
-
-    if (pointerInfo.type === PointerEventTypes.POINTERDOWN) {
-      if (event.button !== 0 || pointerInfo.pickInfo?.pickedMesh !== mesh || canInteract?.() === false) {
-        return;
-      }
-
-      event.preventDefault();
-      beginDrag(event.pointerId);
-      return;
-    }
-
-    if (pointerInfo.type === PointerEventTypes.POINTERUP) {
-      finishDrag(event.pointerId);
-      return;
-    }
-
-    if (pointerInfo.type !== PointerEventTypes.POINTERMOVE) {
-      return;
-    }
-
-    if (heldPointerId === null) {
-      setHovered(pointerInfo.pickInfo?.pickedMesh === mesh);
-      return;
-    }
-
-    if (event.pointerId !== heldPointerId) {
-      return;
-    }
-
-    moveDrag(event.pointerId, scene.pointerX, scene.pointerY);
+  function updateRotation(next: [number, number, number, number]): void {
+    const rotation = mesh.rotationQuaternion ?? Quaternion.Identity();
+    rotation.set(next[0], next[1], next[2], next[3]);
+    mesh.rotationQuaternion = rotation;
   }
-
-  function handleLostPointerCapture(event: PointerEvent) {
-    finishDrag(event.pointerId);
-  }
-
-  function handlePointerCancel(event: PointerEvent) {
-    finishDrag(event.pointerId);
-  }
-
-  const pointerObserver = scene.onPointerObservable.add(handlePointer);
-  canvas.addEventListener("lostpointercapture", handleLostPointerCapture);
-  canvas.addEventListener("pointercancel", handlePointerCancel);
 
   return {
     beginTouchDrag: beginDrag,
     moveTouchDrag: moveDrag,
+    rotateDrag(radians) {
+      if (heldPointerId === null) return;
+      updateRotation(rotateQuaternionY(mesh.rotationQuaternion ?? Quaternion.Identity(), radians));
+    },
+    flipDrag() {
+      if (heldPointerId === null) return;
+      updateRotation(flipQuaternion(mesh.rotationQuaternion ?? Quaternion.Identity()));
+    },
     finishTouchDrag: (pointerId) => finishDrag(pointerId),
-    cancelTouchDrag: (pointerId) => finishDrag(pointerId),
+    cancelTouchDrag: (pointerId) => finishDrag(pointerId, true, true),
     setTouchSelected(selected) {
       isTouchSelected = selected;
       if (heldPointerId === null) setHighlight(idleHighlight());
     },
     dispose() {
       finishDrag(undefined, false);
-      scene.onPointerObservable.remove(pointerObserver);
-      canvas.removeEventListener("lostpointercapture", handleLostPointerCapture);
-      canvas.removeEventListener("pointercancel", handlePointerCancel);
       canvas.style.cursor = "default";
       highlight.dispose();
     },
