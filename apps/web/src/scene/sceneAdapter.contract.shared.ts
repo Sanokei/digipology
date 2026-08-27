@@ -311,20 +311,19 @@ export function runSceneAdapterContract(harness: SceneAdapterContractHarness): v
       mounted.adapter.dispose();
     });
 
-    test("attaches/detaches the camera, cancels a paused drag, and disposes cleanly", async () => {
-      const mounted = await harness.mount(() => undefined);
+    test("keeps camera ownership shared, cancels a paused drag, and disposes cleanly", async () => {
+      const actions: Array<{ type: string; payload: unknown }> = [];
+      const mounted = await harness.mount((action) => actions.push(action));
       const { adapter } = mounted;
       adapter.syncEntities(contractSnapshot({ "card-1": contractCard() }));
-      const initialCamera = mounted.cameraCounts();
       adapter.camera.detach();
       adapter.camera.attach();
-      expect(mounted.cameraCounts().detached).toBeGreaterThan(initialCamera.detached);
-      expect(mounted.cameraCounts().attached).toBeGreaterThan(initialCamera.attached);
 
       adapter.beginDrag("card-1", 7, 50, 50);
       expect(mounted.hasPointerCapture(7)).toBeTrue();
       adapter.setPaused(true);
       expect(mounted.hasPointerCapture(7)).toBeFalse();
+      expect(actions.map((action) => action.type)).toEqual(["entity.grab", "entity.drop"]);
       adapter.dispose();
       expect(mounted.livePieceCount()).toBe(0);
       expect(mounted.listenerCount()).toBe(0);

@@ -66,6 +66,10 @@ interface WebglSceneAdapterDependencies extends SceneAdapterDependencies {
   devicePixelRatio?: () => number;
 }
 
+function clamp(value: number, minimum: number, maximum: number): number {
+  return Math.min(Math.max(value, minimum), maximum);
+}
+
 function material(
   scene: Scene,
   name: string,
@@ -292,10 +296,10 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
         ? {}
         : { createHighlightLayer: dependencies.createHighlightLayer }),
       ...actionCallbacks,
-      onDrop(position) {
+      onDrop(position, rotation) {
         piece.cancelMotion?.();
         piece.cancelMotion = animateLanding(mounted.scene, piece.mesh);
-        actionCallbacks.onDrop(position);
+        actionCallbacks.onDrop(position, rotation);
       },
     });
   }
@@ -387,7 +391,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
   }
 
   const adapter: SceneAdapter = {
-    handlesDesktopDrag: true,
+    handlesDesktopDrag: false,
     async mount(nextCanvas: HTMLCanvasElement, options: SceneAdapterMountOptions): Promise<void> {
       canvas = nextCanvas;
       const highQuality = options.tier === "default";
@@ -399,7 +403,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       handleDprChange();
       scene = new Scene(engine);
       scene.clearColor = Color4.FromHexString("#050806ff");
-      cameraGraph = buildCamera(scene, canvas);
+      cameraGraph = buildCamera(scene);
       cameraGraph.alpha = -1.46;
       cameraGraph.beta = 0.82;
       cameraGraph.radius = 13.2;
@@ -426,7 +430,6 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       pieces.clear();
       presentationHighlight?.dispose();
       presentationHighlight = null;
-      cameraGraph?.detachControl();
       scene?.dispose();
       engine?.dispose();
       activeDrag = null;
@@ -512,12 +515,19 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       const drag = pieces.get(entityId)?.drag;
       if (drag === undefined) return;
       activeDrag = { entityId, pointerId };
-      drag.beginTouchDrag(pointerId);
-      drag.moveTouchDrag(pointerId, x, y);
+      drag.beginTouchDrag(pointerId, x, y);
     },
     updateDrag(pointerId: number, x: number, y: number): void {
       if (activeDrag?.pointerId !== pointerId) return;
       pieces.get(activeDrag.entityId)?.drag?.moveTouchDrag(pointerId, x, y);
+    },
+    rotateDrag(radians: number): void {
+      if (activeDrag === null) return;
+      pieces.get(activeDrag.entityId)?.drag?.rotateDrag(radians);
+    },
+    flipDrag(): void {
+      if (activeDrag === null) return;
+      pieces.get(activeDrag.entityId)?.drag?.flipDrag();
     },
     endDrag(pointerId: number): void {
       if (activeDrag?.pointerId !== pointerId) return;
@@ -548,24 +558,45 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       if (entityId !== null) refreshHighlight(entityId);
     },
     camera: {
-      attach(): void {
-        if (canvas !== null) cameraGraph?.attachControl(canvas, true);
-      },
-      detach(): void {
-        cameraGraph?.detachControl();
+      attach(): void {},
+      detach(): void {},
+      orbit(dx: number, dy: number): void {
+        if (cameraGraph === null) return;
+        cameraGraph.alpha -= dx / 900;
+        cameraGraph.beta = clamp(cameraGraph.beta - dy / 900, 0.38, 1.32);
       },
       pan(dx: number, dy: number): void {
         if (cameraGraph === null) return;
-        cameraGraph.inertialAlphaOffset -= dx / 1_000;
-        cameraGraph.inertialBetaOffset -= dy / 1_000;
+        const scale = cameraGraph.radius / 1_100;
+        const rightX = -Math.sin(cameraGraph.alpha);
+        const rightZ = Math.cos(cameraGraph.alpha);
+        const forwardX = -Math.cos(cameraGraph.alpha);
+        const forwardZ = -Math.sin(cameraGraph.alpha);
+        cameraGraph.target.x -= rightX * dx * scale + forwardX * dy * scale;
+        cameraGraph.target.z -= rightZ * dx * scale + forwardZ * dy * scale;
       },
       pinch(previousDistance: number, distance: number): void {
-        if (cameraGraph !== null) cameraGraph.inertialRadiusOffset += (distance - previousDistance) / 60;
+        if (cameraGraph === null || previousDistance <= 0 || distance <= 0) return;
+        cameraGraph.radius = clamp(cameraGraph.radius * previousDistance / distance, 7.3, 16);
+      },
+      zoom(deltaY: number): void {
+        if (cameraGraph === null) return;
+        cameraGraph.radius = clamp(cameraGraph.radius * Math.exp(deltaY * 0.001), 7.3, 16);
+      },
+      reset(): void {
+        if (cameraGraph === null) return;
+        cameraGraph.alpha = -Math.PI / 2;
+        cameraGraph.beta = 0.92;
+        cameraGraph.radius = 11.8;
+        cameraGraph.target.set(0, 0, 0);
+        cameraGraph.inertialAlphaOffset = 0;
+        cameraGraph.inertialBetaOffset = 0;
+        cameraGraph.inertialRadiusOffset = 0;
       },
     },
     setPaused(nextPaused: boolean): void {
+      if (nextPaused && activeDrag !== null) adapter.cancelDrag(activeDrag.pointerId);
       paused = nextPaused;
-      if (paused && activeDrag !== null) adapter.cancelDrag(activeDrag.pointerId);
     },
     resize(): void {
       engine?.resize();

@@ -20,7 +20,7 @@ export function createDragActionCallbacks(
     onGrab() {
       if (canInteract()) send({ type: "entity.grab", payload: { entityId } });
     },
-    onDrop(position: Vector3Like) {
+    onDrop(position: Vector3Like, rotationOverride?: { x: number; y: number; z: number; w: number }) {
       if (!canInteract()) return;
       const transform = currentTransform();
       send({
@@ -29,7 +29,7 @@ export function createDragActionCallbacks(
           entityId,
           transform: {
             position,
-            rotation: transform?.rotation ?? { x: 0, y: 0, z: 0, w: 1 },
+            rotation: rotationOverride ?? transform?.rotation ?? { x: 0, y: 0, z: 0, w: 1 },
             scale: transform?.scale ?? { x: 1, y: 1, z: 1 },
           },
         },

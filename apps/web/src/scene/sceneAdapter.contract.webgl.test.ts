@@ -78,7 +78,7 @@ beforeEach(() => {
 
 runSceneAdapterContract({
   name: "webgl",
-  handlesDesktopDrag: true,
+  handlesDesktopDrag: false,
   supportedHighlights: ["hover", "selected", "held", "locked"],
   async mount(sendAction) {
     const canvas = new ContractCanvas();

@@ -749,10 +749,10 @@ describe("real Lite SceneAdapter contract through a thin engine mock", () => {
     const scene = fakeState.scene;
     const picker = fakeState.picker;
 
-    expect(canvas.listenerCount("touchstart")).toBe(1);
-    expect(canvas.listenerCount("touchmove")).toBe(1);
-    expect(canvas.listenerCount("touchend")).toBe(1);
-    expect(canvas.listenerCount("touchcancel")).toBe(1);
+    expect(canvas.listenerCount("touchstart")).toBe(0);
+    expect(canvas.listenerCount("touchmove")).toBe(0);
+    expect(canvas.listenerCount("touchend")).toBe(0);
+    expect(canvas.listenerCount("touchcancel")).toBe(0);
     adapter.dispose();
 
     expect(engine?.stopped).toBeTrue();

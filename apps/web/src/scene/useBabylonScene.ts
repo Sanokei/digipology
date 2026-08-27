@@ -11,6 +11,7 @@ import {
   type RendererStatus,
 } from "./rendererPolicy";
 import { mountSceneAdapter } from "./mountSceneAdapter";
+import { DesktopControlMachine, type DesktopControlDecision } from "./desktopControls";
 import { createHoverPicker, handleTouchPointerInput, pickContextRequest } from "./sceneInteraction";
 import type { SceneAdapter, SceneAdapterDependencies } from "./sceneAdapter";
 import { TouchGestureMachine, type TouchGestureDecision } from "./touchGestures";
@@ -166,16 +167,20 @@ export function useBabylonScene(
       sync();
 
       const gestures = new TouchGestureMachine();
+      const desktop = new DesktopControlMachine();
       const releasedPointerIds = new Set<number>();
-      const mousePointers = new Map<number, string>();
-      const pressedMousePointers = new Set<number>();
-      const nativeMousePointers = new Map<number, { x: number; y: number; moved: boolean }>();
+      const queuedFlips = new Set<number>();
       let gestureTimer: ReturnType<typeof setTimeout> | null = null;
       let touchQueue = Promise.resolve();
       let disposed = false;
       let hoverPoint = { x: 0, y: 0 };
+      let hoverEntityId: string | null = null;
       const hoverPicker = createHoverPicker(adapter, (entityId) => {
+        hoverEntityId = entityId;
         adapter.setHighlight(entityId, "hover");
+        if (desktop.activeObject() === null) {
+          canvas.style.cursor = entityId !== null && adapter.isGrabbable(entityId) ? "grab" : "default";
+        }
         hoverRequestRef.current?.(entityId === null ? null : { entityId, x: hoverPoint.x, y: hoverPoint.y });
       });
 
@@ -236,6 +241,54 @@ export function useBabylonScene(
         }
       }
 
+      function canFlip(entityId: string): boolean {
+        const entity = store.getSnapshot().displayedState?.entities[entityId];
+        return entity?.components.flippable !== undefined || entity?.components.card !== undefined;
+      }
+
+      function applyDesktopDecisions(decisions: readonly DesktopControlDecision[]): void {
+        const rect = canvas.getBoundingClientRect();
+        for (const decision of decisions) {
+          if (decision.type === "object-start") {
+            adapter.beginDrag(decision.entityId, decision.pointerId, decision.x - rect.left, decision.y - rect.top);
+            canvas.style.cursor = "grabbing";
+          } else if (decision.type === "object-move") {
+            adapter.updateDrag(decision.pointerId, decision.x - rect.left, decision.y - rect.top);
+          } else if (decision.type === "object-drop") {
+            adapter.updateDrag(decision.pointerId, decision.x - rect.left, decision.y - rect.top);
+            adapter.endDrag(decision.pointerId);
+            if (queuedFlips.delete(decision.pointerId)) {
+              client?.sendAction({ type: "entity.flip", payload: { entityId: decision.entityId } });
+            }
+            canvas.style.cursor = hoverEntityId !== null && adapter.isGrabbable(hoverEntityId) ? "grab" : "default";
+            hintGestureRef.current?.("drag");
+          } else if (decision.type === "object-cancel") {
+            queuedFlips.delete(decision.pointerId);
+            adapter.cancelDrag(decision.pointerId);
+            canvas.style.cursor = hoverEntityId !== null && adapter.isGrabbable(hoverEntityId) ? "grab" : "default";
+          } else if (decision.type === "camera-orbit") {
+            adapter.camera.orbit(decision.deltaX, decision.deltaY);
+            hintGestureRef.current?.("primary");
+          } else if (decision.type === "camera-pan") {
+            adapter.camera.pan(decision.deltaX, decision.deltaY);
+            hintGestureRef.current?.("primary");
+          } else {
+            void pickContextRequest(
+              adapter,
+              decision.x - rect.left,
+              decision.y - rect.top,
+              decision.x,
+              decision.y,
+            ).then((request) => {
+              if (!disposed && request !== null) {
+                contextRequestRef.current?.(request);
+                hintGestureRef.current?.("actions");
+              }
+            });
+          }
+        }
+      }
+
       function scheduleGestureDeadline(timestamp: number): void {
         if (gestureTimer !== null) clearTimeout(gestureTimer);
         gestureTimer = null;
@@ -290,25 +343,22 @@ export function useBabylonScene(
           return;
         }
         if (pausedRef.current) return;
+        if (event.button < 0 || event.button > 2) return;
+        event.preventDefault();
+        canvas.focus({ preventScroll: true });
         const rect = canvas.getBoundingClientRect();
-        if (event.button === 2) {
-          void pickContextRequest(adapter, event.clientX - rect.left, event.clientY - rect.top, event.clientX, event.clientY).then((request) => {
-            if (!disposed && request !== null) contextRequestRef.current?.(request);
-          });
-          hintGestureRef.current?.("actions");
-          return;
-        }
+        desktop.down({
+          pointerId: event.pointerId,
+          button: event.button,
+          x: event.clientX,
+          y: event.clientY,
+        });
+        canvas.setPointerCapture(event.pointerId);
         if (event.button !== 0) return;
-        if (adapter.handlesDesktopDrag) {
-          nativeMousePointers.set(event.pointerId, { x: event.clientX, y: event.clientY, moved: false });
-          return;
-        }
         const pointerId = event.pointerId;
-        pressedMousePointers.add(pointerId);
         void adapter.pick(event.clientX - rect.left, event.clientY - rect.top).then((entityId) => {
-          if (disposed || !pressedMousePointers.has(pointerId) || entityId === null || !adapter.isGrabbable(entityId)) return;
-          mousePointers.set(pointerId, entityId);
-          adapter.beginDrag(entityId, pointerId, event.clientX - rect.left, event.clientY - rect.top);
+          if (disposed || pausedRef.current || entityId === null || !adapter.isGrabbable(entityId)) return;
+          applyDesktopDecisions(desktop.claimObject(pointerId, entityId));
         });
       };
       const handlePointerMove = (event: PointerEvent): void => {
@@ -317,16 +367,13 @@ export function useBabylonScene(
           queueTouch(event, "move");
           return;
         }
-        const nativeStart = nativeMousePointers.get(event.pointerId);
-        if (nativeStart !== undefined && event.buttons !== 0) {
-          if (Math.hypot(event.clientX - nativeStart.x, event.clientY - nativeStart.y) > 8) nativeStart.moved = true;
+        const decisions = desktop.move(event.pointerId, event.clientX, event.clientY);
+        if (decisions.length > 0) {
+          event.preventDefault();
+          applyDesktopDecisions(decisions);
           return;
         }
         const rect = canvas.getBoundingClientRect();
-        if (mousePointers.has(event.pointerId)) {
-          adapter.updateDrag(event.pointerId, event.clientX - rect.left, event.clientY - rect.top);
-          return;
-        }
         if (event.buttons !== 0) return;
         hoverPoint = { x: event.clientX, y: event.clientY };
         hoverPicker.request(event.clientX - rect.left, event.clientY - rect.top);
@@ -337,27 +384,16 @@ export function useBabylonScene(
           queueTouch(event, "up");
           return;
         }
-        const nativeStart = nativeMousePointers.get(event.pointerId);
-        if (nativeStart !== undefined) {
-          nativeMousePointers.delete(event.pointerId);
-          if (nativeStart.moved) hintGestureRef.current?.("drag");
-          return;
-        }
-        pressedMousePointers.delete(event.pointerId);
-        if (!mousePointers.delete(event.pointerId)) return;
-        const rect = canvas.getBoundingClientRect();
-        adapter.updateDrag(event.pointerId, event.clientX - rect.left, event.clientY - rect.top);
-        adapter.endDrag(event.pointerId);
-        hintGestureRef.current?.("drag");
+        event.preventDefault();
+        applyDesktopDecisions(desktop.up(event.pointerId, event.clientX, event.clientY));
+        if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
       };
       const handlePointerCancel = (event: PointerEvent): void => {
         if (event.pointerType === "touch") {
           queueTouch(event, "cancel");
           return;
         }
-        nativeMousePointers.delete(event.pointerId);
-        pressedMousePointers.delete(event.pointerId);
-        if (mousePointers.delete(event.pointerId)) adapter.cancelDrag(event.pointerId);
+        applyDesktopDecisions(desktop.cancel(event.pointerId));
       };
       const handleLostPointerCapture = (event: PointerEvent): void => {
         if (releasedPointerIds.delete(event.pointerId)) return;
@@ -373,6 +409,49 @@ export function useBabylonScene(
           }
         });
       };
+      const handleWheel = (event: WheelEvent): void => {
+        if (pausedRef.current) return;
+        event.preventDefault();
+        const active = desktop.activeObject();
+        if (active !== null) {
+          adapter.rotateDrag(Math.sign(event.deltaY) * Math.PI / 12);
+          hintGestureRef.current?.("drag");
+        } else {
+          adapter.camera.zoom(event.deltaY);
+          hintGestureRef.current?.("primary");
+        }
+      };
+      const handleContextMenu = (event: MouseEvent): void => event.preventDefault();
+      const handleKeyDown = (event: KeyboardEvent): void => {
+        const target = event.target;
+        if (target instanceof HTMLElement && (
+          target.isContentEditable || target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT"
+        )) return;
+        if (event.ctrlKey || event.metaKey || event.altKey || pausedRef.current) return;
+        const active = desktop.activeObject();
+        if (event.key === "Escape" && active !== null) {
+          event.preventDefault();
+          applyDesktopDecisions(desktop.cancel(active.pointerId));
+        } else if ((event.key === "q" || event.key === "Q") && active !== null) {
+          event.preventDefault();
+          adapter.rotateDrag(-Math.PI / 12);
+        } else if ((event.key === "e" || event.key === "E") && active !== null) {
+          event.preventDefault();
+          adapter.rotateDrag(Math.PI / 12);
+        } else if ((event.key === "f" || event.key === "F") && active !== null && canFlip(active.entityId)) {
+          event.preventDefault();
+          adapter.flipDrag();
+          if (queuedFlips.has(active.pointerId)) queuedFlips.delete(active.pointerId);
+          else queuedFlips.add(active.pointerId);
+        } else if ((event.key === "f" || event.key === "F") && hoverEntityId !== null && canFlip(hoverEntityId)) {
+          event.preventDefault();
+          client?.sendAction({ type: "entity.flip", payload: { entityId: hoverEntityId } });
+        } else if (event.code === "Space" && active === null) {
+          event.preventDefault();
+          adapter.camera.reset();
+          hintGestureRef.current?.("primary");
+        }
+      };
       const preventBrowserTouch = (event: TouchEvent) => event.preventDefault();
 
       canvas.addEventListener("pointerdown", handlePointerDown);
@@ -381,13 +460,19 @@ export function useBabylonScene(
       canvas.addEventListener("pointercancel", handlePointerCancel);
       canvas.addEventListener("lostpointercapture", handleLostPointerCapture);
       canvas.addEventListener("dblclick", handleDoubleClick);
+      canvas.addEventListener("wheel", handleWheel, { passive: false });
+      canvas.addEventListener("contextmenu", handleContextMenu);
+      window.addEventListener("keydown", handleKeyDown);
       canvas.addEventListener("touchstart", preventBrowserTouch, { passive: false });
       canvas.addEventListener("touchmove", preventBrowserTouch, { passive: false });
 
       const syncRenderLoop = (): void => {
         const running = document.visibilityState !== "hidden";
         adapter.setRenderLoop(running);
-        if (!running) abortTouch();
+        if (!running) {
+          abortTouch();
+          applyDesktopDecisions(desktop.abort());
+        }
       };
       document.addEventListener("visibilitychange", syncRenderLoop);
       syncRenderLoop();
@@ -399,6 +484,7 @@ export function useBabylonScene(
         hoverPicker.dispose();
         cancelTouchRef.current = null;
         abortTouch();
+        applyDesktopDecisions(desktop.abort());
         unsubscribe();
         projectorChangeRef.current?.(null);
         hoverRequestRef.current?.(null);
@@ -410,6 +496,9 @@ export function useBabylonScene(
         canvas.removeEventListener("pointercancel", handlePointerCancel);
         canvas.removeEventListener("lostpointercapture", handleLostPointerCapture);
         canvas.removeEventListener("dblclick", handleDoubleClick);
+        canvas.removeEventListener("wheel", handleWheel);
+        canvas.removeEventListener("contextmenu", handleContextMenu);
+        window.removeEventListener("keydown", handleKeyDown);
         canvas.removeEventListener("touchstart", preventBrowserTouch);
         canvas.removeEventListener("touchmove", preventBrowserTouch);
         adapter.dispose();

@@ -77,7 +77,7 @@ test("first-use hints render for a new device and disappear after all gestures a
   expect(readCompletedTableHints(null)).toEqual(new Set());
   const firstVisit = renderToStaticMarkup(<TableHints event={null} />);
   expect(firstVisit).toContain("table-hints");
-  expect(firstVisit).toContain("Drag to move");
+  expect(firstVisit).toContain("LMB drag · Q/E or wheel rotate · F flip");
   const dismissed = renderToStaticMarkup(<TableHints event={null} initialCompleted={["drag", "primary", "actions"]} />);
   expect(dismissed).toBe("");
 });

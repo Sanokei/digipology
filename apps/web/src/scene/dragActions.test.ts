@@ -38,3 +38,25 @@ test("shared drag callbacks suppress canonical actions while paused", () => {
   callbacks.onDrop({ x: 0, y: 0, z: 0 });
   expect(actions).toEqual([]);
 });
+
+test("a held rotation override is included in the canonical drop", () => {
+  const actions: Array<{ type: string; payload: unknown }> = [];
+  const callbacks = createDragActionCallbacks(
+    "pawn-1",
+    (action) => actions.push(action),
+    () => ({ scale: { x: 1, y: 1, z: 1 } }),
+    () => true,
+  );
+  callbacks.onDrop({ x: 1, y: 2, z: 3 }, { x: 0, y: Math.SQRT1_2, z: 0, w: Math.SQRT1_2 });
+  expect(actions[0]).toEqual({
+    type: "entity.drop",
+    payload: {
+      entityId: "pawn-1",
+      transform: {
+        position: { x: 1, y: 2, z: 3 },
+        rotation: { x: 0, y: Math.SQRT1_2, z: 0, w: Math.SQRT1_2 },
+        scale: { x: 1, y: 1, z: 1 },
+      },
+    },
+  });
+});

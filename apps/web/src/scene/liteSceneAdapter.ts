@@ -1,6 +1,5 @@
 import {
   addToScene,
-  attachControl,
   createArcRotateCamera,
   createBox,
   createCylinder,
@@ -41,6 +40,7 @@ import type { EntityRecord, TransformComponent } from "digipology-kernel";
 import type { KernelStoreSnapshot } from "../state/kernelStore";
 import { createDragActionCallbacks } from "./dragActions";
 import { intersectRayWithHorizontalPlaneToRef, type MutableVector3Like } from "./dragPlane";
+import { flipQuaternion, rotateQuaternionY } from "./interactionMath";
 import type {
   HighlightKind,
   SceneAdapter,
@@ -340,7 +340,6 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
   let scene: SceneContext | null = null;
   let cameraGraph: ArcRotateCamera | null = null;
   let picker: GpuPicker | null = null;
-  let detachCameraControl: (() => void) | null = null;
   let detachCameraLimits: (() => void) | null = null;
   let paused = false;
   let rendering = false;
@@ -353,6 +352,12 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
     entityId: string;
     pointerId: number;
     callbacks: ReturnType<typeof createDragActionCallbacks>;
+    origin: {
+      position: [number, number, number];
+      rotation: [number, number, number, number];
+    };
+    offsetX: number;
+    offsetZ: number;
   } | null = null;
   const highlights = {
     hover: null as string | null,
@@ -362,12 +367,6 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
   };
   let localHeld: string | null = null;
   const pieces = new Map<string, PieceGraph>();
-
-  function blockLiteTouchGesture(event: TouchEvent): void {
-    // Lite attachControl has no touch opt-out, so the shared gesture machine owns touch input.
-    event.stopImmediatePropagation();
-    if (event.cancelable) event.preventDefault();
-  }
 
   function requireMounted() {
     if (canvas === null || engine === null || scene === null || cameraGraph === null) {
@@ -509,41 +508,39 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
     return graph;
   }
 
-  function attachCamera(): void {
-    if (detachCameraControl !== null || canvas === null || scene === null || cameraGraph === null) return;
-    detachCameraControl = attachControl(cameraGraph, canvas, scene, {
-      shouldHandlePointerDown: (event) => event.pointerType !== "touch",
-      isExternalDragActive: () => activeDrag !== null,
-      isExternalPickPending: () => pickPending,
-    });
-  }
-
-  function detachCamera(): void {
-    detachCameraControl?.();
-    detachCameraControl = null;
-  }
-
-  function finishDrag(pointerId: number): void {
+  function finishDrag(pointerId: number, restore = false): void {
     if (activeDrag?.pointerId !== pointerId) return;
-    const piece = pieces.get(activeDrag.entityId);
+    const drag = activeDrag;
+    const piece = pieces.get(drag.entityId);
     if (piece !== undefined && piece.bounds !== undefined) {
-      piece.mesh.position.x = clamp(piece.mesh.position.x, piece.bounds.minX, piece.bounds.maxX);
-      piece.mesh.position.z = clamp(piece.mesh.position.z, piece.bounds.minZ, piece.bounds.maxZ);
-      piece.mesh.position.y = piece.bounds.restingY;
-      activeDrag.callbacks.onDrop({
+      if (restore) {
+        piece.mesh.position.set(...drag.origin.position);
+        piece.mesh.rotationQuaternion.set(...drag.origin.rotation);
+      } else {
+        piece.mesh.position.x = clamp(piece.mesh.position.x, piece.bounds.minX, piece.bounds.maxX);
+        piece.mesh.position.z = clamp(piece.mesh.position.z, piece.bounds.minZ, piece.bounds.maxZ);
+        piece.mesh.position.y = piece.bounds.restingY;
+      }
+      drag.callbacks.onDrop({
         x: piece.mesh.position.x,
         y: piece.mesh.position.y,
         z: piece.mesh.position.z,
+      }, {
+        x: piece.mesh.rotationQuaternion.x,
+        y: piece.mesh.rotationQuaternion.y,
+        z: piece.mesh.rotationQuaternion.z,
+        w: piece.mesh.rotationQuaternion.w,
       });
-      piece.landing = {
-        elapsed: 0,
-        scaling: [piece.mesh.scaling.x, piece.mesh.scaling.y, piece.mesh.scaling.z],
-      };
+      if (!restore) {
+        piece.landing = {
+          elapsed: 0,
+          scaling: [piece.mesh.scaling.x, piece.mesh.scaling.y, piece.mesh.scaling.z],
+        };
+      }
     }
     activeDrag = null;
     localHeld = null;
     if (piece !== undefined) applyPieceHighlight(piece);
-    attachCamera();
     if (canvas?.hasPointerCapture(pointerId)) canvas.releasePointerCapture(pointerId);
   }
 
@@ -571,11 +568,6 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
         lowerRadiusLimit: 7.3,
         upperRadiusLimit: 16,
       }, scene);
-      canvas.addEventListener("touchstart", blockLiteTouchGesture, { passive: false });
-      canvas.addEventListener("touchmove", blockLiteTouchGesture, { passive: false });
-      canvas.addEventListener("touchend", blockLiteTouchGesture, { passive: false });
-      canvas.addEventListener("touchcancel", blockLiteTouchGesture, { passive: false });
-      attachCamera();
 
       const mountedEngine = engine;
       const mountedScene = scene;
@@ -635,11 +627,6 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       rendering = true;
     },
     dispose(): void {
-      detachCamera();
-      canvas?.removeEventListener("touchstart", blockLiteTouchGesture);
-      canvas?.removeEventListener("touchmove", blockLiteTouchGesture);
-      canvas?.removeEventListener("touchend", blockLiteTouchGesture);
-      canvas?.removeEventListener("touchcancel", blockLiteTouchGesture);
       detachCameraLimits?.();
       detachCameraLimits = null;
       if (picker !== null) disposePicker(picker);
@@ -745,14 +732,31 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
         () => currentView?.displayedState?.entities[entityId]?.components.transform,
         () => !paused,
       );
-      activeDrag = { entityId, pointerId, callbacks };
+      const origin = {
+        position: [piece.mesh.position.x, piece.mesh.position.y, piece.mesh.position.z] as [number, number, number],
+        rotation: [
+          piece.mesh.rotationQuaternion.x,
+          piece.mesh.rotationQuaternion.y,
+          piece.mesh.rotationQuaternion.z,
+          piece.mesh.rotationQuaternion.w,
+        ] as [number, number, number, number],
+      };
+      let offsetX = 0;
+      let offsetZ = 0;
+      if (canvas !== null && cameraGraph !== null) {
+        const ray = createScreenRay(cameraGraph, canvas, x, y);
+        const point = { x: 0, y: 0, z: 0 };
+        if (ray !== null && intersectRayWithHorizontalPlaneToRef(ray, piece.bounds.restingY + LIFT_HEIGHT, point)) {
+          offsetX = piece.mesh.position.x - point.x;
+          offsetZ = piece.mesh.position.z - point.z;
+        }
+      }
+      activeDrag = { entityId, pointerId, callbacks, origin, offsetX, offsetZ };
       piece.mesh.position.y = piece.bounds.restingY + LIFT_HEIGHT;
       localHeld = entityId;
       applyPieceHighlight(piece);
-      detachCamera();
       canvas?.setPointerCapture(pointerId);
       callbacks.onGrab();
-      adapter.updateDrag(pointerId, x, y);
     },
     updateDrag(pointerId: number, x: number, y: number): void {
       if (activeDrag?.pointerId !== pointerId || canvas === null || cameraGraph === null) return;
@@ -762,15 +766,27 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       if (ray === null) return;
       const point = { x: 0, y: 0, z: 0 };
       if (intersectRayWithHorizontalPlaneToRef(ray, piece.bounds.restingY + LIFT_HEIGHT, point)) {
-        piece.mesh.position.x = clamp(point.x, piece.bounds.minX, piece.bounds.maxX);
-        piece.mesh.position.z = clamp(point.z, piece.bounds.minZ, piece.bounds.maxZ);
+        piece.mesh.position.x = clamp(point.x + activeDrag.offsetX, piece.bounds.minX, piece.bounds.maxX);
+        piece.mesh.position.z = clamp(point.z + activeDrag.offsetZ, piece.bounds.minZ, piece.bounds.maxZ);
       }
+    },
+    rotateDrag(radians: number): void {
+      if (activeDrag === null) return;
+      const piece = pieces.get(activeDrag.entityId);
+      if (piece === undefined) return;
+      piece.mesh.rotationQuaternion.set(...rotateQuaternionY(piece.mesh.rotationQuaternion, radians));
+    },
+    flipDrag(): void {
+      if (activeDrag === null) return;
+      const piece = pieces.get(activeDrag.entityId);
+      if (piece === undefined) return;
+      piece.mesh.rotationQuaternion.set(...flipQuaternion(piece.mesh.rotationQuaternion));
     },
     endDrag(pointerId: number): void {
       finishDrag(pointerId);
     },
     cancelDrag(pointerId: number): void {
-      finishDrag(pointerId);
+      finishDrag(pointerId, true);
     },
     setHighlight(entityId: string | null, kind: HighlightKind): void {
       if (kind === "held" || kind === "locked") {
@@ -801,20 +817,47 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       }
     },
     camera: {
-      attach: attachCamera,
-      detach: detachCamera,
+      attach(): void {},
+      detach(): void {},
+      orbit(dx: number, dy: number): void {
+        if (cameraGraph === null) return;
+        cameraGraph.alpha -= dx / 900;
+        cameraGraph.beta = clamp(cameraGraph.beta - dy / 900, 0.38, 1.32);
+      },
       pan(dx: number, dy: number): void {
         if (cameraGraph === null) return;
-        cameraGraph.inertialAlphaOffset -= dx / 1_000;
-        cameraGraph.inertialBetaOffset -= dy / 1_000;
+        const scale = cameraGraph.radius / 1_100;
+        const rightX = -Math.sin(cameraGraph.alpha);
+        const rightZ = Math.cos(cameraGraph.alpha);
+        const forwardX = -Math.cos(cameraGraph.alpha);
+        const forwardZ = -Math.sin(cameraGraph.alpha);
+        cameraGraph.target.x -= rightX * dx * scale + forwardX * dy * scale;
+        cameraGraph.target.z -= rightZ * dx * scale + forwardZ * dy * scale;
       },
       pinch(previousDistance: number, distance: number): void {
-        if (cameraGraph !== null) cameraGraph.inertialRadiusOffset += (distance - previousDistance) / 60;
+        if (cameraGraph === null || previousDistance <= 0 || distance <= 0) return;
+        cameraGraph.radius = clamp(cameraGraph.radius * previousDistance / distance, 7.3, 16);
+      },
+      zoom(deltaY: number): void {
+        if (cameraGraph === null) return;
+        cameraGraph.radius = clamp(cameraGraph.radius * Math.exp(deltaY * 0.001), 7.3, 16);
+      },
+      reset(): void {
+        if (cameraGraph === null) return;
+        cameraGraph.alpha = -Math.PI / 2;
+        cameraGraph.beta = 0.92;
+        cameraGraph.radius = 11.8;
+        cameraGraph.target.x = 0;
+        cameraGraph.target.y = 0;
+        cameraGraph.target.z = 0;
+        cameraGraph.inertialAlphaOffset = 0;
+        cameraGraph.inertialBetaOffset = 0;
+        cameraGraph.inertialRadiusOffset = 0;
       },
     },
     setPaused(nextPaused: boolean): void {
+      if (nextPaused && activeDrag !== null) adapter.cancelDrag(activeDrag.pointerId);
       paused = nextPaused;
-      if (paused && activeDrag !== null) adapter.cancelDrag(activeDrag.pointerId);
     },
     resize(): void {
       if (engine !== null) resizeEngine(engine);
