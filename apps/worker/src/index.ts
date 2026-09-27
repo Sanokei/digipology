@@ -32,6 +32,8 @@ import {
   CHECKPOINT_INTERVAL,
   replayCheckpoint,
   resumeBaseFromSave,
+  resumedRosterFromSave,
+  nextResumedSeatId,
   retentionFloor,
   RoomCore,
   roomBootstrapFromSnapshots,
@@ -80,6 +82,7 @@ interface RoomMetadataRow extends Record<string, SqlStorageValue> {
 interface PlayerRow extends Record<string, SqlStorageValue> {
   player_id: string;
   display_name: string;
+  seat_id: string;
   user_id: string | null;
 }
 
@@ -242,15 +245,20 @@ export class RoomDO extends DurableObject<Env> {
         "SELECT COUNT(*) AS count FROM players",
       ).one().count;
       if (count >= room.capacity) return { status: "full" };
+      const seatId = room.resumed === 1
+        ? nextResumedSeatId(loadSnapshot(this.requiredInitialSnapshot(room)),
+          this.playerRows().map((player) => player.seat_id))
+        : `seat_${count + 1}`;
       this.ctx.storage.sql.exec(
         `INSERT INTO players
-          (player_id, display_name, token_selector, token_hash, user_id)
-         VALUES (?, ?, ?, ?, ?)`,
+          (player_id, display_name, token_selector, token_hash, user_id, seat_id)
+         VALUES (?, ?, ?, ?, ?, ?)`,
         playerId,
         normalizeDisplayName(displayName),
         tokenSelector,
         tokenHash,
         userId,
+        seatId,
       );
       if (room.host_player_id === null) {
         this.ctx.storage.sql.exec("UPDATE room SET host_player_id = ? WHERE singleton = 1", playerId);
@@ -271,7 +279,7 @@ export class RoomDO extends DurableObject<Env> {
         orderedActions.push(core.sequenceSystem(
           {
             type: "system.seat_assign",
-            payload: { playerId, seatId: `seat_${count + 1}` },
+            payload: { playerId, seatId },
           },
           `seat_assign_${playerId}`,
         ).orderedAction);
@@ -1303,10 +1311,10 @@ export class RoomDO extends DurableObject<Env> {
   private players(): PlayerInfo[] {
     const connected = new Set(this.connectedPlayerIds());
     const hostPlayerId = this.requiredRoom().host_player_id;
-    return this.playerRows().map((player, index) => ({
+    return this.playerRows().map((player) => ({
       playerId: player.player_id,
       displayName: player.display_name,
-      seatId: `seat_${index + 1}`,
+      seatId: player.seat_id,
       connected: connected.has(player.player_id),
       ...(player.player_id === hostPlayerId ? { host: true } : {}),
     }));
@@ -1314,7 +1322,7 @@ export class RoomDO extends DurableObject<Env> {
 
   private playerRows(): PlayerRow[] {
     return this.ctx.storage.sql.exec<PlayerRow>(
-      "SELECT player_id, display_name, user_id FROM players ORDER BY rowid",
+      "SELECT player_id, display_name, user_id, seat_id FROM players ORDER BY rowid",
     ).toArray();
   }
 
@@ -1434,7 +1442,8 @@ export class RoomDO extends DurableObject<Env> {
         display_name TEXT NOT NULL,
         token_selector TEXT NOT NULL,
         token_hash TEXT NOT NULL UNIQUE
-        , user_id TEXT
+        , user_id TEXT,
+        seat_id TEXT
       );
       CREATE INDEX players_token_selector_idx ON players(token_selector);
       CREATE TABLE actions (
@@ -1534,6 +1543,10 @@ export class RoomDO extends DurableObject<Env> {
     if (!columns.has("host_player_id")) {
       this.ctx.storage.sql.exec("ALTER TABLE room ADD COLUMN host_player_id TEXT");
     }
+    // Repair both pre-column rooms and rooms upgraded by the earlier nullable-only migration.
+    this.ctx.storage.sql.exec(`UPDATE room SET host_player_id =
+      (SELECT player_id FROM players ORDER BY rowid LIMIT 1)
+      WHERE singleton = 1 AND host_player_id IS NULL`);
     if (!columns.has("creator_user_id")) {
       this.ctx.storage.sql.exec("ALTER TABLE room ADD COLUMN creator_user_id TEXT");
     }
@@ -1544,6 +1557,24 @@ export class RoomDO extends DurableObject<Env> {
       this.ctx.storage.sql.exec<{ name: string }>("PRAGMA table_info(players)").toArray().map((column) => column.name),
     );
     if (!playerColumns.has("user_id")) this.ctx.storage.sql.exec("ALTER TABLE players ADD COLUMN user_id TEXT");
+    if (!playerColumns.has("seat_id")) {
+      this.ctx.storage.transactionSync(() => {
+        this.ctx.storage.sql.exec("ALTER TABLE players ADD COLUMN seat_id TEXT");
+        // The immutable resume base and durable join order reproduce startup's
+        // code-unit seat ordering without running game rules in the service.
+        const saved = this.ctx.storage.sql.exec<{ resumed: number; initial_snapshot: string | null }>(
+          "SELECT resumed, initial_snapshot FROM room WHERE singleton = 1",
+        ).toArray()[0];
+        const players = this.playerRows();
+        const roster = saved?.resumed === 1 && saved.initial_snapshot !== null
+          ? resumedRosterFromSave(loadSnapshot(JSON.parse(saved.initial_snapshot) as GameSnapshot),
+            players.map((player) => ({ playerId: player.player_id, displayName: player.display_name })))
+          : players.map((player, index) => ({ playerId: player.player_id, seatId: `seat_${index + 1}` }));
+        for (const entry of roster) this.ctx.storage.sql.exec(
+          "UPDATE players SET seat_id = ? WHERE player_id = ?", entry.seatId, entry.playerId,
+        );
+      });
+    }
     this.ctx.storage.sql.exec(`
       CREATE TABLE IF NOT EXISTS active_players (
         player_id TEXT PRIMARY KEY

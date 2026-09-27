@@ -14,7 +14,7 @@ SPEC 05.10 and 07.5 require an authenticated administrative Host to persist a ca
 4. The verified snapshot is stored as-is. Its original sequence and StateHash are recorded in D1 and the identical JSON object is written to R2.
 5. Resume validates the stored object again, then creates a new Room whose initial base is `snapshot({ ...loadSnapshot(saved), sequence: 0 })`. This recomputes the sequence-zero StateHash while preserving the saved canonical state.
 6. The Room sequences exactly one first action, `system.game_resumed`, with the live roster and each seat occupant's prior saved player ID. The kernel atomically replaces the saved roster, releases entities held by removed players, reassigns seats, and remaps player-owned canonical state. Resume does not emit `system.game_start`, because doing so would rerun Lua start hooks and could redeal or otherwise duplicate setup.
-7. Scheduled canonical timers are re-armed once with `due_at = now + delay`. The full delay restarts on resume; no old Durable Object timer rows exist in the new Room, so a timer cannot fire from both rooms. This preserves the SPEC 05.8 one-shot/no-duplicate guarantee without inventing elapsed wall-clock state in a canonical save.
+7. Scheduled canonical timers are re-armed once with `due_at = now + delay`. The full delay restarts on resume; no old Durable Object timer rows exist in the new Room, so rearming does not duplicate a timer lifecycle within the new Room. The original Room can independently fire its own timer. This preserves the SPEC 05.8 one-shot/no-duplicate guarantee without inventing elapsed wall-clock state in a canonical save.
 8. Snapshot objects use `saves/<saveId>.json` in the existing `RELEASES` R2 bucket through `saveBucket`, separate from immutable releases by prefix. D1 `saved_tables` owns listing, account scope, Release pins, integrity metadata, and soft deletion. New room provenance uses nullable `rooms_index.resumed_from_save_id`; `origin` remains `hosted` rather than expanding its existing checked values.
 9. PRD-SAVE-004 names camera, cursor, hover, and WebRTC state, none of which is canonical kernel state, so `GameSnapshot` already excludes it. Held state, prompts, and timers are canonical and remain in the verified snapshot. `system.game_resumed` performs the required identity transition after the snapshot is rebased rather than mutating stored save data or invalidating its StateHash.
 10. Canonical snapshots can also contain script-owned data that the kernel treats as opaque. Before dispatching `on_game_resumed`, Lua standard library v1 uses the action's saved-to-live roster mapping to reconcile `__stdlib.turns` and player-keyed `__stdlib.scores`; it preserves the current turn when possible, prunes removed players, and retains non-player score keys. This reconciliation is deterministic and idempotent. Creator-owned state remains under creator control and can respond to `on_game_resumed(ctx)` when it stores player IDs outside the standard library. Scripted saves use the same resume path as unscripted saves.
@@ -79,3 +79,60 @@ for independent replay clients, including the rebased base, a full turn cycle,
 three timer re-arms, and a winning move. CI rejects modifications, deletions,
 or renames of existing demo fixtures relative to the PR base (or prior main
 commit), while allowing new files.
+
+## Issue #87 audit follow-up (2026-09-27)
+
+F1: schema access backfills a null administrative host from the oldest durable
+player row, including rooms already given a nullable host column by the first
+migration. An empty room still assigns its first joiner. Reconnects and full
+rooms therefore regain a host without admitting a new participant. A non-null
+host is never replaced by this repair.
+
+F3: `players.seat_id` persists the service's allocation. A resumed join selects
+the first unassigned saved seat in code-unit order, then the smallest unused
+`seat_N`, reserving all saved IDs. Later joins use prior persisted assignments;
+bootstrap metadata reports the same seats. Older service rows are backfilled
+from the immutable initial snapshot and durable join order. This avoids running
+Lua or inferring seats from the live canonical simulation. It does not repair
+canonical overwrites already sequenced by the previous implementation.
+
+### F2 remains blocked — proposed pending-seat recovery design
+
+The current first action irreversibly prunes absent players' stdlib scores and
+turn entries and deletes their prompts. Ordinary subsequent joins cannot
+recover them. F1/F3 do **not** satisfy late-guest save/resume acceptance. The
+focused `F2 BLOCKED` expected-failure test preserves the intended score, current
+turn and open-prompt assertion; passing that test in expected-failure mode is
+not recovery evidence.
+
+The selected follow-up design is a canonical pending-seat escrow plus a new
+system-only seat-claim action, rather than staging the room or leaving ghost
+players in visible collections. Before pruning, the atomic resume transaction
+must retain per-seat saved identity, prompt/ownership references, stdlib score,
+turn position and a pending-current-turn marker. Kernel-owned pending data must
+be validated and hashed in snapshots; Lua-owned pending data stays under a
+reserved stdlib key. `players:list()`, score queries and visible turn order
+contain only live IDs. An unresolved current turn must pause turn progression,
+not silently advance to the host. The Room sequences claims using its persisted
+seat allocation; it never reads or executes Lua rules.
+
+A claim must atomically install the live player and seat, restore escrowed
+prompts and ownership, and reconcile the stdlib before an optional creator
+recovery callback. It must **not** run ordinary join initialization, which resets
+Zone Runner's saved score. Duplicate claims, wrong-seat claims, player-origin
+claims and callback failures need rejection/rollback tests. Pending data must
+survive checkpoint/replay and saving/resuming again before all seats are claimed.
+Saved participants without seats need an explicit policy. Timers while the
+current turn is pending also need defined behavior. Existing releases and frozen
+fixtures must continue replaying unchanged; only partial-roster transitions may
+introduce escrow state, with additive golden fixtures covering all these paths.
+
+This is an unimplemented canonical-state and action-contract change, not a
+missing Worker mapping. Completing it safely requires coordinated kernel
+schema/action/event validation and Lua reconciliation with the above invariants.
+This patch deliberately leaves F2 open instead of shipping a partial escrow that
+could lose data again on repeated saves or expose ghost IDs through stdlib APIs.
+
+Timer clarification for item 7: each independent room may fire its own timer.
+Rearming deduplicates within the new room's timer lifecycle; it does not stop the
+original room's timer or prevent it firing there.

@@ -370,6 +370,21 @@ export function resumedRosterFromSave(
   });
 }
 
+/** Allocate a service seat without simulating Lua or overwriting prior joins. */
+export function nextResumedSeatId(
+  state: CanonicalGameState,
+  assignedSeatIds: readonly string[],
+): string {
+  const savedSeatIds = Object.keys(state.seats).sort();
+  const occupied = new Set(assignedSeatIds);
+  const available = savedSeatIds.find((id) => !occupied.has(id));
+  if (available !== undefined) return available;
+  const reserved = new Set([...savedSeatIds, ...assignedSeatIds]);
+  let next = 1;
+  while (reserved.has(`seat_${next}`)) next++;
+  return `seat_${next}`;
+}
+
 /** The same atomic first action used by RoomDO.startIfNeeded and replay tests. */
 export function sequenceGameResume(
   core: RoomCore,
