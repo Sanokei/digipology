@@ -22,23 +22,31 @@ export function SavesPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [saves, setSaves] = useState<SavedTableDto[]>([]);
+  const [listLoading, setListLoading] = useState(true);
+  const [failedOperation, setFailedOperation] = useState<{ kind: "list" } | { kind: "resume" | "delete"; saveId: string } | null>(null);
   const [pending, setPending] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (user === null) return;
-    setError(null);
+    setListLoading(true); setError(null); setFailedOperation(null);
     const result = await api.listSaves();
+    setListLoading(false);
     if (result.ok) setSaves(result.value.saves);
-    else setError(result.error.message);
+    else {
+      setError(result.error.message);
+      setFailedOperation({ kind: "list" });
+    }
   }, [user]);
   useEffect(() => { void load(); }, [load]);
 
   async function resume(saveId: string) {
-    setPending(saveId); setError(null);
+    setPending(saveId); setError(null); setFailedOperation(null);
     const result = await api.resumeSave(saveId);
     setPending(null);
     if (!result.ok) {
+      setFailedOperation({ kind: "resume", saveId });
       setError(result.error.code === "release_unavailable"
         ? "This game's release is no longer available"
         : result.error.message);
@@ -48,21 +56,33 @@ export function SavesPage() {
     navigate(`/table/${result.value.roomId}`);
   }
 
-  async function remove(saveId: string) {
-    if (!window.confirm("Delete this saved table?")) return;
+  async function remove(saveId: string, confirmed = false) {
+    if (!confirmed && !window.confirm("Delete this saved table?")) return;
+    setDeleting(true); setPending(saveId); setError(null); setFailedOperation(null);
     const result = await api.deleteSave(saveId);
+    setPending(null); setDeleting(false);
     if (result.ok) setSaves((current) => current.filter((save) => save.saveId !== saveId));
-    else setError(result.error.message);
+    else {
+      setError(result.error.message);
+      setFailedOperation({ kind: "delete", saveId });
+    }
+  }
+
+  function retry() {
+    if (failedOperation?.kind === "resume") void resume(failedOperation.saveId);
+    else if (failedOperation?.kind === "delete") void remove(failedOperation.saveId, true);
+    else void load();
   }
 
   return <div className="play-page"><SiteHeader /><SavesPageContent
     user={user}
-    loading={loading}
+    loading={loading || (user !== null && listLoading)}
     saves={saves}
     pending={pending}
+    deleting={deleting}
     error={error}
     onSignIn={() => navigate("/login", { state: { backgroundLocation: location } })}
-    onRetry={() => void load()}
+    onRetry={retry}
     onResume={(saveId) => void resume(saveId)}
     onDelete={(saveId) => void remove(saveId)}
   /></div>;
@@ -73,6 +93,7 @@ export function SavesPageContent({
   loading,
   saves,
   pending,
+  deleting = false,
   error,
   onSignIn,
   onRetry,
@@ -83,6 +104,7 @@ export function SavesPageContent({
   loading: boolean;
   saves: readonly SavedTableDto[];
   pending: string | null;
+  deleting?: boolean;
   error: string | null;
   onSignIn(): void;
   onRetry(): void;
@@ -101,8 +123,8 @@ export function SavesPageContent({
           <small>Saved {relativeSavedTime(save.createdAt)} · sequence {save.sequence} · {save.releaseId.slice(0, 18)}</small>
           {save.resumable === false ? <p className="saved-table-card__note">This save cannot be resumed by the current server.</p> : null}</div>
         <div><button type="button" disabled={pending !== null || save.resumable === false} onClick={() => onResume(save.saveId)}>
-          {pending === save.saveId ? "Resuming table" : "Resume"}</button>
-          <button type="button" disabled={pending !== null} onClick={() => onDelete(save.saveId)}>Delete</button></div>
+          {pending === save.saveId && !deleting ? "Resuming table" : "Resume"}</button>
+          <button type="button" disabled={pending !== null} onClick={() => onDelete(save.saveId)}>{pending === save.saveId && deleting ? "Deleting table" : "Delete"}</button></div>
       </article>)}</div>}
   </main>;
 }
