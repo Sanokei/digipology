@@ -26,6 +26,7 @@ import {
   timerFireDedupKey,
   nextHost,
   resumedRosterFromSave,
+  sequenceGameResume,
   scheduledTimersToArm,
   validateCheckpointAttestationSnapshot,
 } from "./room-core";
@@ -89,6 +90,50 @@ describe("RoomCore sequencing", () => {
     expect(nextHost(["old", "new"], ["new"], "old")).toBe("new");
     expect(nextHost(["old", "new"], [], "old")).toBe("old");
   });
+  test("resume startup sequences one atomic roster transition before rearmed timers", () => {
+    const saved = loadSnapshot(checkpointInitialSnapshot());
+    saved.sequence = 42;
+    saved.players = { old: { id: "old" } };
+    saved.seats = { seat_2: { id: "seat_2", playerId: "old" } };
+    saved.timers = {};
+    saved.timers.tick = { id: "tick", delay: 3, callback: "tick", scriptId: "rules", bindingId: "rules", status: "scheduled" };
+    const base = resumeBaseFromSave(snapshot(saved));
+    const live = [{ playerId: "host", displayName: "Host" }, { playerId: "guest", displayName: "Guest" }];
+    const initial = loadSnapshot(base);
+    const core = new RoomCore("resume94");
+    const resumed = sequenceGameResume(core, initial, live);
+    expect(resumed.orderedAction).toMatchObject({ sequence: 1, actor: { type: "system" }, action: {
+      type: "system.game_resumed", payload: { roster: [
+        { playerId: "host", name: "Host", seatId: "seat_2", previousPlayerId: "old" },
+        { playerId: "guest", name: "Guest", seatId: "seat_1" },
+      ] },
+    } });
+    expect(sequenceGameResume(core, initial, live).duplicate).toBe(true);
+    expect(sequenceGameResume(new RoomCore("resume94"), initial, live).orderedAction).toEqual(resumed.orderedAction);
+    const applied = applyOrdered(initial, resumed.orderedAction);
+    expect(applied.rejection).toBeUndefined();
+    expect(applied.state.players).toEqual({ host: { id: "host", name: "Host" }, guest: { id: "guest", name: "Guest" } });
+    expect(snapshot(initial).stateHash).toBe(base.stateHash);
+    const [timer] = scheduledTimersToArm(initial);
+    expect(timer).toEqual({ timerId: "tick", delayMs: 3000 });
+    const fired = core.sequenceSystem({ type: "system.timer_fire", payload: { timerId: timer!.timerId } }, timerFireDedupKey(timer!.timerId));
+    expect(fired.orderedAction.sequence).toBe(2);
+    expect(core.state.actions.map((action) => action.action.type)).toEqual(["system.game_resumed", "system.timer_fire"]);
+    expect(applyOrdered(applied.state, fired.orderedAction).rejection).toBeUndefined();
+    expect(core.sequenceSystem(fired.orderedAction.action, timerFireDedupKey("tick")).duplicate).toBe(true);
+  });
+
+  test("resume maps saved seats in code-unit order regardless of insertion order", () => {
+    const initial = loadSnapshot(checkpointInitialSnapshot());
+    initial.players = { a: { id: "a" }, z: { id: "z" } };
+    initial.seats = { seat_a: { playerId: "a", id: "seat_a" }, seat_Z: { playerId: "z", id: "seat_Z" } };
+    const roster = [{ playerId: "host", displayName: "Host" }, { playerId: "guest", displayName: "Guest" }];
+    const expected = resumedRosterFromSave(initial, roster);
+    expect(expected.map((entry) => entry.previousPlayerId)).toEqual(["z", "a"]);
+    initial.seats = Object.fromEntries(Object.entries(initial.seats).reverse());
+    expect(resumedRosterFromSave(initial, roster)).toEqual(expected);
+  });
+
   test("allocates 1000 monotonically increasing sequences and retains 500", () => {
     const core = new RoomCore("room123");
     for (let index = 1; index <= 1000; index += 1) {

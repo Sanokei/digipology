@@ -1,0 +1,209 @@
+{
+  "fixtureVersion": 2,
+  "releaseId": "builtin_zone_runner_2",
+  "savedActions": [
+    {
+      "sequence": 1,
+      "actionId": "zrr-start",
+      "actor": {
+        "type": "system"
+      },
+      "action": {
+        "type": "system.game_start",
+        "payload": {
+          "settings": {
+            "targetScore": 2,
+            "turnSeconds": 2
+          }
+        }
+      }
+    },
+    {
+      "sequence": 2,
+      "actionId": "zrr-opening",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "prompt.respond",
+        "payload": {
+          "promptId": "opening_move",
+          "response": "run"
+        }
+      }
+    },
+    {
+      "sequence": 3,
+      "actionId": "zrr-grab-a",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "entity.grab",
+        "payload": {
+          "entityId": "runner_seat_1_a"
+        }
+      }
+    },
+    {
+      "sequence": 4,
+      "actionId": "zrr-drop-a",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "entity.drop",
+        "payload": {
+          "entityId": "runner_seat_1_a",
+          "transform": {
+            "position": {
+              "x": -3,
+              "y": 0,
+              "z": 0
+            },
+            "rotation": {
+              "x": 0,
+              "y": 0,
+              "z": 0,
+              "w": 1
+            },
+            "scale": {
+              "x": 1,
+              "y": 1,
+              "z": 1
+            }
+          }
+        }
+      }
+    }
+  ],
+  "resumedActions": [
+    {
+      "sequence": 1,
+      "actionId": "zrr-resume",
+      "actor": {
+        "type": "system"
+      },
+      "action": {
+        "type": "system.game_resumed",
+        "payload": {
+          "roster": [
+            {
+              "playerId": "host_live",
+              "name": "Host",
+              "seatId": "seat_1",
+              "previousPlayerId": "alice"
+            },
+            {
+              "playerId": "guest_live",
+              "name": "Guest",
+              "seatId": "seat_2",
+              "previousPlayerId": "bob"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "sequence": 2,
+      "actionId": "zrr-fire-1",
+      "actor": {
+        "type": "system"
+      },
+      "action": {
+        "type": "system.timer_fire",
+        "payload": {
+          "timerId": "timer_zrr-drop-a_0"
+        }
+      }
+    },
+    {
+      "sequence": 3,
+      "actionId": "zrr-fire-2",
+      "actor": {
+        "type": "system"
+      },
+      "action": {
+        "type": "system.timer_fire",
+        "payload": {
+          "timerId": "timer_zrr-fire-1_0"
+        }
+      }
+    },
+    {
+      "sequence": 4,
+      "actionId": "zrr-fire-3",
+      "actor": {
+        "type": "system"
+      },
+      "action": {
+        "type": "system.timer_fire",
+        "payload": {
+          "timerId": "timer_zrr-fire-2_0"
+        }
+      }
+    },
+    {
+      "sequence": 5,
+      "actionId": "zrr-grab-b",
+      "actor": {
+        "type": "player",
+        "playerId": "host_live"
+      },
+      "action": {
+        "type": "entity.grab",
+        "payload": {
+          "entityId": "runner_seat_1_b"
+        }
+      }
+    },
+    {
+      "sequence": 6,
+      "actionId": "zrr-drop-b",
+      "actor": {
+        "type": "player",
+        "playerId": "host_live"
+      },
+      "action": {
+        "type": "entity.drop",
+        "payload": {
+          "entityId": "runner_seat_1_b",
+          "transform": {
+            "position": {
+              "x": -1,
+              "y": 0,
+              "z": 0
+            },
+            "rotation": {
+              "x": 0,
+              "y": 0,
+              "z": 0,
+              "w": 1
+            },
+            "scale": {
+              "x": 1,
+              "y": 1,
+              "z": 1
+            }
+          }
+        }
+      }
+    }
+  ],
+  "expectedFinalStateHash": "sha256:d53fb721102563cae17e82d94a63b86a34189a16ebaef2659b928e97742f5555",
+  "expectedWinnerId": "host_live",
+  "expectedTimeouts": 3,
+  "expectedSavedStateHash": "sha256:19d2763cd69413556d4f0f48875536c0ea480c0b08d8490c74767016dca26852",
+  "expectedStateHashes": [
+    "sha256:aa5c49e37f4296a6264be9aea1b8ac75b82552e0c571788cfcb4aef4cee659fa",
+    "sha256:85e942f0c82e802536a1bf91fb7ab29a934b5e67c6438cdca5f0dcd1dad7d581",
+    "sha256:a09d421680637cd0ee0bcd0a995c2d870bd9d6ac40a3a6b2e8da434431a99bee",
+    "sha256:6c2bf80d58eeabed0f54f3e97d79aa61a23e751c610c98d65f7a00f099bd8fa1",
+    "sha256:053ec78e3568b94fda5649a269921b8ef432d9abce86140f100f25f589633a2d",
+    "sha256:6a91d4eb46dac965c12eb693afe3d8cadc2f15b67c5efbf8c9f98440a2437e47",
+    "sha256:d53fb721102563cae17e82d94a63b86a34189a16ebaef2659b928e97742f5555"
+  ]
+}

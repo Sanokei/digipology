@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   parseClientMessage,
+  validateGameResumedPayload,
   parseServerMessage,
   type ClientMessage,
   type ParseErrorCode,
@@ -409,4 +410,25 @@ describe("UTF-8 size limits", () => {
       parseClientMessage("{}", { maxBytes: 1.5 }),
     ).toThrow(RangeError);
   });
+});
+
+
+test("resume payload DTO validates shape while leaving membership and authorization to the kernel", () => {
+  const payload = { roster: [{ playerId: "live", name: "Live", seatId: "seat_1", previousPlayerId: "saved" }] };
+  expect(validateGameResumedPayload(payload)).toBe(true);
+  expect(validateGameResumedPayload({ roster: [{ playerId: "live", seatId: "seat_1" }] })).toBe(true);
+  for (const invalid of [null, {}, { roster: [] }, { ...payload, extra: true },
+    { roster: [null] }, { roster: [{ playerId: "", seatId: "s" }] },
+    { roster: [{ playerId: "p", seatId: "s", previousPlayerId: "" }] },
+    { roster: [{ playerId: "p", seatId: "s", name: null }] },
+    { roster: [{ playerId: "p", seatId: "s", extra: true }] }]) {
+    expect(validateGameResumedPayload(invalid)).toBe(false);
+  }
+  const ordered = { ...orderedPlayer, actor: { type: "system" }, sequence: 1,
+    action: { type: "system.game_resumed", payload } };
+  expect(parseServerMessage(JSON.stringify(ordered)).ok).toBe(true);
+  // Invalid client actions still reach canonical rejection and consume a sequence.
+  expect(parseClientMessage(JSON.stringify({ type: "action_request", protocolVersion: 1,
+    requestId: "bad-resume", predictedAtSequence: 0,
+    action: { type: "system.game_resumed", payload: {} } })).ok).toBe(true);
 });

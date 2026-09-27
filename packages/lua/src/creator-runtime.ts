@@ -319,13 +319,13 @@ state.__stdlib.scores = state.__stdlib.scores or {}
 -- roster transition so each distinct resume reconciles once, including when a
 -- resumed table is saved and resumed again later.
 local resume_roster_key = nil
-if ctx.roster ~= nil then
+if __function_name == "on_game_resumed" and ctx.roster ~= nil then
   resume_roster_key = ""
   for _, entry in ipairs(ctx.roster) do
     resume_roster_key = resume_roster_key .. string.len(entry.playerId) .. ":" .. entry.playerId .. ";"
   end
 end
-if ctx.roster ~= nil and ctx.removedPlayerIds ~= nil and
+if resume_roster_key ~= nil and ctx.removedPlayerIds ~= nil and
     state.__stdlib.last_resume_roster_key ~= resume_roster_key then
   local live, remap, removed = {}, {}, {}
   for _, player in ipairs(players:list()) do live[player.id] = true end

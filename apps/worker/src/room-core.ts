@@ -1,5 +1,6 @@
 import {
   PROTOCOL_VERSION,
+  validateGameResumedPayload,
   type ActionRequest,
   type PlayerInfo,
   type OrderedAction,
@@ -348,9 +349,15 @@ export function resumedRosterFromSave(
   state: CanonicalGameState,
   livePlayers: readonly { playerId: string; displayName: string }[],
 ): GameResumedPayload["roster"] {
-  const seatIds = Object.keys(state.seats).sort((left, right) => left.localeCompare(right));
+  const seatIds = Object.keys(state.seats).sort();
+  const reservedSeatIds = new Set(seatIds);
+  let nextSeat = 1;
   return livePlayers.map((player, index) => {
-    const seatId = seatIds[index] ?? `seat_${index + 1}`;
+    let seatId = seatIds[index];
+    if (seatId === undefined) {
+      do { seatId = `seat_${nextSeat++}`; } while (reservedSeatIds.has(seatId));
+      reservedSeatIds.add(seatId);
+    }
     const previousPlayerId = state.seats[seatId]?.playerId;
     return {
       playerId: player.playerId,
@@ -361,6 +368,17 @@ export function resumedRosterFromSave(
         : {}),
     };
   });
+}
+
+/** The same atomic first action used by RoomDO.startIfNeeded and replay tests. */
+export function sequenceGameResume(
+  core: RoomCore,
+  state: CanonicalGameState,
+  livePlayers: readonly { playerId: string; displayName: string }[],
+): SequenceResult {
+  const payload = { roster: resumedRosterFromSave(state, livePlayers) } satisfies GameResumedPayload;
+  if (!validateGameResumedPayload(payload)) throw new TypeError("Invalid resumed roster payload");
+  return core.sequenceSystem({ type: "system.game_resumed", payload }, "game_resumed");
 }
 
 export interface ScheduledTimerPlan { timerId: string; delayMs: number; }
