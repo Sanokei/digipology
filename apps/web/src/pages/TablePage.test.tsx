@@ -7,6 +7,8 @@ import { ConnectionOverlay } from "../components/ConnectionOverlay";
 import { InspectOverlay } from "../components/InspectOverlay";
 import { TableTopBar } from "../components/TableTopBar";
 import { TableHints, readCompletedTableHints } from "../components/TableHints";
+import { TableChat } from "../components/TableChat";
+import { ControlsHelp } from "../components/ControlsHelp";
 import { DiceControls, openPromptsForPlayer, playersPanelOpenByDefault, RendererDiagnostics } from "./TablePage";
 
 test("375px table chrome exposes compact controls and the thumb hand tray", async () => {
@@ -130,4 +132,33 @@ test("renderer diagnostics expose the mounted adapter, fallback, and tier", () =
   expect(html).toContain("Lite failed to start: adapter unavailable");
   expect(html).toContain("Tier");
   expect(html).toContain("low");
+});
+
+test("room chat renders untrusted messages as text and exposes its unread badge", () => {
+  const collapsed = renderToStaticMarkup(<TableChat
+    model={{ open: false, unread: 3, nextId: 1, lines: [] }}
+    disabled={false}
+    onOpen={() => {}}
+    onClose={() => {}}
+    onSend={() => true}
+  />);
+  expect(collapsed).toContain("3 unread");
+  const open = renderToStaticMarkup(<TableChat
+    model={{
+      open: true,
+      unread: 0,
+      nextId: 2,
+      lines: [{
+        id: 1,
+        message: { type: "chat_message", protocolVersion: 1, kind: "player", playerId: "p2", displayName: "Bob", text: "<img src=x onerror=alert(1)>" },
+      }],
+    }}
+    disabled={false}
+    onOpen={() => {}}
+    onClose={() => {}}
+    onSend={() => true}
+  />);
+  expect(open).toContain("&lt;img src=x onerror=alert(1)&gt;");
+  expect(open).not.toContain("<img src=x");
+  expect(renderToStaticMarkup(<ControlsHelp />)).toContain("Show table controls");
 });

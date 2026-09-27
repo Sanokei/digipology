@@ -1151,6 +1151,59 @@ const entityFlip: ActionDefinition<unknown> = {
   },
 };
 
+const ROTATION_STEP_SIN = 0.13052619222005157;
+const ROTATION_STEP_COS = 0.9914448613738104;
+
+const entityRotate: ActionDefinition<unknown> = {
+  type: "entity.rotate",
+  version: 1,
+  sources: ["player", "script"],
+  validate(state, action) {
+    if (
+      !isRecord(action.payload) ||
+      !onlyKeys(action.payload, ["entityId", "steps"]) ||
+      typeof action.payload.entityId !== "string" ||
+      (action.payload.steps !== -1 && action.payload.steps !== 1)
+    ) {
+      return reject("Payload requires only entityId and steps equal to -1 or 1");
+    }
+    const transform = requireComponent<TransformComponent>(
+      state,
+      action.payload.entityId,
+      "transform",
+    );
+    if (isReject(transform)) return transform;
+    const entity = state.entities[action.payload.entityId];
+    if (entity?.components.lockable?.locked === true) return reject("Entity is locked");
+    const heldBy = entity?.components.grabbable?.heldBy;
+    if (typeof heldBy === "string" &&
+      (action.actor.type !== "player" || action.actor.playerId !== heldBy)) {
+      return reject("Entity is held by another player");
+    }
+    return OK;
+  },
+  apply(draft, action, ctx) {
+    const { entityId, steps } = action.payload as { entityId: EntityId; steps: -1 | 1 };
+    const entity = draft.entities[entityId];
+    const transform = entity?.components.transform;
+    if (entity === undefined || transform === undefined) {
+      throw new Error("Validated transform disappeared");
+    }
+    const rotation = transform.rotation;
+    const y = ROTATION_STEP_SIN * steps;
+    entity.components.transform = canonicalizeTransform({
+      ...transform,
+      rotation: {
+        x: rotation.x * ROTATION_STEP_COS - rotation.z * y,
+        y: rotation.w * y + rotation.y * ROTATION_STEP_COS,
+        z: rotation.x * y + rotation.z * ROTATION_STEP_COS,
+        w: rotation.w * ROTATION_STEP_COS - rotation.y * y,
+      },
+    });
+    ctx.emit("entity.rotated", { entityId, steps });
+  },
+};
+
 function transferPayload(value: unknown): ContainerTransfer | Reject {
   if (
     !isRecord(value) ||
@@ -2006,6 +2059,7 @@ export const builtInActions: ReadonlyArray<ActionDefinition<unknown>> = [
   entityDrop,
   entityMove,
   entityFlip,
+  entityRotate,
   entitySetLocked,
   containerMove,
   deckShuffle,

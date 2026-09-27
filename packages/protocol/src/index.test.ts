@@ -39,6 +39,10 @@ const clientVariants: ClientMessage[] = [
     action: { type: "entity.grab", payload: null },
   },
   { type: "ping", protocolVersion: 1, t: 123.5 },
+  { type: "social_subscribe", protocolVersion: 1 },
+  { type: "chat_send", protocolVersion: 1, text: "Hello table" },
+  { type: "cursor_update", protocolVersion: 1, x: 1.25, z: -2.5 },
+  { type: "table_ping", protocolVersion: 1, x: 0, z: 3 },
 ];
 
 const serverVariants: ServerMessage[] = [
@@ -79,6 +83,10 @@ const serverVariants: ServerMessage[] = [
   { type: "room_ended", protocolVersion: 1, reason: "host_ended" },
   orderedPlayer,
   { type: "pong", protocolVersion: 1, t: 123.5 },
+  { type: "chat_message", protocolVersion: 1, kind: "system", text: "Alice joined." },
+  { type: "chat_message", protocolVersion: 1, kind: "player", playerId: "player_alice", displayName: "Alice", text: "Hello" },
+  { type: "cursor_update", protocolVersion: 1, playerId: "player_alice", displayName: "Alice", seatId: "seat_1", x: 1, z: 2 },
+  { type: "table_ping", protocolVersion: 1, playerId: "player_alice", displayName: "Alice", seatId: null, x: 2, z: 1 },
 ];
 
 function expectFailure(
@@ -190,6 +198,21 @@ describe("error classification", () => {
 });
 
 describe("required fields and strict objects", () => {
+  test("validates bounded plain chat and authoritative social identities", () => {
+    expectFailure(parseClientMessage(JSON.stringify({
+      type: "chat_send", protocolVersion: 1, text: "x".repeat(281),
+    })), "malformed_message", "$.text");
+    expectFailure(parseClientMessage(JSON.stringify({
+      type: "chat_send", protocolVersion: 1, text: "   ",
+    })), "malformed_message", "$.text");
+    expectFailure(parseClientMessage(JSON.stringify({
+      type: "cursor_update", protocolVersion: 1, playerId: "spoofed", x: 1, z: 2,
+    })), "malformed_message", "$.playerId");
+    expectFailure(parseServerMessage(JSON.stringify({
+      type: "table_ping", protocolVersion: 1, playerId: "p1", displayName: "Alice", seatId: null, x: 1,
+    })), "malformed_message", "$.z");
+  });
+
   test("rejects a wrongly typed hello discriminator", () => {
     const raw =
       '{"type":7,"protocolVersion":1,"sessionToken":"s","lastSequence":null}';

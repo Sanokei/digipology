@@ -49,6 +49,7 @@ import type {
 } from "./sceneAdapter";
 import { TABLE_DEPTH, TABLE_SURFACE_Y, TABLE_WIDTH } from "./tableDimensions";
 import { piecePresentation, piecePresentationSignature } from "./piecePresentation";
+import { projectWorldToScreen } from "./cameraProjection";
 
 interface DragBounds {
   minX: number;
@@ -718,6 +719,10 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       if (ray === null) return null;
       const point = { x: 0, y: 0, z: 0 };
       return intersectRayWithHorizontalPlaneToRef(ray, TABLE_SURFACE_Y, point) ? point : null;
+    },
+    projectFromTable(point) {
+      if (cameraGraph === null || canvas === null) return null;
+      return projectWorldToScreen(cameraGraph, canvas.clientWidth, canvas.clientHeight, point);
     },
     isGrabbable(entityId: string): boolean {
       return pieces.get(entityId)?.grabbable === true;

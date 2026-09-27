@@ -5,7 +5,7 @@ import { localHandId } from "./tableHandModel";
 export type TableAction = { type: string; payload: unknown };
 
 export interface TableContextAction {
-  id: "flip" | "roll" | "press" | "draw" | "shuffle" | "increment" | "decrement" | "take-top" | "lock" | "unlock" | "inspect";
+  id: "flip" | "rotate-left" | "rotate-right" | "roll" | "press" | "draw" | "shuffle" | "increment" | "decrement" | "take-top" | "lock" | "unlock" | "inspect";
   label: string;
   disabled: boolean;
   action: TableAction | null;
@@ -39,6 +39,21 @@ export function contextActionsFor(
 
   if (entity.components.flippable !== undefined || entity.components.card !== undefined) {
     add({ id: "flip", label: "Flip", action: { type: "entity.flip", payload: { entityId: entity.id } } });
+  }
+  if (entity.components.transform !== undefined) {
+    const disabled = !hasClient || otherHolds || entity.components.lockable?.locked === true;
+    add({
+      id: "rotate-left",
+      label: "Rotate left 15°",
+      disabled,
+      action: { type: "entity.rotate", payload: { entityId: entity.id, steps: -1 } },
+    });
+    add({
+      id: "rotate-right",
+      label: "Rotate right 15°",
+      disabled,
+      action: { type: "entity.rotate", payload: { entityId: entity.id, steps: 1 } },
+    });
   }
   if (entity.components.die !== undefined) {
     add({ id: "roll", label: "Roll", disabled: !hasClient || otherHolds, action: { type: "die.roll", payload: { entityId: entity.id } } });
@@ -83,6 +98,16 @@ export function contextActionsFor(
   }
   result.push({ id: "inspect", label: "Inspect", disabled: false, action: null });
   return result;
+}
+
+export function keyboardRollActionFor(entity: EntityRecord): TableAction | null {
+  if (entity.components.die !== undefined) {
+    return { type: "die.roll", payload: { entityId: entity.id } };
+  }
+  if (entity.components.deck?.enabled === true) {
+    return { type: "deck.shuffle", payload: { deckId: entity.id } };
+  }
+  return null;
 }
 
 export function primaryActionFor(

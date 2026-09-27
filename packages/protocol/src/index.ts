@@ -1,4 +1,5 @@
 export const PROTOCOL_VERSION = 1 as const;
+export const CHAT_TEXT_MAX_LENGTH = 280;
 
 export type Actor =
   | { type: "player"; playerId: string }
@@ -78,7 +79,38 @@ export type PingMessage = {
   t?: number;
 };
 
-export type ClientMessage = HelloMessage | ActionRequest | PingMessage;
+export type SocialSubscribeMessage = {
+  type: "social_subscribe";
+  protocolVersion: 1;
+};
+
+export type ChatSendMessage = {
+  type: "chat_send";
+  protocolVersion: 1;
+  text: string;
+};
+
+export type CursorUpdateRequest = {
+  type: "cursor_update";
+  protocolVersion: 1;
+  x: number;
+  z: number;
+};
+
+export type TablePingRequest = {
+  type: "table_ping";
+  protocolVersion: 1;
+  x: number;
+  z: number;
+};
+
+export type ClientSocialMessage =
+  | SocialSubscribeMessage
+  | ChatSendMessage
+  | CursorUpdateRequest
+  | TablePingRequest;
+
+export type ClientMessage = HelloMessage | ActionRequest | PingMessage | ClientSocialMessage;
 
 export type BootstrapMessage = {
   type: "bootstrap";
@@ -129,6 +161,44 @@ export type PongMessage = {
   t?: number;
 };
 
+export type ChatMessage =
+  | {
+      type: "chat_message";
+      protocolVersion: 1;
+      kind: "player";
+      playerId: string;
+      displayName: string;
+      text: string;
+    }
+  | {
+      type: "chat_message";
+      protocolVersion: 1;
+      kind: "system";
+      text: string;
+    };
+
+export type CursorUpdateMessage = {
+  type: "cursor_update";
+  protocolVersion: 1;
+  playerId: string;
+  displayName: string;
+  seatId: string | null;
+  x: number;
+  z: number;
+};
+
+export type TablePingMessage = {
+  type: "table_ping";
+  protocolVersion: 1;
+  playerId: string;
+  displayName: string;
+  seatId: string | null;
+  x: number;
+  z: number;
+};
+
+export type ServerSocialMessage = ChatMessage | CursorUpdateMessage | TablePingMessage;
+
 export type ServerMessage =
   | BootstrapMessage
   | ResumeMessage
@@ -136,7 +206,8 @@ export type ServerMessage =
   | ProtocolErrorMessage
   | RoomEndedMessage
   | OrderedAction
-  | PongMessage;
+  | PongMessage
+  | ServerSocialMessage;
 
 export type ParseErrorCode =
   | "malformed_message"
@@ -159,6 +230,10 @@ export const DEFAULT_MESSAGE_SIZE_LIMITS = Object.freeze({
   hello: 4 * 1024,
   action_request: 32 * 1024,
   ping: 256,
+  social_subscribe: 256,
+  chat_send: 1024,
+  cursor_update: 512,
+  table_ping: 512,
   bootstrap: 4 * 1024 * 1024,
   resume: 4 * 1024 * 1024,
   resync_required: 4 * 1024,
@@ -166,12 +241,21 @@ export const DEFAULT_MESSAGE_SIZE_LIMITS = Object.freeze({
   room_ended: 4 * 1024,
   ordered_action: 64 * 1024,
   pong: 256,
+  chat_message: 2048,
 } as const);
 
 type ParseFailure = Extract<ParseResult<never>, { ok: false }>;
 type JsonObject = Record<string, unknown>;
 
-const CLIENT_TYPES = new Set(["hello", "action_request", "ping"]);
+const CLIENT_TYPES = new Set([
+  "hello",
+  "action_request",
+  "ping",
+  "social_subscribe",
+  "chat_send",
+  "cursor_update",
+  "table_ping",
+]);
 const SERVER_TYPES = new Set([
   "bootstrap",
   "resume",
@@ -180,6 +264,9 @@ const SERVER_TYPES = new Set([
   "room_ended",
   "ordered_action",
   "pong",
+  "chat_message",
+  "cursor_update",
+  "table_ping",
 ]);
 const PROTOCOL_ERROR_CODES = new Set<string>([
   "unsupported_protocol_version",
@@ -323,20 +410,10 @@ function defaultLimitFor(
 ): number | undefined {
   if (type === undefined) return undefined;
   if (direction === "client" && CLIENT_TYPES.has(type)) {
-    return DEFAULT_MESSAGE_SIZE_LIMITS[
-      type as keyof Pick<
-        typeof DEFAULT_MESSAGE_SIZE_LIMITS,
-        "hello" | "action_request" | "ping"
-      >
-    ];
+    return DEFAULT_MESSAGE_SIZE_LIMITS[type as keyof typeof DEFAULT_MESSAGE_SIZE_LIMITS];
   }
   if (direction === "server" && SERVER_TYPES.has(type)) {
-    return DEFAULT_MESSAGE_SIZE_LIMITS[
-      type as keyof Omit<
-        typeof DEFAULT_MESSAGE_SIZE_LIMITS,
-        "hello" | "action_request" | "ping"
-      >
-    ];
+    return DEFAULT_MESSAGE_SIZE_LIMITS[type as keyof typeof DEFAULT_MESSAGE_SIZE_LIMITS];
   }
   return undefined;
 }
@@ -349,6 +426,13 @@ function validateClientMessage(message: JsonObject): ParseFailure | undefined {
       return validateActionRequest(message);
     case "ping":
       return validateTimedMessage(message, "ping");
+    case "social_subscribe":
+      return rejectExtraKeys(message, ["type", "protocolVersion"], "$");
+    case "chat_send":
+      return validateChatSend(message);
+    case "cursor_update":
+    case "table_ping":
+      return validateTablePoint(message, false);
     default:
       return failure("unknown_message_type", "Unknown client message type", "$.type");
   }
@@ -370,9 +454,77 @@ function validateServerMessage(message: JsonObject): ParseFailure | undefined {
       return validateOrderedAction(message, "$");
     case "pong":
       return validateTimedMessage(message, "pong");
+    case "chat_message":
+      return validateChatMessage(message);
+    case "cursor_update":
+    case "table_ping":
+      return validateTablePoint(message, true);
     default:
       return failure("unknown_message_type", "Unknown server message type", "$.type");
   }
+}
+
+function validateChatText(value: unknown, path: string): ParseFailure | undefined {
+  if (typeof value !== "string") return wrongType(path, "a string");
+  const length = Array.from(value).length;
+  if (value.trim().length === 0 || length > CHAT_TEXT_MAX_LENGTH) {
+    return failure(
+      "malformed_message",
+      `Chat text must contain 1 to ${CHAT_TEXT_MAX_LENGTH} characters`,
+      path,
+    );
+  }
+  return undefined;
+}
+
+function validateChatSend(message: JsonObject): ParseFailure | undefined {
+  const extra = rejectExtraKeys(message, ["type", "protocolVersion", "text"], "$");
+  return extra ?? validateChatText(message.text, "$.text");
+}
+
+function validateChatMessage(message: JsonObject): ParseFailure | undefined {
+  if (message.kind === "system") {
+    const extra = rejectExtraKeys(message, ["type", "protocolVersion", "kind", "text"], "$");
+    return extra ?? validateChatText(message.text, "$.text");
+  }
+  if (message.kind !== "player") return wrongType("$.kind", '"player" or "system"');
+  const extra = rejectExtraKeys(
+    message,
+    ["type", "protocolVersion", "kind", "playerId", "displayName", "text"],
+    "$",
+  );
+  if (extra !== undefined) return extra;
+  if (typeof message.playerId !== "string" || message.playerId.length === 0) {
+    return wrongType("$.playerId", "a non-empty string");
+  }
+  if (typeof message.displayName !== "string" || message.displayName.length === 0) {
+    return wrongType("$.displayName", "a non-empty string");
+  }
+  return validateChatText(message.text, "$.text");
+}
+
+function validateTablePoint(message: JsonObject, authoritative: boolean): ParseFailure | undefined {
+  const allowed = authoritative
+    ? ["type", "protocolVersion", "playerId", "displayName", "seatId", "x", "z"]
+    : ["type", "protocolVersion", "x", "z"];
+  const extra = rejectExtraKeys(message, allowed, "$");
+  if (extra !== undefined) return extra;
+  if (!isFiniteNumber(message.x)) return wrongType("$.x", "a finite number");
+  if (!isFiniteNumber(message.z)) return wrongType("$.z", "a finite number");
+  if (Math.abs(message.x) > 1_000_000 || Math.abs(message.z) > 1_000_000) {
+    return failure("malformed_message", "Table point is outside supported bounds", "$");
+  }
+  if (!authoritative) return undefined;
+  if (typeof message.playerId !== "string" || message.playerId.length === 0) {
+    return wrongType("$.playerId", "a non-empty string");
+  }
+  if (typeof message.displayName !== "string" || message.displayName.length === 0) {
+    return wrongType("$.displayName", "a non-empty string");
+  }
+  if (message.seatId !== null && typeof message.seatId !== "string") {
+    return wrongType("$.seatId", "a string or null");
+  }
+  return undefined;
 }
 
 function validateHello(message: JsonObject): ParseFailure | undefined {

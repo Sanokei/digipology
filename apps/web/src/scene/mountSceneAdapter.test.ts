@@ -12,6 +12,7 @@ function adapterThat(mount: () => Promise<void>, disposed: string[], name: strin
     syncEntities: () => undefined,
     pick: async () => null,
     projectToTable: () => null,
+    projectFromTable: () => null,
     isGrabbable: () => false,
     beginDrag: () => undefined,
     updateDrag: () => undefined,

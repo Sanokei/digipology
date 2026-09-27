@@ -207,6 +207,7 @@ describe("merged action and Lua surfaces", () => {
       "entity.flip",
       "entity.grab",
       "entity.move",
+      "entity.rotate",
       "entity.set_locked",
       "prompt.cancel",
       "prompt.create",
