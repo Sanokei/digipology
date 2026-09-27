@@ -95,7 +95,9 @@ describe("HTTP v1 request validators", () => {
   test("validates saved-table DTOs and requests", () => {
     const snapshot = validBundle().initialSnapshot;
     expect(validateSaveTableRequest({ roomToken: "token", snapshot, label: "Friday" }).ok).toBe(true);
+    // HTTP authorization maps missing/empty tokens to 403 before DTO validation.
     expect(validateSaveTableRequest({ roomToken: "", snapshot }).ok).toBe(false);
+    expect(validateSaveTableRequest({ snapshot }).ok).toBe(false);
     expect(validateSaveTableRequest({ roomToken: "token", snapshot: { ...snapshot, stateHash: "bad" } }).ok).toBe(false);
     expect(validateResumeSaveRequest({ visibility: "private", displayName: "Host" }).ok).toBe(true);
     expect(validateResumeSaveRequest({ visibility: "friends" }).ok).toBe(false);
