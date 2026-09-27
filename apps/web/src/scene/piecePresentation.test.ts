@@ -67,3 +67,14 @@ test("face-down cards never select front art or front presentation fields", () =
   expect(hidden).toMatchObject({ label: "Card back", color: "#123456", face: back });
   expect(hidden.face).not.toBe(front);
 });
+
+test("object-library metadata supplies stable labels and colors without leaking hidden cards", () => {
+  const metadata = { version: 1 as const, itemId: "standard_card_A_hearts", label: "A of hearts", color: "#b62f36", shape: "card" };
+  expect(piecePresentation(entity("front", { card: { definitionId: metadata.itemId, faceUp: true }, library: metadata })))
+    .toMatchObject({ label: "A of hearts", color: "#b62f36" });
+  expect(piecePresentation(entity("back", { card: { definitionId: metadata.itemId, faceUp: false }, library: metadata })))
+    .toMatchObject({ label: "DIGIPOLOGY", color: "#8d3429" });
+  expect(piecePresentation(entity("note", {
+    text: { value: "Trade two sheep" }, library: { version: 1, itemId: "tool_notecard", label: "Notecard", color: "#f0e1a6", shape: "card" },
+  }))).toMatchObject({ label: "Trade two sheep", color: "#f0e1a6", shape: "card" });
+});

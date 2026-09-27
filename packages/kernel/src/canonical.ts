@@ -569,6 +569,19 @@ function validateEntity(
       throw new InvalidGameStateError(`entity ${entityId} has invalid button`);
     }
   }
+  if (hasOwn.call(components, "library")) {
+    const library = requireRecord(components.library, `entities.${entityId}.components.library`);
+    for (const key of Object.keys(library)) {
+      if (!["version", "itemId", "label", "color", "shape", "seat"].includes(key)) {
+        throw new InvalidGameStateError(`entity ${entityId} library metadata has unknown field ${key}`);
+      }
+    }
+    if (library.version !== 1 || typeof library.itemId !== "string" || library.itemId.length === 0 ||
+      typeof library.label !== "string" || typeof library.color !== "string" || typeof library.shape !== "string" ||
+      (library.seat !== undefined && typeof library.seat !== "string")) {
+      throw new InvalidGameStateError(`entity ${entityId} has invalid library metadata`);
+    }
+  }
   if (hasOwn.call(components, "counter")) {
     validateCounter(components.counter, entityId);
   }

@@ -251,6 +251,18 @@ describe("KernelStore", () => {
     expect(store.getSnapshot().predictionLedger).toHaveLength(0);
   });
 
+  it("predicts an atomic group move and reconciles it by request ID", () => {
+    const store = predictionStore();
+    const action = { type: "group.move", payload: { entityIds: ["token_b", "token_a"], delta: { x: 2, y: 0, z: -1 } } };
+    expect(store.predictLocal({ requestId: "req-group", action, predictedAtSequence: 0 }, "alice")).toBe(true);
+    expect(store.getSnapshot().displayedState?.entities.token_a?.components.transform?.position).toEqual({ x: 2, y: .1, z: -1 });
+    expect(store.getSnapshot().displayedState?.entities.token_b?.components.transform?.position).toEqual({ x: 4, y: .1, z: -1 });
+
+    store.applyOrdered(predictionOrdered(1, action, "alice", "req-group"));
+    expect(store.getSnapshot().predictionLedger).toHaveLength(0);
+    expect(store.getSnapshot().state?.entities.token_b?.components.transform?.position).toEqual({ x: 4, y: .1, z: -1 });
+  });
+
   it("removes a hand card from the displayed container when its predicted drop lands", () => {
     const store = containedPredictionStore();
     store.predictLocal({ requestId: "req-hand-grab", action: grab("card"), predictedAtSequence: 0 }, "alice");

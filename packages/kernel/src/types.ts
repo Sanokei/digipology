@@ -178,6 +178,16 @@ export interface ButtonComponent {
   label: string;
 }
 
+/** Version-pinned presentation metadata for sandbox library objects. */
+export interface LibraryComponent {
+  version: 1;
+  itemId: string;
+  label: string;
+  color: string;
+  shape: string;
+  seat?: string;
+}
+
 export interface EntityComponents {
   transform?: TransformComponent;
   grabbable?: GrabbableComponent;
@@ -197,6 +207,7 @@ export interface EntityComponents {
   text?: TextComponent;
   button?: ButtonComponent;
   script?: ScriptBindingComponent;
+  library?: LibraryComponent;
   [componentType: string]: unknown;
 }
 

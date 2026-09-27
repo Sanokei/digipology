@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { CanonicalGameState } from "digipology-kernel";
 import type { ReleaseBundleDto } from "digipology-protocol/http";
 import { builtinCatalog } from "./catalog";
 import { prepareUploadedBundle, validateUploadedBundle } from "./release-validation";
@@ -22,6 +23,22 @@ describe("uploaded release validation", () => {
     expect(validateUploadedBundle(prepared.bundle, 2, 4).every((item) => item.ok)).toBe(true);
   });
 
+  test("derives canonical sandbox permission from interaction mode", () => {
+    const sandbox = fixture();
+    sandbox.interactionMode = "sandbox";
+    const preparedSandbox = prepareUploadedBundle(sandbox, {
+      gameId: "sandbox_game", releaseId: "sandbox_release", releaseNumber: 1, title: "Sandbox",
+    });
+    expect((preparedSandbox.bundle.initialSnapshot.state as CanonicalGameState).settings.sandbox).toBe(true);
+
+    const scripted = structuredClone(preparedSandbox.bundle);
+    scripted.interactionMode = "scripted";
+    const preparedScripted = prepareUploadedBundle(scripted, {
+      gameId: "scripted_game", releaseId: "scripted_release", releaseNumber: 1, title: "Scripted",
+    });
+    expect((preparedScripted.bundle.initialSnapshot.state as CanonicalGameState).settings.sandbox).toBeUndefined();
+  });
+
   test("reports every failed integrity stage instead of stopping at the first", () => {
     const draft = fixture();
     draft.files[0]!.content += "corrupt";
@@ -40,4 +57,3 @@ describe("uploaded release validation", () => {
       .toMatchObject({ ok: false, detail: "unknown field executable" });
   });
 });
-

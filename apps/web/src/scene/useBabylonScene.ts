@@ -16,7 +16,8 @@ import { createHoverPicker, handleTouchPointerInput, pickContextRequest } from "
 import type { SceneAdapter, SceneAdapterDependencies } from "./sceneAdapter";
 import { TouchGestureMachine, type TouchGestureDecision } from "./touchGestures";
 import { localSeatId } from "../pages/tableHandModel";
-import { keyboardRollActionFor, presentationHighlightIds, primaryActionFor } from "../pages/tableContextModel";
+import { keyboardCommandFor, keyboardRollActionFor, presentationHighlightIds, primaryActionFor } from "../pages/tableContextModel";
+import { boxSelectionIds, nearestCompatibleSnap, reconcileSelection, toggleSelection, type SelectionRectangle } from "../pages/tableSelectionModel";
 import type { TableHintGesture } from "../components/TableHints";
 import { createSceneAudio } from "./sceneAudio";
 import { browserPresentationSettings } from "./presentationSettings";
@@ -28,6 +29,7 @@ export interface TableContextRequest {
 }
 
 export interface TableHoverRequest extends TableContextRequest {}
+export interface TableSnapPreview { entityId: string; snapPointId: string; x: number; y: number }
 
 async function loadAdapter(
   renderer: RendererAdapterKind,
@@ -56,6 +58,10 @@ export function useBabylonScene(
   onTablePointerMove?: (point: { x: number; y: number; z: number }) => void,
   onTablePing?: (point: { x: number; y: number; z: number }) => void,
   onRendererStatus?: (status: RendererStatus) => void,
+  onSelectionChange?: (ids: readonly string[]) => void,
+  onSelectionBoxChange?: (rectangle: SelectionRectangle | null) => void,
+  touchSelectionMode = false,
+  onSnapPreviewChange?: (preview: TableSnapPreview | null) => void,
 ): void {
   const pausedRef = useRef(interactionsPaused);
   pausedRef.current = interactionsPaused;
@@ -78,6 +84,14 @@ export function useBabylonScene(
   const tablePingRef = useRef(onTablePing);
   tablePingRef.current = onTablePing;
   const adapterRef = useRef<SceneAdapter | null>(null);
+  const selectionChangeRef = useRef(onSelectionChange);
+  selectionChangeRef.current = onSelectionChange;
+  const selectionBoxChangeRef = useRef(onSelectionBoxChange);
+  selectionBoxChangeRef.current = onSelectionBoxChange;
+  const touchSelectionModeRef = useRef(touchSelectionMode);
+  touchSelectionModeRef.current = touchSelectionMode;
+  const snapPreviewChangeRef = useRef(onSnapPreviewChange);
+  snapPreviewChangeRef.current = onSnapPreviewChange;
   const cancelTouchRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
@@ -122,8 +136,29 @@ export function useBabylonScene(
       if (selection.requestedLiteFallback) {
         console.info("Babylon-Lite requires WebGPU; using the WebGL renderer instead.");
       }
+      let selectedIds: string[] = [];
+      let copiedEntityIds: string[] = [];
+      let groupDrag: { entityId: string; origin: { x: number; y: number; z: number } } | null = null;
+      let deckTakeDrag: { pointerId: number; deckId: string } | null = null;
       const dependencies: SceneAdapterDependencies = {
-        sendAction: client === null ? undefined : (action) => client.sendAction(action),
+        sendAction: client === null ? undefined : (action) => {
+          if (groupDrag !== null && action.type === "entity.grab" &&
+            (action.payload as { entityId?: unknown }).entityId === groupDrag.entityId) return;
+          if (groupDrag !== null && action.type === "entity.drop") {
+            const payload = action.payload as { entityId?: unknown; transform?: { position?: { x: number; y: number; z: number } } };
+            if (payload.entityId === groupDrag.entityId && payload.transform?.position !== undefined) {
+              const origin = groupDrag.origin;
+              const position = payload.transform.position;
+              const ids = [...selectedIds];
+              groupDrag = null;
+              return client.sendAction({ type: "group.move", payload: {
+                entityIds: ids,
+                delta: { x: position.x - origin.x, y: position.y - origin.y, z: position.z - origin.z },
+              } });
+            }
+          }
+          return client.sendAction(action);
+        },
         settings: browserPresentationSettings,
       };
       const audio = createSceneAudio(browserPresentationSettings);
@@ -170,6 +205,12 @@ export function useBabylonScene(
       }, 1_000);
       adapter.setPaused(pausedRef.current);
       let seatCameraInitialized = false;
+      const publishSelection = (next: readonly string[]): void => {
+        selectedIds = [...next].sort();
+        adapter.setHighlight(null, "selected");
+        for (const id of selectedIds) adapter.setHighlight(id, "selected");
+        selectionChangeRef.current?.(selectedIds);
+      };
       let heldHighlight = "";
       let lockedHighlight = "";
       const sync = () => {
@@ -184,6 +225,8 @@ export function useBabylonScene(
             seatCameraInitialized = true;
           }
         }
+        const reconciled = reconcileSelection(selectedIds, snapshot.displayedState);
+        if (reconciled.join("\0") !== selectedIds.join("\0")) publishSelection(reconciled);
         const indicators = presentationHighlightIds(snapshot.displayedState, playerId ?? "");
         const nextHeld = indicators.held;
         const nextLocked = indicators.locked;
@@ -256,7 +299,8 @@ export function useBabylonScene(
             releasedPointerIds.add(decision.pointerId);
             adapter.cancelDrag(decision.pointerId);
           } else if (decision.type === "tap") {
-            adapter.setSelection(decision.entityId === null ? [] : [decision.entityId]);
+            if (decision.entityId === null) publishSelection([]);
+            else publishSelection(touchSelectionModeRef.current ? toggleSelection(selectedIds, decision.entityId) : [decision.entityId]);
           } else if (decision.type === "double-tap") {
             if (client !== null && !pausedRef.current && decision.entityId !== null) {
               runPrimary(decision.entityId);
@@ -287,12 +331,53 @@ export function useBabylonScene(
       function applyDesktopDecisions(decisions: readonly DesktopControlDecision[]): void {
         const rect = canvas.getBoundingClientRect();
         for (const decision of decisions) {
-          if (decision.type === "object-start") {
+          if (decision.type === "object-select") {
+            publishSelection(decision.toggle ? toggleSelection(selectedIds, decision.entityId) : [decision.entityId]);
+          } else if (decision.type === "box-start") {
+            selectionBoxChangeRef.current?.({ start: { x: decision.x, y: decision.y }, end: { x: decision.x, y: decision.y } });
+          } else if (decision.type === "box-move") {
+            selectionBoxChangeRef.current?.({ start: { x: decision.startX, y: decision.startY }, end: { x: decision.x, y: decision.y } });
+          } else if (decision.type === "box-end") {
+            selectionBoxChangeRef.current?.(null);
+            const state = store.getSnapshot().displayedState;
+            if (state !== null) {
+              const boxed = boxSelectionIds(state, { start: { x: decision.startX, y: decision.startY }, end: { x: decision.x, y: decision.y } }, (point) => {
+                const projected = adapter.projectFromTable(point);
+                return projected === null ? null : { x: projected.x + rect.left, y: projected.y + rect.top };
+              });
+              publishSelection(decision.toggle ? [...new Set([...selectedIds, ...boxed])].sort() : boxed);
+            }
+          } else if (decision.type === "object-start") {
+            const entity = store.getSnapshot().displayedState?.entities[decision.entityId];
+            if (entity?.components.deck?.enabled === true && !decision.wholeDeck) {
+              deckTakeDrag = { pointerId: decision.pointerId, deckId: decision.entityId };
+              canvas.style.cursor = "grabbing";
+              continue;
+            }
+            const origin = entity?.components.transform?.position;
+            groupDrag = selectedIds.length > 1 && selectedIds.includes(decision.entityId) && origin !== undefined
+              ? { entityId: decision.entityId, origin: { ...origin } } : null;
             adapter.beginDrag(decision.entityId, decision.pointerId, decision.x - rect.left, decision.y - rect.top);
             canvas.style.cursor = "grabbing";
           } else if (decision.type === "object-move") {
+            if (deckTakeDrag?.pointerId === decision.pointerId) continue;
             adapter.updateDrag(decision.pointerId, decision.x - rect.left, decision.y - rect.top);
           } else if (decision.type === "object-drop") {
+            if (deckTakeDrag?.pointerId === decision.pointerId) {
+              const deckId = deckTakeDrag.deckId;
+              deckTakeDrag = null;
+              const deckTransform = store.getSnapshot().displayedState?.entities[deckId]?.components.transform;
+              const point = adapter.projectToTable(decision.x - rect.left, decision.y - rect.top);
+              if (deckTransform !== undefined && point !== null) {
+                client?.sendAction({ type: "deck.take_top", payload: {
+                  deckId,
+                  transform: { ...deckTransform, position: { x: point.x, y: deckTransform.position.y, z: point.z } },
+                } });
+              }
+              canvas.style.cursor = hoverEntityId !== null && adapter.isGrabbable(hoverEntityId) ? "grab" : "default";
+              hintGestureRef.current?.("drag");
+              continue;
+            }
             adapter.updateDrag(decision.pointerId, decision.x - rect.left, decision.y - rect.top);
             adapter.endDrag(decision.pointerId);
             if (queuedFlips.delete(decision.pointerId)) {
@@ -301,6 +386,8 @@ export function useBabylonScene(
             canvas.style.cursor = hoverEntityId !== null && adapter.isGrabbable(hoverEntityId) ? "grab" : "default";
             hintGestureRef.current?.("drag");
           } else if (decision.type === "object-cancel") {
+            if (deckTakeDrag?.pointerId === decision.pointerId) deckTakeDrag = null;
+            groupDrag = null;
             queuedFlips.delete(decision.pointerId);
             adapter.cancelDrag(decision.pointerId);
             canvas.style.cursor = hoverEntityId !== null && adapter.isGrabbable(hoverEntityId) ? "grab" : "default";
@@ -310,7 +397,7 @@ export function useBabylonScene(
           } else if (decision.type === "camera-pan") {
             adapter.camera.pan(decision.deltaX, decision.deltaY);
             hintGestureRef.current?.("primary");
-          } else {
+          } else if (decision.type === "context") {
             void pickContextRequest(
               adapter,
               decision.x - rect.left,
@@ -396,13 +483,21 @@ export function useBabylonScene(
           button: event.button === 0 && spacePan ? 1 : event.button,
           x: event.clientX,
           y: event.clientY,
+          toggleSelection: event.ctrlKey || event.metaKey,
+          wholeDeck: event.shiftKey,
         });
         canvas.setPointerCapture(event.pointerId);
         if (event.button !== 0) return;
         const pointerId = event.pointerId;
         void adapter.pick(event.clientX - rect.left, event.clientY - rect.top).then((entityId) => {
-          if (disposed || pausedRef.current || entityId === null || !adapter.isGrabbable(entityId)) return;
-          applyDesktopDecisions(desktop.claimObject(pointerId, entityId));
+          if (disposed || pausedRef.current) return;
+          if (entityId === null) {
+            applyDesktopDecisions(desktop.claimEmpty(pointerId));
+          } else if (adapter.isGrabbable(entityId)) {
+            applyDesktopDecisions(desktop.claimObject(pointerId, entityId));
+          } else {
+            publishSelection(event.ctrlKey || event.metaKey ? toggleSelection(selectedIds, entityId) : [entityId]);
+          }
         });
       };
       const handlePointerMove = (event: PointerEvent): void => {
@@ -415,6 +510,18 @@ export function useBabylonScene(
           return;
         }
         const decisions = desktop.move(event.pointerId, event.clientX, event.clientY);
+        const active = desktop.activeObject();
+        if (active !== null && tablePoint !== null) {
+          const state = store.getSnapshot().displayedState;
+          const snapPointId = state === null ? null : nearestCompatibleSnap(state, active.entityId, tablePoint);
+          const target = snapPointId === null ? null : state?.entities[snapPointId]?.components.transform?.position;
+          const projected = target === null || target === undefined ? null : adapter.projectFromTable(target);
+          snapPreviewChangeRef.current?.(projected === null || snapPointId === null ? null : {
+            entityId: active.entityId, snapPointId, x: projected.x + rect.left, y: projected.y + rect.top,
+          });
+        } else {
+          snapPreviewChangeRef.current?.(null);
+        }
         if (decisions.length > 0) {
           event.preventDefault();
           applyDesktopDecisions(decisions);
@@ -432,6 +539,7 @@ export function useBabylonScene(
         }
         event.preventDefault();
         applyDesktopDecisions(desktop.up(event.pointerId, event.clientX, event.clientY));
+        snapPreviewChangeRef.current?.(null);
         if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
       };
       const handlePointerCancel = (event: PointerEvent): void => {
@@ -440,6 +548,7 @@ export function useBabylonScene(
           return;
         }
         applyDesktopDecisions(desktop.cancel(event.pointerId));
+        snapPreviewChangeRef.current?.(null);
       };
       const handleLostPointerCapture = (event: PointerEvent): void => {
         if (releasedPointerIds.delete(event.pointerId)) return;
@@ -474,8 +583,40 @@ export function useBabylonScene(
         if (target instanceof HTMLElement && (
           target.isContentEditable || target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT"
         )) return;
-        if (event.ctrlKey || event.metaKey || event.altKey || pausedRef.current) return;
+        if (event.altKey || pausedRef.current) return;
         const active = desktop.activeObject();
+        const state = store.getSnapshot().displayedState;
+        const hoverEntity = hoverEntityId === null ? undefined : state?.entities[hoverEntityId];
+        const command = keyboardCommandFor({
+          key: event.key, ctrlOrMeta: event.ctrlKey || event.metaKey,
+          ...(hoverEntity === undefined ? {} : { entity: hoverEntity }), state, selectedIds,
+        });
+        if (command?.kind === "copy") {
+          if (state?.settings.sandbox === true || state?.settings.allowSpawn === true) {
+            copiedEntityIds = selectedIds.length > 0 ? [...selectedIds] : hoverEntityId === null ? [] : [hoverEntityId];
+            event.preventDefault();
+          }
+          return;
+        }
+        if (command?.kind === "paste") {
+          if (state?.settings.sandbox === true || state?.settings.allowSpawn === true) {
+            for (const entityId of copiedEntityIds) client?.sendAction({ type: "entity.clone", payload: { entityId } });
+            event.preventDefault();
+          }
+          return;
+        }
+        if (command?.kind === "action") {
+          event.preventDefault();
+          client?.sendAction(command.action);
+          return;
+        }
+        if (command?.kind === "clear-selection") {
+          event.preventDefault();
+          publishSelection([]);
+          if (active !== null) applyDesktopDecisions(desktop.cancel(active.pointerId));
+          return;
+        }
+        if (event.ctrlKey || event.metaKey) return;
         if (event.code === "Space" && active === null) {
           spacePan = true;
           event.preventDefault();
@@ -508,10 +649,14 @@ export function useBabylonScene(
           adapter.rotateDrag(Math.PI / 12);
         } else if ((event.key === "q" || event.key === "Q") && hoverEntityId !== null) {
           event.preventDefault();
-          client?.sendAction({ type: "entity.rotate", payload: { entityId: hoverEntityId, steps: -1 } });
+          client?.sendAction(selectedIds.length > 1 && selectedIds.includes(hoverEntityId)
+            ? { type: "group.rotate", payload: { entityIds: selectedIds, steps: -1 } }
+            : { type: "entity.rotate", payload: { entityId: hoverEntityId, steps: -1 } });
         } else if ((event.key === "e" || event.key === "E") && hoverEntityId !== null) {
           event.preventDefault();
-          client?.sendAction({ type: "entity.rotate", payload: { entityId: hoverEntityId, steps: 1 } });
+          client?.sendAction(selectedIds.length > 1 && selectedIds.includes(hoverEntityId)
+            ? { type: "group.rotate", payload: { entityIds: selectedIds, steps: 1 } }
+            : { type: "entity.rotate", payload: { entityId: hoverEntityId, steps: 1 } });
         } else if ((event.key === "f" || event.key === "F") && active !== null && canFlip(active.entityId)) {
           event.preventDefault();
           adapter.flipDrag();
@@ -519,7 +664,9 @@ export function useBabylonScene(
           else queuedFlips.add(active.pointerId);
         } else if ((event.key === "f" || event.key === "F") && hoverEntityId !== null && canFlip(hoverEntityId)) {
           event.preventDefault();
-          client?.sendAction({ type: "entity.flip", payload: { entityId: hoverEntityId } });
+          client?.sendAction(selectedIds.length > 1 && selectedIds.includes(hoverEntityId)
+            ? { type: "group.flip", payload: { entityIds: selectedIds } }
+            : { type: "entity.flip", payload: { entityId: hoverEntityId } });
         } else if ((event.key === "r" || event.key === "R") && hoverEntityId !== null) {
           const entity = store.getSnapshot().displayedState?.entities[hoverEntityId];
           const action = entity === undefined ? null : keyboardRollActionFor(entity);
@@ -570,6 +717,9 @@ export function useBabylonScene(
         projectorChangeRef.current?.(null);
         screenProjectorChangeRef.current?.(null);
         hoverRequestRef.current?.(null);
+        selectionBoxChangeRef.current?.(null);
+        selectionChangeRef.current?.([]);
+        snapPreviewChangeRef.current?.(null);
         resize.disconnect();
         clearInterval(diagnosticsTimer);
         document.removeEventListener("visibilitychange", syncRenderLoop);

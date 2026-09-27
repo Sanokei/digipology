@@ -28,8 +28,10 @@ export const PLAYTEST_MEMORY_BUDGET_BYTES = 512 * 1024;
 
 export const PLAYTEST_INTERACTION_ACTIONS = new Set([
   "entity.grab", "entity.drop", "entity.flip", "entity.rotate", "die.roll", "button.press",
-  "deck.shuffle", "deck.draw_to_container", "counter.set", "counter.add",
-  "entity.set_locked", "stack.remove_top", "prompt.respond",
+  "entity.spawn", "entity.delete", "entity.destroy", "entity.clone",
+  "deck.shuffle", "deck.draw_to_container", "deck.take_top", "deck.draw", "deck.deal", "deck.cut", "deck.search_take",
+  "container.take", "counter.set", "counter.add", "entity.set_locked",
+  "stack.merge", "stack.remove_top", "group.move", "group.flip", "group.rotate", "group.delete", "prompt.respond",
 ]);
 const REGISTERED_ACTIONS = new Set(builtInActions.map((definition) => definition.type));
 

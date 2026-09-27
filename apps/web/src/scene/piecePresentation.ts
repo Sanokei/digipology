@@ -81,6 +81,7 @@ function applyDefinition(presentation: PiecePresentation, entity: EntityRecord, 
 
 export function piecePresentation(entity: EntityRecord, definition?: PieceDefinition): PiecePresentation {
   const { components } = entity;
+  const library = components.library;
   const base: PiecePresentation = {
     shape: "box", width: 0.9, depth: 0.9, height: 0.18, label: "", color: "#d7b26d",
     labelColor: "#13211c", labelBackground: "#f2ecd9", specular: "#281d13",
@@ -108,20 +109,42 @@ export function piecePresentation(entity: EntityRecord, definition?: PieceDefini
   else if (components["snap-point"] !== undefined) { const occupied = (components["snap-point"].attached?.length ?? 0) > 0; result = { ...base, shape: "ring", width: 1.02, depth: 1.02, height: 0.08, color: occupied ? "#d5ff76" : "#203b31", specular: "#0a1511", emissive: occupied ? "#34441c" : "#07130f", alpha: 0.92 }; }
   else if (components.text !== undefined) result = { ...base, width: 2.5, depth: 0.7, height: 0.07, label: components.text.value, color: "#14261f", labelColor: "#d9efdf", labelBackground: "#14261f", specular: "#07110e", emissive: "#091a14" };
   else if (components.button !== undefined) result = { ...base, width: 1.05, depth: 0.72, height: 0.2, label: components.button.label, color: components.button.enabled ? "#d5ff76" : "#625f58", labelBackground: components.button.enabled ? "#d5ff76" : "#625f58" };
+  else if (library !== undefined) {
+    const shape = (["box", "cylinder", "hex", "disc", "cube", "pawn", "meeple", "card", "board", "token", "ring"] as const).includes(library.shape as PieceShape)
+      ? library.shape as PieceShape : "box";
+    result = { ...base, ...shapeDefaults(shape), shape, label: library.label, color: library.color, labelBackground: library.color };
+  }
   else if (components.tags?.values.includes("runner") === true || components.grabbable !== undefined) { const color = seatColor(entity.id); result = { ...base, shape: "cylinder", width: 0.68, depth: 0.68, height: 0.24, color, specular: "#5b4325", emissive: "#0d1511" }; }
   else if (components.transform !== undefined) result = { ...base, label: "Table object" };
   else result = base;
+  if (library !== undefined) {
+    const shape = (["box", "cylinder", "hex", "disc", "cube", "pawn", "meeple", "card", "board", "token", "ring"] as const).includes(library.shape as PieceShape)
+      ? library.shape as PieceShape : result.shape;
+    const semanticLabel = components.deck !== undefined
+      ? `${library.label} · ${components.container?.items.length ?? 0}`
+      : components.die !== undefined || components.counter !== undefined
+        ? `${library.label} · ${components.die?.value ?? components.counter?.value ?? ""}`
+        : components.text !== undefined ? components.text.value : library.label;
+    result = {
+      ...result,
+      ...(components.card === undefined && components.deck === undefined ? { shape, ...shapeDefaults(shape) } : {}),
+      label: components.card !== undefined && !cardFaceUp(entity) ? result.label : semanticLabel,
+      color: components.card !== undefined && !cardFaceUp(entity) ? result.color : library.color,
+      labelBackground: components.card !== undefined && !cardFaceUp(entity) ? result.labelBackground : library.color,
+    };
+  }
   return applyDefinition(result, entity, definition);
 }
 
 export function piecePresentationSignature(entity: EntityRecord, definition?: PieceDefinition): string {
-  const { card, counter, container, deck, die, button, text, zone, appearance } = entity.components;
+  const { card, counter, container, deck, die, button, text, zone, appearance, library } = entity.components;
   const snap = entity.components["snap-point"];
   const semantic = deck !== undefined ? `deck:${deck.enabled}:${container?.items.length ?? 0}`
     : card !== undefined ? `card:${card.definitionId}:${cardFaceUp(entity)}`
     : die !== undefined ? `die:${String(die.value)}` : counter !== undefined ? `counter:${counter.value}`
     : snap !== undefined ? `snap:${snap.attached?.length ?? 0}` : zone !== undefined ? `zone:${zone.visibleInPlay}`
-    : button !== undefined ? `button:${button.enabled}:${button.label}` : text !== undefined ? `text:${text.value}` : "other";
+    : button !== undefined ? `button:${button.enabled}:${button.label}` : text !== undefined ? `text:${text.value}`
+      : library !== undefined ? `library:${library.version}:${library.itemId}:${library.label}:${library.color}:${library.shape}` : "other";
   if (definition === undefined && appearance === undefined) return semantic;
   if (definition === undefined) return `${semantic}:${appearance?.definitionId ?? ""}:${appearance?.seat ?? ""}`;
   const size = definition.size;

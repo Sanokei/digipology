@@ -707,16 +707,42 @@ button.action-card { width: 100%; border-right: 0; border-left: 0; text-align: l
 @keyframes table-hint-in { from { opacity: 0; transform: translateY(5px); } }
 .renderer-override-chip { position: absolute; z-index: 2; left: 16px; bottom: 16px; color: var(--muted); font: .56rem "DM Mono", monospace; pointer-events: none; }
 .table-object-tooltip { position: fixed; z-index: 5; max-width: min(240px, calc(100vw - 24px)); padding: 7px 10px; border: 1px solid rgba(255,255,255,.12); border-radius: 7px; background: #0a1511; box-shadow: 0 10px 28px rgba(0,0,0,.34); color: #f4dfae; font-size: .68rem; pointer-events: none; }
+.table-card-peek { position: fixed; z-index: 5; display: grid; place-items: center; width: 190px; aspect-ratio: .7; padding: 18px; border: 3px solid #efe5cf; border-radius: 12px; background: linear-gradient(145deg,#fffdf5,#ded4bf); box-shadow: 0 20px 56px rgba(0,0,0,.5); color: #17211d; text-align: center; pointer-events: none; }
+.table-card-peek img { display: block; width: 100%; aspect-ratio: 5 / 7; border-radius: 8px; object-fit: cover; }
+.table-selection-box { position: fixed; z-index: 4; border: 1px solid #d5ff76; background: rgba(213,255,118,.12); pointer-events: none; }
+.table-snap-ghost { position: fixed; z-index: 4; display: grid; place-items: center; width: 76px; height: 96px; translate: -50% -50%; border: 2px dashed #d5ff76; border-radius: 9px; background: rgba(213,255,118,.14); color: #d5ff76; font-size: .62rem; font-weight: 800; pointer-events: none; }
+.table-selection-toggle { position: absolute; z-index: 5; right: 14px; bottom: calc(92px + env(safe-area-inset-bottom)); min-height: 40px; border: 1px solid var(--line); border-radius: 8px; background: #102019; color: #dce8df; }
+.table-selection-toggle[aria-pressed="true"] { border-color: #d5ff76; color: #d5ff76; }
+.table-selection-count { position: absolute; z-index: 5; right: 82px; bottom: calc(102px + env(safe-area-inset-bottom)); color: #d5ff76; font-size: .7rem; }
+.table-objects-slot { position: absolute; z-index: 5; left: 14px; top: calc(76px + env(safe-area-inset-top)); }
+.objects-menu__trigger { min-height: 40px; padding: 0 14px; border: 1px solid var(--line); border-radius: 8px; background: #102019; color: #e6eee9; font-weight: 700; }
+.objects-menu__panel { position: absolute; top: 48px; left: 0; width: min(440px, calc(100vw - 28px)); max-height: min(70vh, 640px); padding: 12px; overflow: auto; }
+.objects-menu__panel header, .deck-search header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.objects-menu__panel header small, .deck-search header small { color: var(--muted); }
+.objects-menu__panel h3 { margin: 14px 0 7px; color: #d5ff76; font-size: .7rem; text-transform: uppercase; }
+.objects-menu__grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(92px,1fr)); gap: 7px; }
+.objects-menu__grid button { display: grid; gap: 6px; min-height: 82px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: #0c1813; color: #e4ece7; font-size: .68rem; }
+.objects-menu__preview { display: grid; place-items: center; height: 38px; border-radius: 5px; color: #fff; font-weight: 800; text-shadow: 0 1px 3px #000; }
 
 .object-menu-backdrop { position: absolute; z-index: 6; inset: 0; background: transparent; touch-action: none; }
 .object-menu { position: absolute; display: grid; width: 184px; max-height: min(520px, calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom))); overflow: auto; border: 1px solid rgba(255,255,255,.16); border-radius: 10px; background: #0a1511; box-shadow: 0 18px 48px rgba(0,0,0,.42); }
 .object-menu header { display: grid; gap: 3px; padding: 11px 14px; border-bottom: 1px solid var(--line); }
 .object-menu header strong { overflow: hidden; font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
 .object-menu header small { color: #f0c86b; font-size: .62rem; }
-.object-menu button { min-height: 44px; padding: 0 14px; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: #e7eee9; cursor: pointer; text-align: left; font-size: .76rem; font-weight: 650; }
+.object-menu button { display: grid; grid-template-columns: 22px 1fr auto auto; align-items: center; gap: 7px; width: 100%; min-height: 44px; padding: 0 12px; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: #e7eee9; cursor: pointer; text-align: left; font-size: .76rem; font-weight: 650; }
+.object-menu kbd { color: #829189; font: 600 .58rem/1 sans-serif; }
+.object-menu__icon { color: #d5ff76; text-align: center; }
+.object-menu__submenu { margin: 0 6px 6px 24px; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; background: #0d1b15; }
+.object-menu__submenu button { grid-template-columns: 18px 1fr auto; min-height: 38px; font-size: .7rem; }
 .object-menu button:last-child { border-bottom: 0; }
 .object-menu button:hover, .object-menu button:focus-visible { background: #17261f; }
 .object-menu button:disabled { color: #68766e; cursor: not-allowed; }
+.deck-search-backdrop { position: absolute; z-index: 8; inset: 0; display: grid; place-items: center; background: rgba(3,8,6,.48); }
+.deck-search { width: min(620px,calc(100vw - 28px)); max-height: min(76vh,700px); padding: 14px; }
+.deck-search header > div { display: grid; gap: 3px; }
+.deck-search__cards { display: grid; grid-template-columns: repeat(auto-fill,minmax(130px,1fr)); gap: 8px; max-height: 58vh; margin-top: 14px; overflow: auto; }
+.deck-search__cards button { display: grid; min-height: 66px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: #102019; color: #edf2ef; text-align: left; }
+.deck-search__cards small { color: var(--muted); }
 
 .players-panel, .diagnostics-panel, .dice-controls, .prompt-panel, .table-chat { position: absolute; z-index: 3; top: 94px; width: min(310px, calc(100vw - 32px)); border: 1px solid rgba(255,255,255,.12); background: #0a1511; box-shadow: 0 22px 60px rgba(0,0,0,.32); }
 .prediction-correction { position: absolute; z-index: 3; top: 94px; left: 50%; max-width: min(420px, calc(100vw - 32px)); padding: 11px 15px; translate: -50% 0; border: 1px solid rgba(240,200,107,.42); border-radius: 9px; background: rgba(30,25,13,.94); box-shadow: 0 16px 44px rgba(0,0,0,.36); color: #ffe5a8; font-size: .76rem; font-weight: 650; pointer-events: none; animation: correction-in 180ms ease-out; }

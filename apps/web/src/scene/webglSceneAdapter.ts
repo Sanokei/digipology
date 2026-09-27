@@ -827,7 +827,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       activeDrag = null;
     },
     setHighlight(entityId: string | null, kind: HighlightKind): void {
-      if (kind === "held" || kind === "locked") {
+      if (kind === "held" || kind === "locked" || kind === "selected") {
         const targets = highlights[kind];
         if (entityId === null) {
           const previous = [...targets];
