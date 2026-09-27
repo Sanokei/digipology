@@ -100,6 +100,17 @@ The frozen [v2 golden replay](https://github.com/Sanokei/digipology/blob/main/pa
 
 ## Publish through the validated create flow
 
+### First-party builtin authoring
+
+Repository maintainers add first-party games as self-contained folders under
+`packages/demo-games/src/games/<slug>/`. A TypeScript builder authors the files,
+presentation definitions, references, player limits, cover specification, and
+complete sequence-zero kernel snapshot. Run `bun run build:builtins` to produce
+the immutable release artifact with canonical content, manifest, and state
+hashes. Existing generated releases are never rewritten; publish changes under
+a new release number. The package README contains the full checklist and shared
+grid, seat-ring, and card-deck helper reference.
+
 Choose **Publish** from the File menu or status bar. The editor passes the draft's title, tagline, player range, slug, and bundle JSON to the normal create page. Review the fields and validation report there, then use the regular publish action. Publishing never happens directly from the editor, and a guest is prompted to sign in when they attempt to publish.
 
 For the JSON contract and the checks applied before anything is persisted, see the [release bundle format](./bundle-format.md).

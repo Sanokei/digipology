@@ -42,6 +42,10 @@ const games: readonly CatalogGame[] = BUILTIN_GAMES.map((game: BuiltinGame) => (
   currentPlayers: 0,
   totalPlays: 0,
   coverVersion: BUILTIN_COVER_VERSION,
+  ...(game.tags === undefined ? {} : { tags: [...game.tags] }),
+  ...(game.playTimeMinutes === undefined ? {} : { playTimeMinutes: game.playTimeMinutes }),
+  ...(game.complexity === undefined ? {} : { complexity: game.complexity }),
+  ...(game.description === undefined ? {} : { description: game.description }),
   latestReleaseId: game.latestReleaseId,
 }));
 
@@ -53,24 +57,24 @@ const releases: readonly CatalogRelease[] = BUILTIN_GAMES.flatMap(
     if (release === undefined) {
       throw new Error(`Missing built-in release ${candidate.releaseId}`);
     }
-    const initialState = createBuiltinInitialState(
-      release.releaseId,
-      fixtureRoster(release.releaseId),
+    const legacyInitialState = release.initialSnapshot === undefined
+      ? createBuiltinInitialState(release.releaseId, fixtureRoster(release.releaseId))
+      : null;
+    const initialSnapshot = release.initialSnapshot ?? (
+      legacyInitialState === null ? undefined : snapshot(legacyInitialState)
     );
-    if (initialState === null) {
-      throw new Error(`Missing initial state for ${candidate.releaseId}`);
-    }
-    // Bundles keep the fixture snapshot as their immutable integrity artifact.
+    if (initialSnapshot === undefined) throw new Error(`Missing initial state for ${candidate.releaseId}`);
     const bundle = Object.freeze({
       ...release,
       title: game.title,
-      initialSnapshot: snapshot(initialState),
+      initialSnapshot,
     });
     return {
       releaseId: release.releaseId,
       gameSlug: game.slug,
       kernelVersion: release.kernelVersion,
       luaApiVersion: release.luaApiVersion,
+      releaseNumber: release.releaseNumber,
       bundle: bundle as unknown as ProtocolReleaseBundle,
     };
   }),
@@ -109,6 +113,10 @@ export function gameSummary(game: CatalogGame): GameSummaryDto {
     currentPlayers: game.currentPlayers,
     totalPlays: game.totalPlays,
     coverVersion: game.coverVersion,
+    ...(game.tags === undefined ? {} : { tags: game.tags }),
+    ...(game.playTimeMinutes === undefined ? {} : { playTimeMinutes: game.playTimeMinutes }),
+    ...(game.complexity === undefined ? {} : { complexity: game.complexity }),
+    ...(game.description === undefined ? {} : { description: game.description }),
   };
 }
 
@@ -117,5 +125,6 @@ export function releaseSummary(release: CatalogRelease): ReleaseSummaryDto {
     releaseId: release.releaseId,
     kernelVersion: release.kernelVersion,
     luaApiVersion: release.luaApiVersion,
+    ...(release.releaseNumber === undefined ? {} : { releaseNumber: release.releaseNumber }),
   };
 }

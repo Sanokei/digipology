@@ -19,8 +19,16 @@ export function GameDetailPage() {
       <div className="game-detail__cover">{cover ? <img alt={`${detail.game.title} cover`} src={cover} /> : <span aria-hidden="true">{detail.game.title.slice(0, 1)}</span>}</div>
       <div className="game-detail__copy">
         <p className="eyebrow">{detail.game.builtin ? "Digipology original" : `Community release by ${detail.game.creatorHandle ?? "creator"}`}</p>
-        <h1>{detail.game.title}</h1><p>{detail.game.tagline}</p>
-        <dl><dt>Players</dt><dd>{detail.game.minPlayers}–{detail.game.maxPlayers}</dd><dt>Playing now</dt><dd>{detail.game.currentPlayers}</dd><dt>Total plays</dt><dd>{detail.game.totalPlays}</dd><dt>Release</dt><dd>{detail.latestRelease.releaseNumber ?? 1}</dd></dl>
+        <h1>{detail.game.title}</h1><p>{detail.game.description ?? detail.game.tagline}</p>
+        {detail.game.tags === undefined ? null : <ul className="game-detail__tags" aria-label="Game tags">{detail.game.tags.map((tag) => <li key={tag}>{tag}</li>)}</ul>}
+        <dl>
+          <dt>Players</dt><dd>{detail.game.minPlayers}–{detail.game.maxPlayers}</dd>
+          {detail.game.playTimeMinutes === undefined ? null : <><dt>Play time</dt><dd>{detail.game.playTimeMinutes} min</dd></>}
+          {detail.game.complexity === undefined ? null : <><dt>Complexity</dt><dd>{detail.game.complexity}/5</dd></>}
+          <dt>Playing now</dt><dd>{detail.game.currentPlayers}</dd>
+          <dt>Total plays</dt><dd>{detail.game.totalPlays}</dd>
+          <dt>Release</dt><dd>{detail.latestRelease.releaseNumber ?? 1}</dd>
+        </dl>
         <div className="game-detail__actions"><Link className="button-link" to="/">Play or host</Link><Link className="text-link" to="/games">Keep browsing</Link></div>
       </div>
     </section>}

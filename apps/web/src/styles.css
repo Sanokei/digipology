@@ -489,6 +489,8 @@ button.action-card { width: 100%; border-right: 0; border-left: 0; text-align: l
 .game-detail__cover > span { color: rgba(213,255,118,.3); font-family: Georgia, serif; font-size: 11rem; }
 .game-detail__copy { align-self: center; padding: clamp(30px, 5vw, 58px); }
 .game-detail__copy > p:not(.eyebrow) { color: var(--muted); line-height: 1.75; }
+.game-detail__tags { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; list-style: none; }
+.game-detail__tags li { padding: 5px 9px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-family: "DM Mono", monospace; font-size: .62rem; text-transform: uppercase; }
 .game-detail dl { display: grid; grid-template-columns: 120px 1fr; gap: 12px; margin: 32px 0; }
 .game-detail dt { color: var(--muted); }
 .game-detail dd { margin: 0; overflow-wrap: anywhere; }

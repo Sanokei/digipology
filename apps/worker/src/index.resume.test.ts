@@ -112,7 +112,9 @@ test.each([false, true])("host-first resume restores score, turn and prompt; rep
   let { db, room } = harness();
   const release = getBuiltinRelease("builtin_zone_runner_2")!;
   const runtime = await createCreatorScriptRuntime({ scripts: scriptsFromReleaseFiles(release.files),
-    refs: release.refs ?? {}, definitions: release.definitions ?? {}, instructionBudget: 50_000 });
+    refs: release.refs ?? {},
+    definitions: (release.definitions ?? {}) as Record<string, { label?: string; color?: string }>,
+    instructionBudget: 50_000 });
   try {
     const initial = createBuiltinInitialState("builtin_zone_runner_2", [
       { playerId: "alice", displayName: "Alice" }, { playerId: "bob", displayName: "Bob" },

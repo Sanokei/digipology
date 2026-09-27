@@ -84,8 +84,8 @@ function validateManifestShape(release: ReleaseBundle): void {
   if (release.luaStdlibVersion !== undefined) expect(release.luaStdlibVersion).toBe(1);
   expect(release.networkProtocolVersion).toBe(1);
   expect(["sandbox", "scripted"]).toContain(release.interactionMode);
-  expect(release.minPlayers).toBe(2);
-  expect(release.maxPlayers).toBe(4);
+  expect(release.minPlayers).toBeGreaterThanOrEqual(1);
+  expect(release.maxPlayers).toBeGreaterThanOrEqual(release.minPlayers);
   expect(release.files.length).toBeGreaterThan(0);
   expect(new Set(release.files.map((file) => file.path)).size).toBe(release.files.length);
   for (const file of release.files) {
@@ -117,6 +117,11 @@ describe("built-in catalog", () => {
         "zone-runner",
         "builtin_zone_runner_2",
         ["builtin_zone_runner_1", "builtin_zone_runner_2"],
+      ],
+      [
+        "checkers",
+        "builtin_tabletop_classics_checkers_1",
+        ["builtin_tabletop_classics_checkers_1"],
       ],
     ]);
     for (const game of BUILTIN_GAMES) {
@@ -155,6 +160,7 @@ describe("built-in catalog", () => {
     expect("dependencies" in packageJson).toBe(false);
     expect(packageJson.devDependencies).toEqual({
       "digipology-canonical-json": "workspace:*",
+      "digipology-covers": "workspace:*",
       "digipology-kernel": "workspace:*",
       "digipology-lua": "workspace:*",
     });
@@ -231,6 +237,7 @@ describe("merged action and Lua surfaces", () => {
         const source = release.files.find(
           (file) => file.path === "scripts/game.lua",
         )?.content;
+        if (release.interactionMode === "sandbox" && source === undefined) continue;
         expect(source).toBeDefined();
         const lua = await createSandbox({
           instructionBudget: 50_000,

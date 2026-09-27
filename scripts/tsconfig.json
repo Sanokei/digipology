@@ -5,6 +5,7 @@
     "baseUrl": ".",
     "paths": {
       "digipology-canonical-json": ["../packages/canonical-json/src/index.ts"],
+      "digipology-covers": ["../packages/covers/src/index.ts"],
       "digipology-demo-games": ["../packages/demo-games/src/index.ts"],
       "digipology-kernel": ["../packages/kernel/src/index.ts"],
       "digipology-lua": ["../packages/lua/src/index.ts"],
@@ -19,5 +20,5 @@
     ],
     "types": ["bun"]
   },
-  "include": ["smoke-play.ts", "smoke-quickplay.ts", "smoke-saves.ts", "smoke-zone-runner.ts"]
+  "include": ["build-builtins.ts", "smoke-play.ts", "smoke-quickplay.ts", "smoke-saves.ts", "smoke-zone-runner.ts"]
 }
