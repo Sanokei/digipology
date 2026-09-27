@@ -33,6 +33,7 @@ import {
   replayCheckpoint,
   resumeBaseFromSave,
   resumedRosterFromSave,
+  savedSeatPlayerId,
   nextResumedSeatId,
   retentionFloor,
   RoomCore,
@@ -77,6 +78,7 @@ interface RoomMetadataRow extends Record<string, SqlStorageValue> {
   host_player_id: string | null;
   creator_user_id: string | null;
   resumed: number;
+  resume_pending_since: number | null;
 }
 
 interface PlayerRow extends Record<string, SqlStorageValue> {
@@ -269,21 +271,39 @@ export class RoomDO extends DurableObject<Env> {
       );
       if (room.started === 1) {
         const core = this.loadCore(room);
-        orderedActions.push(core.sequenceSystem(
-          {
-            type: "system.player_joined",
-            payload: { playerId, name: normalizeDisplayName(displayName) },
-          },
-          `player_joined_${playerId}`,
-        ).orderedAction);
-        orderedActions.push(core.sequenceSystem(
-          {
-            type: "system.seat_assign",
-            payload: { playerId, seatId },
-          },
-          `seat_assign_${playerId}`,
-        ).orderedAction);
+        const base = room.resumed === 1 ? loadSnapshot(this.requiredInitialSnapshot(room)) : null;
+        const previousPlayerId = base === null ? undefined : savedSeatPlayerId(base, seatId);
+        if (room.resume_pending_since !== null && typeof previousPlayerId === "string") {
+          orderedActions.push(core.sequenceSystem({ type: "system.seat_claim", payload: {
+            playerId, name: normalizeDisplayName(displayName), seatId, previousPlayerId,
+          } }, `seat_claim_${playerId}`).orderedAction);
+        } else {
+          orderedActions.push(core.sequenceSystem(
+            {
+              type: "system.player_joined",
+              payload: { playerId, name: normalizeDisplayName(displayName) },
+            },
+            `player_joined_${playerId}`,
+          ).orderedAction);
+          orderedActions.push(core.sequenceSystem(
+            {
+              type: "system.seat_assign",
+              payload: { playerId, seatId },
+            },
+            `seat_assign_${playerId}`,
+          ).orderedAction);
+        }
         for (const ordered of orderedActions) this.persistSystemAction(ordered);
+        if (room.resume_pending_since !== null && base !== null) {
+          const assigned = new Set(this.playerRows().map((player) => player.seat_id));
+          const waiting = Object.keys(base.seats).some((id) =>
+            !assigned.has(id) && savedSeatPlayerId(base, id) !== undefined);
+          if (!waiting) {
+            this.ctx.storage.sql.exec("UPDATE canonical_timers SET due_at = due_at + ? WHERE status = 'scheduled'",
+              Math.max(0, Date.now() - room.resume_pending_since));
+            this.ctx.storage.sql.exec("UPDATE room SET resume_pending_since = NULL WHERE singleton = 1");
+          }
+        }
         this.advanceCheckpointIfNeeded(room, core);
         this.ctx.storage.sql.exec(
           "UPDATE room SET last_sequence = ? WHERE singleton = 1",
@@ -303,6 +323,7 @@ export class RoomDO extends DurableObject<Env> {
     if (result.status === "ok") {
       for (const ordered of orderedActions) this.broadcast(ordered);
       this.scheduleIndexMetadataUpdate();
+      if (orderedActions.some((ordered) => ordered.action.type === "system.seat_claim")) await this.rescheduleAlarm(Date.now());
     }
     return result;
   }
@@ -393,7 +414,9 @@ export class RoomDO extends DurableObject<Env> {
   async registerCanonicalTimer(timerId: string, dueAt: number): Promise<boolean> {
     if (typeof timerId !== "string" || timerId.length === 0 || timerId.length > 256 ||
       !Number.isSafeInteger(dueAt) || dueAt < 0) return false;
-    if (this.room() === null) return false;
+    const room = this.room();
+    if (room === null) return false;
+    if (room.resume_pending_since !== null) dueAt = room.resume_pending_since + Math.max(0, dueAt - Date.now());
     // `rowsWritten` is not a reliable "inserted" signal on the SQLite cursor, so
     // the alarm is always re-planned; it is idempotent over the scheduled set.
     this.ctx.storage.sql.exec(
@@ -641,6 +664,7 @@ export class RoomDO extends DurableObject<Env> {
     if (this.ctx.getWebSockets().length > 0) {
       this.ctx.storage.transactionSync(() => {
         const current = this.requiredRoom();
+        if (current.resume_pending_since !== null) return;
         const core = this.loadCore(current);
         const due = this.ctx.storage.sql.exec<TimerMetadataRow>(
           `SELECT timer_id, due_at, status, deferred_once FROM canonical_timers
@@ -986,6 +1010,12 @@ export class RoomDO extends DurableObject<Env> {
         snapshotRequiresScripts(baseSnapshot) ? 1 : 0,
       );
       const now = Date.now();
+      if (resumed) {
+        const assigned = new Set(resumedRosterFromSave(initialState, roster).map((entry) => entry.seatId));
+        const waiting = Object.keys(initialState.seats).some((id) => !assigned.has(id) &&
+          savedSeatPlayerId(initialState, id) !== undefined);
+        if (waiting) this.ctx.storage.sql.exec("UPDATE room SET resume_pending_since = ? WHERE singleton = 1", now);
+      }
       for (const timer of timersToArm) {
         this.ctx.storage.sql.exec(
           `INSERT OR IGNORE INTO canonical_timers (timer_id, due_at, status, deferred_once)
@@ -1204,7 +1234,7 @@ export class RoomDO extends DurableObject<Env> {
       `SELECT due_at FROM canonical_timers WHERE status = 'scheduled'
        ORDER BY due_at, timer_id LIMIT 1`,
     ).toArray()[0]?.due_at;
-    const next = nextRoomAlarmAt(liveness, timer ?? null, connectionCount);
+    const next = nextRoomAlarmAt(liveness, room.resume_pending_since === null ? timer ?? null : null, connectionCount);
     if (next === null) await this.ctx.storage.deleteAlarm();
     else await this.ctx.storage.setAlarm(next);
   }
@@ -1281,7 +1311,7 @@ export class RoomDO extends DurableObject<Env> {
               started, initial_snapshot, checkpoint_snapshot, checkpoint_sequence,
               checkpoint_attested, scripted, quickplay_joinable, last_heartbeat_at, empty_since_at,
               last_action_at, last_multi_bootstrap_at, bootstrap_unavailable_logged_at
-              , host_player_id, creator_user_id, resumed
+              , host_player_id, creator_user_id, resumed, resume_pending_since
        FROM room WHERE singleton = 1`,
     ).toArray()[0] ?? null;
   }
@@ -1435,7 +1465,8 @@ export class RoomDO extends DurableObject<Env> {
         bootstrap_unavailable_logged_at INTEGER
         , host_player_id TEXT,
         creator_user_id TEXT,
-        resumed INTEGER NOT NULL DEFAULT 0 CHECK (resumed IN (0, 1))
+        resumed INTEGER NOT NULL DEFAULT 0 CHECK (resumed IN (0, 1)),
+        resume_pending_since INTEGER
       );
       CREATE TABLE players (
         player_id TEXT PRIMARY KEY,
@@ -1553,6 +1584,7 @@ export class RoomDO extends DurableObject<Env> {
     if (!columns.has("resumed")) {
       this.ctx.storage.sql.exec("ALTER TABLE room ADD COLUMN resumed INTEGER NOT NULL DEFAULT 0 CHECK (resumed IN (0, 1))");
     }
+    if (!columns.has("resume_pending_since")) this.ctx.storage.sql.exec("ALTER TABLE room ADD COLUMN resume_pending_since INTEGER");
     const playerColumns = new Set(
       this.ctx.storage.sql.exec<{ name: string }>("PRAGMA table_info(players)").toArray().map((column) => column.name),
     );

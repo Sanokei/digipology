@@ -27,6 +27,8 @@ export interface ResumedRosterEntry {
 
 /** Trusted payload for the first canonical action in a resumed room. */
 export interface GameResumedPayload {
+  /** Opt-in extension: legacy resume frames retain their original replay hashes. */
+  preservePendingSeats?: true;
   roster: ResumedRosterEntry[];
 }
 
@@ -202,6 +204,14 @@ export interface StackRecord {
   items: EntityId[];
 }
 
+/** Canonical saved identity held outside live player/prompt collections. */
+export interface PendingSeat {
+  player: PlayerRecord;
+  prompts: Record<PromptId, PromptRecord>;
+  handIds: EntityId[];
+  visibilityIds: EntityId[];
+}
+
 export interface CanonicalGameState {
   schemaVersion: 1;
   sequence: number;
@@ -214,6 +224,7 @@ export interface CanonicalGameState {
   entities: Record<EntityId, EntityRecord>;
   /** Optional for schema-v1 compatibility; created lazily by stack actions. */
   stacks?: Record<StackId, StackRecord>;
+  pendingSeats?: Record<SeatId, PendingSeat>;
   scriptState: JsonValue;
   prompts: Record<PromptId, PromptRecord>;
   /** Optional for schema-v1 compatibility; created lazily by timer actions. */
