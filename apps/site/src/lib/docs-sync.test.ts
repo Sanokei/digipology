@@ -18,6 +18,33 @@ import {
 } from "./docs-sync";
 
 describe("repository documentation sync", () => {
+  test.each([
+    ["./sibling.md", "/docs/guide/sibling/"],
+    ["../other//page.md", "/docs/other/page/"],
+    ["sibling.md", "/docs/guide/sibling/"],
+    ["sibling.md#details", "/docs/guide/sibling/#details"],
+    ["../releasing.md#release", "https://github.com/Sanokei/digipology/blob/main/docs/releasing.md#release"],
+    ["unpublished.md", "https://github.com/Sanokei/digipology/blob/main/docs/guide/unpublished.md"],
+    ["https://example.com/sibling.md#details", "https://example.com/sibling.md#details"],
+    ["//example.com/sibling.md", "//example.com/sibling.md"],
+    ["mailto:editor@example.com", "mailto:editor@example.com"],
+    ["/docs/sibling.md", "/docs/sibling.md"],
+    ["#details", "#details"],
+    ["?view=sibling.md", "?view=sibling.md"],
+    ["image.png", "image.png"],
+  ])("resolves %s to %s", (target, expected) => {
+    const source = `---\ntitle: Guide\ndescription: Link fixture.\n---\n[link](${target})\n[title](<${target}> "Link title")\n`;
+    const transformed = transformRepositoryDoc(
+      source,
+      "guide/index.md",
+      new Set(["guide/index.md", "guide/sibling.md", "other/page.md"]),
+    );
+
+    expect(transformed.body).toBe(
+      `[link](${expected})\n[title](<${expected}> "Link title")\n`,
+    );
+  });
+
   test("injects validated metadata, removes the duplicate H1, and rewrites links", () => {
     const source = `---
 title: Lua API

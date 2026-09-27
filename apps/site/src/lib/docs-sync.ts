@@ -121,10 +121,17 @@ function rewriteRelativeLinks(
   return body.replace(
     /(\]\()(<)?([^\s)>]+)(>)?(\s+(?:"[^"]*"|'[^']*'))?(\))/g,
     (match, open, angleOpen, target, angleClose, label, close) => {
-      if (!target.startsWith("./") && !target.startsWith("../")) return match;
+      // Preserve absolute URLs, site routes, and links within the current page.
+      if (/^(?:[a-z][a-z\d+.-]*:|\/|#|\?)/i.test(target)) return match;
+      if (
+        !target.startsWith("./") &&
+        !target.startsWith("../") &&
+        !/\.md(?:[?#]|$)/.test(target)
+      ) return match;
 
       const targetUrl = new URL(target, `https://docs.invalid/${sourcePath}`);
-      const repositoryPath = decodeURIComponent(targetUrl.pathname.slice(1));
+      const repositoryPath = decodeURIComponent(targetUrl.pathname.slice(1))
+        .replace(/\/+/g, "/");
       let rewritten: string;
 
       if (repositoryPath.endsWith(".md") && publishedPaths.has(repositoryPath)) {
