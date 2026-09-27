@@ -18,6 +18,8 @@ import { TouchGestureMachine, type TouchGestureDecision } from "./touchGestures"
 import { localSeatId } from "../pages/tableHandModel";
 import { keyboardRollActionFor, presentationHighlightIds, primaryActionFor } from "../pages/tableContextModel";
 import type { TableHintGesture } from "../components/TableHints";
+import { createSceneAudio } from "./sceneAudio";
+import { browserPresentationSettings } from "./presentationSettings";
 
 export interface TableContextRequest {
   entityId: string;
@@ -122,7 +124,10 @@ export function useBabylonScene(
       }
       const dependencies: SceneAdapterDependencies = {
         sendAction: client === null ? undefined : (action) => client.sendAction(action),
+        settings: browserPresentationSettings,
       };
+      const audio = createSceneAudio(browserPresentationSettings);
+      dependencies.audio = audio;
       const adapter = await mountSceneAdapter(
         selection,
         async (renderer) => {
@@ -151,12 +156,34 @@ export function useBabylonScene(
       });
       screenProjectorChangeRef.current?.((point) => adapter.projectFromTable(point));
       publishRendererStatus(fallback === null ? selection.renderer : "webgl");
+      const diagnosticsTimer = setInterval(() => {
+        const stats = adapter.getPerformanceStats();
+        rendererStatusRef.current?.({
+          requested: selection.renderer,
+          mounted: fallback === null ? selection.renderer : "webgl",
+          reason: selection.reason,
+          fallback,
+          tier,
+          fps: stats.fps,
+          visiblePieces: stats.visiblePieces,
+        });
+      }, 1_000);
       adapter.setPaused(pausedRef.current);
+      let seatCameraInitialized = false;
       let heldHighlight = "";
       let lockedHighlight = "";
       const sync = () => {
         const snapshot = store.getSnapshot();
         adapter.syncEntities(snapshot);
+        if (!seatCameraInitialized && snapshot.displayedState !== null) {
+          const seatId = localSeatId(snapshot.displayedState, playerId ?? "");
+          if (seatId !== null) {
+            const seats = Object.keys(snapshot.displayedState.seats).sort();
+            const seatPosition = Math.max(0, seats.indexOf(seatId));
+            adapter.camera.reset(seats.length === 0 ? 0 : seatPosition * 4 / seats.length);
+            seatCameraInitialized = true;
+          }
+        }
         const indicators = presentationHighlightIds(snapshot.displayedState, playerId ?? "");
         const nextHeld = indicators.held;
         const nextLocked = indicators.locked;
@@ -185,6 +212,7 @@ export function useBabylonScene(
       let disposed = false;
       let hoverPoint = { x: 0, y: 0 };
       let hoverEntityId: string | null = null;
+      let spacePan = false;
       const hoverPicker = createHoverPicker(adapter, (entityId) => {
         hoverEntityId = entityId;
         adapter.setHighlight(entityId, "hover");
@@ -228,7 +256,7 @@ export function useBabylonScene(
             releasedPointerIds.add(decision.pointerId);
             adapter.cancelDrag(decision.pointerId);
           } else if (decision.type === "tap") {
-            adapter.setHighlight(decision.entityId, "selected");
+            adapter.setSelection(decision.entityId === null ? [] : [decision.entityId]);
           } else if (decision.type === "double-tap") {
             if (client !== null && !pausedRef.current && decision.entityId !== null) {
               runPrimary(decision.entityId);
@@ -346,6 +374,7 @@ export function useBabylonScene(
       }
 
       const handlePointerDown = (event: PointerEvent): void => {
+        void audio.resume();
         if (event.pointerType === "touch") {
           event.preventDefault();
           releasedPointerIds.delete(event.pointerId);
@@ -364,7 +393,7 @@ export function useBabylonScene(
         }
         desktop.down({
           pointerId: event.pointerId,
-          button: event.button,
+          button: event.button === 0 && spacePan ? 1 : event.button,
           x: event.clientX,
           y: event.clientY,
         });
@@ -434,7 +463,8 @@ export function useBabylonScene(
           adapter.rotateDrag(Math.sign(event.deltaY) * Math.PI / 12);
           hintGestureRef.current?.("drag");
         } else {
-          adapter.camera.zoom(event.deltaY);
+          const rect = canvas.getBoundingClientRect();
+          adapter.camera.zoom(event.deltaY * (event.shiftKey ? 0.25 : 1), event.clientX - rect.left, event.clientY - rect.top);
           hintGestureRef.current?.("primary");
         }
       };
@@ -446,7 +476,28 @@ export function useBabylonScene(
         )) return;
         if (event.ctrlKey || event.metaKey || event.altKey || pausedRef.current) return;
         const active = desktop.activeObject();
-        if (event.key === "Escape" && active !== null) {
+        if (event.code === "Space" && active === null) {
+          spacePan = true;
+          event.preventDefault();
+        } else if (event.key === "Home") {
+          event.preventDefault();
+          adapter.camera.reset();
+        } else if ((event.key === "t" || event.key === "T") && active === null) {
+          event.preventDefault();
+          adapter.camera.toggleTopDown();
+        } else if (["w", "W", "ArrowUp"].includes(event.key) && active === null) {
+          event.preventDefault();
+          adapter.camera.pan(0, -32);
+        } else if (["s", "S", "ArrowDown"].includes(event.key) && active === null) {
+          event.preventDefault();
+          adapter.camera.pan(0, 32);
+        } else if (["a", "A", "ArrowLeft"].includes(event.key) && active === null) {
+          event.preventDefault();
+          adapter.camera.pan(-32, 0);
+        } else if (["d", "D", "ArrowRight"].includes(event.key) && active === null) {
+          event.preventDefault();
+          adapter.camera.pan(32, 0);
+        } else if (event.key === "Escape" && active !== null) {
           event.preventDefault();
           applyDesktopDecisions(desktop.cancel(active.pointerId));
         } else if ((event.key === "q" || event.key === "Q") && active !== null) {
@@ -476,11 +527,10 @@ export function useBabylonScene(
             event.preventDefault();
             client?.sendAction(action);
           }
-        } else if (event.code === "Space" && active === null) {
-          event.preventDefault();
-          adapter.camera.reset();
-          hintGestureRef.current?.("primary");
         }
+      };
+      const handleKeyUp = (event: KeyboardEvent): void => {
+        if (event.code === "Space") spacePan = false;
       };
       const preventBrowserTouch = (event: TouchEvent) => event.preventDefault();
 
@@ -493,6 +543,7 @@ export function useBabylonScene(
       canvas.addEventListener("wheel", handleWheel, { passive: false });
       canvas.addEventListener("contextmenu", handleContextMenu);
       window.addEventListener("keydown", handleKeyDown);
+      window.addEventListener("keyup", handleKeyUp);
       canvas.addEventListener("touchstart", preventBrowserTouch, { passive: false });
       canvas.addEventListener("touchmove", preventBrowserTouch, { passive: false });
 
@@ -520,6 +571,7 @@ export function useBabylonScene(
         screenProjectorChangeRef.current?.(null);
         hoverRequestRef.current?.(null);
         resize.disconnect();
+        clearInterval(diagnosticsTimer);
         document.removeEventListener("visibilitychange", syncRenderLoop);
         canvas.removeEventListener("pointerdown", handlePointerDown);
         canvas.removeEventListener("pointermove", handlePointerMove);
@@ -530,9 +582,11 @@ export function useBabylonScene(
         canvas.removeEventListener("wheel", handleWheel);
         canvas.removeEventListener("contextmenu", handleContextMenu);
         window.removeEventListener("keydown", handleKeyDown);
+        window.removeEventListener("keyup", handleKeyUp);
         canvas.removeEventListener("touchstart", preventBrowserTouch);
         canvas.removeEventListener("touchmove", preventBrowserTouch);
         adapter.dispose();
+        audio.dispose();
         if (adapterRef.current === adapter) adapterRef.current = null;
       };
     };

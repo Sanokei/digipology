@@ -21,6 +21,10 @@ function adapterThat(mount: () => Promise<void>, disposed: string[], name: strin
     endDrag: () => undefined,
     cancelDrag: () => undefined,
     setHighlight: () => undefined,
+    setSelection: () => undefined,
+    showSnapGhost: () => undefined,
+    clearSnapGhost: () => undefined,
+    getPerformanceStats: () => ({ fps: 0, visiblePieces: 0, textureCount: 0 }),
     camera: {
       attach: () => undefined,
       detach: () => undefined,
@@ -29,6 +33,7 @@ function adapterThat(mount: () => Promise<void>, disposed: string[], name: strin
       pinch: () => undefined,
       zoom: () => undefined,
       reset: () => undefined,
+      toggleTopDown: () => undefined,
     },
     setPaused: () => undefined,
     resize: () => undefined,

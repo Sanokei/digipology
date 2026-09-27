@@ -12,6 +12,8 @@ import type { Scene } from "@babylonjs/core/scene";
 import type { HighlightLayerFacade } from "./dragBehavior";
 import { runSceneAdapterContract } from "./sceneAdapter.contract.shared";
 import { createWebglSceneAdapter } from "./webglSceneAdapter";
+import type { PresentationSettings } from "./sceneAdapter";
+import { createPresentationSettingsStore, defaultPresentationSettings } from "./presentationSettings";
 
 class ContractCanvas {
   readonly clientWidth = 100;
@@ -80,7 +82,7 @@ runSceneAdapterContract({
   name: "webgl",
   handlesDesktopDrag: false,
   supportedHighlights: ["hover", "selected", "held", "locked"],
-  async mount(sendAction) {
+  async mount(sendAction, settings?: Partial<PresentationSettings>) {
     const canvas = new ContractCanvas();
     let engine: NullEngine | null = null;
     let scene: Scene | null = null;
@@ -109,6 +111,7 @@ runSceneAdapterContract({
     };
     const adapter = createWebglSceneAdapter({
       ...(sendAction === undefined ? {} : { sendAction }),
+      settings: createPresentationSettingsStore({ ...defaultPresentationSettings(false), ...settings }),
       createEngine: (_canvas) => {
         const created = new NullEngine({
           renderWidth: 100,
@@ -218,6 +221,7 @@ runSceneAdapterContract({
       )).length,
       listenerCount: () => canvas.listenerCount(),
       disposed: () => engineDisposed && sceneDisposed,
+      snapGhostVisible: () => mountedScene.meshes.some((mesh) => mesh.name === "snap-ghost" && !mesh.isDisposed()),
     };
   },
 });

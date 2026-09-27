@@ -45,13 +45,16 @@ import { intersectRayWithHorizontalPlaneToRef, type MutableVector3Like } from ".
 import { flipQuaternion, rotateQuaternionY } from "./interactionMath";
 import type {
   HighlightKind,
+  PresentationSettings,
   SceneAdapter,
   SceneAdapterDependencies,
   SceneAdapterMountOptions,
 } from "./sceneAdapter";
 import { TABLE_DEPTH, TABLE_SURFACE_Y, TABLE_WIDTH } from "./tableDimensions";
-import { piecePresentation, piecePresentationSignature } from "./piecePresentation";
+import { piecePresentation, piecePresentationSignature, seatColor } from "./piecePresentation";
 import { projectWorldToScreen } from "./cameraProjection";
+import { defaultPresentationSettings } from "./presentationSettings";
+import { tumbleQuaternion } from "./presentationMotion";
 
 interface DragBounds {
   minX: number;
@@ -69,6 +72,8 @@ interface CorrectionAnimation {
   toPosition: [number, number, number];
   toScaling: [number, number, number];
   toRotation: [number, number, number, number];
+  duration: number;
+  tumble?: boolean;
 }
 
 interface PieceGraph {
@@ -97,6 +102,7 @@ interface PieceGraph {
   faceMesh?: Mesh;
   faceTextureKey?: string;
   children?: Mesh[];
+  contactShadow?: Mesh;
 }
 
 const LIFT_HEIGHT = 0.22;
@@ -215,6 +221,7 @@ function createScreenRay(
 function startCorrection(
   piece: PieceGraph,
   transform: TransformComponent | undefined,
+  duration = 220,
 ): void {
   const target = transformTarget(transform, piece.restingY);
   piece.correction = {
@@ -230,6 +237,7 @@ function startCorrection(
     toPosition: target.position,
     toScaling: target.scaling,
     toRotation: target.rotation,
+    duration,
   };
 }
 
@@ -241,7 +249,7 @@ function updateCorrection(piece: PieceGraph, deltaMs: number): void {
   const correction = piece.correction;
   if (correction === undefined) return;
   correction.elapsed += deltaMs;
-  const linear = Math.min(correction.elapsed / 180, 1);
+  const linear = Math.min(correction.elapsed / correction.duration, 1);
   const eased = 1 - (1 - linear) ** 3;
   piece.mesh.position.set(
     mix(correction.fromPosition[0], correction.toPosition[0], eased),
@@ -253,10 +261,15 @@ function updateCorrection(piece: PieceGraph, deltaMs: number): void {
     mix(correction.fromScaling[1], correction.toScaling[1], eased),
     mix(correction.fromScaling[2], correction.toScaling[2], eased),
   );
-  const qx = mix(correction.fromRotation[0], correction.toRotation[0], eased);
-  const qy = mix(correction.fromRotation[1], correction.toRotation[1], eased);
-  const qz = mix(correction.fromRotation[2], correction.toRotation[2], eased);
-  const qw = mix(correction.fromRotation[3], correction.toRotation[3], eased);
+  const rotation = correction.tumble
+    ? tumbleQuaternion(correction.toRotation, linear)
+    : [
+        mix(correction.fromRotation[0], correction.toRotation[0], eased),
+        mix(correction.fromRotation[1], correction.toRotation[1], eased),
+        mix(correction.fromRotation[2], correction.toRotation[2], eased),
+        mix(correction.fromRotation[3], correction.toRotation[3], eased),
+      ] as const;
+  const [qx, qy, qz, qw] = rotation;
   const length = Math.hypot(qx, qy, qz, qw) || 1;
   piece.mesh.rotationQuaternion.set(qx / length, qy / length, qz / length, qw / length);
   if (linear === 1) delete piece.correction;
@@ -360,6 +373,16 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
   let paused = false;
   let rendering = false;
   let pickPending = false;
+  let settings: PresentationSettings = dependencies.settings?.getSnapshot() ?? defaultPresentationSettings(false);
+  let unsubscribeSettings: (() => void) | null = null;
+  let snapGhost: Mesh | null = null;
+  let measuredFps = 0;
+  let frameElapsed = 0;
+  let frameSamples = 0;
+  let topDown = false;
+  let contactShadowsEnabled = true;
+  let seatRadius = 11.8;
+  let tableStyleMaterials: { surface: StandardMaterialProps; rails: StandardMaterialProps[] } | null = null;
   let currentView: KernelStoreSnapshot | null = null;
   let lastDisplayedState: KernelStoreSnapshot["displayedState"] = null;
   let lastDefinitions: KernelStoreSnapshot["definitions"] | null = null;
@@ -377,7 +400,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
   } | null = null;
   const highlights = {
     hover: null as string | null,
-    selected: null as string | null,
+    selected: new Set<string>(),
     held: new Set<string>(),
     locked: new Set<string>(),
   };
@@ -397,9 +420,16 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
     const entityId = (piece.mesh.metadata as { entityId?: unknown } | undefined)?.entityId;
     if (typeof entityId === "string") {
       if (highlights.hover === entityId) color = HIGHLIGHT_COLORS.hover;
-      if (highlights.selected === entityId) color = HIGHLIGHT_COLORS.selected;
+      if (highlights.selected.has(entityId)) color = HIGHLIGHT_COLORS.selected;
       if (highlights.locked.has(entityId)) color = HIGHLIGHT_COLORS.locked;
       if (highlights.held.has(entityId)) color = HIGHLIGHT_COLORS.held;
+      if (highlights.held.has(entityId)) {
+        const heldBy = currentView?.displayedState?.entities[entityId]?.components.grabbable?.heldBy;
+        if (heldBy !== null && heldBy !== undefined) {
+          const seat = currentView?.players.find((player) => player.playerId === heldBy)?.seatId ?? heldBy;
+          color = hexColor(seatColor(seat), "#fff2be");
+        }
+      }
       if (localHeld === entityId) color = HIGHLIGHT_COLORS.held;
     }
     piece.material.emissiveColor = color;
@@ -409,6 +439,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
   function destroyPiece(piece: PieceGraph): void {
     if (scene === null) return;
     for (const child of piece.children ?? []) removeFromScene(scene, child);
+    if (piece.contactShadow !== undefined) removeFromScene(scene, piece.contactShadow);
     if (piece.faceMesh !== undefined) removeFromScene(scene, piece.faceMesh);
     if (piece.faceTextureKey !== undefined) {
       const cached = faceTextures.get(piece.faceTextureKey);
@@ -464,7 +495,9 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
     result.specularColor = hexColor(appearance.specular, "#271d10");
     result.emissiveColor = hexColor(appearance.emissive, "#000000");
     result.alpha = appearance.alpha;
-    result.specularPower = 28;
+    result.specularPower = appearance.materialKind === "plastic" ? 52
+      : appearance.materialKind === "metal" ? 72
+        : appearance.materialKind === "card-stock" ? 22 : 28;
     return result;
   }
 
@@ -514,7 +547,32 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       definition,
     );
     const restingY = TABLE_SURFACE_Y + appearance.height / 2;
-    const mesh = appearance.shape === "ring"
+    let roundedChildren: Mesh[] = [];
+    const makeRoundedSlab = (): Mesh => {
+      const radius = Math.min(appearance.cornerRadius, appearance.width * 0.24, appearance.depth * 0.24);
+      const root = createBox(mounted.engine, {
+        width: Math.max(appearance.width - radius * 2, radius), depth: appearance.depth, height: appearance.height,
+      });
+      const cross = createBox(mounted.engine, {
+        width: appearance.width, depth: Math.max(appearance.depth - radius * 2, radius), height: appearance.height,
+      });
+      cross.name = `entity-${entity.id}-round-cross`;
+      setParent(cross, root);
+      addToScene(mounted.scene, cross);
+      roundedChildren.push(cross);
+      for (const x of [-1, 1]) for (const z of [-1, 1]) {
+        const corner = createCylinder(mounted.engine, { height: appearance.height, diameter: radius * 2, tessellation: 18 });
+        corner.name = `entity-${entity.id}-corner-${x}-${z}`;
+        setParent(corner, root);
+        corner.position.set(x * (appearance.width / 2 - radius), 0, z * (appearance.depth / 2 - radius));
+        addToScene(mounted.scene, corner);
+        roundedChildren.push(corner);
+      }
+      return root;
+    };
+    const mesh = appearance.shape === "card" || appearance.shape === "board" || appearance.shape === "box" || appearance.shape === "cube"
+      ? makeRoundedSlab()
+      : appearance.shape === "ring"
       ? createTorus(mounted.engine, {
           diameter: appearance.width,
           thickness: appearance.height,
@@ -539,6 +597,10 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
     mesh.pickable = true;
     const pieceMaterial = makeMaterial(appearance);
     mesh.material = pieceMaterial;
+    for (const child of roundedChildren) {
+      child.material = pieceMaterial;
+      child.pickable = true;
+    }
     applyTransform(mesh, components.transform, restingY);
     addToScene(mounted.scene, mesh);
     const graph: PieceGraph = {
@@ -553,6 +615,26 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
         && components.lockable?.locked !== true
         && !appearance.isBoard,
     };
+    if (roundedChildren.length > 0) graph.children = roundedChildren;
+    if (contactShadowsEnabled) {
+      const contactMaterial = createStandardMaterial();
+      contactMaterial.diffuseColor = [0.01, 0.01, 0.01];
+      contactMaterial.emissiveColor = [0, 0, 0];
+      contactMaterial.specularColor = [0, 0, 0];
+      contactMaterial.alpha = 0.18;
+      const contactShadow = createCylinder(mounted.engine, {
+        height: 0.003,
+        diameter: Math.max(appearance.width, appearance.depth) * 0.84,
+        tessellation: 24,
+      });
+      contactShadow.name = `${mesh.name}-contact-shadow`;
+      contactShadow.material = contactMaterial;
+      contactShadow.pickable = false;
+      contactShadow.position.set(mesh.position.x, TABLE_SURFACE_Y + 0.003, mesh.position.z);
+      contactShadow.scaling.z = Math.max(appearance.depth / Math.max(appearance.width, 0.01), 0.45);
+      addToScene(mounted.scene, contactShadow);
+      graph.contactShadow = contactShadow;
+    }
     const face = addFace(mesh, appearance);
     if (face !== null) Object.assign(graph, face);
     if (appearance.shape === "pawn" || appearance.shape === "meeple") {
@@ -566,13 +648,51 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       setParent(head, mesh);
       head.position.set(0, appearance.height * 0.39, 0);
       addToScene(mounted.scene, head);
-      graph.children = [head];
+      graph.children ??= [];
+      graph.children.push(head);
+      if (appearance.shape === "meeple") {
+        const children = graph.children;
+        for (const side of [-1, 1]) {
+          const arm = createBox(mounted.engine, {
+            width: appearance.width * 0.42,
+            depth: appearance.depth,
+            height: appearance.height * 0.18,
+          });
+          arm.name = `${mesh.name}-arm-${side}`;
+          arm.material = pieceMaterial;
+          arm.pickable = true;
+          setParent(arm, mesh);
+          arm.position.set(side * appearance.width * 0.38, appearance.height * 0.12, 0);
+          arm.rotation.z = side * -0.35;
+          addToScene(mounted.scene, arm);
+          children.push(arm);
+        }
+      }
+    }
+    if (appearance.stackLayers > 1) {
+      graph.children ??= [];
+      for (let index = 1; index < appearance.stackLayers; index += 1) {
+        const layer = createBox(mounted.engine, {
+          width: appearance.width * 0.985,
+          depth: appearance.depth * 0.985,
+          height: 0.012,
+        });
+        layer.name = `${mesh.name}-stack-${index}`;
+        layer.material = pieceMaterial;
+        layer.pickable = true;
+        setParent(layer, mesh);
+        layer.position.set((index % 2 === 0 ? 1 : -1) * 0.008, -appearance.height / 2 + index * appearance.height / appearance.stackLayers, 0);
+        addToScene(mounted.scene, layer);
+        graph.children.push(layer);
+      }
     }
     const targetScaling: [number, number, number] = [mesh.scaling.x, mesh.scaling.y, mesh.scaling.z];
     const targetY = mesh.position.y;
-    graph.spawn = { elapsed: 0, fromY: targetY - 0.08, toY: targetY, toScaling: targetScaling };
-    mesh.position.y = targetY - 0.08;
-    mesh.scaling.set(targetScaling[0] * 0.72, targetScaling[1] * 0.72, targetScaling[2] * 0.72);
+    if (!settings.reducedMotion) {
+      graph.spawn = { elapsed: 0, fromY: targetY - 0.08, toY: targetY, toScaling: targetScaling };
+      mesh.position.y = targetY - 0.08;
+      mesh.scaling.set(targetScaling[0] * 0.72, targetScaling[1] * 0.72, targetScaling[2] * 0.72);
+    }
     if (graph.grabbable) {
       graph.bounds = {
         minX: -TABLE_WIDTH / 2 + appearance.width / 2,
@@ -614,6 +734,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
         z: piece.mesh.rotationQuaternion.z,
         w: piece.mesh.rotationQuaternion.w,
       });
+      dependencies.audio?.play("piece-place");
       if (!restore) {
         piece.landing = {
           elapsed: 0,
@@ -631,6 +752,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
     handlesDesktopDrag: false,
     async mount(nextCanvas: HTMLCanvasElement, options: SceneAdapterMountOptions): Promise<void> {
       canvas = nextCanvas;
+      contactShadowsEnabled = options.tier === "default";
       engine = await createEngine(canvas, {
         maxDevicePixelRatio: 2,
         msaaSamples: options.tier === "default" ? 4 : 1,
@@ -638,7 +760,8 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       });
       scene = createSceneContext(engine);
       scene.clearColor = { r: 0.018, g: 0.027, b: 0.024, a: 1 };
-      cameraGraph = createArcRotateCamera(-1.46, 0.82, 13.2, { x: 0, y: 0, z: 0 });
+      seatRadius = canvas.clientWidth / Math.max(canvas.clientHeight, 1) < 0.75 ? 22 : 11.8;
+      cameraGraph = createArcRotateCamera(-1.46, 0.82, seatRadius + 1.4, { x: 0, y: 0, z: 0 });
       cameraGraph.panningSensibility = 175;
       cameraGraph.wheelPrecision = 42;
       cameraGraph.inertia = 0.72;
@@ -649,7 +772,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
         lowerBetaLimit: 0.38,
         upperBetaLimit: 1.32,
         lowerRadiusLimit: 7.3,
-        upperRadiusLimit: 16,
+        upperRadiusLimit: 24,
       }, scene);
 
       const mountedEngine = engine;
@@ -667,9 +790,14 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
         addToScene(mountedScene, mesh);
         return mesh;
       };
-      addStaticBox("floor", 40, 40, 0.08, -0.82, "#090d0c");
+      addStaticBox("room-floor", 50, 50, 0.12, -0.86, "#171713");
+      const backWall = addStaticBox("room-wall-back", 50, 0.18, 15, 6.55, "#24231f");
+      backWall.position.z = -24;
+      const sideWall = addStaticBox("room-wall-side", 0.18, 50, 15, 6.55, "#1d201e");
+      sideWall.position.x = -24;
+      addStaticBox("room-rug", 15, 12, 0.025, -0.78, "#332525");
       addStaticBox("table-base", TABLE_WIDTH + 0.62, TABLE_DEPTH + 0.62, 0.34, TABLE_SURFACE_Y - 0.29, "#17110f");
-      addStaticBox("table-surface", TABLE_WIDTH, TABLE_DEPTH, 0.12, TABLE_SURFACE_Y - 0.06, "#123529");
+      const tableSurface = addStaticBox("table-surface", TABLE_WIDTH, TABLE_DEPTH, 0.12, TABLE_SURFACE_Y - 0.06, "#173f32");
       const railNorth = addStaticBox("table-rail-north", TABLE_WIDTH + 0.7, 0.3, 0.28, TABLE_SURFACE_Y + 0.02, "#33231b");
       const railSouth = addStaticBox("table-rail-south", TABLE_WIDTH + 0.7, 0.3, 0.28, TABLE_SURFACE_Y + 0.02, "#33231b");
       const railWest = addStaticBox("table-rail-west", 0.3, TABLE_DEPTH + 0.1, 0.28, TABLE_SURFACE_Y + 0.02, "#2b1d17");
@@ -678,6 +806,30 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       railSouth.position.z = TABLE_DEPTH / 2 + 0.14;
       railWest.position.x = -TABLE_WIDTH / 2 - 0.14;
       railEast.position.x = TABLE_WIDTH / 2 + 0.14;
+      tableStyleMaterials = {
+        surface: tableSurface.material as StandardMaterialProps,
+        rails: [railNorth, railSouth, railWest, railEast].map((rail) => rail.material as StandardMaterialProps),
+      };
+      const applyStyle = (style: PresentationSettings["tableStyle"]) => {
+        const colors = {
+          "felt-green": ["#173f32", "#5a3421", "#2d1912"],
+          "dark-wood": ["#3a2118", "#6a3e26", "#2b1710"],
+          slate: ["#30383a", "#332820", "#181311"],
+          parchment: ["#927b55", "#5c3520", "#2d1b13"],
+        }[style];
+        if (tableStyleMaterials === null) return;
+        tableStyleMaterials.surface.diffuseColor = hexColor(colors[0]!, colors[0]!);
+        tableStyleMaterials.rails.forEach((material, index) => {
+          material.diffuseColor = hexColor(colors[index < 2 ? 1 : 2]!, colors[1]!);
+          markMaterialUboDirty(material);
+        });
+        markMaterialUboDirty(tableStyleMaterials.surface);
+      };
+      applyStyle(settings.tableStyle);
+      unsubscribeSettings = dependencies.settings?.subscribe((next) => {
+        settings = next;
+        applyStyle(next.tableStyle);
+      }) ?? null;
 
       const ambient = createHemisphericLight([0, 1, 0], 0.44);
       ambient.diffuseColor = hexColor("#c7ddd1", "#c7ddd1");
@@ -691,18 +843,35 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       picker = createGpuPicker(scene);
       let cameraIntroMs = 0;
       onBeforeRender(scene, (deltaMs) => {
+        frameSamples += 1;
+        frameElapsed += deltaMs;
+        if (frameElapsed >= 500) {
+          measuredFps = frameSamples * 1_000 / frameElapsed;
+          frameSamples = 0;
+          frameElapsed = 0;
+        }
         if (cameraGraph !== null && cameraIntroMs < 900) {
           cameraIntroMs += deltaMs;
           const linear = Math.min(cameraIntroMs / 900, 1);
           const eased = 1 - (1 - linear) ** 3;
           cameraGraph.alpha = mix(-1.46, -Math.PI / 2, eased);
           cameraGraph.beta = mix(0.82, 0.92, eased);
-          cameraGraph.radius = mix(13.2, 11.8, eased);
+          cameraGraph.radius = mix(seatRadius + 1.4, seatRadius, eased);
         }
         for (const piece of pieces.values()) {
           updateSpawnAndLanding(piece, deltaMs);
           updateCorrection(piece, deltaMs);
           orientBillboardLabel(piece, cameraGraph);
+          if (piece.contactShadow !== undefined) {
+            piece.contactShadow.position.x = piece.mesh.position.x;
+            piece.contactShadow.position.z = piece.mesh.position.z;
+            const size = Math.max(0.58, 1 - Math.max(0, piece.mesh.position.y - piece.restingY) * 0.75);
+            piece.contactShadow.scaling.x = size;
+            piece.contactShadow.scaling.z = size;
+            const material = piece.contactShadow.material as StandardMaterialProps;
+            material.alpha = 0.18 * size;
+            markMaterialUboDirty(material);
+          }
         }
       });
       await registerScene(scene);
@@ -712,6 +881,8 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
     dispose(): void {
       detachCameraLimits?.();
       detachCameraLimits = null;
+      unsubscribeSettings?.();
+      unsubscribeSettings = null;
       if (picker !== null) disposePicker(picker);
       picker = null;
       if (engine !== null) stopEngine(engine);
@@ -727,6 +898,8 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       scene = null;
       engine = null;
       canvas = null;
+      snapGhost = null;
+      tableStyleMaterials = null;
     },
     syncEntities(view: KernelStoreSnapshot): void {
       currentView = view;
@@ -734,6 +907,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       const correctionId = view.correction?.id ?? null;
       if (state === null) return;
       if (state === lastDisplayedState && view.definitions === lastDefinitions && correctionId === lastCorrectionId) return;
+      const previousState = lastDisplayedState;
       lastDisplayedState = state;
       lastDefinitions = view.definitions;
       lastCorrectionId = correctionId;
@@ -755,15 +929,43 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
         const existing = pieces.get(id);
         if (existing === undefined) {
           const created = makePiece(entity);
-          if (created !== null) pieces.set(id, created);
+          if (created !== null) {
+            pieces.set(id, created);
+            const previousContainer = Object.values(previousState?.entities ?? {}).find((candidate) => candidate.components.container?.items.includes(id) === true);
+            const origin = previousContainer?.components.transform?.position;
+            if (!settings.reducedMotion && entity.components.card !== undefined && origin !== undefined) {
+              created.mesh.position.set(origin.x, origin.y + 0.35, origin.z);
+              startCorrection(created, entity.components.transform, 420);
+              dependencies.audio?.play("card-slide");
+            }
+          }
         } else {
           const definitionId = entity.components.appearance?.definitionId ?? entity.components.card?.definitionId ?? entity.components.die?.definitionId;
           const definition = definitionId === undefined ? undefined : view.definitions[definitionId];
           if (existing.signature !== piecePresentationSignature(entity, definition)) {
+          if (entity.components.card !== undefined) dependencies.audio?.play("card-flip");
+          else if (entity.components.die !== undefined) {
+            dependencies.audio?.play("dice-rattle");
+            dependencies.audio?.play("dice-land");
+          } else if (entity.components.deck !== undefined) dependencies.audio?.play("deck-shuffle");
+          else if (entity.components.counter !== undefined) dependencies.audio?.play("chip-clink");
           destroyPiece(existing);
           const created = makePiece(entity);
           if (created === null) pieces.delete(id);
-          else pieces.set(id, created);
+          else {
+            pieces.set(id, created);
+            if (!settings.reducedMotion && entity.components.die !== undefined) {
+              startCorrection(created, entity.components.transform, 720);
+              if (created.correction !== undefined) created.correction.tumble = true;
+            } else if (!settings.reducedMotion && entity.components.card !== undefined) {
+              startCorrection(created, entity.components.transform, 250);
+              const correction = created.correction;
+              if (correction !== undefined) {
+                const target = correction.toRotation;
+                correction.fromRotation = [-target[1], target[0], -target[3], target[2]];
+              }
+            }
+          }
           } else {
           const nextTransformSignature = transformSignature(entity.components.transform, existing.restingY);
           const correction = view.correction?.entityId === id && existing.lastCorrectionId !== view.correction.id
@@ -771,10 +973,13 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
             : null;
           if (correction !== null) {
             existing.lastCorrectionId = correction.id;
-            startCorrection(existing, entity.components.transform);
+            if (settings.reducedMotion) applyTransform(existing.mesh, entity.components.transform, existing.restingY);
+            else startCorrection(existing, entity.components.transform, 180);
           } else if (existing.transformSignature !== nextTransformSignature) {
-            delete existing.correction;
-            applyTransform(existing.mesh, entity.components.transform, existing.restingY);
+            if (settings.reducedMotion) {
+              delete existing.correction;
+              applyTransform(existing.mesh, entity.components.transform, existing.restingY);
+            } else startCorrection(existing, entity.components.transform);
           }
           existing.transformSignature = nextTransformSignature;
           existing.grabbable = dependencies.sendAction !== undefined
@@ -851,6 +1056,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       applyPieceHighlight(piece);
       canvas?.setPointerCapture(pointerId);
       callbacks.onGrab();
+      dependencies.audio?.play("piece-pick");
     },
     updateDrag(pointerId: number, x: number, y: number): void {
       if (activeDrag?.pointerId !== pointerId || canvas === null || cameraGraph === null) return;
@@ -899,8 +1105,22 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
         }
         return;
       }
-      const previous = highlights[kind];
-      highlights[kind] = entityId;
+      if (kind === "selected") {
+        const previous = [...highlights.selected];
+        highlights.selected.clear();
+        if (entityId !== null) highlights.selected.add(entityId);
+        for (const id of previous) {
+          const piece = pieces.get(id);
+          if (piece !== undefined) applyPieceHighlight(piece);
+        }
+        if (entityId !== null) {
+          const piece = pieces.get(entityId);
+          if (piece !== undefined) applyPieceHighlight(piece);
+        }
+        return;
+      }
+      const previous = highlights.hover;
+      highlights.hover = entityId;
       if (previous !== null) {
         const piece = pieces.get(previous);
         if (piece !== undefined) applyPieceHighlight(piece);
@@ -909,6 +1129,43 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
         const piece = pieces.get(entityId);
         if (piece !== undefined) applyPieceHighlight(piece);
       }
+    },
+    setSelection(ids): void {
+      const previous = [...highlights.selected];
+      highlights.selected = new Set(ids);
+      for (const id of new Set([...previous, ...ids])) {
+        const piece = pieces.get(id);
+        if (piece !== undefined) applyPieceHighlight(piece);
+      }
+    },
+    showSnapGhost(entityId, pose): void {
+      if (scene === null || engine === null) return;
+      if (snapGhost !== null) removeFromScene(scene, snapGhost);
+      const source = pieces.get(entityId)?.mesh;
+      const ghost = createBox(engine, {
+        width: source === undefined ? 0.7 : Math.max(source.scaling.x, 0.2),
+        depth: source === undefined ? 0.7 : Math.max(source.scaling.z, 0.2),
+        height: 0.08,
+      });
+      ghost.name = "snap-ghost";
+      ghost.pickable = false;
+      const material = createStandardMaterial();
+      material.diffuseColor = hexColor("#9dffcf", "#9dffcf");
+      material.emissiveColor = hexColor("#1d6d4a", "#1d6d4a");
+      material.alpha = 0.34;
+      ghost.material = material;
+      ghost.position.set(pose.position.x, pose.position.y, pose.position.z);
+      if (pose.rotation !== undefined) ghost.rotationQuaternion.set(pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w);
+      if (pose.scale !== undefined) ghost.scaling.set(pose.scale.x, pose.scale.y, pose.scale.z);
+      addToScene(scene, ghost);
+      snapGhost = ghost;
+    },
+    clearSnapGhost(): void {
+      if (snapGhost !== null && scene !== null) removeFromScene(scene, snapGhost);
+      snapGhost = null;
+    },
+    getPerformanceStats() {
+      return { fps: measuredFps, visiblePieces: pieces.size, textureCount: faceTextures.size };
     },
     camera: {
       attach(): void {},
@@ -927,26 +1184,40 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
         const forwardZ = -Math.sin(cameraGraph.alpha);
         cameraGraph.target.x -= rightX * dx * scale + forwardX * dy * scale;
         cameraGraph.target.z -= rightZ * dx * scale + forwardZ * dy * scale;
+        cameraGraph.target.x = clamp(cameraGraph.target.x, -3.25, 3.25);
+        cameraGraph.target.z = clamp(cameraGraph.target.z, -2.35, 2.35);
       },
       pinch(previousDistance: number, distance: number): void {
         if (cameraGraph === null || previousDistance <= 0 || distance <= 0) return;
-        cameraGraph.radius = clamp(cameraGraph.radius * previousDistance / distance, 7.3, 16);
+        cameraGraph.radius = clamp(cameraGraph.radius * previousDistance / distance, 7.3, 24);
       },
-      zoom(deltaY: number): void {
+      zoom(deltaY: number, cursorX?: number, cursorY?: number): void {
         if (cameraGraph === null) return;
-        cameraGraph.radius = clamp(cameraGraph.radius * Math.exp(deltaY * 0.001), 7.3, 16);
+        const focus = cursorX === undefined || cursorY === undefined ? null : adapter.projectToTable(cursorX, cursorY);
+        cameraGraph.radius = clamp(cameraGraph.radius * Math.exp(deltaY * 0.001), 7.3, 24);
+        if (focus !== null && deltaY < 0) {
+          cameraGraph.target.x = clamp(cameraGraph.target.x + (focus.x - cameraGraph.target.x) * 0.08, -3.25, 3.25);
+          cameraGraph.target.z = clamp(cameraGraph.target.z + (focus.z - cameraGraph.target.z) * 0.08, -2.35, 2.35);
+        }
       },
-      reset(): void {
+      reset(seatIndex = 0): void {
         if (cameraGraph === null) return;
-        cameraGraph.alpha = -Math.PI / 2;
+        cameraGraph.alpha = -Math.PI / 2 + seatIndex * Math.PI / 2;
         cameraGraph.beta = 0.92;
-        cameraGraph.radius = 11.8;
+        cameraGraph.radius = seatRadius;
         cameraGraph.target.x = 0;
         cameraGraph.target.y = 0;
         cameraGraph.target.z = 0;
         cameraGraph.inertialAlphaOffset = 0;
         cameraGraph.inertialBetaOffset = 0;
         cameraGraph.inertialRadiusOffset = 0;
+        topDown = false;
+      },
+      toggleTopDown(): void {
+        if (cameraGraph === null) return;
+        topDown = !topDown;
+        cameraGraph.beta = topDown ? 0.08 : 0.92;
+        cameraGraph.radius = topDown ? Math.max(13.8, seatRadius) : seatRadius;
       },
     },
     setPaused(nextPaused: boolean): void {

@@ -3,7 +3,7 @@ import { createInitialState, type EntityRecord } from "digipology-kernel";
 
 import type { KernelStoreSnapshot } from "../state/kernelStore";
 import { handleTouchPointerInput } from "./sceneInteraction";
-import type { HighlightKind, SceneAdapter } from "./sceneAdapter";
+import type { HighlightKind, PresentationSettings, SceneAdapter } from "./sceneAdapter";
 import { TouchGestureMachine, type TouchGestureDecision } from "./touchGestures";
 
 export interface ContractPiece {
@@ -25,13 +25,17 @@ export interface MountedContractAdapter {
   livePieceCount(): number;
   listenerCount(): number;
   disposed(): boolean;
+  snapGhostVisible(): boolean;
 }
 
 export interface SceneAdapterContractHarness {
   name: "lite" | "webgl";
   handlesDesktopDrag: boolean;
   supportedHighlights: readonly HighlightKind[];
-  mount(sendAction?: (action: { type: string; payload: unknown }) => unknown): Promise<MountedContractAdapter>;
+  mount(
+    sendAction?: (action: { type: string; payload: unknown }) => unknown,
+    settings?: Partial<PresentationSettings>,
+  ): Promise<MountedContractAdapter>;
 }
 
 export function contractTransform(x: number, z = 2) {
@@ -181,6 +185,8 @@ export function runSceneAdapterContract(harness: SceneAdapterContractHarness): v
         "button-1": contractButton(),
       }));
       expect(mounted.piece("card-1")?.identity).toBe(initialCard?.identity);
+      expect(mounted.piece("card-1")?.x).toBe(1);
+      mounted.tick(220);
       expect(mounted.piece("card-1")?.x).toBe(3);
 
       adapter.syncEntities(contractSnapshot({
@@ -333,6 +339,44 @@ export function runSceneAdapterContract(harness: SceneAdapterContractHarness): v
       mounted.adapter.setHighlight("card-2", "locked");
       expect(mounted.highlight("card-1", "locked")).toBeTrue();
       expect(mounted.highlight("card-2", "locked")).toBeTrue();
+      mounted.adapter.dispose();
+    });
+
+    test("replaces multi-selection and supports one transient snap ghost", async () => {
+      const mounted = await harness.mount(() => undefined);
+      const second = { ...contractCard(2), id: "card-2" };
+      mounted.adapter.syncEntities(contractSnapshot({ "card-1": contractCard(), "card-2": second }));
+      mounted.adapter.setSelection(["card-1", "card-2"]);
+      expect(mounted.highlight("card-1", "selected")).toBeTrue();
+      expect(mounted.highlight("card-2", "selected")).toBeTrue();
+      mounted.adapter.setSelection([]);
+      expect(mounted.highlight("card-1", "selected")).toBeFalse();
+      mounted.adapter.showSnapGhost("card-1", { position: { x: 2, y: 0.1, z: 1 } });
+      expect(mounted.snapGhostVisible()).toBeTrue();
+      mounted.adapter.clearSnapGhost();
+      expect(mounted.snapGhostVisible()).toBeFalse();
+      mounted.adapter.dispose();
+    });
+
+    test("reduced motion applies remote canonical poses immediately", async () => {
+      const mounted = await harness.mount(() => undefined, { reducedMotion: true });
+      mounted.adapter.syncEntities(contractSnapshot({ "card-1": contractCard(0) }));
+      mounted.adapter.syncEntities(contractSnapshot({ "card-1": contractCard(6) }));
+      expect(mounted.piece("card-1")?.x).toBe(6);
+      mounted.adapter.dispose();
+    });
+
+    test("dealt cards fly from their previous container and finish at the canonical pose", async () => {
+      const mounted = await harness.mount(() => undefined);
+      mounted.adapter.syncEntities(contractSnapshot({ "card-1": contractCard(4), "deck-1": contractDeck() }));
+      expect(mounted.piece("card-1")).toBeNull();
+      mounted.adapter.syncEntities(contractSnapshot({ "card-1": contractCard(4) }));
+      expect(mounted.piece("card-1")?.x).toBe(0);
+      mounted.tick(210);
+      expect(mounted.piece("card-1")?.x).toBeGreaterThan(0);
+      expect(mounted.piece("card-1")?.x).toBeLessThan(4);
+      mounted.tick(210);
+      expect(mounted.piece("card-1")?.x).toBe(4);
       mounted.adapter.dispose();
     });
 
