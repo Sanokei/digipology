@@ -1,0 +1,141 @@
+[
+  {
+    "url": "https://registry.npmjs.org/digipology-canonical-json",
+    "status": 404,
+    "checkedAt": "2026-09-27T05:44:31.979855+00:00"
+  },
+  {
+    "url": "https://registry.npmjs.org/digipology-prng",
+    "status": 404,
+    "checkedAt": "2026-09-27T05:44:32.181057+00:00"
+  },
+  {
+    "url": "https://registry.npmjs.org/digipology-kernel",
+    "status": 404,
+    "checkedAt": "2026-09-27T05:44:31.991147+00:00"
+  },
+  {
+    "url": "https://registry.npmjs.org/digipology-protocol",
+    "status": 404,
+    "checkedAt": "2026-09-27T05:44:32.193166+00:00"
+  },
+  {
+    "url": "https://registry.npmjs.org/digipology-lua",
+    "status": 404,
+    "checkedAt": "2026-09-27T05:44:32.195173+00:00"
+  },
+  {
+    "url": "https://registry.npmjs.org/digipology-ai",
+    "status": 404,
+    "checkedAt": "2026-09-27T05:44:32.181475+00:00"
+  },
+  {
+    "url": "https://registry.npmjs.org/digipology-covers",
+    "status": 404,
+    "checkedAt": "2026-09-27T05:44:32.182569+00:00"
+  },
+  {
+    "url": "https://registry.npmjs.org/digipology-demo-games",
+    "status": 404,
+    "checkedAt": "2026-09-27T05:44:32.185881+00:00"
+  },
+  {
+    "url": "https://www.npmjs.com/package/digipology-canonical-json",
+    "status": 403,
+    "checkedAt": "2026-09-27T05:44:32.033786+00:00"
+  },
+  {
+    "url": "https://www.npmjs.com/package/digipology-prng",
+    "status": 403,
+    "checkedAt": "2026-09-27T05:44:32.052768+00:00"
+  },
+  {
+    "url": "https://www.npmjs.com/package/digipology-kernel",
+    "status": 403,
+    "checkedAt": "2026-09-27T05:44:32.096598+00:00"
+  },
+  {
+    "url": "https://www.npmjs.com/package/digipology-protocol",
+    "status": 403,
+    "checkedAt": "2026-09-27T05:44:32.105465+00:00"
+  },
+  {
+    "url": "https://www.npmjs.com/package/digipology-lua",
+    "status": 403,
+    "checkedAt": "2026-09-27T05:44:32.150211+00:00"
+  },
+  {
+    "url": "https://www.npmjs.com/package/digipology-ai",
+    "status": 403,
+    "checkedAt": "2026-09-27T05:44:32.175789+00:00"
+  },
+  {
+    "url": "https://www.npmjs.com/package/digipology-covers",
+    "status": 403,
+    "checkedAt": "2026-09-27T05:44:32.203984+00:00"
+  },
+  {
+    "url": "https://www.npmjs.com/package/digipology-demo-games",
+    "status": 403,
+    "checkedAt": "2026-09-27T05:44:32.228184+00:00"
+  },
+  {
+    "url": "https://www.npmjs.com/search?q=digipology-",
+    "status": 403,
+    "checkedAt": "2026-09-27T05:44:32.236352+00:00"
+  },
+  {
+    "url": "https://github.com/Sanokei/digipology/tree/main/packages/canonical-json",
+    "status": 200,
+    "finalUrl": "https://github.com/Sanokei/digipology/tree/main/packages/canonical-json",
+    "checkedAt": "2026-09-27T05:44:32.689632+00:00"
+  },
+  {
+    "url": "https://github.com/Sanokei/digipology/tree/main/packages/prng",
+    "status": 200,
+    "finalUrl": "https://github.com/Sanokei/digipology/tree/main/packages/prng",
+    "checkedAt": "2026-09-27T05:44:32.679468+00:00"
+  },
+  {
+    "url": "https://github.com/Sanokei/digipology/tree/main/packages/kernel",
+    "status": 200,
+    "finalUrl": "https://github.com/Sanokei/digipology/tree/main/packages/kernel",
+    "checkedAt": "2026-09-27T05:44:32.699084+00:00"
+  },
+  {
+    "url": "https://github.com/Sanokei/digipology/tree/main/packages/protocol",
+    "status": 200,
+    "finalUrl": "https://github.com/Sanokei/digipology/tree/main/packages/protocol",
+    "checkedAt": "2026-09-27T05:44:32.672721+00:00"
+  },
+  {
+    "url": "https://github.com/Sanokei/digipology/tree/main/packages/lua",
+    "status": 200,
+    "finalUrl": "https://github.com/Sanokei/digipology/tree/main/packages/lua",
+    "checkedAt": "2026-09-27T05:44:32.693323+00:00"
+  },
+  {
+    "url": "https://github.com/Sanokei/digipology/tree/main/packages/ai",
+    "status": 200,
+    "finalUrl": "https://github.com/Sanokei/digipology/tree/main/packages/ai",
+    "checkedAt": "2026-09-27T05:44:32.699722+00:00"
+  },
+  {
+    "url": "https://github.com/Sanokei/digipology/tree/main/packages/covers",
+    "status": 200,
+    "finalUrl": "https://github.com/Sanokei/digipology/tree/main/packages/covers",
+    "checkedAt": "2026-09-27T05:44:32.685936+00:00"
+  },
+  {
+    "url": "https://github.com/Sanokei/digipology/tree/main/packages/demo-games",
+    "status": 200,
+    "finalUrl": "https://github.com/Sanokei/digipology/tree/main/packages/demo-games",
+    "checkedAt": "2026-09-27T05:44:32.705804+00:00"
+  },
+  {
+    "url": "https://github.com/Sanokei/digipology/tree/main/packages",
+    "status": 200,
+    "finalUrl": "https://github.com/Sanokei/digipology/tree/main/packages",
+    "checkedAt": "2026-09-27T05:44:33.055762+00:00"
+  }
+]

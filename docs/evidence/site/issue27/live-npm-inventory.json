@@ -1,0 +1,138 @@
+[
+  {
+    "url": "https://digipology.com/",
+    "status": 200,
+    "checkedAt": "2026-09-27T05:47:17.599Z",
+    "npmLinks": [
+      "https://www.npmjs.com/package/digipology-canonical-json",
+      "https://www.npmjs.com/package/digipology-prng",
+      "https://www.npmjs.com/package/digipology-kernel",
+      "https://www.npmjs.com/package/digipology-protocol",
+      "https://www.npmjs.com/package/digipology-lua",
+      "https://www.npmjs.com/package/digipology-ai",
+      "https://www.npmjs.com/package/digipology-covers",
+      "https://www.npmjs.com/package/digipology-demo-games",
+      "https://www.npmjs.com/search?q=digipology-"
+    ]
+  },
+  {
+    "url": "https://digipology.com/docs/",
+    "status": 200,
+    "checkedAt": "2026-09-27T05:47:18.289Z",
+    "npmLinks": [
+      "https://www.npmjs.com/search?q=digipology-"
+    ]
+  },
+  {
+    "url": "https://digipology.com/docs/upstream/babylon-lite/readme/",
+    "status": 200,
+    "checkedAt": "2026-09-27T05:47:18.913Z",
+    "npmLinks": [
+      "https://www.npmjs.com/search?q=digipology-"
+    ]
+  },
+  {
+    "url": "https://digipology.com/docs/upstream/babylon-lite/main-scene-pointer-drag/",
+    "status": 200,
+    "checkedAt": "2026-09-27T05:47:19.552Z",
+    "npmLinks": [
+      "https://www.npmjs.com/search?q=digipology-"
+    ]
+  },
+  {
+    "url": "https://digipology.com/docs/upstream/babylon-lite/highlight-outline-facility/",
+    "status": 200,
+    "checkedAt": "2026-09-27T05:47:20.198Z",
+    "npmLinks": [
+      "https://www.npmjs.com/search?q=digipology-"
+    ]
+  },
+  {
+    "url": "https://digipology.com/docs/upstream/babylon-lite/billboard-label-helper/",
+    "status": 200,
+    "checkedAt": "2026-09-27T05:47:20.837Z",
+    "npmLinks": [
+      "https://www.npmjs.com/search?q=digipology-"
+    ]
+  },
+  {
+    "url": "https://digipology.com/docs/upstream/babylon-lite/attach-control-touch-opt-out/",
+    "status": 200,
+    "checkedAt": "2026-09-27T05:47:21.472Z",
+    "npmLinks": [
+      "https://www.npmjs.com/search?q=digipology-"
+    ]
+  },
+  {
+    "url": "https://digipology.com/docs/playing/",
+    "status": 200,
+    "checkedAt": "2026-09-27T05:47:22.103Z",
+    "npmLinks": [
+      "https://www.npmjs.com/search?q=digipology-"
+    ]
+  },
+  {
+    "url": "https://digipology.com/docs/lua-preview/",
+    "status": 200,
+    "checkedAt": "2026-09-27T05:47:22.801Z",
+    "npmLinks": [
+      "https://www.npmjs.com/search?q=digipology-"
+    ]
+  },
+  {
+    "url": "https://digipology.com/docs/lua-api/",
+    "status": 200,
+    "checkedAt": "2026-09-27T05:47:23.416Z",
+    "npmLinks": [
+      "https://www.npmjs.com/search?q=digipology-"
+    ]
+  },
+  {
+    "url": "https://digipology.com/docs/getting-started/",
+    "status": 200,
+    "checkedAt": "2026-09-27T05:47:24.045Z",
+    "npmLinks": [
+      "https://www.npmjs.com/search?q=digipology-"
+    ]
+  },
+  {
+    "url": "https://digipology.com/docs/creator-guide/",
+    "status": 200,
+    "checkedAt": "2026-09-27T05:47:24.669Z",
+    "npmLinks": [
+      "https://www.npmjs.com/search?q=digipology-"
+    ]
+  },
+  {
+    "url": "https://digipology.com/docs/bundle-format/",
+    "status": 200,
+    "checkedAt": "2026-09-27T05:47:25.279Z",
+    "npmLinks": [
+      "https://www.npmjs.com/search?q=digipology-"
+    ]
+  },
+  {
+    "url": "https://digipology.com/docs/architecture/",
+    "status": 200,
+    "checkedAt": "2026-09-27T05:47:25.909Z",
+    "npmLinks": [
+      "https://www.npmjs.com/search?q=digipology-"
+    ]
+  },
+  {
+    "url": "https://digipology.com/docs/ai-features/",
+    "status": 200,
+    "checkedAt": "2026-09-27T05:47:26.525Z",
+    "npmLinks": [
+      "https://www.npmjs.com/search?q=digipology-"
+    ]
+  },
+  {
+    "url": "https://digipology.com/docs/actions/",
+    "status": 200,
+    "checkedAt": "2026-09-27T05:47:27.131Z",
+    "npmLinks": [
+      "https://www.npmjs.com/search?q=digipology-"
+    ]
+  }
+]
