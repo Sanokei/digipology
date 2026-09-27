@@ -68,6 +68,8 @@ export interface ScriptBindingComponent {
   scriptId: string;
   bindingId: string;
   props: { [key: string]: JsonValue };
+  /** Game-scoped bindings receive every entity event and player guard. */
+  scope?: "entity" | "game";
 }
 
 export interface Vector3 {
@@ -342,6 +344,7 @@ export interface ScriptBinding {
   readonly bindingId: string;
   readonly props: { readonly [key: string]: JsonValue };
   readonly entityId?: EntityId;
+  readonly scope?: "entity" | "game";
 }
 
 export interface ScriptDiagnostic {

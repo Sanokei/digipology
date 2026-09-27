@@ -163,6 +163,27 @@ describe("kernel-owned script transactions", () => {
     );
     expect(denied.rejection?.reason).toBe("Wait your turn");
   });
+
+  test("game-scoped bindings receive guards and entity callbacks for other entities", async () => {
+    const initial = stateWithBindings();
+    const calls: string[] = [];
+    const runtime: ScriptRuntime = {
+      bindings: () => [{ scriptId: "b.lua", bindingId: "b", entityId: "b", scope: "game", props: {} }],
+      async invoke(request) {
+        calls.push(`${request.functionName}:${String(request.context.entityId)}`);
+        return request.readOnly
+          ? { ok: true, handled: true, allowed: true }
+          : { ok: true, handled: true, scriptState: {} };
+      },
+    };
+    const result = await applyOrderedWithScripts(
+      initial,
+      ordered(initial, "button.press", { entityId: "button" }, { type: "player", playerId: "player" }),
+      { runtime },
+    );
+    expect(result.rejection).toBeUndefined();
+    expect(calls).toEqual(["can_press:button", "on_press:button"]);
+  });
 });
 
 describe("canonical prompt and timer actions", () => {

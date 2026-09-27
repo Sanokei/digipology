@@ -1,11 +1,20 @@
 import { describe, expect, test } from "bun:test";
-import { hexAxialToWorld, ringLayout, squareGrid, standard52CardDeck } from "./index";
+import { hexAxialToWorld, hexTopology, ringLayout, squareGrid, standard52CardDeck } from "./index";
 
 describe("builtin authoring layouts", () => {
   test("maps axial hex coordinates into pointy-top world coordinates", () => {
     expect(hexAxialToWorld(0, 0, 2)).toEqual({ x: 0, y: 0, z: 0 });
     expect(hexAxialToWorld(1, 0, 2)).toEqual({ x: 2 * Math.sqrt(3), y: 0, z: 0 });
     expect(hexAxialToWorld(0, 1, 2)).toEqual({ x: Math.sqrt(3), y: 0, z: 3 });
+  });
+
+  test("deduplicates shared hex vertices and edges with stable adjacency", () => {
+    const topology = hexTopology([[0, 0], [1, 0]]);
+    expect(topology.tiles).toHaveLength(2);
+    expect(topology.vertices).toHaveLength(10);
+    expect(topology.edges).toHaveLength(11);
+    expect(topology.edges.filter((edge) => edge.tileIds.length === 2)).toHaveLength(1);
+    expect(topology.vertices.every((vertex) => vertex.neighborIds.length >= 2)).toBeTrue();
   });
 
   test("centers square grids deterministically in row-major order", () => {

@@ -7,7 +7,7 @@ import { createBuiltinInitialState, orderedInitialSeatIds } from "./initial-stat
 describe("built-in game catalog", () => {
   test("lists legacy and generated games and resolves their immutable release IDs", () => {
     const games = builtinCatalog.listGames();
-    expect(games.map((game) => game.slug)).toEqual(["first-deal", "dice-dash", "zone-runner", "checkers"]);
+    expect(games.map((game) => game.slug)).toEqual(["first-deal", "dice-dash", "zone-runner", "checkers", "hearthlands"]);
 
     for (const game of games) {
       const bySlug = builtinCatalog.resolveRelease(game.slug);
@@ -130,7 +130,7 @@ describe("built-in game catalog", () => {
       builtin: true,
       currentPlayers: 0,
       totalPlays: 0,
-      coverVersion: 4,
+      coverVersion: 5,
     });
     expect(releaseSummary(release)).toEqual({
       releaseId: "builtin_first_deal_1",

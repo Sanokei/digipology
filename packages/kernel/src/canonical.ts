@@ -588,7 +588,8 @@ function validateEntity(
   if (hasOwn.call(components, "script")) {
     const script = requireRecord(components.script, `entities.${entityId}.components.script`);
     if (typeof script.scriptId !== "string" || script.scriptId.length === 0 ||
-      typeof script.bindingId !== "string" || script.bindingId.length === 0) {
+      typeof script.bindingId !== "string" || script.bindingId.length === 0 ||
+      (script.scope !== undefined && script.scope !== "entity" && script.scope !== "game")) {
       throw new InvalidGameStateError(`entity ${entityId} has invalid script binding`);
     }
     requireRecord(script.props, `entities.${entityId}.components.script.props`);

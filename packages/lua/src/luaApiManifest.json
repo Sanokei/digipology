@@ -16,6 +16,7 @@
     "scores"
   ],
   "proxies": [
+    "Entity",
     "Card",
     "Deck",
     "Hand",
@@ -226,6 +227,20 @@
       "owner": "Die"
     },
     {
+      "label": "entity:move_to",
+      "signature": "entity:move_to(x, y, z)",
+      "documentation": "Moves an entity to a finite canonical position while preserving its authored rotation and scale. Exclusive container, stack, or snap membership is detached.",
+      "kind": "method",
+      "owner": "Entity"
+    },
+    {
+      "label": "Entity.position",
+      "signature": "{ x, y, z }",
+      "documentation": "Reads the canonical world position captured for this callback.",
+      "kind": "field",
+      "owner": "Entity"
+    },
+    {
       "label": "game",
       "signature": "game",
       "documentation": "An empty namespace reserved by SPEC 04; surface only (spec) in creator API v1.",
@@ -305,7 +320,7 @@
     {
       "label": "on_game_resumed",
       "signature": "on_game_resumed(ctx)",
-      "documentation": "After game.resumed and standard-library roster reconciliation; ctx.roster contains the live roster with optional saved-player mappings, ctx.removedPlayerIds contains saved players without a live successor, and ctx.actor is the system actor.",
+      "documentation": "After game.resumed and standard-library roster reconciliation; ctx.roster contains the live roster with optional saved-player mappings, ctx.removedPlayerIds contains all saved player IDs (including those mapped to a live successor), and ctx.actor is the system actor.",
       "kind": "callback",
       "owner": "Game callbacks"
     },

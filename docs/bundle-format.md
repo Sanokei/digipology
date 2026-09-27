@@ -57,6 +57,10 @@ The desktop editor assembles this format for you and hands it to the same valida
 
 `interactionMode` is `sandbox` or `scripted`. Player limits are integers from 1 through 10, `minPlayers <= maxPlayers`, and must match the publish form. A bundle contains 1–256 unique files. File paths start with `runtime/` or `scripts/`; file content is an inline string. `refs` optionally maps safe Lua identifiers to immutable entity IDs. `luaStdlibVersion` pins the deterministic `turns`/`scores` package separately from `kernelVersion` and `luaApiVersion`; bundles created before this field default to version 1.
 
+A `script` component may set `scope` to `"entity"` (the default) or `"game"`.
+Game-scoped bindings receive every entity callback and player guard through one
+rules controller; `ctx.object` identifies the affected entity.
+
 `title` and `definitions` may be included. Definitions are presentation data and are deliberately excluded from `manifestHash`; they never change game rules. A complete definition may contain:
 
 ```json

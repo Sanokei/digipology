@@ -14,6 +14,7 @@ export interface CreatorScriptBinding {
   readonly bindingId: string;
   readonly props: Readonly<Record<string, JsonValue>>;
   readonly entityId?: string;
+  readonly scope?: "entity" | "game";
 }
 export interface CreatorScriptInvocation {
   readonly state: CreatorState;
@@ -56,6 +57,7 @@ export interface CreatorScriptRuntime {
 
 /** Every mutating proxy member and its one registered kernel action. */
 export const PROXY_ACTIONS = Object.freeze({
+  "Entity.move_to": "entity.move",
   "Card.flip": "entity.flip",
   "Card.set_face_up": "entity.flip",
   "Deck.shuffle": "deck.shuffle",
@@ -115,6 +117,24 @@ local function entity_proxy(id)
   local spec = entities[id]
   local proxy = { id = id }
   proxy_cache[id] = proxy
+
+  if spec.transform then
+    proxy.position = readonly(spec.transform.position)
+    proxy.move_to = function(_, x, y, z)
+      if type(x) == "table" then x, y, z = x.x, x.y, x.z end
+      if type(x) ~= "number" or type(y) ~= "number" or type(z) ~= "number" then
+        error("move_to expects finite x, y, z numbers or a position table", 2)
+      end
+      host_queue("entity.move", {
+        entityId = id,
+        transform = {
+          position = { x = x, y = y, z = z },
+          rotation = spec.transform.rotation,
+          scale = spec.transform.scale,
+        }
+      })
+    end
+  end
 
   if spec.card then
     if spec.flippable ~= nil then proxy.is_face_up = spec.flippable.flipped else proxy.is_face_up = spec.card.faceUp end
@@ -534,9 +554,14 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
 function componentRecord(state: CreatorState, entityId: string): Record<string, unknown> {
   const components = state.entities[entityId]?.components ?? {};
   const result: Record<string, unknown> = {};
+  const exposed = new Set([
+    "transform", "card", "flippable", "container", "deck", "die", "counter",
+    "zone", "snap-point", "button", "text", "tags",
+  ]);
   for (const [key, value] of Object.entries(components)) {
+    if (!exposed.has(key)) continue;
     if (key === "snap-point") result.snap_point = value;
-    else if (key !== "script") result[key] = value;
+    else result[key] = value;
   }
   const die = asRecord(result.die);
   if (die?.definitionId === "standard_d6" && die.faces === undefined) {
@@ -558,6 +583,7 @@ function runtimeBindings(state: CreatorState, scripts: Readonly<Record<string, s
       bindingId: candidate.bindingId,
       props: (asRecord(candidate.props) ?? {}) as { [key: string]: JsonValue },
       entityId,
+      ...((candidate.scope === "game" || candidate.scope === "entity") ? { scope: candidate.scope } : {}),
     });
   }
   return result.sort((left, right) => left.bindingId < right.bindingId ? -1 : left.bindingId > right.bindingId ? 1 : 0);

@@ -165,7 +165,7 @@ export class KernelStore {
       refs: { ...entityRefs, ...(bundle.refs ?? {}) },
       definitions: (bundle.definitions ?? {}) as unknown as Readonly<Record<string, import("digipology-kernel").JsonValue>>,
       instructionBudget: 50_000,
-      memoryBudgetBytes: 512 * 1024,
+      memoryBudgetBytes: 1024 * 1024,
     });
   }
 

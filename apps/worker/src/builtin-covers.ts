@@ -12,7 +12,7 @@ export const BUILTIN_COVER_SPECS: Readonly<Record<string, CoverSpec>> = Object.f
 );
 
 /** Bumped whenever committed builtin cover art changes, so `?v=` immutable caches roll over. */
-export const BUILTIN_COVER_VERSION = 4;
+export const BUILTIN_COVER_VERSION = 5;
 
 const coverText = new Map(BUILTIN_GAMES.map((game) => [
   game.slug,

@@ -393,7 +393,8 @@ export async function applyOrderedWithScripts(
 
   const guard = guardForAction(ordered);
   if (guard !== undefined) {
-    for (const binding of bindings.filter((candidate) => candidate.entityId === guard.entityId)) {
+    for (const binding of bindings.filter((candidate) =>
+      candidate.scope === "game" || candidate.entityId === guard.entityId)) {
       const commands: ActionInput<JsonValue>[] = [];
       let result;
       try {
@@ -506,7 +507,7 @@ export async function applyOrderedWithScripts(
     for (const delivery of eventDeliveries(event)) {
       const subscribers = bindings.filter((binding) =>
         (delivery.bindingId === undefined || binding.bindingId === delivery.bindingId) &&
-        (delivery.entityId === undefined || binding.entityId === delivery.entityId),
+        (delivery.entityId === undefined || binding.scope === "game" || binding.entityId === delivery.entityId),
       );
       for (const binding of subscribers) {
         const commands: ActionInput<JsonValue>[] = [];

@@ -42,7 +42,7 @@ export async function createBuiltinCreatorRuntime(releaseId: string) {
     refs: release.refs ?? {},
     definitions: (release.definitions ?? {}) as unknown as Readonly<Record<string, LuaValue>>,
     instructionBudget: 50_000,
-    memoryBudgetBytes: 512 * 1024,
+    memoryBudgetBytes: 1024 * 1024,
   });
 }
 

@@ -24,7 +24,7 @@ import type { EditorDraft } from "../state/types";
 export const PLAYTEST_PLAYER_ID = "playtest-player";
 export const PLAYTEST_SEAT_ID = "playtest-seat";
 export const PLAYTEST_INSTRUCTION_BUDGET = 50_000;
-export const PLAYTEST_MEMORY_BUDGET_BYTES = 512 * 1024;
+export const PLAYTEST_MEMORY_BUDGET_BYTES = 1024 * 1024;
 
 export const PLAYTEST_INTERACTION_ACTIONS = new Set([
   "entity.grab", "entity.drop", "entity.flip", "entity.rotate", "die.roll", "button.press",

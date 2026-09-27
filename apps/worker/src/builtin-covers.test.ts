@@ -14,6 +14,7 @@ describe("built-in covers", () => {
       "dice-dash",
       "zone-runner",
       "checkers",
+      "hearthlands",
     ]);
     for (const [slug, spec] of Object.entries(BUILTIN_COVER_SPECS)) {
       expect(renderCoverSvg(spec, { title: slug, tagline: "Playable tabletop" }))
@@ -24,10 +25,10 @@ describe("built-in covers", () => {
   });
 
   test("pins the cache rollover for the generated catalog", () => {
-    expect(BUILTIN_COVER_VERSION).toBe(4);
+    expect(BUILTIN_COVER_VERSION).toBe(5);
     expect(getBuiltinCover("checkers")).toMatchObject({
       contentType: "image/svg+xml",
-      version: 4,
+      version: 5,
     });
   });
 });

@@ -1,6 +1,7 @@
 import { CHECKERS_GAME } from "./games/checkers";
 import { DICE_DASH_GAME } from "./games/dice-dash";
 import { FIRST_DEAL_GAME } from "./games/first-deal";
+import { HEARTHLANDS_GAME } from "./games/hearthlands";
 import { ZONE_RUNNER_GAME } from "./games/zone-runner";
 import type { BuiltinGame, ReleaseBundle } from "./types";
 
@@ -15,6 +16,7 @@ export const BUILTIN_GAMES: ReadonlyArray<BuiltinGame> = deepFreeze([
   DICE_DASH_GAME,
   ZONE_RUNNER_GAME,
   CHECKERS_GAME,
+  HEARTHLANDS_GAME,
 ]);
 
 export function getBuiltinRelease(releaseId: string): ReleaseBundle | undefined {

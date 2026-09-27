@@ -472,6 +472,12 @@ Prediction changes latency handling, not canonical authority. A predicted action
 
 ## Derived events
 
+Entity-scoped Lua bindings receive derived entity events only for their bound
+entity. A release may instead declare a game-scoped binding; it receives every
+entity event and player guard with the affected entity identified by
+`ctx.object`. This changes callback routing only—the registered action and its
+deterministic transaction semantics are unchanged.
+
 The table below is the kernel v1 emission matrix from `ctx.emit`, not an inference from event names. Events produced while processing script subcommands retain the parent action's sequence and action ID.
 
 | Implemented event | Emitting action or condition |

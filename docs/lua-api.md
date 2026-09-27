@@ -447,6 +447,16 @@ Do not assume a loader, path syntax, mutability model, or iteration order until 
 
 Proxy operations expose tabletop meaning, never renderer objects. Every row in the tables below is **implemented (kernel v1, #65 / PR #74)**. Read operations do not queue actions; every mutating method appears in `PROXY_ACTIONS` and maps to the linked registered script-source action. Methods without a shipped binding are omitted and remain **spec**.
 
+### Entity
+
+Every semantic entity proxy also exposes these base members when the entity has
+a canonical transform.
+
+| Member | Kind and signature | Behavior | Canonical action |
+| --- | --- | --- | --- |
+| `position` | Field: read-only `{ x, y, z }` | Reads the canonical world position captured for this callback. | None; read only. |
+| `move_to` | `entity:move_to(x, y, z)` or `entity:move_to(position)` | Moves an entity to a finite canonical position while preserving its authored rotation and scale. Exclusive container, stack, or snap membership is detached. | [`entity.move`](./actions.md#entitymove) |
+
 ### Card
 
 | Member | Kind and signature | Behavior | Canonical action |
@@ -585,7 +595,7 @@ refs.status:set("Round " .. state.round)
 if player.hand then refs.main_deck:draw_to(player.hand, 1) end
 ```
 
-The following required SPEC 04 members remain **spec** because #65 deliberately ships no binding: packaged-module `require`; `scene:spawn`/`scene:destroy`; Deck `draw_to_world`/`deal`/`insert_top`/`insert_bottom`; Die `set_value`; SnapPoint `detach`; Button `set_enabled`/`set_label`; Player `connected`/`role`/`message`; game callbacks `on_player_disconnect`/`on_player_removed`; entity callbacks `on_click`/`on_spawn`/`on_destroy`; and guard `can_click`. Generic entity movement/locking, group commands, object-library commands, and the registered player-facing deck/stack command surface likewise have no public Lua proxy method. The `rounds` and `teams` stdlib modules and `game:end` are not shipped. Unmapped surface is not permission to queue raw actions or invent method names.
+The following required SPEC 04 members remain **spec** because #65 deliberately ships no binding: packaged-module `require`; `scene:spawn`/`scene:destroy`; Deck `draw_to_world`/`deal`/`insert_top`/`insert_bottom`; Die `set_value`; SnapPoint `detach`; Button `set_enabled`/`set_label`; Player `connected`/`role`/`message`; game callbacks `on_player_disconnect`/`on_player_removed`; entity callbacks `on_click`/`on_spawn`/`on_destroy`; and guard `can_click`. Generic entity locking, group commands, object-library commands, and the registered player-facing deck/stack command surface likewise have no public Lua proxy method. The `rounds` and `teams` stdlib modules and `game:end` are not shipped. Unmapped surface is not permission to queue raw actions or invent method names.
 
 ## 6. Timers and prompts
 
@@ -677,7 +687,7 @@ Here the boolean allows the matching seat and denies every other seat; the secon
 
 ### Subscriber and subcommand order
 
-The shipped runtime discovers entity `script` components whose `scriptId` exists in the release, carrying their stable `bindingId`, `props`, and `entityId`. Global event callbacks run across all discovered bindings; entity events filter to the bound entity; timer events filter to the stored binding. Subscribers execute in lexicographically ascending `ScriptBindingId` order.
+The shipped runtime discovers entity `script` components whose `scriptId` exists in the release, carrying their stable `bindingId`, `props`, `entityId`, and optional `scope`. Global event callbacks run across all discovered bindings. The default `entity` scope delivers entity events and guards only for the bound entity. A `game`-scoped binding receives every entity event and player guard, with the affected proxy in `ctx.object`; this lets a single rules controller govern large physical sets without duplicating a script binding on every piece. Timer events still filter to the stored binding. Subscribers execute in lexicographically ascending `ScriptBindingId` order.
 
 Normal callbacks may queue deterministic subcommands. Commands from a callback execute FIFO inside the parent transaction, and their emitted events join the same deterministic event queue. These rules are observable and gameplay-significant. Never rely on filesystem order, Lua table-key order, editor display order, or renderer traversal order.
 
@@ -706,7 +716,7 @@ function on_press(ctx)
 end
 ```
 
-Every sandbox invocation requires a positive integer instruction budget and may set a positive memory budget. The desktop playtest currently supplies 50,000 instructions and 512 KiB of additional Lua memory per invocation; library callers choose their own values. Budget signals cannot be swallowed by `pcall`/`xpcall`. There is no separate shipped recursion or persistent-state byte limit, so this reference does not claim one; canonical extraction, instruction, memory, and command checks are the implemented boundaries.
+Every sandbox invocation requires a positive integer instruction budget and may set a positive memory budget. The desktop and live-table runtimes supply 50,000 instructions and 1 MiB of additional Lua memory per invocation; the larger bounded memory allowance supports game-scoped rules over several hundred physical entities without increasing the instruction or command budgets. Library callers choose their own values. Budget signals cannot be swallowed by `pcall`/`xpcall`. There is no separate shipped recursion or persistent-state byte limit, so this reference does not claim one; canonical extraction, instruction, memory, and command checks are the implemented boundaries.
 
 ## 9. Worked examples
 

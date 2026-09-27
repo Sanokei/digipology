@@ -123,6 +123,7 @@ describe("built-in catalog", () => {
         "builtin_tabletop_classics_checkers_2",
         ["builtin_tabletop_classics_checkers_1", "builtin_tabletop_classics_checkers_2"],
       ],
+      ["hearthlands", "builtin_hearthlands_1", ["builtin_hearthlands_1"]],
     ]);
     for (const game of BUILTIN_GAMES) {
       const latest = getBuiltinRelease(game.latestReleaseId)!;

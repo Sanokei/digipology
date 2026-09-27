@@ -11,7 +11,7 @@ const namespaceNames = [
   "state", "refs", "settings", "game", "scene", "players", "random", "timer", "ui", "data", "turns", "scores",
 ] as const;
 const proxyNames = [
-  "Card", "Deck", "Hand", "Container", "Die", "Counter", "Zone", "SnapPoint", "Button", "Text", "Player",
+  "Entity", "Card", "Deck", "Hand", "Container", "Die", "Counter", "Zone", "SnapPoint", "Button", "Text", "Player",
 ] as const;
 
 interface Entry {
