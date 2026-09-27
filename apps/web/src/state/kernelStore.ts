@@ -17,7 +17,7 @@ import {
 } from "digipology-lua";
 import type { OrderedAction, PlayerInfo, ResumeMessage, RoomEndedMessage } from "digipology-protocol";
 
-import type { ReleaseBundleDto } from "digipology-protocol/http";
+import type { PieceDefinitionDto, ReleaseBundleDto } from "digipology-protocol/http";
 
 export interface PredictionAction {
   type: string;
@@ -50,7 +50,7 @@ export interface KernelStoreSnapshot {
   /** Hash of confirmed state only. */
   stateHash: string | null;
   diagnostic: string | null;
-  definitions: Readonly<Record<string, { label?: string; color?: string; face?: unknown }>>;
+  definitions: Readonly<Record<string, PieceDefinitionDto>>;
   gameTitle: string | null;
   gameSlug: string | null;
   rules: string | null;
@@ -58,7 +58,7 @@ export interface KernelStoreSnapshot {
 
 export type ApplyStreamResult = { ok: true } | { ok: false; expected: number; actual: number };
 
-const PREDICTED_ACTION_TYPES = new Set(["entity.grab", "entity.drop", "entity.flip", "entity.rotate"]);
+const PREDICTED_ACTION_TYPES = new Set(["entity.grab", "entity.drop", "entity.flip", "entity.rotate", "group.move"]);
 const STALE_TIMER_FIRE_REASON = "Timer has already fired or was canceled";
 
 export function isPredictableAction(action: PredictionAction): boolean {
@@ -163,7 +163,7 @@ export class KernelStore {
     this.scriptRuntime = await createCreatorScriptRuntime({
       scripts: scriptsFromReleaseFiles(files),
       refs: { ...entityRefs, ...(bundle.refs ?? {}) },
-      definitions: (bundle.definitions ?? {}) as NonNullable<Parameters<typeof createCreatorScriptRuntime>[0]["definitions"]>,
+      definitions: (bundle.definitions ?? {}) as unknown as Readonly<Record<string, import("digipology-kernel").JsonValue>>,
       instructionBudget: 50_000,
       memoryBudgetBytes: 512 * 1024,
     });

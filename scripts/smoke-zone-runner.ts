@@ -23,6 +23,7 @@ import {
   loadSnapshot,
   snapshot,
   type CanonicalGameState,
+  type JsonValue,
   type GameSnapshot,
   type KernelEvent,
 } from "digipology-kernel";
@@ -352,7 +353,7 @@ async function connect(name: string, quick: QuickPlayResponse, release: ReleaseB
   const runtime = await createCreatorScriptRuntime({
     scripts: scriptsFromReleaseFiles(release.files),
     refs: { ...entityRefs, ...(release.refs ?? {}) },
-    definitions: release.definitions ?? {},
+    definitions: (release.definitions ?? {}) as unknown as Readonly<Record<string, JsonValue>>,
     instructionBudget: 50_000,
     memoryBudgetBytes: 512 * 1024,
   });

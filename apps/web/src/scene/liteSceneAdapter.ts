@@ -10,6 +10,7 @@ import {
   createHemisphericLight,
   createPlane,
   createSceneContext,
+  createSphere,
   createStandardMaterial,
   createTorus,
   disposeEngine,
@@ -35,6 +36,7 @@ import {
   type StandardMaterialProps,
   type Vec3,
 } from "@babylonjs/lite";
+import { faceSpecHash, renderFaceCanvas, type Canvas2DLike } from "digipology-faces";
 import type { EntityRecord, TransformComponent } from "digipology-kernel";
 
 import type { KernelStoreSnapshot } from "../state/kernelStore";
@@ -92,6 +94,9 @@ interface PieceGraph {
     elapsed: number;
     scaling: [number, number, number];
   };
+  faceMesh?: Mesh;
+  faceTextureKey?: string;
+  children?: Mesh[];
 }
 
 const LIFT_HEIGHT = 0.22;
@@ -104,6 +109,16 @@ const HIGHLIGHT_COLORS: Record<HighlightKind, [number, number, number]> = {
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(Math.max(value, minimum), maximum);
+}
+
+function pickedEntityId(mesh: { metadata?: unknown; parent?: unknown } | null | undefined): string | null {
+  let current: { metadata?: unknown; parent?: unknown } | null | undefined = mesh;
+  while (current !== null && current !== undefined) {
+    const entityId = (current.metadata as { entityId?: unknown } | undefined)?.entityId;
+    if (typeof entityId === "string") return entityId;
+    current = current.parent as { metadata?: unknown; parent?: unknown } | null | undefined;
+  }
+  return null;
 }
 
 function hexColor(value: string, fallback: string): [number, number, number] {
@@ -362,12 +377,13 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
   } | null = null;
   const highlights = {
     hover: null as string | null,
-    selected: null as string | null,
+    selected: new Set<string>(),
     held: new Set<string>(),
     locked: new Set<string>(),
   };
   let localHeld: string | null = null;
   const pieces = new Map<string, PieceGraph>();
+  const faceTextures = new Map<string, { texture: DynamicTexture2D; references: number }>();
 
   function requireMounted() {
     if (canvas === null || engine === null || scene === null || cameraGraph === null) {
@@ -381,7 +397,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
     const entityId = (piece.mesh.metadata as { entityId?: unknown } | undefined)?.entityId;
     if (typeof entityId === "string") {
       if (highlights.hover === entityId) color = HIGHLIGHT_COLORS.hover;
-      if (highlights.selected === entityId) color = HIGHLIGHT_COLORS.selected;
+      if (highlights.selected.has(entityId)) color = HIGHLIGHT_COLORS.selected;
       if (highlights.locked.has(entityId)) color = HIGHLIGHT_COLORS.locked;
       if (highlights.held.has(entityId)) color = HIGHLIGHT_COLORS.held;
       if (localHeld === entityId) color = HIGHLIGHT_COLORS.held;
@@ -392,8 +408,54 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
 
   function destroyPiece(piece: PieceGraph): void {
     if (scene === null) return;
+    for (const child of piece.children ?? []) removeFromScene(scene, child);
+    if (piece.faceMesh !== undefined) removeFromScene(scene, piece.faceMesh);
+    if (piece.faceTextureKey !== undefined) {
+      const cached = faceTextures.get(piece.faceTextureKey);
+      if (cached !== undefined) {
+        cached.references -= 1;
+        if (cached.references === 0) {
+          cached.texture.texture.destroy();
+          faceTextures.delete(piece.faceTextureKey);
+        }
+      }
+    }
     if (piece.labelMesh !== undefined) removeFromScene(scene, piece.labelMesh);
     removeFromScene(scene, piece.mesh);
+  }
+
+  function addFace(parent: Mesh, appearance: ReturnType<typeof piecePresentation>): { faceMesh: Mesh; faceTextureKey: string } | null {
+    if (appearance.face === undefined) return null;
+    const mounted = requireMounted();
+    const key = faceSpecHash(appearance.face);
+    let cached = faceTextures.get(key);
+    if (cached === undefined) {
+      const texture = createDynamicTexture(mounted.engine, 1024, 1024, { srgb: true });
+      const canvasElement = document.createElement("canvas");
+      canvasElement.width = 1024;
+      canvasElement.height = 1024;
+      const context = canvasElement.getContext("2d");
+      if (context !== null) renderFaceCanvas(context as unknown as Canvas2DLike, appearance.face, 1024, 1024);
+      updateDynamicTexture(mounted.engine, texture, canvasElement);
+      cached = { texture, references: 0 };
+      faceTextures.set(key, cached);
+    }
+    cached.references += 1;
+    const faceMaterial = createStandardMaterial();
+    faceMaterial.diffuseTexture = cached.texture;
+    faceMaterial.diffuseColor = [1, 1, 1];
+    faceMaterial.ambientColor = [1, 1, 1];
+    faceMaterial.specularColor = [0, 0, 0];
+    faceMaterial.backFaceCulling = false;
+    const faceMesh = createPlane(mounted.engine, { width: appearance.width * 0.98, height: appearance.depth * 0.98 });
+    faceMesh.name = `${parent.name}-face-plane`;
+    faceMesh.material = faceMaterial;
+    faceMesh.pickable = false;
+    setParent(faceMesh, parent);
+    faceMesh.position.set(0, appearance.height / 2 + 0.004, 0);
+    faceMesh.rotation.x = Math.PI / 2;
+    addToScene(mounted.scene, faceMesh);
+    return { faceMesh, faceTextureKey: key };
   }
 
   function makeMaterial(appearance: ReturnType<typeof piecePresentation>): StandardMaterialProps {
@@ -445,10 +507,11 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       components.deck === undefined && components.card === undefined && components.die === undefined) {
       return null;
     }
-    const definitionId = components.card?.definitionId ?? components.die?.definitionId;
+    const definitionId = components.appearance?.definitionId ?? components.card?.definitionId ?? components.die?.definitionId;
+    const definition = definitionId === undefined ? undefined : currentView?.definitions[definitionId];
     const appearance = piecePresentation(
       entity,
-      definitionId === undefined ? undefined : currentView?.definitions[definitionId],
+      definition,
     );
     const restingY = TABLE_SURFACE_Y + appearance.height / 2;
     const mesh = appearance.shape === "ring"
@@ -457,11 +520,14 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
           thickness: appearance.height,
           tessellation: 48,
         })
-      : appearance.shape === "cylinder"
+      : ["cylinder", "disc", "token", "hex", "pawn", "meeple"].includes(appearance.shape)
       ? createCylinder(mounted.engine, {
-          height: appearance.height,
+          height: appearance.shape === "pawn" || appearance.shape === "meeple" ? appearance.height * 0.72 : appearance.height,
           diameter: appearance.width,
-          tessellation: 48,
+          ...(appearance.shape === "hex" ? { tessellation: 6 }
+            : appearance.shape === "pawn" ? { tessellation: 24, diameterTop: appearance.width * 0.38, diameterBottom: appearance.width }
+            : appearance.shape === "meeple" ? { tessellation: 8, diameterTop: appearance.width, diameterBottom: appearance.width * 0.62 }
+            : { tessellation: 48 }),
         })
       : createBox(mounted.engine, {
           width: appearance.width,
@@ -478,14 +544,30 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
     const graph: PieceGraph = {
       mesh,
       material: pieceMaterial,
-      signature: piecePresentationSignature(entity),
+      signature: piecePresentationSignature(entity, definition),
       transformSignature: transformSignature(components.transform, restingY),
       restingY,
       grabbable: dependencies.sendAction !== undefined
         && components.grabbable?.enabled === true
         && components.grabbable.heldBy === null
-        && components.lockable?.locked !== true,
+        && components.lockable?.locked !== true
+        && !appearance.isBoard,
     };
+    const face = addFace(mesh, appearance);
+    if (face !== null) Object.assign(graph, face);
+    if (appearance.shape === "pawn" || appearance.shape === "meeple") {
+      const head = createSphere(mounted.engine, {
+        diameter: appearance.width * (appearance.shape === "pawn" ? 0.5 : 0.42),
+        segments: 20,
+      });
+      head.name = `${mesh.name}-head`;
+      head.material = pieceMaterial;
+      head.pickable = true;
+      setParent(head, mesh);
+      head.position.set(0, appearance.height * 0.39, 0);
+      addToScene(mounted.scene, head);
+      graph.children = [head];
+    }
     const targetScaling: [number, number, number] = [mesh.scaling.x, mesh.scaling.y, mesh.scaling.z];
     const targetY = mesh.position.y;
     graph.spawn = { elapsed: 0, fromY: targetY - 0.08, toY: targetY, toScaling: targetScaling };
@@ -636,6 +718,8 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       rendering = false;
       for (const piece of pieces.values()) destroyPiece(piece);
       pieces.clear();
+      for (const cached of faceTextures.values()) cached.texture.texture.destroy();
+      faceTextures.clear();
       if (scene !== null) disposeScene(scene);
       if (engine !== null) disposeEngine(engine);
       activeDrag = null;
@@ -672,12 +756,15 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
         if (existing === undefined) {
           const created = makePiece(entity);
           if (created !== null) pieces.set(id, created);
-        } else if (existing.signature !== piecePresentationSignature(entity)) {
+        } else {
+          const definitionId = entity.components.appearance?.definitionId ?? entity.components.card?.definitionId ?? entity.components.die?.definitionId;
+          const definition = definitionId === undefined ? undefined : view.definitions[definitionId];
+          if (existing.signature !== piecePresentationSignature(entity, definition)) {
           destroyPiece(existing);
           const created = makePiece(entity);
           if (created === null) pieces.delete(id);
           else pieces.set(id, created);
-        } else {
+          } else {
           const nextTransformSignature = transformSignature(entity.components.transform, existing.restingY);
           const correction = view.correction?.entityId === id && existing.lastCorrectionId !== view.correction.id
             ? view.correction
@@ -693,7 +780,9 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
           existing.grabbable = dependencies.sendAction !== undefined
             && entity.components.grabbable?.enabled === true
             && entity.components.grabbable.heldBy === null
-            && entity.components.lockable?.locked !== true;
+            && entity.components.lockable?.locked !== true
+            && definition?.shape !== "board";
+          }
         }
       }
     },
@@ -703,12 +792,12 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       try {
         const result = await pickAsync(picker, x, y, {
           filter: (mesh) => {
-            const entityId = (mesh.metadata as { entityId?: unknown } | undefined)?.entityId;
-            return typeof entityId === "string" && pieces.has(entityId);
+            const entityId = pickedEntityId(mesh);
+            return entityId !== null && pieces.has(entityId);
           },
         });
-        const entityId = (result.pickedMesh?.metadata as { entityId?: unknown } | undefined)?.entityId;
-        return result.hit && typeof entityId === "string" ? entityId : null;
+        const entityId = pickedEntityId(result.pickedMesh);
+        return result.hit ? entityId : null;
       } finally {
         pickPending = false;
       }
@@ -794,7 +883,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       finishDrag(pointerId, true);
     },
     setHighlight(entityId: string | null, kind: HighlightKind): void {
-      if (kind === "held" || kind === "locked") {
+      if (kind === "held" || kind === "locked" || kind === "selected") {
         const targets = highlights[kind];
         if (entityId === null) {
           const previous = [...targets];

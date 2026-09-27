@@ -116,8 +116,8 @@ export const AI_GAME_TOOL: DeepSeekTool = {
       title: { ...STR("Plain-text game title, 1 to 80 characters."), minLength: 1, maxLength: 80 },
       tagline: { ...STR("Plain-text one-sentence tagline, at most 240 characters."), maxLength: 240 },
       interactionMode: enumString(["sandbox", "scripted"], "Game interaction mode."),
-      minPlayers: { ...NUM("Integer player minimum from 1 through 64."), minimum: 1, maximum: 64, multipleOf: 1 },
-      maxPlayers: { ...NUM("Integer player maximum from 1 through 64."), minimum: 1, maximum: 64, multipleOf: 1 },
+      minPlayers: { ...NUM("Integer player minimum from 1 through 10."), minimum: 1, maximum: 10, multipleOf: 1 },
+      maxPlayers: { ...NUM("Integer player maximum from 1 through 10."), minimum: 1, maximum: 10, multipleOf: 1 },
       files: { type: "array", minItems: 1, maxItems: 256, items: fileSchema },
       settings: { type: "array", items: settingSchema },
       entities: { type: "array", items: entitySchema },
@@ -340,10 +340,13 @@ export function assembleAiGameDraft(
 
   let state: CanonicalGameState;
   try {
+    const settings = { ...authoring.settings };
+    if (authoring.interactionMode === "sandbox") settings.sandbox = true;
+    else delete settings.sandbox;
     state = createInitialState({
       releaseId,
       rng: { algorithm: DRAFT_RNG_ALGORITHM, state: authoring.rngSeed, draws: 0 },
-      settings: authoring.settings,
+      settings,
       seats: generatedSeats(authoring.maxPlayers, authoring.entities),
       entities: authoring.entities,
       scriptState: authoring.scriptState,
@@ -415,7 +418,7 @@ function normalizeAuthoring(raw: Record<string, unknown>):
   const minPlayers = playerCount(raw.minPlayers);
   const maxPlayers = playerCount(raw.maxPlayers);
   if (minPlayers === null || maxPlayers === null || minPlayers > maxPlayers) {
-    return invalidAuthoring("player limits must be integers from 1 to 64 with minPlayers <= maxPlayers");
+    return invalidAuthoring("player limits must be integers from 1 to 10 with minPlayers <= maxPlayers");
   }
   const files = normalizeFiles(raw.files);
   if (!files.ok) return files;
@@ -770,7 +773,7 @@ function slugToken(value: string): string {
 }
 
 function playerCount(value: unknown): number | null {
-  return Number.isSafeInteger(value) && (value as number) >= 1 && (value as number) <= 64
+  return Number.isSafeInteger(value) && (value as number) >= 1 && (value as number) <= 10
     ? value as number
     : null;
 }

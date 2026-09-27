@@ -28,8 +28,10 @@ export const PLAYTEST_MEMORY_BUDGET_BYTES = 512 * 1024;
 
 export const PLAYTEST_INTERACTION_ACTIONS = new Set([
   "entity.grab", "entity.drop", "entity.flip", "entity.rotate", "die.roll", "button.press",
-  "deck.shuffle", "deck.draw_to_container", "counter.set", "counter.add",
-  "entity.set_locked", "stack.remove_top", "prompt.respond", "seat.change",
+  "entity.spawn", "entity.delete", "entity.destroy", "entity.clone",
+  "deck.shuffle", "deck.draw_to_container", "deck.take_top", "deck.draw", "deck.deal", "deck.cut", "deck.search_take",
+  "container.take", "counter.set", "counter.add", "entity.set_locked",
+  "stack.merge", "stack.remove_top", "group.move", "group.flip", "group.rotate", "group.delete", "prompt.respond", "seat.change",
 ]);
 const REGISTERED_ACTIONS = new Set(builtInActions.map((definition) => definition.type));
 
@@ -74,7 +76,7 @@ export class PlaytestRuntime {
     const runtime = new PlaytestRuntime(bundle, await createCreatorScriptRuntime({
       scripts: scriptsFromReleaseFiles(bundle.files),
       refs: { ...entityRefs, ...(bundle.refs ?? {}) },
-      definitions: (bundle.definitions ?? {}) as NonNullable<Parameters<typeof createCreatorScriptRuntime>[0]["definitions"]>,
+      definitions: (bundle.definitions ?? {}) as unknown as Readonly<Record<string, import("digipology-kernel").JsonValue>>,
       instructionBudget: PLAYTEST_INSTRUCTION_BUDGET,
       memoryBudgetBytes: PLAYTEST_MEMORY_BUDGET_BYTES,
     }), onLog);

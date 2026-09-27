@@ -1,3 +1,5 @@
+import { validateFaceSpec, type FaceSpec } from "digipology-faces";
+
 export const CSRF_HEADER = "X-Digipology-CSRF";
 export const UPLOAD_BODY_LIMIT = 1024 * 1024;
 export const CHECKPOINT_ATTESTATION_INTERVAL = 200;
@@ -269,9 +271,24 @@ export interface ReleaseBundleDto {
   title?: string;
   /** Optional Markdown-lite rules. Renderers must treat this as untrusted plain text. */
   rules?: string;
-  definitions?: Record<string, { label?: string; color?: string; face?: unknown }>;
+  definitions?: Record<string, PieceDefinitionDto>;
   /** Stable editor-authored names mapped to immutable entity IDs. */
   refs?: Record<string, string>;
+}
+
+export const PIECE_SHAPES = ["box", "cylinder", "hex", "disc", "cube", "pawn", "meeple", "card", "board", "token", "ring"] as const;
+export type PieceShapeDto = typeof PIECE_SHAPES[number];
+export interface PieceSizeDto { w: number; d: number; h: number }
+export interface PieceDefinitionDto {
+  shape?: PieceShapeDto;
+  size?: PieceSizeDto;
+  color?: string;
+  backColor?: string;
+  label?: string;
+  backLabel?: string;
+  seatTint?: boolean;
+  face?: FaceSpec;
+  back?: FaceSpec;
 }
 
 export type ReleaseBundle = ReleaseBundleDto;
@@ -551,10 +568,10 @@ export function validateGameSummaryDto(
     return invalid("$.tagline", `tagline must contain at most ${GAME_TAGLINE_MAX_LENGTH} characters`);
   }
   if (!isPlayerCount(object.value.minPlayers)) {
-    return invalid("$.minPlayers", "minPlayers must be an integer from 1 to 64");
+    return invalid("$.minPlayers", "minPlayers must be an integer from 1 to 10");
   }
   if (!isPlayerCount(object.value.maxPlayers) || object.value.minPlayers > object.value.maxPlayers) {
-    return invalid("$.maxPlayers", "maxPlayers must be an integer from 1 to 64 and at least minPlayers");
+    return invalid("$.maxPlayers", "maxPlayers must be an integer from 1 to 10 and at least minPlayers");
   }
   if (typeof object.value.builtin !== "boolean") return invalid("$.builtin", "builtin must be a boolean");
   if (object.value.creatorHandle !== undefined &&
@@ -634,8 +651,8 @@ export function validateCreateGameRequest(
   }
   const minPlayers = object.value.minPlayers;
   const maxPlayers = object.value.maxPlayers;
-  if (!isPlayerCount(minPlayers)) return invalid("$.minPlayers", "minPlayers must be an integer from 1 to 64");
-  if (!isPlayerCount(maxPlayers)) return invalid("$.maxPlayers", "maxPlayers must be an integer from 1 to 64");
+  if (!isPlayerCount(minPlayers)) return invalid("$.minPlayers", "minPlayers must be an integer from 1 to 10");
+  if (!isPlayerCount(maxPlayers)) return invalid("$.maxPlayers", "maxPlayers must be an integer from 1 to 10");
   if (minPlayers > maxPlayers) return invalid("$.maxPlayers", "maxPlayers must be at least minPlayers");
   if (!isJsonObject(object.value.bundle)) return invalid("$.bundle", "bundle must be an object");
   return {
@@ -897,7 +914,7 @@ function releaseBundleShape(value: unknown):
     return shapeInvalid("rules must be a plain-text string no larger than 64 KiB");
   }
   if (object.definitions !== undefined && !validDefinitions(object.definitions)) {
-    return shapeInvalid("definitions must map IDs to optional label/color strings");
+    return shapeInvalid("definitions contain an invalid piece appearance");
   }
   if (object.refs !== undefined && !validRefs(object.refs)) {
     return shapeInvalid("refs must map safe names to non-empty entity IDs");
@@ -922,7 +939,7 @@ function releaseBundleShape(value: unknown):
       ...(typeof object.title === "string" ? { title: object.title } : {}),
       ...(typeof object.rules === "string" ? { rules: object.rules } : {}),
       ...(object.definitions === undefined ? {} : {
-        definitions: object.definitions as Record<string, { label?: string; color?: string; face?: unknown }>,
+        definitions: object.definitions as Record<string, PieceDefinitionDto>,
       }),
       ...(object.refs === undefined ? {} : { refs: object.refs as Record<string, string> }),
     },
@@ -1019,21 +1036,39 @@ function shapeInvalid(detail: string): { ok: false; detail: string } {
 
 function validDefinitions(value: unknown): boolean {
   if (!isJsonObject(value)) return false;
-  for (const definition of Object.values(value)) {
-    const record = strictRecord(definition, ["label", "color", "face"]);
+  for (const [id, definition] of Object.entries(value)) {
+    if (id.length < 1 || id.length > 128) return false;
+    const record = strictRecord(definition, [
+      "shape", "size", "color", "backColor", "label", "backLabel", "seatTint", "face", "back",
+    ]);
     if (!record.ok) return false;
-    if (record.value.label !== undefined && typeof record.value.label !== "string") return false;
-    if (record.value.color !== undefined && typeof record.value.color !== "string") return false;
-    if (record.value.face !== undefined && !isLooseJsonValue(record.value.face)) return false;
+    if (record.value.shape !== undefined && !PIECE_SHAPES.includes(record.value.shape as PieceShapeDto)) return false;
+    if (record.value.size !== undefined) {
+      const size = strictRecord(record.value.size, ["w", "d", "h"]);
+      if (!size.ok || !boundedFinite(size.value.w, 0.05, 40) || !boundedFinite(size.value.d, 0.05, 40) ||
+          !boundedFinite(size.value.h, 0.05, 40)) return false;
+    }
+    for (const field of ["color", "backColor"] as const) {
+      if (record.value[field] !== undefined && (typeof record.value[field] !== "string" || !/^#[0-9a-fA-F]{6}$/.test(record.value[field]))) return false;
+    }
+    for (const field of ["label", "backLabel"] as const) {
+      if (record.value[field] !== undefined && !plainDefinitionText(record.value[field])) return false;
+    }
+    if (record.value.seatTint !== undefined && typeof record.value.seatTint !== "boolean") return false;
+    const maxElements = record.value.shape === "board" ? 2_500 : 300;
+    if (record.value.face !== undefined && !validateFaceSpec(record.value.face, { maxElements }).ok) return false;
+    if (record.value.back !== undefined && !validateFaceSpec(record.value.back, { maxElements }).ok) return false;
   }
   return true;
 }
 
-function isLooseJsonValue(value: unknown): boolean {
-  if (value === null || typeof value === "string" || typeof value === "boolean") return true;
-  if (typeof value === "number") return Number.isFinite(value);
-  if (Array.isArray(value)) return value.every(isLooseJsonValue);
-  return isJsonObject(value) && Object.values(value).every(isLooseJsonValue);
+function boundedFinite(value: unknown, minimum: number, maximum: number): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= minimum && value <= maximum;
+}
+
+function plainDefinitionText(value: unknown): value is string {
+  return typeof value === "string" && Array.from(value).length <= 200 &&
+    !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value);
 }
 
 function validRefs(value: unknown): boolean {
@@ -1058,7 +1093,7 @@ function isReleasePath(value: string): boolean {
 }
 
 function isPlayerCount(value: unknown): value is number {
-  return Number.isSafeInteger(value) && (value as number) >= 1 && (value as number) <= 64;
+  return Number.isSafeInteger(value) && (value as number) >= 1 && (value as number) <= 10;
 }
 
 function isNonNegativeInteger(value: unknown): value is number {

@@ -190,7 +190,7 @@ export class RoomDO extends DurableObject<Env> {
     creatorUserId: string | null = null,
   ): boolean {
     if (this.room() !== null) return false;
-    if (!Number.isSafeInteger(capacity) || capacity < 1 || capacity > 64) return false;
+    if (!Number.isSafeInteger(capacity) || capacity < 1 || capacity > 10) return false;
     this.ctx.storage.transactionSync(() => {
       this.createSchema();
       this.ctx.storage.sql.exec(
@@ -216,7 +216,7 @@ export class RoomDO extends DurableObject<Env> {
     savedSnapshotDto: GameSnapshotDto,
     creatorUserId: string | null = null,
   ): boolean {
-    if (this.room() !== null || !Number.isSafeInteger(capacity) || capacity < 1 || capacity > 64) return false;
+    if (this.room() !== null || !Number.isSafeInteger(capacity) || capacity < 1 || capacity > 10) return false;
     let base: GameSnapshot;
     try {
       base = resumeBaseFromSave(savedSnapshotDto as GameSnapshot);

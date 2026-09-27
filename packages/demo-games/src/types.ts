@@ -1,8 +1,23 @@
+import type { FaceSpec } from "digipology-faces";
 import type { GameSnapshot } from "digipology-kernel";
 
 export type InteractionMode = "sandbox" | "scripted";
 
-export type PresentationDefinitions = Readonly<Record<string, unknown>>;
+export type PieceShape = "box" | "cylinder" | "hex" | "disc" | "cube" | "pawn" | "meeple" | "card" | "board" | "token" | "ring";
+
+export interface PieceDefinition {
+  readonly shape?: PieceShape;
+  readonly size?: { readonly w: number; readonly d: number; readonly h: number };
+  readonly color?: string;
+  readonly backColor?: string;
+  readonly label?: string;
+  readonly backLabel?: string;
+  readonly seatTint?: boolean;
+  readonly face?: FaceSpec;
+  readonly back?: FaceSpec;
+}
+
+export type PresentationDefinitions = Readonly<Record<string, PieceDefinition>>;
 
 export interface BuiltinCoverSpec {
   readonly palette: string[];

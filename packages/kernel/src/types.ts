@@ -107,6 +107,12 @@ export interface CardComponent {
   faceUp: boolean;
 }
 
+/** Presentation selection only; game rules must not interpret this component. */
+export interface AppearanceComponent {
+  definitionId: string;
+  seat?: SeatId;
+}
+
 export interface ContainerComponent {
   items: EntityId[];
   capacity: number | null;
@@ -172,6 +178,16 @@ export interface ButtonComponent {
   label: string;
 }
 
+/** Version-pinned presentation metadata for sandbox library objects. */
+export interface LibraryComponent {
+  version: 1;
+  itemId: string;
+  label: string;
+  color: string;
+  shape: string;
+  seat?: string;
+}
+
 export interface EntityComponents {
   transform?: TransformComponent;
   grabbable?: GrabbableComponent;
@@ -180,6 +196,7 @@ export interface EntityComponents {
   stackable?: StackableComponent;
   tags?: TagsComponent;
   card?: CardComponent;
+  appearance?: AppearanceComponent;
   container?: ContainerComponent;
   deck?: DeckComponent;
   counter?: CounterComponent;
@@ -190,6 +207,7 @@ export interface EntityComponents {
   text?: TextComponent;
   button?: ButtonComponent;
   script?: ScriptBindingComponent;
+  library?: LibraryComponent;
   [componentType: string]: unknown;
 }
 

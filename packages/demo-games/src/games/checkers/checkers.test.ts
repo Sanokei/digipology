@@ -8,8 +8,9 @@ import {
   type TransformComponent,
 } from "digipology-kernel";
 import { materializeBuiltinRelease } from "../../authoring";
-import { buildCheckersRelease } from "./build";
-import generatedRelease from "./release-1.generated";
+import { buildCheckersRelease, buildCheckersRelease1 } from "./build";
+import generatedRelease1 from "./release-1.generated";
+import generatedRelease2 from "./release-2.generated";
 
 function dropTransform(state: CanonicalGameState, squareId: string): TransformComponent {
   const square = state.entities[squareId]?.components.transform;
@@ -22,7 +23,7 @@ function dropTransform(state: CanonicalGameState, squareId: string): TransformCo
 }
 
 function replay(): CanonicalGameState {
-  let state = loadSnapshot(generatedRelease.initialSnapshot);
+  let state = loadSnapshot(generatedRelease1.initialSnapshot);
   const action = (actor: OrderedActionInput["actor"], type: string, payload: unknown): void => {
     const result = applyOrdered(state, {
       sequence: state.sequence + 1,
@@ -52,17 +53,30 @@ function replay(): CanonicalGameState {
 
 describe("Tabletop Classics — Checkers", () => {
   test("matches the immutable generated release", () => {
-    expect(materializeBuiltinRelease(buildCheckersRelease())).toEqual(generatedRelease);
+    expect(materializeBuiltinRelease(buildCheckersRelease1())).toEqual(generatedRelease1);
+    expect(materializeBuiltinRelease(buildCheckersRelease())).toEqual(generatedRelease2);
   });
 
   test("loads the authored board through the real kernel", () => {
-    const state = loadSnapshot(generatedRelease.initialSnapshot);
+    const state = loadSnapshot(generatedRelease2.initialSnapshot);
     expect(Object.values(state.entities).filter((entity) => entity.components["snap-point"] !== undefined)).toHaveLength(64);
     expect(Object.values(state.entities).filter((entity) => entity.components.tags?.values.includes("man") === true)).toHaveLength(24);
     expect(state.seats).toEqual({
       seat_1: { id: "seat_1", playerId: null },
       seat_2: { id: "seat_2", playerId: null },
     });
+  });
+
+  test("ships FaceSpec board art and seat-tinted men with crown backs in release 2", () => {
+    expect(generatedRelease2.definitions.checkerboard.face.elements).toHaveLength(64);
+    for (const id of ["red_man", "black_man"] as const) {
+      const definition = generatedRelease2.definitions[id];
+      expect(definition.seatTint).toBeTrue();
+      expect(definition.back.elements).toContainEqual(expect.objectContaining({ type: "icon", name: "crown" }));
+    }
+    expect(generatedRelease1.initialSnapshot.stateHash).toBe(
+      "sha256:61f0cda72fbcaee442bda5198d4adca7a43807014d931514da6790844ee9b615",
+    );
   });
 
   test("replays a move and crowning sequence to a fixed state hash", () => {

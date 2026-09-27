@@ -1,4 +1,5 @@
 import type { CanonicalGameState, TransformComponent } from "digipology-kernel";
+import type { PieceDefinitionDto } from "digipology-protocol/http";
 import { cardPresentation } from "./cardPresentation";
 
 export interface HandStripItem {
@@ -67,7 +68,7 @@ export function handPlayActions(
 export function localHandItems(
   state: CanonicalGameState | null,
   playerId: string,
-  definitions: Readonly<Record<string, { label?: string; color?: string; face?: unknown }>>,
+  definitions: Readonly<Record<string, PieceDefinitionDto>>,
 ): HandStripItem[] {
   if (state === null) return [];
   const handId = localHandId(state, playerId);
@@ -76,7 +77,7 @@ export function localHandItems(
   return items.flatMap((entityId) => {
     const entity = state.entities[entityId];
     if (entity === undefined) return [];
-    const definitionId = entity.components.card?.definitionId;
+    const definitionId = entity.components.appearance?.definitionId ?? entity.components.card?.definitionId;
     const presentation = cardPresentation(definitionId === undefined ? undefined : definitions[definitionId]);
     return [{
       entityId,

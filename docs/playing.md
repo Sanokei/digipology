@@ -68,7 +68,9 @@ On narrow phones, the toolbar becomes a bottom sheet. Panels and the hand tray s
 
 ## Inspect and object actions
 
-Inspect is a local, read-only view: it does not take a game action. Owned cards show their face, while a face-down card you do not own stays a card back. Open the object action menu with right-click on desktop or a hold on touch. The menu only offers actions the object supports, such as Flip, Roll, Press, Draw to hand, Shuffle, counter changes, taking a stack top, or sandbox Lock/Unlock. It also identifies another player who is holding the object.
+Inspect is a local, read-only view: it does not take a game action. Owned cards show their face, while a face-down card you do not own stays a card back. Hold **Alt/Option** while hovering an owned or face-up card for a large local preview; hidden card faces are never revealed. Open the object action menu with right-click on desktop or a hold on touch. Its nested Draw and Deal menus, Search, Shuffle, Cut, Flip, Rotate, Lock, Group, and sandbox-only Clone/Delete entries appear only when supported. Search is private; the shared log only reports that a player is searching.
+
+Sandbox releases also show an **Objects** menu. Choose a categorized, versioned built-in object to spawn it at the current table pointer (or table center). This menu is unavailable in releases that do not opt into spawning.
 
 ## Chat, cursors, pings, and controls
 
@@ -78,12 +80,13 @@ Other players' pointers appear over the table in their seat color and disappear 
 
 Desktop bindings:
 
-- **LMB drag** moves a piece; **RMB drag** orbits; **MMB drag** pans; the wheel zooms.
-- **Q / E** rotates a held or hovered object left/right in deterministic 15° steps. The object menu exposes the same rotate actions.
-- **F** flips a held or hovered card. **R** rolls a hovered die or shuffles a hovered deck.
+- **LMB drag** moves a piece. Drag empty table space to box-select; **Ctrl/Cmd-click** toggles one object in the selection. **RMB drag** orbits, **MMB drag** pans, and the wheel zooms.
+- Dragging a deck takes its top card. Hold **Shift** while dragging a deck to move the whole deck. Compatible nearby snap points show a ghost pose before the drop.
+- **Q / E** rotates a held, hovered, or selected group left/right in deterministic 15° steps. **F** flips it. Group changes are atomic.
+- Over a deck, **1–9** draws that many cards to your hand. Over a die, **R** rolls. In sandbox, **Delete** removes the selection and **Ctrl/Cmd+C**, then **Ctrl/Cmd+V**, clones it. **Esc** clears selection.
 - The wheel rotates a held object, **Space** resets the camera, and **?** opens the complete controls overlay.
 
-Touch keeps tap/drag, long-press actions, two-finger camera movement, and pinch zoom. Rotation is available from the long-press object menu; two-finger twist remains reserved so it does not conflict with camera pan and pinch.
+Touch keeps tap/drag, long-press actions, two-finger camera movement, and pinch zoom. Use the selection-mode toggle to tap multiple objects, then use the long-press menu for group operations. Rotation is available from that menu; two-finger twist remains reserved so it does not conflict with camera pan and pinch.
 
 ## Reconnecting and synchronizing
 

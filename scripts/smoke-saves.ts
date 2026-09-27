@@ -12,6 +12,7 @@ import {
   snapshot,
   type CanonicalGameState,
   type GameSnapshot,
+  type JsonValue,
 } from "digipology-kernel";
 import {
   createCreatorScriptRuntime,
@@ -273,7 +274,7 @@ async function connect(name: string, credentials: RoomCredentials, release: Rele
     runtime = await createCreatorScriptRuntime({
       scripts: scriptsFromReleaseFiles(release.files),
       refs: { ...entityRefs, ...(release.refs ?? {}) },
-      definitions: release.definitions ?? {},
+      definitions: (release.definitions ?? {}) as unknown as Readonly<Record<string, JsonValue>>,
       instructionBudget: 50_000,
       memoryBudgetBytes: 512 * 1024,
     });

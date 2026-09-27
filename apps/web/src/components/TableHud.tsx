@@ -63,10 +63,13 @@ export function TableMenuBar({ gameTitle, playerCount, isHost, activePanel, mobi
         else if (entry.id !== "objects") onPanel(activePanel === entry.id ? null : entry.id);
       }}><HudIcon name={ICONS[entry.id] ?? "help"} /><span>{entry.label}</span>{entry.id === "chat" && unreadChat > 0 ? <b>{Math.min(99, unreadChat)}</b> : null}</button>)}</nav>
     <button className="table-hudbar__mobile" type="button" aria-expanded={mobileOpen} onClick={onToggleMobile}><HudIcon name="game" /><span>{playerCount}</span></button>
-    {mobileOpen ? <nav className="table-hudbar__sheet table-sheet" aria-label="Table tools">{entries.map((entry) => <button key={entry.id} type="button" onClick={() => {
-      if (entry.id === "save") onSave(); else if (entry.id !== "objects") onPanel(entry.id);
-      onToggleMobile();
-    }}><HudIcon name={ICONS[entry.id] ?? "help"} /><span>{entry.label}</span></button>)}</nav> : null}
+    {mobileOpen ? <nav className="table-hudbar__sheet table-sheet" aria-label="Table tools">{entries.map((entry) =>
+      entry.id === "objects" && objectsMenu !== undefined
+        ? <div className="table-hudbar__slot" key={entry.id}>{objectsMenu}</div>
+        : <button key={entry.id} type="button" onClick={() => {
+          if (entry.id === "save") onSave(); else if (entry.id !== "objects") onPanel(entry.id);
+          onToggleMobile();
+        }}><HudIcon name={ICONS[entry.id] ?? "help"} /><span>{entry.label}</span></button>)}</nav> : null}
   </header>;
 }
 

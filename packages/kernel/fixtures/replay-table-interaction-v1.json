@@ -1,0 +1,38 @@
+{
+  "fixtureVersion": 1,
+  "initialSnapshot": {
+    "formatVersion": 1,
+    "kernelVersion": 1,
+    "releaseId": "replay-table-interaction-v1",
+    "sequence": 0,
+    "state": {
+      "entities": {
+        "hand_a": { "components": { "container": { "capacity": null, "items": [], "ordering": "canonical", "visibility": "owner:seat_a" }, "hand": { "canonicalOrder": true, "owner": "seat_a" } }, "id": "hand_a" },
+        "hand_b": { "components": { "container": { "capacity": null, "items": [], "ordering": "canonical", "visibility": "owner:seat_b" }, "hand": { "canonicalOrder": true, "owner": "seat_b" } }, "id": "hand_b" }
+      },
+      "kernelVersion": 1,
+      "players": { "alice": { "id": "alice" }, "bob": { "id": "bob" } },
+      "prompts": {},
+      "releaseId": "replay-table-interaction-v1",
+      "rng": { "algorithm": "sfc32-v1", "draws": 0, "state": [3447947570, 2209172392, 634850402, 2627040405] },
+      "schemaVersion": 1,
+      "scriptState": {},
+      "seats": {
+        "seat_a": { "handId": "hand_a", "id": "seat_a", "playerId": "alice" },
+        "seat_b": { "handId": "hand_b", "id": "seat_b", "playerId": "bob" }
+      },
+      "sequence": 0,
+      "settings": { "sandbox": true }
+    },
+    "stateHash": "sha256:057908f307c908bc8d24a0aebab4d6c79519a026fb3bc7b461a091ca43e0db39"
+  },
+  "actions": [
+    { "sequence": 1, "actionId": "spawn", "actor": { "type": "player", "playerId": "alice" }, "action": { "type": "entity.spawn", "payload": { "libraryId": "cards_standard_54", "transform": { "position": { "x": 0, "y": 0.08, "z": 0 }, "rotation": { "x": 0, "y": 0, "z": 0, "w": 1 }, "scale": { "x": 1, "y": 1, "z": 1 } } } } },
+    { "sequence": 2, "actionId": "deal", "actor": { "type": "player", "playerId": "alice" }, "action": { "type": "deck.deal", "payload": { "deckId": "ent_1_0", "count": 1 } } },
+    { "sequence": 3, "actionId": "take-a", "actor": { "type": "player", "playerId": "alice" }, "action": { "type": "deck.take_top", "payload": { "deckId": "ent_1_0" } } },
+    { "sequence": 4, "actionId": "take-b", "actor": { "type": "player", "playerId": "alice" }, "action": { "type": "deck.take_top", "payload": { "deckId": "ent_1_0" } } },
+    { "sequence": 5, "actionId": "merge", "actor": { "type": "player", "playerId": "alice" }, "action": { "type": "stack.merge", "payload": { "sourceId": "ent_1_51", "targetId": "ent_1_52", "at": "top" } } }
+  ],
+  "expectedFinalStateHash": "sha256:7278dfb2eb5a2696ee175c57deee0c4273982c198f301cd1ebb6d9fcda2ac081",
+  "expectedEventTypes": ["entity.spawned", "deck.dealt", "deck.taken", "deck.taken", "deck.merged"]
+}

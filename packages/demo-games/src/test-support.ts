@@ -40,7 +40,7 @@ export async function createBuiltinCreatorRuntime(releaseId: string) {
   return createCreatorScriptRuntime({
     scripts: scriptsFromReleaseFiles(release.files),
     refs: release.refs ?? {},
-    definitions: (release.definitions ?? {}) as Readonly<Record<string, LuaValue>>,
+    definitions: (release.definitions ?? {}) as unknown as Readonly<Record<string, LuaValue>>,
     instructionBudget: 50_000,
     memoryBudgetBytes: 512 * 1024,
   });

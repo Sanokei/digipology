@@ -37,7 +37,7 @@ interface FakeMaterial {
 
 interface FakeMesh {
   kind: "mesh";
-  shape: "box" | "cylinder" | "plane" | "torus";
+  shape: "box" | "cylinder" | "plane" | "torus" | "sphere";
   name: string;
   position: FakeVec3;
   scaling: FakeVec3;
@@ -102,6 +102,7 @@ const fakeState: {
   createdCylinders: FakeMesh[];
   createdToruses: FakeMesh[];
   createdPlanes: FakeMesh[];
+  createdSpheres: FakeMesh[];
   markedMaterials: FakeMaterial[];
   controlAttachListenerCounts: number[];
   controlDetachCount: number;
@@ -114,6 +115,7 @@ const fakeState: {
   createdCylinders: [],
   createdToruses: [],
   createdPlanes: [],
+  createdSpheres: [],
   markedMaterials: [],
   controlAttachListenerCounts: [],
   controlDetachCount: 0,
@@ -166,7 +168,7 @@ function rotateVector(q: QuaternionLike, v: [number, number, number]): [number, 
   return [p.x, p.y, p.z];
 }
 
-function mesh(shape: "box" | "cylinder" | "plane" | "torus"): FakeMesh {
+function mesh(shape: "box" | "cylinder" | "plane" | "torus" | "sphere"): FakeMesh {
   return {
     kind: "mesh",
     shape,
@@ -190,6 +192,7 @@ function resetFakeState(): void {
   fakeState.createdCylinders = [];
   fakeState.createdToruses = [];
   fakeState.createdPlanes = [];
+  fakeState.createdSpheres = [];
   fakeState.markedMaterials = [];
   fakeState.controlAttachListenerCounts = [];
   fakeState.controlDetachCount = 0;
@@ -298,8 +301,13 @@ mock.module("@babylonjs/lite", () => ({
     fakeState.createdPlanes.push(result);
     return result;
   },
+  createSphere: (): FakeMesh => {
+    const result = mesh("sphere");
+    fakeState.createdSpheres.push(result);
+    return result;
+  },
   createStandardMaterial: (): FakeMaterial => ({}),
-  createDynamicTexture: (): object => ({}),
+  createDynamicTexture: (): object => ({ texture: { destroy: () => undefined } }),
   updateDynamicTexture: (): void => undefined,
   createGpuPicker: (): FakePicker => {
     const picker = { disposed: false };

@@ -176,7 +176,7 @@ local board = scene:find("Board")
 local enemies = scene:query({ tags = { "enemy", "unit" } })
 ```
 
-`scene:spawn` and `scene:destroy` are omitted from creator API v1 because #64 did not register backing actions.
+The kernel registers sandbox-gated `entity.spawn`, `entity.delete`, and `entity.clone`, but creator API v1 intentionally exposes no `scene:spawn` or `scene:destroy` binding. Scripts cannot use the UI-only object library surface or bypass release permissions by queueing raw actions.
 
 ### `players`
 
@@ -469,7 +469,7 @@ if not self.is_face_up then self:flip() end
 | `shuffle` | `deck:shuffle()` | Reorders with canonical RNG; caller never supplies the result. | [`deck.shuffle`](./actions.md#deckshuffle) |
 | `draw_to` | `deck:draw_to(target: Container, count?: number)` | Draws canonical top card identity/identities to a container; `count` defaults to `1`. | [`deck.draw_to_container`](./actions.md#deckdraw_to_container) |
 
-`draw_to_world`, `deal`, `insert_top`, and `insert_bottom` are omitted because #64 provides no exact backing action for those signatures.
+The kernel also registers player-facing `deck.draw`, `deck.take_top`, `deck.deal`, `deck.cut`, `deck.search_take`, and `stack.merge`. Creator API v1 intentionally exposes no new proxy methods for them: `draw_to`, backed by `deck.draw_to_container`, remains the safe scripted primitive. `draw_to_world`, `deal`, `insert_top`, and `insert_bottom` remain omitted.
 
 ### Hand
 
@@ -585,7 +585,7 @@ refs.status:set("Round " .. state.round)
 if player.hand then refs.main_deck:draw_to(player.hand, 1) end
 ```
 
-The following required SPEC 04 members remain **spec** because #65 deliberately ships no binding: packaged-module `require`; `scene:spawn`/`scene:destroy`; Deck `draw_to_world`/`deal`/`insert_top`/`insert_bottom`; Die `set_value`; SnapPoint `detach`; Button `set_enabled`/`set_label`; Player `connected`/`role`/`message`; game callbacks `on_player_disconnect`/`on_player_removed`; entity callbacks `on_click`/`on_spawn`/`on_destroy`; and guard `can_click`. Generic entity movement/locking and the registered stack command surface likewise have no public Lua proxy method. The `rounds` and `teams` stdlib modules and `game:end` are not shipped. Unmapped surface is not permission to queue raw actions or invent method names.
+The following required SPEC 04 members remain **spec** because #65 deliberately ships no binding: packaged-module `require`; `scene:spawn`/`scene:destroy`; Deck `draw_to_world`/`deal`/`insert_top`/`insert_bottom`; Die `set_value`; SnapPoint `detach`; Button `set_enabled`/`set_label`; Player `connected`/`role`/`message`; game callbacks `on_player_disconnect`/`on_player_removed`; entity callbacks `on_click`/`on_spawn`/`on_destroy`; and guard `can_click`. Generic entity movement/locking, group commands, object-library commands, and the registered player-facing deck/stack command surface likewise have no public Lua proxy method. The `rounds` and `teams` stdlib modules and `game:end` are not shipped. Unmapped surface is not permission to queue raw actions or invent method names.
 
 ## 6. Timers and prompts
 

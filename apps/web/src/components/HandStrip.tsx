@@ -34,6 +34,7 @@ export function HandStrip({
   interactionsPaused = false,
   projectToTable,
   onDragPlayed,
+  seatColor,
 }: {
   items: readonly HandStripItem[];
   roomId?: string;
@@ -41,6 +42,7 @@ export function HandStrip({
   interactionsPaused?: boolean;
   projectToTable?: (clientX: number, clientY: number) => { x: number; y: number; z: number } | null;
   onDragPlayed?: () => void;
+  seatColor?: string;
 }) {
   const [inspected, setInspected] = useState<HandStripItem | null>(null);
   const [sortMode, setSortMode] = useState<HandSortMode>(() => initialSort(roomId));
@@ -70,7 +72,8 @@ export function HandStrip({
 
   return (
     <>
-      <section className={`hand-strip${items.length === 0 ? " hand-strip--empty" : ""}`} aria-label="Your hand">
+      <section className={`hand-strip${items.length === 0 ? " hand-strip--empty" : ""}`} aria-label="Your hand"
+        style={seatColor === undefined ? undefined : { "--seat-color": seatColor } as CSSProperties}>
         <div className="hand-strip__heading"><span>Hand</span><em aria-label={`${items.length} cards`}>{items.length}</em></div>
         <label className="hand-strip__sort">Sort<select value={sortMode} onChange={(event) => {
           const next = event.currentTarget.value === "label" ? "label" : "none";

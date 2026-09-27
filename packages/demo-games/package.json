@@ -42,6 +42,7 @@
   ],
   "devDependencies": {
     "digipology-canonical-json": "workspace:*",
+    "digipology-faces": "workspace:*",
     "digipology-covers": "workspace:*",
     "digipology-kernel": "workspace:*",
     "digipology-lua": "workspace:*"

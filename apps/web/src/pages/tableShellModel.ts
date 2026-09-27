@@ -1,5 +1,6 @@
 import type { CanonicalGameState } from "digipology-kernel";
 import type { PlayerInfo } from "digipology-protocol";
+import { seatPaletteEntry, seatPaletteIndex } from "../seatPalette";
 
 export type TablePanelId = "players" | "chat" | "rules" | "log" | "settings" | "help" | "game" | null;
 
@@ -23,8 +24,6 @@ export function tableMenuEntries(isHost: boolean): TableMenuEntry[] {
     { id: "help", label: "Help", shortcut: "?" },
   ];
 }
-
-const SEAT_COLORS = ["#ef6461", "#4ea5ff", "#f3c969", "#55d6a7", "#b884ff", "#ff8f4e", "#56d8e4", "#f078b8"];
 
 export interface SeatPickerSeat {
   id: string;
@@ -51,8 +50,8 @@ export function seatPickerSeats(
     const occupant = typeof playerId === "string" ? playerById.get(playerId) ?? null : null;
     return {
       id,
-      color: SEAT_COLORS[index % SEAT_COLORS.length]!,
-      pattern: index % 4,
+      color: seatPaletteEntry(id).color,
+      pattern: seatPaletteIndex(id) % 4,
       x: 50 - Math.cos(angle) * 40,
       y: 50 + Math.sin(angle) * 37,
       occupant,

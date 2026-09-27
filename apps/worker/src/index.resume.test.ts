@@ -1,6 +1,6 @@
 import { Database, type SQLQueryBindings } from "bun:sqlite";
 import { expect, mock, test } from "bun:test";
-import { applyOrdered, applyOrderedWithScripts, createInitialState, snapshot, type OrderedActionInput } from "digipology-kernel";
+import { applyOrdered, applyOrderedWithScripts, createInitialState, snapshot, type JsonValue, type OrderedActionInput } from "digipology-kernel";
 import { getBuiltinRelease } from "digipology-demo-games";
 import { createCreatorScriptRuntime, scriptsFromReleaseFiles } from "../../../packages/lua/src/creator-runtime";
 import { createBuiltinInitialState } from "./initial-state";
@@ -78,7 +78,7 @@ test.each(["missing", "null"])("legacy %s host backfill survives reconnect and c
   db.close();
 });
 
-test.each([{ seatIds: ["seat_2"] }, { seatIds: Array.from({ length: 12 }, (_, i) => `seat_${i + 2}`) }])(
+test.each([{ seatIds: ["seat_2"] }, { seatIds: Array.from({ length: 8 }, (_, i) => `seat_${i + 2}`) }])(
   "staggered joins preserve saved seat allocation: %j", async ({ seatIds }) => {
     const { db, room } = harness();
     const saved = createInitialState({ releaseId: "saved", rng: { algorithm: "sfc32-v1", state: [1, 2, 3, 4], draws: 0 } });
@@ -86,7 +86,7 @@ test.each([{ seatIds: ["seat_2"] }, { seatIds: Array.from({ length: 12 }, (_, i)
       saved.players[id] = { id };
       saved.seats[id] = { id, playerId: id };
     }
-    room.initFromSave("sparse", "SPARSE", "saved", 20, snapshot(saved));
+    room.initFromSave("sparse", "SPARSE", "saved", 10, snapshot(saved));
     const host = await join(room, "Host");
     await internals(room).startIfNeeded();
     const sorted = [...seatIds].sort();
@@ -108,13 +108,26 @@ test.each([{ seatIds: ["seat_2"] }, { seatIds: Array.from({ length: 12 }, (_, i)
   },
 );
 
+test("admits ten seats end to end and rejects the eleventh", async () => {
+  const { db, room } = harness();
+  expect(room.init("ten", "TENSEATS", "builtin_first_deal_1", 10)).toBeTrue();
+  const joined = [];
+  for (let index = 1; index <= 10; index += 1) joined.push(await join(room, `Player ${index}`));
+  expect(joined).toHaveLength(10);
+  expect(new Set(internals(room).players().map((player) => player.playerId)).size).toBe(10);
+  expect((await room.join("Player 11")).status).toBe("full");
+  db.close();
+});
+
 test.each([false, true])("host-first resume restores score, turn and prompt; repeat save=%s", async (repeat) => {
   let { db, room } = harness();
   const release = getBuiltinRelease("builtin_zone_runner_2")!;
-  const runtime = await createCreatorScriptRuntime({ scripts: scriptsFromReleaseFiles(release.files),
+  const runtime = await createCreatorScriptRuntime({
+    scripts: scriptsFromReleaseFiles(release.files),
     refs: release.refs ?? {},
-    definitions: (release.definitions ?? {}) as Record<string, { label?: string; color?: string }>,
-    instructionBudget: 50_000 });
+    definitions: (release.definitions ?? {}) as unknown as Readonly<Record<string, JsonValue>>,
+    instructionBudget: 50_000,
+  });
   try {
     const initial = createBuiltinInitialState("builtin_zone_runner_2", [
       { playerId: "alice", displayName: "Alice" }, { playerId: "bob", displayName: "Bob" },

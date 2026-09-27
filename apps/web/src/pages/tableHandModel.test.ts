@@ -32,6 +32,22 @@ test("local label sorting is stable and leaves canonical order untouched", () =>
   expect(canonical.map((item) => item.entityId)).toEqual(["c2", "c3", "c1"]);
 });
 
+test("hand presentation follows appearance definitions and renders FaceSpec art", () => {
+  const state = {
+    seats: { seat_1: { id: "seat_1", playerId: "p1", handId: "hand" } },
+    entities: {
+      hand: { id: "hand", components: { hand: { owner: "seat_1", canonicalOrder: true }, container: { items: ["card"], capacity: 10, ordering: "canonical", visibility: "owner:seat_1" } } },
+      card: { id: "card", components: { appearance: { definitionId: "moon" }, card: { definitionId: "legacy", faceUp: false } } },
+    },
+  } as unknown as CanonicalGameState;
+  const [item] = localHandItems(state, "p1", {
+    moon: { label: "Moon", color: "#123456", face: { background: "#ffffff", elements: [{ type: "text", x: 500, y: 500, text: "Moon", font: "sans", size: 80 }] } },
+  });
+  expect(item).toMatchObject({ label: "Moon", color: "#123456" });
+  expect(item?.imageUrl).toStartWith("data:image/svg+xml");
+  expect(item?.imageUrl).toContain("Moon");
+});
+
 test("playing a tray card builds a grab/drop burst at the projected table point", () => {
   expect(handPlayActions(
     { entityId: "card", label: "Ace", color: "#ffffff" },

@@ -1,8 +1,11 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export interface ObjectContextMenuAction {
   id: string;
   label: string;
+  icon?: string;
+  shortcut?: string;
+  children?: readonly ObjectContextMenuAction[];
   disabled?: boolean;
   run(): void;
 }
@@ -24,6 +27,7 @@ export function ObjectContextMenu({
 }) {
   const menuRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const [submenu, setSubmenu] = useState<string | null>(null);
   const estimatedHeight = Math.min(64 + actions.length * 44, 520);
   useEffect(() => {
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -63,17 +67,30 @@ export function ObjectContextMenu({
         }}
       >
         <header><strong>{label}</strong>{heldBy === null || heldBy === undefined ? null : <small>Held by {heldBy}</small>}</header>
-        {actions.map((action) => (
+        {actions.map((action) => <div className="object-menu__item" key={action.id}>
           <button
-            key={action.id}
             type="button"
             role="menuitem"
+            aria-haspopup={action.children === undefined ? undefined : "menu"}
+            aria-expanded={action.children === undefined ? undefined : submenu === action.id}
             disabled={action.disabled}
-            onClick={() => { action.run(); onDismiss(); }}
+            onClick={() => {
+              if (action.children !== undefined) setSubmenu((current) => current === action.id ? null : action.id);
+              else { action.run(); onDismiss(); }
+            }}
           >
-            {action.label}
+            <span className="object-menu__icon" aria-hidden="true">{action.icon ?? ""}</span>
+            <span>{action.label}</span>
+            {action.shortcut === undefined ? null : <kbd>{action.shortcut}</kbd>}
+            {action.children === undefined ? null : <span className="object-menu__arrow" aria-hidden="true">▶</span>}
           </button>
-        ))}
+          {action.children === undefined || submenu !== action.id ? null : <div className="object-menu__submenu" role="menu" aria-label={action.label}>
+            {action.children.map((child) => <button key={child.id} type="button" role="menuitem" disabled={child.disabled} onClick={() => { child.run(); onDismiss(); }}>
+              <span className="object-menu__icon" aria-hidden="true">{child.icon ?? ""}</span><span>{child.label}</span>
+              {child.shortcut === undefined ? null : <kbd>{child.shortcut}</kbd>}
+            </button>)}
+          </div>}
+        </div>)}
       </div>
     </div>
   );

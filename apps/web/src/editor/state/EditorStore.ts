@@ -379,8 +379,8 @@ export class EditorStore {
       Object.assign(draft, patch);
       if (draft.title.trim() === "") throw new TypeError("The title cannot be empty.");
       if (!Number.isSafeInteger(draft.minPlayers) || !Number.isSafeInteger(draft.maxPlayers) ||
-          draft.minPlayers < 1 || draft.maxPlayers > 64 || draft.minPlayers > draft.maxPlayers) {
-        throw new TypeError("Player limits must be between 1 and 64.");
+          draft.minPlayers < 1 || draft.maxPlayers > 10 || draft.minPlayers > draft.maxPlayers) {
+        throw new TypeError("Player limits must be between 1 and 10.");
       }
     });
   }

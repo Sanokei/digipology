@@ -94,6 +94,19 @@ export function contractButton(): EntityRecord {
   };
 }
 
+const CONTRACT_SHAPES = ["box", "cylinder", "hex", "disc", "cube", "pawn", "meeple", "card", "board", "token", "ring"] as const;
+
+function contractAppearanceEntities(): Record<string, EntityRecord> {
+  return Object.fromEntries(CONTRACT_SHAPES.map((shape, index) => [`shape-${shape}`, {
+    id: `shape-${shape}`,
+    components: {
+      appearance: { definitionId: `shape-${shape}`, seat: `seat_${index % 10 + 1}` },
+      grabbable: { enabled: true, heldBy: null },
+      transform: contractTransform(index - 5, -3),
+    },
+  }]));
+}
+
 export function contractSnapshot(
   entities: Record<string, EntityRecord>,
   correction: KernelStoreSnapshot["correction"] = null,
@@ -114,7 +127,19 @@ export function contractSnapshot(
     endedReason: null,
     stateHash: null,
     diagnostic: null,
-    definitions: { card: { label: "Contract Card", color: "#abcdef" } },
+    definitions: {
+      card: {
+        label: "Contract Card", backLabel: "Contract Back", color: "#abcdef", backColor: "#654321",
+        face: { background: "#ffffff", elements: [{ type: "icon", name: "crown", x: 500, y: 500, size: 500, fill: "#123456" }] },
+        back: { background: "#654321", elements: [{ type: "icon", name: "shield", x: 500, y: 500, size: 500, fill: "#ffffff" }] },
+      },
+      ...Object.fromEntries(CONTRACT_SHAPES.map((shape) => [`shape-${shape}`, {
+        shape,
+        size: { w: shape === "board" ? 4 : 0.8, d: shape === "board" ? 3 : 0.8, h: shape === "board" ? 0.1 : 0.3 },
+        color: "#abcdef",
+        seatTint: true,
+      }])),
+    },
     gameTitle: null,
     gameSlug: null,
     rules: null,
@@ -178,6 +203,23 @@ export function runSceneAdapterContract(harness: SceneAdapterContractHarness): v
       expect(mounted.piece("die-1")).toBeNull();
       expect(mounted.livePieceCount()).toBe(1);
       adapter.dispose();
+    });
+
+    test("creates, picks, and disposes every authored piece shape", async () => {
+      const mounted = await harness.mount(() => undefined);
+      const entities = contractAppearanceEntities();
+      mounted.adapter.syncEntities(contractSnapshot(entities));
+      expect(mounted.livePieceCount()).toBe(CONTRACT_SHAPES.length);
+      for (const shape of CONTRACT_SHAPES) {
+        const id = `shape-${shape}`;
+        expect(mounted.piece(id)).not.toBeNull();
+        mounted.setPick(id);
+        expect(await mounted.adapter.pick(50, 50)).toBe(id);
+      }
+      expect(mounted.adapter.isGrabbable("shape-board")).toBeFalse();
+      mounted.adapter.syncEntities(contractSnapshot({}));
+      expect(mounted.livePieceCount()).toBe(0);
+      mounted.adapter.dispose();
     });
 
     test("routes touch drag through canonical grab/drop payloads", async () => {

@@ -354,6 +354,19 @@ describe("tabletop invariants", () => {
     expect(() => validateCanonicalGameState(state)).toThrow("not canonicalized");
   });
 
+  test("appearance is inert canonical presentation data with a strict schema", () => {
+    const state = baseState();
+    state.entities.pawn!.components.appearance = { definitionId: "red-pawn", seat: "seat_10" };
+    expect(() => validateCanonicalGameState(state)).not.toThrow();
+    const originalHash = snapshot(baseState()).stateHash;
+    expect(snapshot(state).stateHash).not.toBe(originalHash);
+
+    (state.entities.pawn!.components.appearance as unknown as Record<string, unknown>).behavior = "move-twice";
+    expect(() => validateCanonicalGameState(state)).toThrow("appearance has unknown field behavior");
+    state.entities.pawn!.components.appearance = { definitionId: "" };
+    expect(() => validateCanonicalGameState(state)).toThrow("invalid appearance");
+  });
+
   test("counter operations clamp at both bounds", () => {
     let state = baseState();
     state = applyOrdered(state, action(state, "high", "counter.add", { entityId: "score", amount: 99 })).state;

@@ -41,6 +41,8 @@ export function prepareUploadedBundle(
   state.releaseId = input.releaseId;
   state.sequence = 0;
   state.players = {};
+  if (draft.interactionMode === "sandbox") state.settings.sandbox = true;
+  else delete state.settings.sandbox;
   for (const seat of Object.values(state.seats)) seat.playerId = null;
   const initialSnapshot = snapshot(state);
   const bundle: ReleaseBundleDto = {

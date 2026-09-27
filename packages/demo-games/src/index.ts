@@ -3,6 +3,8 @@ export type {
   BuiltinGame,
   BuiltinCoverSpec,
   InteractionMode,
+  PieceDefinition,
+  PieceShape,
   PresentationDefinitions,
   ReleaseBundle,
   ReleaseFile,

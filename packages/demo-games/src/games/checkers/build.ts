@@ -1,4 +1,5 @@
 import { canonicalStringify } from "digipology-canonical-json";
+import type { FaceSpec } from "digipology-faces";
 import {
   canonicalizeTransform,
   createInitialState,
@@ -9,7 +10,8 @@ import {
 } from "digipology-kernel";
 import { squareGrid, type BuiltinReleaseBuilder, type BuiltinReleaseSource } from "../../authoring";
 
-const RELEASE_ID = "builtin_tabletop_classics_checkers_1";
+const RELEASE_1_ID = "builtin_tabletop_classics_checkers_1";
+const RELEASE_2_ID = "builtin_tabletop_classics_checkers_2";
 
 function transform(x: number, y: number, z: number, scale = { x: 1, y: 1, z: 1 }): TransformComponent {
   return canonicalizeTransform({
@@ -65,7 +67,7 @@ function checkerPieces(): CheckerPiece[] {
   return pieces;
 }
 
-function checkersState(pieces: readonly CheckerPiece[]): CanonicalGameState {
+function checkersState(pieces: readonly CheckerPiece[], releaseId: string): CanonicalGameState {
   const cells = squareGrid(8, 8, 1.05);
   const occupied = new Map(pieces.map((piece) => [piece.squareId, piece.id]));
   const positions = new Map(cells.map((cell) => [`square_${cell.row}_${cell.column}`, cell.position]));
@@ -104,7 +106,7 @@ function checkersState(pieces: readonly CheckerPiece[]): CanonicalGameState {
     });
   }
   return createInitialState({
-    releaseId: RELEASE_ID,
+    releaseId,
     rng: { algorithm: "sfc32-v1", state: [672143281, 287619045, 3901287781, 1189473206], draws: 0 },
     settings: { sandbox: true },
     seats: {
@@ -115,12 +117,46 @@ function checkersState(pieces: readonly CheckerPiece[]): CanonicalGameState {
   });
 }
 
-export function buildCheckersRelease(): BuiltinReleaseSource {
+function checkerboardFace(): FaceSpec {
+  return {
+    background: "#e8d7b5",
+    elements: squareGrid(8, 8, 125).map(({ row, column }) => ({
+      type: "rect" as const,
+      x: column * 125,
+      y: row * 125,
+      w: 125,
+      h: 125,
+      fill: (row + column) % 2 === 0 ? "#e8d7b5" : "#6f4327",
+    })),
+  };
+}
+
+function manFace(color: `#${string}`, crowned: boolean): FaceSpec {
+  return {
+    background: color,
+    elements: crowned ? [{
+      type: "icon",
+      name: "crown",
+      x: 500,
+      y: 500,
+      size: 560,
+      fill: "#f6d365",
+      stroke: "#3a2718",
+      strokeWidth: 28,
+    }] : [],
+  };
+}
+
+function buildRelease(
+  releaseId: string,
+  releaseNumber: number,
+  definitions: NonNullable<BuiltinReleaseSource["definitions"]>,
+): BuiltinReleaseSource {
   const pieces = checkerPieces();
   const squareIds = squareGrid(8, 8).map(({ row, column }) => `square_${row}_${column}`);
   const runtime = canonicalStringify({
     formatVersion: 1,
-    releaseId: RELEASE_ID,
+    releaseId,
     board: { rows: 8, columns: 8, squareIds },
     pieces: pieces.map(({ id, side, seatId, squareId }) => ({ id, side, seatId, squareId })),
     rules: { crowningAction: "entity.flip", interaction: "sandbox" },
@@ -128,8 +164,8 @@ export function buildCheckersRelease(): BuiltinReleaseSource {
   return {
     formatVersion: 1,
     gameId: "builtin_tabletop_classics_checkers",
-    releaseId: RELEASE_ID,
-    releaseNumber: 1,
+    releaseId,
+    releaseNumber,
     kernelVersion: 1,
     luaApiVersion: 1,
     luaStdlibVersion: 1,
@@ -138,20 +174,56 @@ export function buildCheckersRelease(): BuiltinReleaseSource {
     minPlayers: 2,
     maxPlayers: 2,
     files: [{ path: "runtime/game.json", content: runtime }],
-    definitions: {
-      checkerboard: { label: "Checkers board", color: "#6f4327" },
-      light_square: { label: "Light square", color: "#e8d7b5" },
-      dark_square: { label: "Dark square", color: "#6f4327" },
-      red_man: { label: "Red man", color: "#b73535" },
-      black_man: { label: "Black man", color: "#24242a" },
-    },
+    definitions,
     refs: { board: "board" },
-    initialState: checkersState(pieces),
+    initialState: checkersState(pieces, releaseId),
   };
+}
+
+export function buildCheckersRelease1(): BuiltinReleaseSource {
+  return buildRelease(RELEASE_1_ID, 1, {
+    checkerboard: { label: "Checkers board", color: "#6f4327" },
+    light_square: { label: "Light square", color: "#e8d7b5" },
+    dark_square: { label: "Dark square", color: "#6f4327" },
+    red_man: { label: "Red man", color: "#b73535" },
+    black_man: { label: "Black man", color: "#24242a" },
+  });
+}
+
+export function buildCheckersRelease(): BuiltinReleaseSource {
+  return buildRelease(RELEASE_2_ID, 2, {
+    checkerboard: {
+      shape: "board",
+      size: { w: 8.7, d: 8.7, h: 0.12 },
+      color: "#6f4327",
+      label: "Checkers board",
+      face: checkerboardFace(),
+    },
+    light_square: { shape: "box", size: { w: 1.05, d: 1.05, h: 0.05 }, color: "#e8d7b5" },
+    dark_square: { shape: "box", size: { w: 1.05, d: 1.05, h: 0.05 }, color: "#6f4327" },
+    red_man: {
+      shape: "disc",
+      size: { w: 0.8, d: 0.8, h: 0.18 },
+      seatTint: true,
+      label: "Man",
+      backLabel: "King",
+      face: manFace("#f2f2ed", false),
+      back: manFace("#f2f2ed", true),
+    },
+    black_man: {
+      shape: "disc",
+      size: { w: 0.8, d: 0.8, h: 0.18 },
+      seatTint: true,
+      label: "Man",
+      backLabel: "King",
+      face: manFace("#d94b4b", false),
+      back: manFace("#d94b4b", true),
+    },
+  });
 }
 
 export const BUILTIN_RELEASE_BUILDER = {
   slug: "checkers",
-  releaseNumber: 1,
+  releaseNumber: 2,
   build: buildCheckersRelease,
 } satisfies BuiltinReleaseBuilder;
