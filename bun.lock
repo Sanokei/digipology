@@ -97,6 +97,7 @@
       "version": "0.1.0",
       "devDependencies": {
         "digipology-canonical-json": "workspace:*",
+        "digipology-covers": "workspace:*",
         "digipology-faces": "workspace:*",
         "digipology-kernel": "workspace:*",
         "digipology-lua": "workspace:*",

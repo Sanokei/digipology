@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState, type CSSProperties } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { HandStrip } from "../components/HandStrip";
 import { ConnectionOverlay } from "../components/ConnectionOverlay";
 import { TableTopBar } from "../components/TableTopBar";
 import { TableMenu } from "../components/TableMenu";
+import { TableChat } from "../components/TableChat";
+import { ControlsHelp } from "../components/ControlsHelp";
+import { RemotePresenceOverlay, type RemoteCursor, type RemotePing } from "../components/RemotePresenceOverlay";
 import type { GameSnapshotDto } from "digipology-protocol/http";
 import { RoomClient, type RoomClientStatus } from "../net/roomClient";
 import { TableScene } from "../scene/TableScene";
@@ -19,6 +22,7 @@ import { useKernelStore } from "../state/useKernelStore";
 import { loadRoomSession } from "../utils/roomSession";
 import { localHandItems } from "./tableHandModel";
 import { diceControlLabels } from "./tableContextModel";
+import { TABLE_PING_LIFETIME_MS, createChatModel, reduceChatModel } from "./tableSocialModel";
 import type { CanonicalGameState, EntityRecord, PromptRecord } from "digipology-kernel";
 
 const INITIAL_STATUS: RoomClientStatus = { state: "connecting", message: "Joining Table" };
@@ -108,6 +112,11 @@ export function TablePage() {
   const [status, setStatus] = useState(INITIAL_STATUS);
   const client = useMemo(() => session === null ? null : new RoomClient(session, store, setStatus), [clientGeneration, session, store]);
   const [projectToTable, setProjectToTable] = useState<((clientX: number, clientY: number) => { x: number; y: number; z: number } | null) | undefined>();
+  const [projectFromTable, setProjectFromTable] = useState<((point: { x: number; y: number; z: number }) => { x: number; y: number } | null) | null>(null);
+  const [chat, updateChat] = useReducer(reduceChatModel, undefined, createChatModel);
+  const [remoteCursors, setRemoteCursors] = useState<Record<string, RemoteCursor>>({});
+  const [remotePings, setRemotePings] = useState<RemotePing[]>([]);
+  const nextPingId = useRef(1);
   const view = useKernelStore(store);
   const [playersOpen, setPlayersOpen] = useState(() => playersPanelOpenByDefault(
     typeof window !== "undefined" && window.matchMedia("(min-width: 769px)").matches,
@@ -118,6 +127,36 @@ export function TablePage() {
     && rendererOverrideFromSearch(window.location.search) !== null;
 
   useEffect(() => { client?.start(); return () => client?.stop(); }, [client]);
+  useEffect(() => updateChat({ type: "reset" }), [roomId]);
+  useEffect(() => {
+    if (client === null || session === null) return;
+    const pingTimers = new Set<ReturnType<typeof setTimeout>>();
+    const unsubscribe = client.subscribeSocial((message) => {
+      if (message.type === "chat_message") {
+        updateChat({ type: "message", message });
+      } else if (message.type === "cursor_update" && message.playerId !== session.playerId) {
+        setRemoteCursors((previous) => ({
+          ...previous,
+          [message.playerId]: { ...message, updatedAt: performance.now() },
+        }));
+      } else if (message.type === "table_ping") {
+        const id = nextPingId.current++;
+        const ping = { ...message, id, expiresAt: performance.now() + TABLE_PING_LIFETIME_MS };
+        setRemotePings((previous) => [...previous, ping]);
+        const timer = setTimeout(() => {
+          pingTimers.delete(timer);
+          setRemotePings((previous) => previous.filter((candidate) => candidate.id !== id));
+        }, TABLE_PING_LIFETIME_MS);
+        pingTimers.add(timer);
+      }
+    });
+    return () => {
+      unsubscribe();
+      for (const timer of pingTimers) clearTimeout(timer);
+      setRemoteCursors({});
+      setRemotePings([]);
+    };
+  }, [client, session]);
   useEffect(() => {
     if (view.correction === null) return;
     const id = view.correction.id;
@@ -138,6 +177,9 @@ export function TablePage() {
   return <TableScene
     store={store} client={client} playerId={session.playerId} interactionsPaused={status.state !== "connected"}
     onProjectorChange={(next) => setProjectToTable(next === null ? undefined : () => next)}
+    onScreenProjectorChange={(next) => setProjectFromTable(next === null ? null : () => next)}
+    onTablePointerMove={(point) => client.sendCursorPosition({ x: point.x, z: point.z })}
+    onTablePing={(point) => { client.sendTablePing({ x: point.x, z: point.z }); }}
     onRendererStatus={setRendererStatus} rendererStatus={rendererStatus} rendererOverrideActive={rendererOverrideActive}
     topBar={<TableTopBar gameTitle={gameTitle} playerCount={view.players.length} joinCode={session.joinCode} inviteUrl={session.inviteUrl} onPlayers={() => setPlayersOpen((value) => !value)} onDiagnostics={() => setDiagnosticsOpen((value) => !value)} menu={<TableMenu roomId={roomId} roomToken={session.roomToken} isHost={view.players.find((player) => player.playerId === session.playerId)?.host === true} scripted={store.requiresScripts()} confirmedSnapshot={() => store.confirmedSnapshot() as GameSnapshotDto | null} onDiagnostics={() => setDiagnosticsOpen((value) => !value)} />} />}
     panels={<>
@@ -153,14 +195,25 @@ export function TablePage() {
         client.sendAction({ type: "prompt.respond", payload: { promptId: prompt.id, response } });
       }} />)}
       {diagnosticsOpen ? <aside className="diagnostics-panel table-sheet" aria-label="Diagnostics"><div className="panel-heading"><span>Diagnostics</span><button type="button" aria-label="Close diagnostics" onClick={() => setDiagnosticsOpen(false)}>×</button></div><dl><dt>Sequence</dt><dd>{view.state?.sequence ?? "—"}</dd><dt>State hash</dt><dd>{view.stateHash ?? "—"}</dd><dt>Pending</dt><dd>{view.pendingRequestIds.size}</dd><dt>Transport</dt><dd>{status.state}</dd><RendererDiagnostics status={rendererStatus} /></dl><p>{view.diagnostic ?? "No diagnostics yet."}</p></aside> : null}
+      <TableChat
+        model={chat}
+        disabled={status.state !== "connected"}
+        onOpen={() => updateChat({ type: "open" })}
+        onClose={() => updateChat({ type: "close" })}
+        onSend={(text) => client.sendChat(text)}
+      />
+      <ControlsHelp />
       <HandStrip key={roomId} items={handItems} roomId={roomId} client={client} interactionsPaused={status.state !== "connected"}
         {...(localSeatId === null || localSeatId === undefined ? {} : { seatColor: seatPaletteEntry(localSeatId).color })}
         {...(projectToTable === undefined ? {} : { projectToTable })} />
     </>}
-    overlay={status.state === "connected" ? null : <ConnectionOverlay status={status} onReload={() => {
-      client.stop();
-      setStatus(INITIAL_STATUS);
-      setClientGeneration((value) => value + 1);
-    }} />}
+    overlay={<>
+      <RemotePresenceOverlay cursors={Object.values(remoteCursors)} pings={remotePings} project={projectFromTable} />
+      {status.state === "connected" ? null : <ConnectionOverlay status={status} onReload={() => {
+        client.stop();
+        setStatus(INITIAL_STATUS);
+        setClientGeneration((value) => value + 1);
+      }} />}
+    </>}
   />;
 }

@@ -17,9 +17,9 @@ describe("catalog routes", () => {
     const gamesBody = await gamesResponse.json() as {
       games: Array<{ slug: string; currentPlayers: number; totalPlays: number; coverVersion: number | null }>;
     };
-    expect(gamesBody.games.map((game) => game.slug)).toEqual(["first-deal", "dice-dash", "zone-runner"]);
-    expect(gamesBody.games[0]).toMatchObject({ currentPlayers: 0, totalPlays: 0, coverVersion: 3 });
-    expect(gamesBody.games.every((game) => game.coverVersion === 3)).toBe(true);
+    expect(gamesBody.games.map((game) => game.slug)).toEqual(["first-deal", "dice-dash", "zone-runner", "checkers"]);
+    expect(gamesBody.games[0]).toMatchObject({ currentPlayers: 0, totalPlays: 0, coverVersion: 4 });
+    expect(gamesBody.games.every((game) => game.coverVersion === 4)).toBe(true);
 
     const gameResponse = await handlePlatformRequest(
       new Request("https://play.digipology.com/api/games/dice-dash"),
@@ -31,6 +31,20 @@ describe("catalog routes", () => {
     };
     expect(gameBody.game.slug).toBe("dice-dash");
     expect(gameBody.latestRelease.releaseId).toBe("builtin_dice_dash_2");
+
+    const checkersResponse = await handlePlatformRequest(
+      new Request("https://play.digipology.com/api/games/checkers"),
+      env,
+    );
+    const checkersBody = await checkersResponse.json() as {
+      game: { tags?: string[]; playTimeMinutes?: number; complexity?: number; description?: string };
+    };
+    expect(checkersBody.game).toMatchObject({
+      tags: ["strategy", "classic", "abstract"],
+      playTimeMinutes: 30,
+      complexity: 2,
+      description: expect.stringContaining("8×8 board"),
+    });
 
     const bundleResponse = await handlePlatformRequest(
       new Request("https://play.digipology.com/api/releases/builtin_dice_dash_1/bundle"),
@@ -434,9 +448,9 @@ describe("uploaded game authorization", () => {
   });
 
   test("serves bespoke built-in SVG covers through the same endpoint", async () => {
-    for (const slug of ["first-deal", "dice-dash", "zone-runner"]) {
+    for (const slug of ["first-deal", "dice-dash", "zone-runner", "checkers"]) {
       const response = await handlePlatformRequest(new Request(
-        `https://play.digipology.com/api/games/${slug}/cover?v=3`,
+        `https://play.digipology.com/api/games/${slug}/cover?v=4`,
       ), {} as Env);
       expect(response.status).toBe(200);
       expect(response.headers.get("Content-Type")).toBe("image/svg+xml");

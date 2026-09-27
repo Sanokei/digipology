@@ -43,6 +43,10 @@ export interface GameSummaryDto {
   tagline: string;
   minPlayers: number;
   maxPlayers: number;
+  tags?: string[];
+  playTimeMinutes?: number;
+  complexity?: 1 | 2 | 3 | 4 | 5;
+  description?: string;
   builtin: boolean;
   creatorHandle?: string;
   currentPlayers: number;
@@ -541,6 +545,7 @@ export function validateGameSummaryDto(
   const object = exactObject(value, [
     "slug", "title", "tagline", "minPlayers", "maxPlayers", "builtin",
     "creatorHandle", "currentPlayers", "totalPlays", "coverVersion",
+    "tags", "playTimeMinutes", "complexity", "description",
   ]);
   if (!object.ok) return object;
   if (typeof object.value.slug !== "string" || !isGameSlug(object.value.slug)) {
@@ -574,6 +579,23 @@ export function validateGameSummaryDto(
       (typeof coverVersion !== "number" || !Number.isSafeInteger(coverVersion) || coverVersion < 1)) {
     return invalid("$.coverVersion", "coverVersion must be null or a positive integer");
   }
+  const tags = object.value.tags;
+  if (tags !== undefined && (
+    !Array.isArray(tags) || tags.length > 12 ||
+    tags.some((tag) => typeof tag !== "string" || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(tag) || tag.length > 32)
+  )) return invalid("$.tags", "tags must contain at most 12 short lowercase slugs");
+  const playTimeMinutes = object.value.playTimeMinutes;
+  if (playTimeMinutes !== undefined && (!Number.isSafeInteger(playTimeMinutes) || (playTimeMinutes as number) < 1)) {
+    return invalid("$.playTimeMinutes", "playTimeMinutes must be a positive integer");
+  }
+  const complexity = object.value.complexity;
+  if (complexity !== undefined && (!Number.isSafeInteger(complexity) || (complexity as number) < 1 || (complexity as number) > 5)) {
+    return invalid("$.complexity", "complexity must be an integer from 1 to 5");
+  }
+  const description = object.value.description;
+  if (description !== undefined && (typeof description !== "string" || !boundedTrimmedText(description, 1, 1_000))) {
+    return invalid("$.description", "description must contain 1 to 1000 characters");
+  }
   return {
     ok: true,
     value: {
@@ -587,6 +609,10 @@ export function validateGameSummaryDto(
       currentPlayers: object.value.currentPlayers,
       totalPlays: object.value.totalPlays,
       coverVersion,
+      ...(tags === undefined ? {} : { tags: tags as string[] }),
+      ...(playTimeMinutes === undefined ? {} : { playTimeMinutes: playTimeMinutes as number }),
+      ...(complexity === undefined ? {} : { complexity: complexity as 1 | 2 | 3 | 4 | 5 }),
+      ...(description === undefined ? {} : { description }),
     },
   };
 }

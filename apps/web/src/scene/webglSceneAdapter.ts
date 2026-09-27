@@ -40,6 +40,7 @@ import {
   buildTableSurface,
 } from "./table";
 import { piecePresentation, piecePresentationSignature } from "./piecePresentation";
+import { projectWorldToScreen } from "./cameraProjection";
 
 type PieceDragBounds = Parameters<typeof attachDragBehavior>[0]["bounds"];
 
@@ -591,6 +592,10 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       scene.createPickingRayToRef(x, y, Matrix.Identity(), ray, cameraGraph);
       const point = Vector3.Zero();
       return intersectRayWithHorizontalPlaneToRef(ray, TABLE_SURFACE_Y, point) ? { x: point.x, y: point.y, z: point.z } : null;
+    },
+    projectFromTable(point) {
+      if (cameraGraph === null || canvas === null) return null;
+      return projectWorldToScreen(cameraGraph, canvas.clientWidth, canvas.clientHeight, point);
     },
     isGrabbable(entityId: string): boolean {
       return pieces.get(entityId)?.drag !== undefined && isEntityGrabbable(entityId);

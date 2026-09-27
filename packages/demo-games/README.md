@@ -11,10 +11,35 @@ import { BUILTIN_GAMES, getBuiltinRelease } from "digipology-demo-games";
 const release = getBuiltinRelease("builtin_first_deal_1");
 ```
 
-`BUILTIN_GAMES` contains exactly `first-deal` and `dice-dash`. Each game exposes
-its immutable `releases` and a `latestReleaseId`; editing released content
-requires a new release and golden fixture rather than updating an existing
-hash.
+Each game exposes immutable `releases` and a `latestReleaseId`; editing released
+content requires a new release and golden fixture rather than updating an
+existing hash. The three legacy games retain their original hand-authored
+release bytes. New games use the data-driven authoring pipeline below.
+
+## How to add a builtin game
+
+1. Create `src/games/<slug>/build.ts`. Export a builder that returns a complete
+   `BuiltinReleaseSource`: version pins, player range, interaction mode, runtime
+   and Lua files, opaque presentation `definitions`, stable `refs`, and a
+   sequence-zero kernel state. Author every seat and canonical table component
+   needed by the game in that state. `src/authoring/` provides square and hex
+   grids, ring layouts, and standard 52-card deck generation.
+2. Add `src/games/<slug>/index.ts` with browse metadata and a `CoverSpec` from
+   `digipology-covers`. Import the generated release from the same folder.
+3. Run `bun run build:builtins` from the repository root. The command discovers
+   every `games/*/build.ts` and uses the real canonical JSON and
+   kernel implementations to compute file hashes, manifest hash, and snapshot
+   state hash. It writes `release-<n>.generated.ts` only when that release does
+   not exist. If committed bytes differ, it fails: restore the builder or bump
+   the release number.
+4. Add the game import to `src/catalog.ts`. Generated builtins are served by the
+   worker through their authored `initialSnapshot`, using the same room-start
+   path as uploaded releases.
+5. Add a kernel load/replay test with a pinned final state hash. Run
+   `bun run build:builtins`, `bun run typecheck`, and `bun test` before commit.
+
+Never edit or replace an existing generated release. Any released change,
+including a runtime file or initial state change, is a new release number.
 
 ## First Deal
 
@@ -83,7 +108,8 @@ canonical JSON hash of all manifest fields except the self-referential
 `byteLength`.
 
 These values are committed constants. Tests recompute every link in the
-integrity chain; there is intentionally no build step that rewrites hashes.
+integrity chain. The builtin build command creates a new generated release but
+refuses to rewrite an existing release with different bytes.
 
 ## Determinism fixtures
 

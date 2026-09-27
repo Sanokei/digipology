@@ -1,6 +1,31 @@
 import type { FaceSpec } from "digipology-faces";
+import type { GameSnapshot } from "digipology-kernel";
 
 export type InteractionMode = "sandbox" | "scripted";
+
+export type PieceShape = "box" | "cylinder" | "hex" | "disc" | "cube" | "pawn" | "meeple" | "card" | "board" | "token" | "ring";
+
+export interface PieceDefinition {
+  readonly shape?: PieceShape;
+  readonly size?: { readonly w: number; readonly d: number; readonly h: number };
+  readonly color?: string;
+  readonly backColor?: string;
+  readonly label?: string;
+  readonly backLabel?: string;
+  readonly seatTint?: boolean;
+  readonly face?: FaceSpec;
+  readonly back?: FaceSpec;
+}
+
+export type PresentationDefinitions = Readonly<Record<string, PieceDefinition>>;
+
+export interface BuiltinCoverSpec {
+  readonly palette: string[];
+  readonly layout: "banded" | "diagonal" | "radial" | "grid" | "corner";
+  readonly motif: "cards" | "dice" | "meeples" | "abstract";
+  readonly titleTreatment: "stacked" | "boxed" | "underlined" | "minimal";
+  readonly seed: number;
+}
 
 export interface ReleaseFile {
   readonly path: string;
@@ -31,14 +56,11 @@ export interface ReleaseBundle {
   readonly minPlayers: number;
   readonly maxPlayers: number;
   readonly files: ReadonlyArray<ReleaseFile>;
-  readonly definitions?: Readonly<Record<string, {
-    readonly shape?: "box" | "cylinder" | "hex" | "disc" | "cube" | "pawn" | "meeple" | "card" | "board" | "token" | "ring";
-    readonly size?: { readonly w: number; readonly d: number; readonly h: number };
-    readonly color?: string; readonly backColor?: string; readonly label?: string; readonly backLabel?: string;
-    readonly seatTint?: boolean; readonly face?: FaceSpec; readonly back?: FaceSpec;
-  }>>;
+  /** Presentation data is interpreted and validated by the presentation layer. */
+  readonly definitions?: PresentationDefinitions;
   readonly refs?: Readonly<Record<string, string>>;
   readonly integrity: ReleaseIntegrity;
+  readonly initialSnapshot?: GameSnapshot;
 }
 
 export interface BuiltinGame {
@@ -47,6 +69,11 @@ export interface BuiltinGame {
   readonly tagline: string;
   readonly minPlayers: number;
   readonly maxPlayers: number;
+  readonly tags?: ReadonlyArray<string>;
+  readonly playTimeMinutes?: number;
+  readonly complexity?: 1 | 2 | 3 | 4 | 5;
+  readonly description?: string;
+  readonly coverSpec: BuiltinCoverSpec;
   readonly latestReleaseId: string;
   readonly releases: ReadonlyArray<ReleaseBundle>;
 }

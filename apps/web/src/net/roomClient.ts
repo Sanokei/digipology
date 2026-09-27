@@ -1,4 +1,12 @@
-import { PROTOCOL_VERSION, parseServerMessage, type ActionRequest, type ClientMessage, type ServerMessage } from "digipology-protocol";
+import {
+  CHAT_TEXT_MAX_LENGTH,
+  PROTOCOL_VERSION,
+  parseServerMessage,
+  type ActionRequest,
+  type ClientMessage,
+  type ServerMessage,
+  type ServerSocialMessage,
+} from "digipology-protocol";
 import {
   ACTION_RETENTION,
   CHECKPOINT_ATTESTATION_INTERVAL,
@@ -9,6 +17,7 @@ import { snapshot, type CanonicalGameState, type GameSnapshot } from "digipology
 import { api, type ApiClient } from "../api/client";
 import type { SavedRoomSession } from "../utils/roomSession";
 import { isPredictableAction, type KernelStore } from "../state/kernelStore";
+import { CursorThrottle } from "../pages/tableSocialModel";
 
 export const MAX_RECONNECT_ATTEMPTS = 8;
 export const SYNCHRONIZING_RESUME_THRESHOLD = 50;
@@ -63,6 +72,10 @@ export class RoomClient {
   private bootstrapGeneration = 0;
   private hasCompletedHandshake = false;
   private synchronizingBootstrap = false;
+  private socialSupport: boolean | null = null;
+  private socialSubscriptionRequested = false;
+  private readonly socialListeners = new Set<(message: ServerSocialMessage) => void>();
+  private readonly cursorThrottle: CursorThrottle<{ x: number; z: number }>;
 
   constructor(
     private readonly session: SavedRoomSession,
@@ -108,7 +121,15 @@ export class RoomClient {
       set: (callback, delay) => setTimeout(callback, delay),
       clear: (timer) => clearTimeout(timer),
     },
-  ) {}
+  ) {
+    this.cursorThrottle = new CursorThrottle((point) => {
+      this.sendSocial({
+        type: "cursor_update",
+        protocolVersion: PROTOCOL_VERSION,
+        ...point,
+      });
+    });
+  }
 
   start(): void {
     if (this.reconnectTimer !== null) this.reconnectTimers.clear(this.reconnectTimer);
@@ -127,7 +148,28 @@ export class RoomClient {
     this.cancelBootstrapCatchUp();
     this.socket?.close(1000, "Leaving table");
     this.socket = null;
+    this.cursorThrottle.cancel();
+    this.socialListeners.clear();
     this.store.dispose();
+  }
+
+  subscribeSocial(listener: (message: ServerSocialMessage) => void): () => void {
+    this.socialListeners.add(listener);
+    return () => this.socialListeners.delete(listener);
+  }
+
+  sendChat(text: string): boolean {
+    const normalized = text.trim();
+    if (normalized.length === 0 || Array.from(normalized).length > CHAT_TEXT_MAX_LENGTH) return false;
+    return this.sendSocial({ type: "chat_send", protocolVersion: PROTOCOL_VERSION, text: normalized });
+  }
+
+  sendCursorPosition(point: { x: number; z: number }): void {
+    this.cursorThrottle.push(point);
+  }
+
+  sendTablePing(point: { x: number; z: number }): boolean {
+    return this.sendSocial({ type: "table_ping", protocolVersion: PROTOCOL_VERSION, ...point });
   }
 
   sendAction(action: { type: string; payload: unknown }): string | null {
@@ -155,6 +197,7 @@ export class RoomClient {
     try { socket = this.socketFactory(this.session.wsUrl); }
     catch { this.scheduleReconnect(); return; }
     this.socket = socket;
+    this.socialSubscriptionRequested = false;
     socket.addEventListener("open", () => { void this.opened(socket, resync); });
     socket.addEventListener("message", (event) => this.received(event.data));
     socket.addEventListener("close", () => { if (!this.stopped && socket === this.socket && this.store.getSnapshot().endedReason === null) this.scheduleReconnect(); });
@@ -185,7 +228,14 @@ export class RoomClient {
   private received(data: unknown): void {
     if (typeof data !== "string") { this.recoverFromGap("Received a non-text server message"); return; }
     const parsed = parseServerMessage(data);
-    if (!parsed.ok) { this.recoverFromGap(`Protocol parse error: ${parsed.error.detail}`); return; }
+    if (!parsed.ok) {
+      if (parsed.error.code === "unknown_message_type") {
+        this.store.setDiagnostic(`Ignored unsupported server message: ${parsed.error.detail}`);
+        return;
+      }
+      this.recoverFromGap(`Protocol parse error: ${parsed.error.detail}`);
+      return;
+    }
     if (!this.store.hasScriptRuntime()) {
       void this.handle(parsed.message);
       return;
@@ -210,6 +260,7 @@ export class RoomClient {
         if (!result.ok) { this.recoverFromGap(`Bootstrap sequence mismatch: ${result.actual}`); return; }
         this.hasCompletedHandshake = true;
         this.reconnectAttempt = 0;
+        this.subscribeSocialTransport();
         if (!this.store.hasScriptRuntime() || !synchronizing) this.onStatus({ state: "connected", message: "Connected" });
         return;
       }
@@ -241,7 +292,11 @@ export class RoomClient {
           }
           await this.reportCatchUpCheckpoint(resumeBase, cadenceState);
         }
-        this.hasCompletedHandshake = true; this.reconnectAttempt = 0; this.onStatus({ state: "connected", message: "Connected" }); return;
+        this.hasCompletedHandshake = true;
+        this.reconnectAttempt = 0;
+        this.subscribeSocialTransport();
+        this.onStatus({ state: "connected", message: "Connected" });
+        return;
       }
       case "ordered_action": {
         const result = this.store.hasScriptRuntime()
@@ -263,6 +318,16 @@ export class RoomClient {
       }
       case "resync_required": this.recoverFromGap("Server requested a full resync", true); return;
       case "protocol_error":
+        if (message.code === "unknown_message_type" && this.socialSubscriptionRequested) {
+          this.socialSupport = false;
+          this.socialSubscriptionRequested = false;
+          this.store.setDiagnostic("This room server does not support transient table social features yet.");
+          return;
+        }
+        if (message.code === "rate_limited") {
+          this.store.setDiagnostic(message.message);
+          return;
+        }
         if (message.code === "bootstrap_unavailable") {
           this.cancelBootstrapCatchUp();
           this.onStatus({
@@ -283,7 +348,29 @@ export class RoomClient {
         return;
       case "room_ended": this.store.roomEnded(message.reason); this.onStatus({ state: "ended", message: "This table has ended." }); this.stop(); return;
       case "pong": return;
+      case "chat_message":
+      case "cursor_update":
+      case "table_ping":
+        for (const listener of this.socialListeners) listener(message);
+        return;
     }
+  }
+
+  private subscribeSocialTransport(): void {
+    if (this.socialSupport === false || this.socialSubscriptionRequested) return;
+    this.socialSubscriptionRequested = true;
+    this.send({ type: "social_subscribe", protocolVersion: PROTOCOL_VERSION });
+    this.socialSupport = true;
+  }
+
+  private sendSocial(message: Exclude<ClientMessage, ActionRequest | { type: "hello" } | { type: "ping" }>): boolean {
+    if (
+      this.socialSupport === false ||
+      !this.socialSubscriptionRequested ||
+      this.socket?.readyState !== WebSocket.OPEN
+    ) return false;
+    this.send(message);
+    return true;
   }
 
   /**

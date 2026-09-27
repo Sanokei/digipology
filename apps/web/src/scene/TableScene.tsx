@@ -29,6 +29,9 @@ interface TableSceneProps {
   panels?: ReactNode;
   overlay?: ReactNode;
   onProjectorChange?: (projector: ((clientX: number, clientY: number) => { x: number; y: number; z: number } | null) | null) => void;
+  onScreenProjectorChange?: (projector: ((point: { x: number; y: number; z: number }) => { x: number; y: number } | null) | null) => void;
+  onTablePointerMove?: (point: { x: number; y: number; z: number }) => void;
+  onTablePing?: (point: { x: number; y: number; z: number }) => void;
   onRendererStatus?: (status: RendererStatus) => void;
   rendererStatus?: RendererStatus | null;
   rendererOverrideActive?: boolean;
@@ -44,6 +47,9 @@ export function TableScene({
   panels,
   overlay,
   onProjectorChange,
+  onScreenProjectorChange,
+  onTablePointerMove,
+  onTablePing,
   onRendererStatus,
   rendererStatus = null,
   rendererOverrideActive = false,
@@ -54,6 +60,7 @@ export function TableScene({
   const [inspectedId, setInspectedId] = useState<string | null>(null);
   const [hover, setHover] = useState<TableHoverRequest | null>(null);
   const [hintEvent, setHintEvent] = useState<TableHintEvent | null>(null);
+  const projectorRef = useRef<((clientX: number, clientY: number) => { x: number; y: number; z: number } | null) | null>(null);
   const scenePaused = interactionsPaused || readOnly || contextMenu !== null || inspectedId !== null;
   const signalHint = (gesture: TableHintGesture) => setHintEvent((previous) => ({ gesture, nonce: (previous?.nonce ?? 0) + 1 }));
 
@@ -67,7 +74,13 @@ export function TableScene({
     setInspectedId,
     setHover,
     signalHint,
-    onProjectorChange,
+    (projector) => {
+      projectorRef.current = projector;
+      onProjectorChange?.(projector);
+    },
+    onScreenProjectorChange,
+    onTablePointerMove,
+    onTablePing,
     onRendererStatus,
   );
 
@@ -86,6 +99,16 @@ export function TableScene({
       else client?.sendAction(model.action);
     },
   }));
+  if (contextMenu !== null && onTablePing !== undefined) {
+    contextActions.push({
+      id: "ping-here",
+      label: "Ping here",
+      run: () => {
+        const point = projectorRef.current?.(contextMenu.x, contextMenu.y) ?? null;
+        if (point !== null) onTablePing(point);
+      },
+    });
+  }
 
   const inspectItem = useMemo<InspectOverlayItem | null>(() => {
     if (inspectedId === null || state === null) return null;

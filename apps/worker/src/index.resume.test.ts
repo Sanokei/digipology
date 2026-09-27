@@ -122,8 +122,12 @@ test("admits ten seats end to end and rejects the eleventh", async () => {
 test.each([false, true])("host-first resume restores score, turn and prompt; repeat save=%s", async (repeat) => {
   let { db, room } = harness();
   const release = getBuiltinRelease("builtin_zone_runner_2")!;
-  const runtime = await createCreatorScriptRuntime({ scripts: scriptsFromReleaseFiles(release.files),
-    refs: release.refs ?? {}, definitions: (release.definitions ?? {}) as unknown as Readonly<Record<string, JsonValue>>, instructionBudget: 50_000 });
+  const runtime = await createCreatorScriptRuntime({
+    scripts: scriptsFromReleaseFiles(release.files),
+    refs: release.refs ?? {},
+    definitions: (release.definitions ?? {}) as unknown as Readonly<Record<string, JsonValue>>,
+    instructionBudget: 50_000,
+  });
   try {
     const initial = createBuiltinInitialState("builtin_zone_runner_2", [
       { playerId: "alice", displayName: "Alice" }, { playerId: "bob", displayName: "Bob" },

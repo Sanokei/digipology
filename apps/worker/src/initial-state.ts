@@ -12,6 +12,16 @@ export interface InitialStatePlayer {
   readonly displayName: string;
 }
 
+/** Stable authored seat order, with numeric seat_N ids ordered naturally through seat_10. */
+export function orderedInitialSeatIds(seats: CanonicalGameState["seats"]): string[] {
+  return Object.keys(seats).sort((left, right) => {
+    const leftMatch = /^seat_(\d+)$/.exec(left);
+    const rightMatch = /^seat_(\d+)$/.exec(right);
+    if (leftMatch !== null && rightMatch !== null) return Number(leftMatch[1]) - Number(rightMatch[1]);
+    return left < right ? -1 : left > right ? 1 : 0;
+  });
+}
+
 const IDENTITY = Object.freeze({
   position: Object.freeze({ x: 0, y: 0, z: 0 }),
   rotation: Object.freeze({ x: 0, y: 0, z: 0, w: 1 }),

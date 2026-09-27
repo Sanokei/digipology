@@ -162,6 +162,59 @@ describe("die.roll", () => {
   });
 });
 
+describe("entity.rotate", () => {
+  test("applies deterministic 15 degree steps and replays to the same hash", () => {
+    const run = () => {
+      let current = state();
+      for (let index = 0; index < 6; index += 1) {
+        const result = applyOrdered(
+          current,
+          ordered(
+            current,
+            `rotate_${index}`,
+            "entity.rotate",
+            { entityId: "pawn_a", steps: 1 },
+            { type: "player", playerId: "alice" },
+          ),
+        );
+        expect(result.rejection).toBeUndefined();
+        expect(result.events[0]).toMatchObject({
+          type: "entity.rotated",
+          data: { entityId: "pawn_a", steps: 1 },
+        });
+        current = result.state;
+      }
+      return current;
+    };
+    const rotated = run();
+    expect(rotated.entities.pawn_a?.components.transform?.rotation.y).toBeCloseTo(Math.SQRT1_2, 3);
+    expect(rotated.entities.pawn_a?.components.transform?.rotation.w).toBeCloseTo(Math.SQRT1_2, 3);
+    expect(snapshot(rotated).stateHash).toBe(snapshot(run()).stateHash);
+  });
+
+  test("rejects malformed steps, missing transforms, locks, and other players' holds atomically", () => {
+    const initial = state();
+    initial.entities.pawn_a!.components.lockable = { locked: true };
+    const cases: Array<[unknown, OrderedActionInput["actor"], string]> = [
+      [{ entityId: "pawn_a", steps: 2 }, { type: "player", playerId: "alice" }, "steps"],
+      [{ entityId: "plain", steps: 1 }, { type: "player", playerId: "alice" }, "lacks transform"],
+      [{ entityId: "pawn_a", steps: 1 }, { type: "player", playerId: "alice" }, "locked"],
+      [{ entityId: "pawn_b", steps: -1 }, { type: "player", playerId: "bob" }, "held by another"],
+    ];
+    let current = initial;
+    for (const [payload, actor, reason] of cases) {
+      const before = snapshot(current).stateHash;
+      const result = applyOrdered(
+        current,
+        ordered(current, `reject_${current.sequence}`, "entity.rotate", payload, actor),
+      );
+      expect(result.rejection?.reason).toContain(reason);
+      expect(snapshot({ ...result.state, sequence: current.sequence }).stateHash).toBe(before);
+      current = result.state;
+    }
+  });
+});
+
 describe("player and seat lifecycle", () => {
   test("resume atomically replaces the saved roster at sequence one", () => {
     const initial = state();

@@ -104,8 +104,36 @@ describe("RoomClient", () => {
     socket.message({ type: "bootstrap", protocolVersion: 1, sequence: 0, players: [] });
     const requestId = client.sendAction({ type: "counter.add", payload: { entityId: "counter", amount: 1 } });
     expect(requestId).toBeString();
-    expect(JSON.parse(socket.sent[1] ?? "{}")).toMatchObject({ type: "action_request", predictedAtSequence: 0 });
+    expect(socket.sent.map((wire) => JSON.parse(wire) as { type: string }).find((message) => message.type === "action_request"))
+      .toMatchObject({ type: "action_request", predictedAtSequence: 0 });
     expect(statuses).toEqual(["connecting", "loading_release", "starting", "connected"]);
+    client.stop();
+  });
+
+  it("subscribes to transient social messages, relays sends, and degrades cleanly with older peers", async () => {
+    const initial = createInitialState({ releaseId: "release_test", rng: { algorithm: "sfc32-v1", state: [1, 2, 3, 4], draws: 0 } });
+    const api = createApiClient(async () => Response.json({ releaseId: "release_test", initialSnapshot: snapshot(initial) }));
+    const socket = new MockSocket();
+    const store = new KernelStore();
+    const statuses: string[] = [];
+    const received: string[] = [];
+    const client = new RoomClient(session, store, (status) => statuses.push(status.state), api, () => socket as unknown as WebSocket);
+    client.subscribeSocial((message) => received.push(message.type));
+    client.start();
+    socket.open();
+    await waitFor(() => socket.sent.length > 0);
+    socket.message({ type: "bootstrap", protocolVersion: 1, sequence: 0, players: [] });
+    expect(socket.sent.map((wire) => JSON.parse(wire) as { type: string }).at(-1)?.type).toBe("social_subscribe");
+    socket.message({ type: "chat_message", protocolVersion: 1, kind: "system", text: "Alice joined." });
+    socket.message({ type: "table_ping", protocolVersion: 1, playerId: "p2", displayName: "Bob", seatId: "seat_2", x: 1, z: 2 });
+    expect(received).toEqual(["chat_message", "table_ping"]);
+    expect(client.sendChat("hello")).toBe(true);
+    expect(JSON.parse(socket.sent.at(-1) ?? "{}")).toMatchObject({ type: "chat_send", text: "hello" });
+
+    socket.message({ type: "protocol_error", protocolVersion: 1, code: "unknown_message_type", message: "unsupported" });
+    expect(client.sendChat("after fallback")).toBe(false);
+    expect(socket.readyState).toBe(WebSocket.OPEN);
+    expect(statuses.at(-1)).toBe("connected");
     client.stop();
   });
 

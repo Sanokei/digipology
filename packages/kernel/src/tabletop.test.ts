@@ -555,6 +555,7 @@ describe("container, button, text, and locking actions", () => {
   test("all new registered actions reject malformed exact-key payloads atomically", () => {
     const cases = [
       ["entity.move", { entityId: "item", transform: IDENTITY, extra: true }],
+      ["entity.rotate", { entityId: "item", steps: 1, extra: true }],
       ["entity.set_locked", { entityId: "item", locked: true, extra: true }],
       ["container.move", { entity: "item", from: "source", to: "target" }],
       ["stack.remove_top", { stackId: "missing", extra: true }],

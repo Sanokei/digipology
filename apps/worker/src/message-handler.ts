@@ -3,6 +3,7 @@ import {
   parseClientMessage,
   parseServerMessage,
   type ClientMessage,
+  type ClientSocialMessage,
   type ProtocolErrorCode,
   type ServerMessage,
 } from "digipology-protocol";
@@ -16,7 +17,13 @@ export interface ConnectionState {
   authenticated: boolean;
   playerId: string | null;
   bootstrapped: boolean;
+  socialSubscribed?: boolean;
+  chatWindowStartedAt?: number;
+  chatCount?: number;
 }
+
+export const CHAT_RATE_LIMIT = 5;
+export const CHAT_RATE_WINDOW_MS = 10_000;
 
 export interface MessageHandlerContext {
   state: ConnectionState;
@@ -34,6 +41,13 @@ export interface MessageHandlerContext {
     duplicate: boolean;
   };
   broadcast(message: ServerMessage): void;
+  socialSubscribe?(playerId: string): void;
+  relaySocial?(
+    playerId: string,
+    message: Exclude<ClientSocialMessage, { type: "social_subscribe" }>,
+  ): ServerMessage;
+  broadcastSocial?(message: ServerMessage): void;
+  now?(): number;
 }
 
 export function handleTextFrame(
@@ -72,10 +86,50 @@ export function handleTextFrame(
 
   const playerId = context.state.playerId;
   if (playerId === null) throw new Error("Authenticated socket has no player ID");
+  if (parsed.message.type === "social_subscribe") {
+    if (context.socialSubscribe === undefined) {
+      sendProtocolError(socket, "unknown_message_type", "Social messages are not supported by this room");
+      return Promise.resolve();
+    }
+    context.state.socialSubscribed = true;
+    context.socialSubscribe(playerId);
+    return Promise.resolve();
+  }
+  if (
+    parsed.message.type === "chat_send" ||
+    parsed.message.type === "cursor_update" ||
+    parsed.message.type === "table_ping"
+  ) {
+    if (context.state.socialSubscribed !== true || context.relaySocial === undefined || context.broadcastSocial === undefined) {
+      sendProtocolError(socket, "unknown_message_type", "Subscribe to room social messages first");
+      return Promise.resolve();
+    }
+    if (parsed.message.type === "chat_send" && !consumeChatRate(context.state, context.now?.() ?? Date.now())) {
+      sendProtocolError(socket, "rate_limited", "Chat is limited to 5 messages every 10 seconds");
+      return Promise.resolve();
+    }
+    context.broadcastSocial(context.relaySocial(playerId, parsed.message));
+    return Promise.resolve();
+  }
   const result = context.sequence(playerId, parsed.message);
   if (result.duplicate) sendServerMessage(socket, result.message);
   else context.broadcast(result.message);
   return Promise.resolve();
+}
+
+function consumeChatRate(state: ConnectionState, now: number): boolean {
+  if (
+    state.chatWindowStartedAt === undefined ||
+    state.chatCount === undefined ||
+    now - state.chatWindowStartedAt >= CHAT_RATE_WINDOW_MS ||
+    now < state.chatWindowStartedAt
+  ) {
+    state.chatWindowStartedAt = now;
+    state.chatCount = 1;
+    return true;
+  }
+  state.chatCount += 1;
+  return state.chatCount <= CHAT_RATE_LIMIT;
 }
 
 async function handleHello(

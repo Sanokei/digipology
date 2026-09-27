@@ -216,12 +216,24 @@ describe("HTTP v1 request validators", () => {
     };
     expect(validateGameSummaryDto(summary)).toEqual({ ok: true, value: summary });
     expect(validateGameSummaryDto({ ...summary, coverVersion: null }).ok).toBe(true);
+    const browse = {
+      ...summary,
+      tags: ["strategy", "hidden-role"],
+      playTimeMinutes: 30,
+      complexity: 3 as const,
+      description: "A complete browse description.",
+    };
+    expect(validateGameSummaryDto(browse)).toEqual({ ok: true, value: browse });
     for (const value of [
       { ...summary, currentPlayers: -1 },
       { ...summary, totalPlays: 1.5 },
       { ...summary, coverVersion: 0 },
       { ...summary, coverVersion: "1" },
       { ...summary, currentPlayers: 0, unknown: true },
+      { ...summary, tags: ["Not a slug"] },
+      { ...summary, playTimeMinutes: 0 },
+      { ...summary, complexity: 6 },
+      { ...summary, description: "" },
     ]) expect(validateGameSummaryDto(value).ok).toBe(false);
   });
 

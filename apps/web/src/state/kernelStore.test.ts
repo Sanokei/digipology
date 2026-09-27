@@ -128,6 +128,10 @@ function flip(entityId: string): PredictionAction {
   return { type: "entity.flip", payload: { entityId } };
 }
 
+function rotate(entityId: string, steps: -1 | 1): PredictionAction {
+  return { type: "entity.rotate", payload: { entityId, steps } };
+}
+
 function drop(entityId: string, x: number, z: number): PredictionAction {
   return {
     type: "entity.drop",
@@ -274,6 +278,23 @@ describe("KernelStore", () => {
     store.applyOrdered(predictionOrdered(2, flip("token_a"), "alice", "req-first"));
     expect(store.getSnapshot().predictionLedger).toHaveLength(0);
     expect(store.getSnapshot().displayedState?.entities.token_a?.components.flippable?.flipped).toBe(false);
+  });
+
+  it("predicts rotation immediately and reconciles it by request id", () => {
+    const store = predictionStore();
+    const before = store.getSnapshot().state?.entities.token_a?.components.transform?.rotation;
+    expect(store.predictLocal({
+      requestId: "rotate-right",
+      action: rotate("token_a", 1),
+      predictedAtSequence: 0,
+    }, "alice")).toBe(true);
+    expect(store.getSnapshot().state?.entities.token_a?.components.transform?.rotation).toEqual(before);
+    const predicted = store.getSnapshot().displayedState?.entities.token_a?.components.transform?.rotation;
+    expect(predicted).not.toEqual(before);
+    expect(store.applyOrdered(predictionOrdered(1, rotate("token_a", 1), "alice", "rotate-right")))
+      .toEqual({ ok: true });
+    expect(store.getSnapshot().predictionLedger).toHaveLength(0);
+    expect(store.getSnapshot().displayedState?.entities.token_a?.components.transform?.rotation).toEqual(predicted);
   });
 
   it("drops an invalid grab while replaying a still-valid flip in order", () => {

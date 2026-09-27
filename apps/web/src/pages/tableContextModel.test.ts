@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import type { CanonicalGameState, EntityRecord } from "digipology-kernel";
 
-import { contextActionsFor, diceControlLabels, hoverStatusText, presentationHighlightIds, primaryActionFor } from "./tableContextModel";
+import { contextActionsFor, diceControlLabels, hoverStatusText, keyboardRollActionFor, presentationHighlightIds, primaryActionFor } from "./tableContextModel";
 
 function entity(components: EntityRecord["components"]): EntityRecord {
   return { id: "piece", components };
@@ -77,6 +77,40 @@ test("primary actions follow die, deck, button, flip, then inspect precedence", 
   for (const [piece, expected] of samples) {
     expect(primaryActionFor(piece, stateFor(piece), "me", "seat_1", true)?.id ?? null).toBe(expected);
   }
+});
+
+test("rotation actions use canonical 15 degree steps and respect hold and lock gates", () => {
+  const piece = entity({
+    transform: {
+      position: { x: 0, y: 0, z: 0 },
+      rotation: { x: 0, y: 0, z: 0, w: 1 },
+      scale: { x: 1, y: 1, z: 1 },
+    },
+    grabbable: { enabled: true, heldBy: null },
+    lockable: { locked: false },
+  });
+  let actions = contextActionsFor(piece, stateFor(piece), "me", "seat_1", true);
+  expect(actions.slice(0, 2)).toEqual([
+    { id: "rotate-left", label: "Rotate left 15°", disabled: false, action: { type: "entity.rotate", payload: { entityId: "piece", steps: -1 } } },
+    { id: "rotate-right", label: "Rotate right 15°", disabled: false, action: { type: "entity.rotate", payload: { entityId: "piece", steps: 1 } } },
+  ]);
+  piece.components.grabbable!.heldBy = "other";
+  actions = contextActionsFor(piece, stateFor(piece), "me", "seat_1", true);
+  expect(actions.slice(0, 2).every((action) => action.disabled)).toBe(true);
+  piece.components.grabbable!.heldBy = null;
+  piece.components.lockable!.locked = true;
+  actions = contextActionsFor(piece, stateFor(piece), "me", "seat_1", true);
+  expect(actions.slice(0, 2).every((action) => action.disabled)).toBe(true);
+});
+
+test("R-key parity maps dice to roll and enabled decks to shuffle", () => {
+  expect(keyboardRollActionFor(entity({ die: { definitionId: "d6", value: 1 } }))).toEqual({
+    type: "die.roll", payload: { entityId: "piece" },
+  });
+  expect(keyboardRollActionFor(entity({ deck: { enabled: true } }))).toEqual({
+    type: "deck.shuffle", payload: { deckId: "piece" },
+  });
+  expect(keyboardRollActionFor(entity({ deck: { enabled: false } }))).toBeNull();
 });
 
 test("dice labels use definitions and disambiguate duplicates without raw ids", () => {

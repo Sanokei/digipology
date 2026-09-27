@@ -24,7 +24,7 @@ The optional canonical `appearance: { definitionId, seat? }` entity component ca
 | **implemented (kernel v1, #65 / PR #74)** | Registered by the creator-API wave and present in the `kernelVersion: 1` registry. |
 | **spec** | Defined by Appendix C but not registered by kernel v1. |
 
-Appendix C contains 28 top-level registry rows. Kernel v1 implements 21 of those rows (7 remain **spec**) and also registers four additional stack commands (`stack.create`, `stack.add`, `stack.merge`, `stack.dissolve`) plus the prompt/timer lifecycle commands (`prompt.create`, `prompt.cancel`, `timer.register`, `timer.cancel`) described by Appendix B.2 and SPEC 03.9 — 29 registered action types in `builtInActions`. Status is therefore recorded row by row rather than inferred from the normative count.
+Appendix C contains 28 top-level registry rows. Kernel v1 implements 21 of those rows (7 remain **spec**) and also registers four additional stack commands (`stack.create`, `stack.add`, `stack.merge`, `stack.dissolve`), the prompt/timer lifecycle commands (`prompt.create`, `prompt.cancel`, `timer.register`, `timer.cancel`) described by Appendix B.2 and SPEC 03.9, and `entity.rotate` — 30 registered action types in `builtInActions`. Status is therefore recorded row by row rather than inferred from the normative count.
 
 ## Payload notation
 
@@ -198,6 +198,17 @@ Requires an existing `transform` component and permits only a canonical stack to
 | Status | **implemented (kernel v1, pre-wave 9)** |
 
 Requires a `flippable` component and toggles its canonical `flipped` value. Player sources also run `can_flip`; script sources do not.
+
+### entity.rotate
+
+| Property | Contract |
+| --- | --- |
+| Allowed source | `player` or `script` |
+| Payload | `{ entityId: EntityId; steps: -1 | 1 }` |
+| Prediction default | Yes |
+| Status | **implemented (kernel v1)** |
+
+Requires a canonical `transform` and rotates it one deterministic 15° step about the vertical axis. A locked entity rejects. A player may rotate an entity they hold, but another player or a script cannot rotate it while it is held by someone else. The kernel composes and canonicalizes the quaternion and emits `entity.rotated`; clients may predict the action and reconcile it by request ID.
 
 ### entity.set_locked
 
@@ -429,7 +440,7 @@ Prediction changes latency handling, not canonical authority. A predicted action
 
 | Guidance | Actions |
 | --- | --- |
-| Predict initially | [`entity.grab`](#entitygrab), [`entity.drop`](#entitydrop), [`entity.flip`](#entityflip), [`button.press`](#buttonpress), simple [`counter.set`](#counterset)/[`counter.add`](#counteradd) interactions, [`prompt.respond`](#promptrespond) |
+| Predict initially | [`entity.grab`](#entitygrab), [`entity.drop`](#entitydrop), [`entity.flip`](#entityflip), [`entity.rotate`](#entityrotate), [`button.press`](#buttonpress), simple [`counter.set`](#counterset)/[`counter.add`](#counteradd) interactions, [`prompt.respond`](#promptrespond) |
 | Do not predict initially | [`deck.shuffle`](#deckshuffle), [`deck.deal`](#deckdeal), [`die.roll`](#dieroll), [`entity.spawn`](#entityspawn), [`entity.destroy`](#entitydestroy), large scripted actions, timer actions such as [`system.timer_fire`](#systemtimer_fire) |
 | Registry remains conditional | [`entity.set_locked`](#entityset_locked) (`maybe`), [`deck.draw_to_world`](#deckdraw_to_world) (`yes-ish`), [`stack.remove_top`](#stackremove_top) (`maybe`) |
 
@@ -448,6 +459,7 @@ The table below is the kernel v1 emission matrix from `ctx.emit`, not an inferen
 | `entity.grabbed` | `entity.grab` |
 | `entity.dropped` | `entity.drop`, or `system.player_left` when releasing a held entity |
 | `entity.flipped` | `entity.flip` |
+| `entity.rotated` | `entity.rotate` |
 | `container.removed` | A drop, scripted move, or snap attach that first detaches an entity from a container |
 | `container.moved` | `container.move`, with nullable `from`/`to`, requested `index`, and actual `fromIndex` |
 | `deck.shuffled` | `deck.shuffle` |
