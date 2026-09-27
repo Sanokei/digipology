@@ -1,5 +1,7 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { canonicalizeTransform, type EntityComponents } from "digipology-kernel";
+import { renderFaceSvg, validateFaceSpec, type FaceSpec } from "digipology-faces";
+import { PIECE_SHAPES, type PieceDefinitionDto } from "digipology-protocol/http";
 
 import {
   EDITOR_COMPONENT_TYPES,
@@ -54,6 +56,7 @@ function ComponentFields({ type, component, store }: { type: string; component: 
   if (type === "grabbable") return <>{bool("Enabled", ["enabled"])}<p className="editor-field-note">Held by: {String(component.heldBy ?? "nobody")}</p></>;
   if (type === "flippable") return bool("Flipped", ["flipped"]);
   if (type === "card") return <>{text("Face / back definition", ["definitionId"])}{bool("Face up", ["faceUp"])}</>;
+  if (type === "appearance") return <>{text("Definition", ["definitionId"])}{text("Seat tint owner (optional)", ["seat"])}</>;
   if (type === "container") return <>
     {text("Contents (entity ids, comma separated)", ["itemsText"])}
     {number("Capacity (-1 is unlimited)", ["capacityEditor"], { min: -1, step: 1 })}
@@ -72,6 +75,55 @@ function ComponentFields({ type, component, store }: { type: string; component: 
   if (type === "button") return <>{text("Label", ["label"])}{bool("Enabled", ["enabled"])}</>;
   if (type === "script") return <>{text("Script id", ["scriptId"])}{text("Binding id", ["bindingId"])}{text("Binding props JSON", ["propsText"], true)}</>;
   return <pre className="editor-json-preview">{JSON.stringify(component, null, 2)}</pre>;
+}
+
+function FaceJsonEditor({ title, value, maxElements, onCommit }: { title: string; value: FaceSpec | undefined; maxElements: number; onCommit(value: FaceSpec | undefined): void }) {
+  const [text, setText] = useState(() => value === undefined ? "" : JSON.stringify(value, null, 2));
+  useEffect(() => setText(value === undefined ? "" : JSON.stringify(value, null, 2)), [value]);
+  let parsed: unknown;
+  let syntaxError: string | null = null;
+  try { parsed = text.trim() === "" ? undefined : JSON.parse(text) as unknown; }
+  catch (error) { syntaxError = error instanceof Error ? error.message : String(error); }
+  const checked = syntaxError === null && parsed !== undefined ? validateFaceSpec(parsed, { maxElements }) : null;
+  const valid = text.trim() === "" || checked?.ok === true;
+  const preview = checked?.ok === true ? renderFaceSvg(checked.value, 260, 180) : null;
+  return <div className="editor-face-field"><Field label={`${title} FaceSpec JSON`}><textarea value={text} rows={9} spellCheck={false} onChange={(event) => setText(event.currentTarget.value)} onBlur={() => {
+    if (!valid) return;
+    onCommit(text.trim() === "" ? undefined : (checked as { ok: true; value: FaceSpec }).value);
+  }} /></Field>
+    {syntaxError === null ? checked === null || checked.ok ? null : <ul className="editor-inline-errors">{checked.errors.slice(0, 5).map((item) => <li key={`${item.path}:${item.message}`}>{item.path}: {item.message}</li>)}</ul> : <p className="editor-inline-error">{syntaxError}</p>}
+    {preview === null ? null : <img className="editor-face-preview" alt={`${title} face preview`} src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(preview)}`} />}
+  </div>;
+}
+
+function AppearanceDefinitionEditor({ store, component }: { store: EditorStore; component: Record<string, unknown> }) {
+  const snapshot = useEditorSnapshot(store);
+  const definitionId = String(component.definitionId ?? "");
+  const definition = snapshot.bundle.definitions?.[definitionId];
+  const ids = Object.keys(snapshot.bundle.definitions ?? {}).sort();
+  const updateDefinition = (label: string, mutate: (definition: PieceDefinitionDto) => void) => store.applySceneCommand(label, (draft) => {
+    draft.bundle.definitions ??= {};
+    const target = structuredClone(draft.bundle.definitions[definitionId] ?? {});
+    mutate(target);
+    draft.bundle.definitions[definitionId] = target;
+  });
+  const number = (axis: "w" | "d" | "h") => <NumberInput label={axis.toUpperCase()} value={definition?.size?.[axis] ?? (axis === "h" ? 0.18 : 0.9)} min={0.05} max={40} step={0.05}
+    onCommit={(value) => updateDefinition(`Updated ${definitionId} size`, (next) => { next.size = { w: next.size?.w ?? 0.9, d: next.size?.d ?? 0.9, h: next.size?.h ?? 0.18, [axis]: value }; })} />;
+  return <div className="editor-definition-editor">
+    <Field label="Definition"><select value={definitionId} onChange={(event) => store.updateComponent("appearance", "Selected piece definition", (next) => { next.definitionId = event.currentTarget.value; })}>
+      {!ids.includes(definitionId) ? <option value={definitionId}>{definitionId || "Choose a definition"}</option> : null}
+      {ids.map((id) => <option key={id} value={id}>{id}</option>)}
+    </select></Field>
+    {definition === undefined ? <button type="button" disabled={definitionId.trim() === ""} onClick={() => updateDefinition(`Created definition ${definitionId}`, () => undefined)}>Create definition</button> : <>
+      <Field label="Shape"><select value={definition.shape ?? "box"} onChange={(event) => updateDefinition(`Changed ${definitionId} shape`, (next) => { next.shape = event.currentTarget.value as typeof PIECE_SHAPES[number]; })}>{PIECE_SHAPES.map((shape) => <option key={shape} value={shape}>{shape}</option>)}</select></Field>
+      <div className="editor-vector"><span>Size</span><span>{number("w")}</span><span>{number("d")}</span><span>{number("h")}</span></div>
+      <Field label="Front color"><input type="color" value={definition.color ?? "#d7b26d"} onChange={(event) => updateDefinition(`Changed ${definitionId} color`, (next) => { next.color = event.currentTarget.value; })} /></Field>
+      <Field label="Back color"><input type="color" value={definition.backColor ?? "#8d3429"} onChange={(event) => updateDefinition(`Changed ${definitionId} back color`, (next) => { next.backColor = event.currentTarget.value; })} /></Field>
+      <BoolField label="Tint with seat color" value={definition.seatTint === true} onCommit={(value) => updateDefinition(`Changed ${definitionId} seat tint`, (next) => { next.seatTint = value; })} />
+      <FaceJsonEditor title="Front" value={definition.face} maxElements={definition.shape === "board" ? 2_500 : 300} onCommit={(value) => updateDefinition(`Updated ${definitionId} face`, (next) => { if (value === undefined) delete next.face; else next.face = value; })} />
+      <FaceJsonEditor title="Back" value={definition.back} maxElements={definition.shape === "board" ? 2_500 : 300} onCommit={(value) => updateDefinition(`Updated ${definitionId} back`, (next) => { if (value === undefined) delete next.back; else next.back = value; })} />
+    </>}
+  </div>;
 }
 
 function prepareEditorFields(type: string, value: unknown): Record<string, unknown> {
@@ -104,6 +156,8 @@ export function resizeDieFaces(faces: readonly unknown[], sides: number): unknow
 export function normalizeEditorFields(type: string, component: Record<string, unknown>): void {
   if (type === "transform") {
     Object.assign(component, canonicalizeTransform(component));
+  } else if (type === "appearance") {
+    if (String(component.seat ?? "").trim() === "") delete component.seat;
   } else if (type === "container") {
     component.items = String(component.itemsText ?? "").split(",").map((value) => value.trim()).filter(Boolean);
     component.capacity = Number(component.capacityEditor) < 0 ? null : Math.round(Number(component.capacityEditor));
@@ -161,7 +215,9 @@ export function InspectorPanel({ store }: { store: EditorStore }) {
         const dependents = componentDependents(entity.components as EntityComponents, type);
         return <ComponentCard key={type} title={type} onRemove={() => {
           if (!store.removeComponent(type) && dependents.length > 0) store.log(`${type} is required by ${dependents.join(", ")}.`, "warning");
-        }}><ComponentFields type={type} component={prepareEditorFields(type, components[type])} store={proxyStore} /></ComponentCard>;
+        }}>{type === "appearance"
+          ? <><ComponentFields type={type} component={prepareEditorFields(type, components[type])} store={proxyStore} /><AppearanceDefinitionEditor store={store} component={prepareEditorFields(type, components[type])} /></>
+          : <ComponentFields type={type} component={prepareEditorFields(type, components[type])} store={proxyStore} />}</ComponentCard>;
       })}
       {available.length === 0 ? null : <div className="editor-add-component"><select aria-label="Component to add" value={available.includes(addType as typeof available[number]) ? addType : available[0]}
         onChange={(event) => setAddType(event.currentTarget.value)}>{available.map((type) => <option key={type} value={type}>{type}</option>)}</select>

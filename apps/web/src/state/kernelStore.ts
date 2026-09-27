@@ -17,7 +17,7 @@ import {
 } from "digipology-lua";
 import type { OrderedAction, PlayerInfo, ResumeMessage, RoomEndedMessage } from "digipology-protocol";
 
-import type { ReleaseBundleDto } from "digipology-protocol/http";
+import type { PieceDefinitionDto, ReleaseBundleDto } from "digipology-protocol/http";
 
 export interface PredictionAction {
   type: string;
@@ -50,7 +50,7 @@ export interface KernelStoreSnapshot {
   /** Hash of confirmed state only. */
   stateHash: string | null;
   diagnostic: string | null;
-  definitions: Readonly<Record<string, { label?: string; color?: string }>>;
+  definitions: Readonly<Record<string, PieceDefinitionDto>>;
   gameTitle: string | null;
 }
 
@@ -150,7 +150,7 @@ export class KernelStore {
     this.scriptRuntime = await createCreatorScriptRuntime({
       scripts: scriptsFromReleaseFiles(files),
       refs: { ...entityRefs, ...(bundle.refs ?? {}) },
-      definitions: bundle.definitions ?? {},
+      definitions: (bundle.definitions ?? {}) as unknown as Readonly<Record<string, import("digipology-kernel").JsonValue>>,
       instructionBudget: 50_000,
       memoryBudgetBytes: 512 * 1024,
     });

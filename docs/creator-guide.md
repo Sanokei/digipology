@@ -34,6 +34,7 @@ The default layout groups eight panels. Tabs can be docked and resized, and clos
 
 - **Hierarchy** lists entities as a tree. Select an entity to inspect it; press **F2** or double-click to rename it. Its context menu also provides rename, duplicate, and delete actions.
 - **Inspector** shows one card for every component on the selected entity. You can edit supported fields, add components, and remove components when their dependencies allow it. Drag a numeric field's grip to scrub its value.
+- Add an `appearance` component to choose a presentation definition for any entity. The Inspector can create/edit that definition's shape, color, size, seat tint, and front/back FaceSpec JSON. Validation errors appear inline and valid art receives a live safe SVG preview. See the [FaceSpec reference](./faces.md).
 - **Table** is the viewport. It renders the current draft read-only until a playtest starts, then becomes the interactive playtest table.
 - **Scripts** creates, selects, renames, and deletes files under `scripts/`.
 - **Lua IDE** edits the selected script with Lua-aware completion and formatting. **Ctrl+S** formats the script with StyLua.

@@ -92,6 +92,14 @@ function validBundle(): ReleaseBundleDto {
 }
 
 describe("HTTP v1 request validators", () => {
+  test("accepts ten-player releases and rejects eleven", () => {
+    const ten = validBundle();
+    ten.maxPlayers = 10;
+    ten.integrity.manifestHash = releaseManifestHash(ten, fakeHash);
+    expect(validateReleaseBundle(ten, VALIDATION).find((item) => item.check === "player_limits")?.ok).toBe(true);
+    const eleven = { ...ten, maxPlayers: 11 };
+    expect(validateReleaseBundle(eleven, VALIDATION).find((item) => item.check === "player_limits")?.ok).toBe(false);
+  });
   test("validates saved-table DTOs and requests", () => {
     const snapshot = validBundle().initialSnapshot;
     expect(validateSaveTableRequest({ roomToken: "token", snapshot, label: "Friday" }).ok).toBe(true);
@@ -280,5 +288,42 @@ describe("HTTP v1 request validators", () => {
     const badRefs = structuredClone(current) as unknown as Record<string, unknown>;
     badRefs.refs = { "not-safe!": "deck_01" };
     expect(validateReleaseBundle(badRefs, VALIDATION).find((item) => item.check === "bundle_shape")?.ok).toBe(false);
+  });
+
+  test("strictly validates full piece definitions and bounded FaceSpecs", () => {
+    const bundle = validBundle();
+    const manifestBeforeDefinitions = releaseManifestHash(bundle, fakeHash);
+    bundle.definitions = {
+      wheat_hex: {
+        shape: "hex", size: { w: 2, d: 1.74, h: 0.14 }, color: "#d7b45a", backColor: "#654321",
+        label: "Wheat", backLabel: "Hidden", seatTint: false,
+        face: { background: "#f4d77b", elements: [{ type: "icon", name: "wheat", x: 500, y: 500, size: 600, fill: "#785d18" }] },
+      },
+    };
+    bundle.integrity.manifestHash = releaseManifestHash(bundle, fakeHash);
+    expect(bundle.integrity.manifestHash).toBe(manifestBeforeDefinitions);
+    expect(validateReleaseBundle(bundle, VALIDATION).find((item) => item.check === "bundle_shape")?.ok).toBe(true);
+
+    for (const definition of [
+      { shape: "sphere" },
+      { size: { w: 0.01, d: 1, h: 1 } },
+      { color: "red" },
+      { label: "bad\u0000label" },
+      { face: { background: "#ffffff", elements: [{ type: "image", href: "https://evil.test" }] } },
+      { label: "known", onclick: "alert(1)" },
+    ]) {
+      const invalid = structuredClone(bundle) as unknown as Record<string, unknown>;
+      invalid.definitions = { hostile: definition };
+      expect(validateReleaseBundle(invalid, VALIDATION).find((item) => item.check === "bundle_shape")?.ok).toBe(false);
+    }
+
+    const crowdedFace = { background: "#ffffff", elements: Array.from({ length: 301 }, () => ({ type: "circle", cx: 1, cy: 1, r: 1 })) };
+    const normal = structuredClone(bundle);
+    normal.definitions = { crowded: { shape: "token", face: crowdedFace } } as NonNullable<ReleaseBundleDto["definitions"]>;
+    expect(validateReleaseBundle(normal, VALIDATION).find((item) => item.check === "bundle_shape")?.ok).toBe(false);
+    const board = structuredClone(bundle);
+    board.definitions = { crowded: { shape: "board", face: crowdedFace } } as NonNullable<ReleaseBundleDto["definitions"]>;
+    board.integrity.manifestHash = releaseManifestHash(board, fakeHash);
+    expect(validateReleaseBundle(board, VALIDATION).find((item) => item.check === "bundle_shape")?.ok).toBe(true);
   });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { HandStrip } from "../components/HandStrip";
@@ -14,6 +14,7 @@ import {
   type RendererStatus,
 } from "../scene/rendererPolicy";
 import { KernelStore } from "../state/kernelStore";
+import { seatPaletteEntry } from "../seatPalette";
 import { useKernelStore } from "../state/useKernelStore";
 import { loadRoomSession } from "../utils/roomSession";
 import { localHandItems } from "./tableHandModel";
@@ -132,6 +133,7 @@ export function TablePage() {
   const dice = Object.values(view.state?.entities ?? {}).filter((entity) => entity.components.die !== undefined);
   const handItems = localHandItems(view.displayedState, session.playerId, view.definitions);
   const prompts = openPromptsForPlayer(view.state, session.playerId);
+  const localSeatId = view.players.find((player) => player.playerId === session.playerId)?.seatId;
 
   return <TableScene
     store={store} client={client} playerId={session.playerId} interactionsPaused={status.state !== "connected"}
@@ -140,7 +142,10 @@ export function TablePage() {
     topBar={<TableTopBar gameTitle={gameTitle} playerCount={view.players.length} joinCode={session.joinCode} inviteUrl={session.inviteUrl} onPlayers={() => setPlayersOpen((value) => !value)} onDiagnostics={() => setDiagnosticsOpen((value) => !value)} menu={<TableMenu roomId={roomId} roomToken={session.roomToken} isHost={view.players.find((player) => player.playerId === session.playerId)?.host === true} scripted={store.requiresScripts()} confirmedSnapshot={() => store.confirmedSnapshot() as GameSnapshotDto | null} onDiagnostics={() => setDiagnosticsOpen((value) => !value)} />} />}
     panels={<>
       {view.correction === null ? null : <div key={view.correction.id} className="prediction-correction" role="status">{view.correction.message}</div>}
-      {playersOpen ? <aside className="players-panel table-sheet" aria-label="Players"><div className="panel-heading"><span>Players</span><button type="button" aria-label="Close players" onClick={() => setPlayersOpen(false)}>×</button></div>{view.players.map((player) => <div className="player-row" key={player.playerId}><span className={player.connected ? "connection-dot connection-dot--online" : "connection-dot"} /><span><strong>{player.displayName}</strong><small>{player.seatId ?? "No seat"}</small></span><em>{player.connected ? "Connected" : "Away"}</em></div>)}</aside> : null}
+      {playersOpen ? <aside className="players-panel table-sheet" aria-label="Players"><div className="panel-heading"><span>Players</span><button type="button" aria-label="Close players" onClick={() => setPlayersOpen(false)}>×</button></div>{view.players.map((player) => {
+        const seat = player.seatId === null || player.seatId === undefined ? null : seatPaletteEntry(player.seatId);
+        return <div className="player-row" key={player.playerId} style={seat === null ? undefined : { "--seat-color": seat.color } as CSSProperties}><span className={player.connected ? "connection-dot connection-dot--online" : "connection-dot"} /><span><strong>{player.displayName}</strong><small>{seat === null ? "No seat" : `${seat.name} · ${player.seatId}`}</small></span><em>{player.connected ? "Connected" : "Away"}</em></div>;
+      })}</aside> : null}
       <DiceControls dice={dice} definitions={view.definitions} disabled={status.state !== "connected"} onRoll={(entityId) => {
         client.sendAction({ type: "die.roll", payload: { entityId } });
       }} />
@@ -148,7 +153,9 @@ export function TablePage() {
         client.sendAction({ type: "prompt.respond", payload: { promptId: prompt.id, response } });
       }} />)}
       {diagnosticsOpen ? <aside className="diagnostics-panel table-sheet" aria-label="Diagnostics"><div className="panel-heading"><span>Diagnostics</span><button type="button" aria-label="Close diagnostics" onClick={() => setDiagnosticsOpen(false)}>×</button></div><dl><dt>Sequence</dt><dd>{view.state?.sequence ?? "—"}</dd><dt>State hash</dt><dd>{view.stateHash ?? "—"}</dd><dt>Pending</dt><dd>{view.pendingRequestIds.size}</dd><dt>Transport</dt><dd>{status.state}</dd><RendererDiagnostics status={rendererStatus} /></dl><p>{view.diagnostic ?? "No diagnostics yet."}</p></aside> : null}
-      <HandStrip key={roomId} items={handItems} roomId={roomId} client={client} interactionsPaused={status.state !== "connected"} {...(projectToTable === undefined ? {} : { projectToTable })} />
+      <HandStrip key={roomId} items={handItems} roomId={roomId} client={client} interactionsPaused={status.state !== "connected"}
+        {...(localSeatId === null || localSeatId === undefined ? {} : { seatColor: seatPaletteEntry(localSeatId).color })}
+        {...(projectToTable === undefined ? {} : { projectToTable })} />
     </>}
     overlay={status.state === "connected" ? null : <ConnectionOverlay status={status} onReload={() => {
       client.stop();

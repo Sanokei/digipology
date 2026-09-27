@@ -151,3 +151,8 @@
 .editor-diff-actions button:last-child { color: var(--editor-text); background: #2b3340; }
 @keyframes editor-shimmer { to { background-position: -200% 0; } }
 @media (prefers-reduced-motion: reduce) { .editor-panel-skeleton span { animation: none; } }
+.editor-definition-editor { display: grid; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.editor-face-field { display: grid; gap: 8px; }
+.editor-face-field textarea { width: 100%; resize: vertical; font: .68rem/1.45 "DM Mono", monospace; }
+.editor-face-preview { display: block; width: 100%; max-height: 180px; border: 1px solid var(--line); border-radius: 6px; background: #fff; object-fit: contain; }
+.editor-inline-errors, .editor-inline-error { margin: 0; padding-left: 18px; color: #ff9f7a; font-size: .62rem; line-height: 1.4; }

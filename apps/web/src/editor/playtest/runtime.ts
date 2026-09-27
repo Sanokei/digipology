@@ -74,7 +74,7 @@ export class PlaytestRuntime {
     const runtime = new PlaytestRuntime(bundle, await createCreatorScriptRuntime({
       scripts: scriptsFromReleaseFiles(bundle.files),
       refs: { ...entityRefs, ...(bundle.refs ?? {}) },
-      definitions: bundle.definitions ?? {},
+      definitions: (bundle.definitions ?? {}) as unknown as Readonly<Record<string, import("digipology-kernel").JsonValue>>,
       instructionBudget: PLAYTEST_INSTRUCTION_BUDGET,
       memoryBudgetBytes: PLAYTEST_MEMORY_BUDGET_BYTES,
     }), onLog);

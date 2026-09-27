@@ -107,6 +107,12 @@ export interface CardComponent {
   faceUp: boolean;
 }
 
+/** Presentation selection only; game rules must not interpret this component. */
+export interface AppearanceComponent {
+  definitionId: string;
+  seat?: SeatId;
+}
+
 export interface ContainerComponent {
   items: EntityId[];
   capacity: number | null;
@@ -180,6 +186,7 @@ export interface EntityComponents {
   stackable?: StackableComponent;
   tags?: TagsComponent;
   card?: CardComponent;
+  appearance?: AppearanceComponent;
   container?: ContainerComponent;
   deck?: DeckComponent;
   counter?: CounterComponent;

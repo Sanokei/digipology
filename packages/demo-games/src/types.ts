@@ -1,3 +1,5 @@
+import type { FaceSpec } from "digipology-faces";
+
 export type InteractionMode = "sandbox" | "scripted";
 
 export interface ReleaseFile {
@@ -29,7 +31,12 @@ export interface ReleaseBundle {
   readonly minPlayers: number;
   readonly maxPlayers: number;
   readonly files: ReadonlyArray<ReleaseFile>;
-  readonly definitions?: Readonly<Record<string, { readonly label?: string; readonly color?: string }>>;
+  readonly definitions?: Readonly<Record<string, {
+    readonly shape?: "box" | "cylinder" | "hex" | "disc" | "cube" | "pawn" | "meeple" | "card" | "board" | "token" | "ring";
+    readonly size?: { readonly w: number; readonly d: number; readonly h: number };
+    readonly color?: string; readonly backColor?: string; readonly label?: string; readonly backLabel?: string;
+    readonly seatTint?: boolean; readonly face?: FaceSpec; readonly back?: FaceSpec;
+  }>>;
   readonly refs?: Readonly<Record<string, string>>;
   readonly integrity: ReleaseIntegrity;
 }

@@ -27,6 +27,7 @@ export function defaultComponent(type: string): unknown {
     case "grabbable": return { enabled: true, heldBy: null };
     case "flippable": return { flipped: false };
     case "card": return { definitionId: "card", faceUp: true };
+    case "appearance": return { definitionId: "piece" };
     case "container": return { items: [], capacity: null, ordering: "stack", visibility: "public" };
     case "deck": return { enabled: true };
     case "counter": return { value: 0, default: 0, min: null, max: null, step: 1 };

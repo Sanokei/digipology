@@ -734,7 +734,7 @@ button.action-card { width: 100%; border-right: 0; border-left: 0; text-align: l
 .player-row { display: grid; grid-template-columns: 8px 1fr auto; gap: 10px; align-items: center; padding: 13px 14px; border-bottom: 1px solid var(--line); }
 .player-row strong, .player-row small { display: block; }
 .player-row strong { font-size: .76rem; }.player-row small, .player-row em { color: var(--muted); font-size: .62rem; font-style: normal; }
-.connection-dot { width: 6px; height: 6px; border-radius: 50%; background: #56635c; }.connection-dot--online { background: var(--accent); box-shadow: 0 0 8px rgba(213,255,118,.5); }
+.connection-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--seat-color, #56635c); opacity: .45; }.connection-dot--online { opacity: 1; box-shadow: 0 0 8px color-mix(in srgb, var(--seat-color, var(--accent)) 60%, transparent); }
 .diagnostics-panel dl { display: grid; grid-template-columns: 90px 1fr; gap: 9px; margin: 14px; font-family: "DM Mono", monospace; font-size: .62rem; }
 .diagnostics-panel dt { color: var(--muted); }.diagnostics-panel dd { margin: 0; overflow-wrap: anywhere; }.diagnostics-panel p { margin: 0 14px; color: var(--muted); font-size: .68rem; line-height: 1.5; }
 .connection-overlay { position: absolute; z-index: 4; inset: 0; display: grid; place-items: center; pointer-events: all; background: rgba(3,8,6,.38); }
@@ -762,7 +762,7 @@ button.action-card { width: 100%; border-right: 0; border-left: 0; text-align: l
   height: 118px;
   padding: 10px 12px;
   translate: 50% 0;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid color-mix(in srgb, var(--seat-color, white) 40%, rgba(255, 255, 255, 0.12));
   border-radius: 14px;
   background: rgba(7, 14, 12, 0.72);
   box-shadow: 0 16px 44px rgba(0,0,0,.28);

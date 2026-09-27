@@ -13,6 +13,8 @@ Every service-accepted ordered action consumes one monotonically increasing `Seq
 
 Canonical state changes only through a registered action or a deterministic subcommand generated during the current transaction. Kernel v1 validates `player`, `script`, and `system` sources independently of whether the official UI exposes the operation; Lua-generated subcommands use the `script` source.
 
+The optional canonical `appearance: { definitionId, seat? }` entity component carries presentation selection only. No action interprets it as game behavior, and Babylon/Canvas rendering never feeds canonical decisions. Bundle definitions and FaceSpec artwork are documented in the [bundle format](./bundle-format.md) and [FaceSpec reference](./faces.md).
+
 ## Status legend
 
 | Status | Meaning |

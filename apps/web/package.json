@@ -22,6 +22,7 @@
     "@codemirror/view": "^6.36.3",
     "digipology-canonical-json": "workspace:*",
     "digipology-covers": "workspace:*",
+    "digipology-faces": "workspace:*",
     "digipology-kernel": "workspace:*",
     "digipology-lua": "workspace:*",
     "digipology-protocol": "workspace:*",

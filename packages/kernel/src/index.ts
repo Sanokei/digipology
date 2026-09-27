@@ -33,6 +33,7 @@ export {
 } from "./registry";
 export type {
   ActionActor,
+  AppearanceComponent,
   ActionDefinition,
   ActionGuard,
   ActionInput,

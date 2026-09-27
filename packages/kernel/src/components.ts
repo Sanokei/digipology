@@ -13,6 +13,7 @@ export const componentRegistry: Readonly<Record<string, ComponentDefinition>> =
     stackable: { type: "stackable", behavior: "implemented", requires: [] },
     tags: { type: "tags", behavior: "implemented", requires: [] },
     card: { type: "card", behavior: "implemented", requires: ["transform"] },
+    appearance: { type: "appearance", behavior: "implemented", requires: [] },
     container: { type: "container", behavior: "implemented", requires: [] },
     deck: { type: "deck", behavior: "implemented", requires: ["container"] },
     counter: { type: "counter", behavior: "implemented", requires: [] },

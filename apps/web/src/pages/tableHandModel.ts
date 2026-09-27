@@ -74,7 +74,7 @@ export function localHandItems(
   return items.flatMap((entityId) => {
     const entity = state.entities[entityId];
     if (entity === undefined) return [];
-    const definitionId = entity.components.card?.definitionId;
+    const definitionId = entity.components.appearance?.definitionId ?? entity.components.card?.definitionId;
     const label = definitionId === undefined ? "Card" : definitions[definitionId]?.label ?? "Card";
     return [{
       entityId,

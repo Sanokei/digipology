@@ -55,9 +55,39 @@ The desktop editor assembles this format for you and hands it to the same valida
 }
 ```
 
-`interactionMode` is `sandbox` or `scripted`. Player limits are integers from 1 through 64, `minPlayers <= maxPlayers`, and must match the publish form. A bundle contains 1–256 unique files. File paths start with `runtime/` or `scripts/`; file content is an inline string. `refs` optionally maps safe Lua identifiers to immutable entity IDs. `luaStdlibVersion` pins the deterministic `turns`/`scores` package separately from `kernelVersion` and `luaApiVersion`; bundles created before this field default to version 1.
+`interactionMode` is `sandbox` or `scripted`. Player limits are integers from 1 through 10, `minPlayers <= maxPlayers`, and must match the publish form. A bundle contains 1–256 unique files. File paths start with `runtime/` or `scripts/`; file content is an inline string. `refs` optionally maps safe Lua identifiers to immutable entity IDs. `luaStdlibVersion` pins the deterministic `turns`/`scores` package separately from `kernelVersion` and `luaApiVersion`; bundles created before this field default to version 1.
 
-`title` and `definitions` may be included. A definition maps an ID to optional plain-text `label` and `color` strings. Game title, tagline, and creator handle are always treated as untrusted plain text by the site, never HTML or Markdown.
+`title` and `definitions` may be included. Definitions are presentation data and are deliberately excluded from `manifestHash`; they never change game rules. A complete definition may contain:
+
+```json
+{
+  "definitions": {
+    "wheat_tile": {
+      "shape": "hex",
+      "size": { "w": 2, "d": 1.74, "h": 0.14 },
+      "color": "#d7b45a",
+      "backColor": "#6b5430",
+      "label": "Wheat",
+      "backLabel": "Unexplored",
+      "seatTint": false,
+      "face": { "background": "#f4d77b", "elements": [] },
+      "back": { "background": "#6b5430", "elements": [] }
+    }
+  }
+}
+```
+
+`shape` is one of `box`, `cylinder`, `hex`, `disc`, `cube`, `pawn`, `meeple`, `card`, `board`, `token`, or `ring`. Each `size` dimension is a finite number from `0.05` through `40` table units. Colors use `#RRGGBB`. Labels are plain text of at most 200 characters. `seatTint: true` replaces the active front/back color with the entity's seat color. `face` and `back` use the safe declarative [FaceSpec format](./faces.md). Unknown keys are rejected.
+
+Any entity can select a definition through the canonical, behavior-free component below. `seat` is optional and selects the seat tint identity. Cards and dice continue to use their existing `definitionId` when `appearance` is absent.
+
+```json
+{
+  "appearance": { "definitionId": "wheat_tile", "seat": "seat_3" }
+}
+```
+
+An entity without `appearance` and without a matching card/die definition retains the legacy presentation. `appearance` is included in canonical state hashes because it is a component; the referenced definition remains non-canonical presentation data. Game title, tagline, creator handle, and labels are always treated as untrusted plain text, never HTML or Markdown.
 
 ## Integrity chain
 

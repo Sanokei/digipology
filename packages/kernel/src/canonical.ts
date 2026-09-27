@@ -506,6 +506,19 @@ function validateEntity(
       throw new InvalidGameStateError(`entity ${entityId} has invalid card`);
     }
   }
+  if (hasOwn.call(components, "appearance")) {
+    const appearance = requireRecord(components.appearance, `entities.${entityId}.components.appearance`);
+    for (const key of Object.keys(appearance)) {
+      if (key !== "definitionId" && key !== "seat") {
+        throw new InvalidGameStateError(`entity ${entityId} appearance has unknown field ${key}`);
+      }
+    }
+    if (typeof appearance.definitionId !== "string" || appearance.definitionId.length < 1 ||
+        appearance.definitionId.length > 128 ||
+        (appearance.seat !== undefined && (typeof appearance.seat !== "string" || appearance.seat.length < 1 || appearance.seat.length > 128))) {
+      throw new InvalidGameStateError(`entity ${entityId} has invalid appearance`);
+    }
+  }
   if (hasOwn.call(components, "container")) {
     validateContainer(components.container, entityId, entities, memberships);
   }

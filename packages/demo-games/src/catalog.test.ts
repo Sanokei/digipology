@@ -155,6 +155,7 @@ describe("built-in catalog", () => {
     expect("dependencies" in packageJson).toBe(false);
     expect(packageJson.devDependencies).toEqual({
       "digipology-canonical-json": "workspace:*",
+      "digipology-faces": "workspace:*",
       "digipology-kernel": "workspace:*",
       "digipology-lua": "workspace:*",
     });

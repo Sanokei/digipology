@@ -95,12 +95,14 @@ export function TableScene({
     const owned = handId !== null && state.entities[handId]?.components.container?.items.includes(entity.id) === true;
     const faceUp = entity.components.flippable?.flipped ?? entity.components.card?.faceUp ?? true;
     const hidden = entity.components.card !== undefined && !faceUp && !owned;
-    const definitionId = entity.components.card?.definitionId;
+    const definitionId = entity.components.appearance?.definitionId ?? entity.components.card?.definitionId ?? entity.components.die?.definitionId;
     const label = hidden ? "Face-down card" : entityDisplayLabel(entity, view.definitions);
     return {
       entityId: entity.id,
       label,
-      color: definitionId === undefined ? "#d7b26d" : view.definitions[definitionId]?.color ?? "#e7dfc8",
+      color: definitionId === undefined ? "#d7b26d" : hidden
+        ? view.definitions[definitionId]?.backColor ?? "#8d3429"
+        : view.definitions[definitionId]?.color ?? "#e7dfc8",
       kind: entity.components.card === undefined ? "token" : "card",
       hidden,
       heldBy: heldByDisplayName(entity, playerId, view.players),

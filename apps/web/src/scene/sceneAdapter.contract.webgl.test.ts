@@ -132,6 +132,15 @@ runSceneAdapterContract({
         drawText: () => undefined,
         dispose: () => undefined,
       }) as unknown as DynamicTexture,
+      createFaceTexture: () => ({
+        hasAlpha: false,
+        getContext: () => new Proxy({ globalAlpha: 1 }, { get(target, property) {
+          if (property in target) return target[property as keyof typeof target];
+          return () => ({ addColorStop: () => undefined });
+        } }),
+        update: () => undefined,
+        dispose: () => undefined,
+      }) as unknown as DynamicTexture,
       createHighlightLayer,
       matchMedia: () => mediaQuery(),
       devicePixelRatio: () => 1,

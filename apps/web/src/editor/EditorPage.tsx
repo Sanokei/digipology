@@ -169,7 +169,7 @@ export function EditorPage() {
       <label>Title<CommitTextInput value={snapshot.draft.title} onCommit={(title) => store.updateDraftMetadata({ title })} /></label>
       <label>Tagline<CommitTextInput value={snapshot.draft.tagline} onCommit={(tagline) => store.updateDraftMetadata({ tagline })} /></label>
       <label>Players<input type="number" min={1} max={snapshot.draft.maxPlayers} value={snapshot.draft.minPlayers} onChange={(event) => store.updateDraftMetadata({ minPlayers: event.currentTarget.valueAsNumber })} /></label>
-      <span>to</span><input aria-label="Maximum players" type="number" min={snapshot.draft.minPlayers} max={64} value={snapshot.draft.maxPlayers} onChange={(event) => store.updateDraftMetadata({ maxPlayers: event.currentTarget.valueAsNumber })} />
+      <span>to</span><input aria-label="Maximum players" type="number" min={snapshot.draft.minPlayers} max={10} value={snapshot.draft.maxPlayers} onChange={(event) => store.updateDraftMetadata({ maxPlayers: event.currentTarget.valueAsNumber })} />
       {error === null ? null : <p role="alert">{error}</p>}
     </div>
     <input ref={fileInput} className="editor-hidden-input" type="file" accept="application/json,.json" onChange={(event) => void importFile(event)} />

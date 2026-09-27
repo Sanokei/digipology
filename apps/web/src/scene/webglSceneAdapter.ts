@@ -8,9 +8,11 @@ import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { CreateBox } from "@babylonjs/core/Meshes/Builders/boxBuilder";
 import { CreateCylinder } from "@babylonjs/core/Meshes/Builders/cylinderBuilder";
 import { CreatePlane } from "@babylonjs/core/Meshes/Builders/planeBuilder";
+import { CreateSphere } from "@babylonjs/core/Meshes/Builders/sphereBuilder";
 import { CreateTorus } from "@babylonjs/core/Meshes/Builders/torusBuilder";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { Scene } from "@babylonjs/core/scene";
+import { faceSpecHash, renderFaceCanvas, type Canvas2DLike } from "digipology-faces";
 import type { EntityRecord, TransformComponent } from "digipology-kernel";
 
 import type { KernelStoreSnapshot } from "../state/kernelStore";
@@ -52,6 +54,9 @@ interface PieceGraph {
   lastCorrectionId?: number;
   label?: DynamicTexture;
   cancelMotion?: () => void;
+  faceKey?: string;
+  faceMaterial?: StandardMaterial;
+  children?: Mesh[];
 }
 
 interface WebglSceneAdapterDependencies extends SceneAdapterDependencies {
@@ -61,6 +66,7 @@ interface WebglSceneAdapterDependencies extends SceneAdapterDependencies {
     options: ConstructorParameters<typeof Engine>[2],
   ) => Engine;
   createLabelTexture?: (name: string, scene: Scene) => DynamicTexture;
+  createFaceTexture?: (name: string, scene: Scene) => DynamicTexture;
   createHighlightLayer?: HighlightLayerFactory;
   matchMedia?: (query: string) => MediaQueryList;
   devicePixelRatio?: () => number;
@@ -68,6 +74,16 @@ interface WebglSceneAdapterDependencies extends SceneAdapterDependencies {
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(Math.max(value, minimum), maximum);
+}
+
+function pickedEntityId(mesh: { metadata?: unknown; parent?: unknown } | null | undefined): string | null {
+  let current: { metadata?: unknown; parent?: unknown } | null | undefined = mesh;
+  while (current !== null && current !== undefined) {
+    const entityId = (current.metadata as { entityId?: unknown } | null)?.entityId;
+    if (typeof entityId === "string") return entityId;
+    current = current.parent as { metadata?: unknown; parent?: unknown } | null | undefined;
+  }
+  return null;
 }
 
 function material(
@@ -226,6 +242,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
   let lastCorrectionId: number | null = null;
   let dprQuery: MediaQueryList | null = null;
   const pieces = new Map<string, PieceGraph>();
+  const faceTextures = new Map<string, { texture: DynamicTexture; references: number }>();
   const highlights = {
     hover: null as string | null,
     selected: null as string | null,
@@ -270,9 +287,54 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
     piece.drag?.dispose();
     piece.cancelCorrection?.();
     piece.label?.dispose();
+    if (piece.faceMaterial !== undefined) {
+      piece.faceMaterial.diffuseTexture = null;
+      piece.faceMaterial.emissiveTexture = null;
+      piece.faceMaterial.dispose();
+    }
+    if (piece.faceKey !== undefined) {
+      const cached = faceTextures.get(piece.faceKey);
+      if (cached !== undefined) {
+        cached.references -= 1;
+        if (cached.references === 0) {
+          cached.texture.dispose();
+          faceTextures.delete(piece.faceKey);
+        }
+      }
+    }
     piece.cancelMotion?.();
     presentationHighlight?.removeMesh(piece.mesh);
     piece.mesh.dispose(false, true);
+  }
+
+  function addFace(graph: PieceGraph, parent: Mesh, appearance: ReturnType<typeof piecePresentation>): void {
+    if (appearance.face === undefined) return;
+    const mounted = requireMounted();
+    const key = faceSpecHash(appearance.face);
+    let cached = faceTextures.get(key);
+    if (cached === undefined) {
+      const texture = dependencies.createFaceTexture?.(`face-${key}`, mounted.scene)
+        ?? new DynamicTexture(`face-${key}`, { width: 1024, height: 1024 }, mounted.scene, false);
+      texture.hasAlpha = true;
+      renderFaceCanvas(texture.getContext() as unknown as Canvas2DLike, appearance.face, 1024, 1024);
+      texture.update(false);
+      cached = { texture, references: 0 };
+      faceTextures.set(key, cached);
+    }
+    cached.references += 1;
+    const faceMaterial = new StandardMaterial(`${parent.name}-face-material`, mounted.scene);
+    faceMaterial.diffuseTexture = cached.texture;
+    faceMaterial.emissiveTexture = cached.texture;
+    faceMaterial.disableLighting = true;
+    faceMaterial.backFaceCulling = false;
+    const plane = CreatePlane(`${parent.name}-face-plane`, { width: appearance.width * 0.98, height: appearance.depth * 0.98 }, mounted.scene);
+    plane.parent = parent;
+    plane.position.y = appearance.height / 2 + 0.004;
+    plane.rotation.x = Math.PI / 2;
+    plane.material = faceMaterial;
+    plane.isPickable = false;
+    graph.faceKey = key;
+    graph.faceMaterial = faceMaterial;
   }
 
   function attachPieceDrag(piece: PieceGraph, entityId: string, bounds: PieceDragBounds): void {
@@ -322,10 +384,11 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       components.deck === undefined && components.card === undefined && components.die === undefined) {
       return null;
     }
-    const definitionId = components.card?.definitionId ?? components.die?.definitionId;
+    const definitionId = components.appearance?.definitionId ?? components.card?.definitionId ?? components.die?.definitionId;
+    const definition = definitionId === undefined ? undefined : currentView?.definitions[definitionId];
     const appearance = piecePresentation(
       entity,
-      definitionId === undefined ? undefined : currentView?.definitions[definitionId],
+      definition,
     );
     const restingY = TABLE_SURFACE_Y + appearance.height / 2;
     const mesh = appearance.shape === "ring"
@@ -334,11 +397,14 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
           thickness: appearance.height,
           tessellation: 48,
         }, mounted.scene)
-      : appearance.shape === "cylinder"
+      : ["cylinder", "disc", "token", "hex", "pawn", "meeple"].includes(appearance.shape)
       ? CreateCylinder(`entity-${entity.id}`, {
-          height: appearance.height,
+          height: appearance.shape === "pawn" || appearance.shape === "meeple" ? appearance.height * 0.72 : appearance.height,
           diameter: appearance.width,
-          tessellation: 48,
+          ...(appearance.shape === "hex" ? { tessellation: 6 }
+            : appearance.shape === "pawn" ? { tessellation: 24, diameterTop: appearance.width * 0.38, diameterBottom: appearance.width }
+            : appearance.shape === "meeple" ? { tessellation: 8, diameterTop: appearance.width, diameterBottom: appearance.width * 0.62 }
+            : { tessellation: 48 }),
         }, mounted.scene)
       : CreateBox(`entity-${entity.id}`, {
           width: appearance.width,
@@ -352,7 +418,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
     shadows?.addShadowCaster(mesh);
     const graph: PieceGraph = {
       mesh,
-      signature: piecePresentationSignature(entity),
+      signature: piecePresentationSignature(entity, definition),
       transformSignature: transformSignature(components.transform, restingY),
       restingY,
       ...(appearance.label
@@ -366,7 +432,20 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
           }
         : {}),
     };
-    if (dependencies.sendAction !== undefined && components.grabbable?.enabled === true) {
+    if (appearance.shape === "pawn" || appearance.shape === "meeple") {
+      const head = CreateSphere(`entity-${entity.id}-head`, {
+        diameter: appearance.width * (appearance.shape === "pawn" ? 0.5 : 0.42),
+        segments: 20,
+      }, mounted.scene);
+      head.parent = mesh;
+      head.position.y = appearance.height * 0.39;
+      head.material = mesh.material;
+      head.isPickable = true;
+      shadows?.addShadowCaster(head);
+      graph.children = [head];
+    }
+    addFace(graph, mesh, appearance);
+    if (dependencies.sendAction !== undefined && components.grabbable?.enabled === true && !appearance.isBoard) {
       attachPieceDrag(graph, entity.id, {
         minX: -TABLE_WIDTH / 2 + appearance.width / 2,
         maxX: TABLE_WIDTH / 2 - appearance.width / 2,
@@ -428,6 +507,8 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       dprQuery = null;
       for (const piece of pieces.values()) destroyPiece(piece);
       pieces.clear();
+      for (const cached of faceTextures.values()) cached.texture.dispose();
+      faceTextures.clear();
       presentationHighlight?.dispose();
       presentationHighlight = null;
       scene?.dispose();
@@ -463,12 +544,15 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
         if (existing === undefined) {
           const created = makePiece(entity);
           if (created !== null) pieces.set(id, created);
-        } else if (existing.signature !== piecePresentationSignature(entity)) {
+        } else {
+          const definitionId = entity.components.appearance?.definitionId ?? entity.components.card?.definitionId ?? entity.components.die?.definitionId;
+          const definition = definitionId === undefined ? undefined : view.definitions[definitionId];
+          if (existing.signature !== piecePresentationSignature(entity, definition)) {
           destroyPiece(existing);
           const created = makePiece(entity);
           if (created === null) pieces.delete(id);
           else pieces.set(id, created);
-        } else {
+          } else {
           const nextTransformSignature = transformSignature(entity.components.transform, existing.restingY);
           const correction = view.correction?.entityId === id && existing.lastCorrectionId !== view.correction.id
             ? view.correction
@@ -488,6 +572,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
             applyTransform(existing.mesh, entity.components.transform, existing.restingY);
           }
           existing.transformSignature = nextTransformSignature;
+          }
         }
         refreshHighlight(id);
       }
@@ -495,11 +580,10 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
     async pick(x: number, y: number): Promise<string | null> {
       if (scene === null) return null;
       const result = scene.pick(x, y, (mesh) => {
-        const entityId = (mesh.metadata as { entityId?: unknown } | null)?.entityId;
-        return typeof entityId === "string" && pieces.has(entityId);
+        const entityId = pickedEntityId(mesh);
+        return entityId !== null && pieces.has(entityId);
       });
-      const entityId = (result?.pickedMesh?.metadata as { entityId?: unknown } | null)?.entityId;
-      return typeof entityId === "string" ? entityId : null;
+      return pickedEntityId(result?.pickedMesh);
     },
     projectToTable(x: number, y: number) {
       if (scene === null || cameraGraph === null || canvas === null || x < 0 || y < 0 || x > canvas.clientWidth || y > canvas.clientHeight) return null;

@@ -111,7 +111,7 @@ export function entityDisplayLabel(
   entity: EntityRecord,
   definitions: Readonly<Record<string, { label?: string }>>,
 ): string {
-  const definitionId = entity.components.card?.definitionId ?? entity.components.die?.definitionId;
+  const definitionId = entity.components.appearance?.definitionId ?? entity.components.card?.definitionId ?? entity.components.die?.definitionId;
   if (definitionId !== undefined) return definitions[definitionId]?.label ?? (entity.components.die !== undefined ? "Die" : "Card");
   if (entity.components.button !== undefined && entity.components.button.label.length > 0) return entity.components.button.label;
   if (entity.components.deck !== undefined) return "Deck";
