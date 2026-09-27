@@ -190,12 +190,13 @@ const packages = [
       <p>
         Digipology's foundations are public, focused packages. Use one piece, inspect the
         whole system, or help shape the platform in the open.
+        Package links open the source on GitHub while npm publication is pending.
       </p>
     </header>
 
     <div class="package-ledger">
       {packages.map(([name, description], index) => (
-        <a href={`https://www.npmjs.com/package/${name}`}>
+        <a href={`https://github.com/Sanokei/digipology/tree/main/packages/${name.replace("digipology-", "")}`}>
           <span class="package-number">P-{String(index + 1).padStart(2, "0")}</span>
           <span>
             <strong>{name}</strong>

@@ -94,6 +94,7 @@ Read [actions](./actions.md#deck-shuffle) and [the spec](./spec/handoff-v2.txt).
     expect(isPublishableRepositoryDoc("runbooks/deploy.md")).toBe(false);
     expect(isPublishableRepositoryDoc("spec/handoff-v2.md")).toBe(false);
     expect(isPublishableRepositoryDoc("releasing.md")).toBe(false);
+    expect(isPublishableRepositoryDoc("evidence/site/issue27/README.md")).toBe(false);
   });
 
   test("discovers a new source file without wiring and omits excluded trees", () => {
@@ -103,6 +104,11 @@ Read [actions](./actions.md#deck-shuffle) and [the spec](./spec/handoff-v2.txt).
 
     try {
       mkdirSync(join(repositoryDocs, "spec"), { recursive: true });
+      mkdirSync(join(repositoryDocs, "evidence", "site", "issue27"), { recursive: true });
+      writeFileSync(
+        join(repositoryDocs, "evidence", "site", "issue27", "README.md"),
+        "# Internal capture evidence without publishable frontmatter\n",
+      );
       writeFileSync(
         join(repositoryDocs, "bundle-format.md"),
         "---\ntitle: Bundle format\ndescription: Release bundles.\n---\n\n# Bundle format\n",

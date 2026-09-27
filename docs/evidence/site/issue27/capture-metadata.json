@@ -1,0 +1,123 @@
+{
+  "browser": "153.0.8010.12",
+  "captures": [
+    {
+      "filename": "live-2026-09-27T05-45-27.912Z-light-360.jpg",
+      "capturedAt": "2026-09-27T05:45:27.912Z",
+      "url": "https://digipology.com/",
+      "status": 200,
+      "theme": "light",
+      "viewport": {
+        "width": 360,
+        "height": 900
+      },
+      "deviceScaleFactor": 1,
+      "title": "Digipology — Make the rules. Share the table.",
+      "background": "rgb(241, 234, 217)",
+      "scrollWidth": 360,
+      "hrefs": [
+        "https://www.npmjs.com/package/digipology-canonical-json",
+        "https://www.npmjs.com/package/digipology-prng",
+        "https://www.npmjs.com/package/digipology-kernel",
+        "https://www.npmjs.com/package/digipology-protocol",
+        "https://www.npmjs.com/package/digipology-lua",
+        "https://www.npmjs.com/package/digipology-ai",
+        "https://www.npmjs.com/package/digipology-covers",
+        "https://www.npmjs.com/package/digipology-demo-games",
+        "https://www.npmjs.com/search?q=digipology-"
+      ]
+    },
+    {
+      "filename": "live-2026-09-27T05-45-28.943Z-dark-360.jpg",
+      "capturedAt": "2026-09-27T05:45:28.943Z",
+      "url": "https://digipology.com/",
+      "status": 200,
+      "theme": "dark",
+      "viewport": {
+        "width": 360,
+        "height": 900
+      },
+      "deviceScaleFactor": 1,
+      "title": "Digipology — Make the rules. Share the table.",
+      "background": "rgb(23, 33, 28)",
+      "scrollWidth": 360,
+      "hrefs": [
+        "https://www.npmjs.com/package/digipology-canonical-json",
+        "https://www.npmjs.com/package/digipology-prng",
+        "https://www.npmjs.com/package/digipology-kernel",
+        "https://www.npmjs.com/package/digipology-protocol",
+        "https://www.npmjs.com/package/digipology-lua",
+        "https://www.npmjs.com/package/digipology-ai",
+        "https://www.npmjs.com/package/digipology-covers",
+        "https://www.npmjs.com/package/digipology-demo-games",
+        "https://www.npmjs.com/search?q=digipology-"
+      ]
+    },
+    {
+      "filename": "live-2026-09-27T05-45-29.927Z-light-1440.jpg",
+      "capturedAt": "2026-09-27T05:45:29.927Z",
+      "url": "https://digipology.com/",
+      "status": 200,
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "deviceScaleFactor": 1,
+      "title": "Digipology — Make the rules. Share the table.",
+      "background": "rgb(241, 234, 217)",
+      "scrollWidth": 1440,
+      "hrefs": [
+        "https://www.npmjs.com/package/digipology-canonical-json",
+        "https://www.npmjs.com/package/digipology-prng",
+        "https://www.npmjs.com/package/digipology-kernel",
+        "https://www.npmjs.com/package/digipology-protocol",
+        "https://www.npmjs.com/package/digipology-lua",
+        "https://www.npmjs.com/package/digipology-ai",
+        "https://www.npmjs.com/package/digipology-covers",
+        "https://www.npmjs.com/package/digipology-demo-games",
+        "https://www.npmjs.com/search?q=digipology-"
+      ]
+    },
+    {
+      "filename": "live-2026-09-27T05-45-31.128Z-dark-1440.jpg",
+      "capturedAt": "2026-09-27T05:45:31.128Z",
+      "url": "https://digipology.com/",
+      "status": 200,
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "deviceScaleFactor": 1,
+      "title": "Digipology — Make the rules. Share the table.",
+      "background": "rgb(23, 33, 28)",
+      "scrollWidth": 1440,
+      "hrefs": [
+        "https://www.npmjs.com/package/digipology-canonical-json",
+        "https://www.npmjs.com/package/digipology-prng",
+        "https://www.npmjs.com/package/digipology-kernel",
+        "https://www.npmjs.com/package/digipology-protocol",
+        "https://www.npmjs.com/package/digipology-lua",
+        "https://www.npmjs.com/package/digipology-ai",
+        "https://www.npmjs.com/package/digipology-covers",
+        "https://www.npmjs.com/package/digipology-demo-games",
+        "https://www.npmjs.com/search?q=digipology-"
+      ]
+    }
+  ],
+  "gettingStartedNpmLinks": [
+    "https://www.npmjs.com/search?q=digipology-"
+  ],
+  "npmLinks": [
+    "https://www.npmjs.com/package/digipology-canonical-json",
+    "https://www.npmjs.com/package/digipology-prng",
+    "https://www.npmjs.com/package/digipology-kernel",
+    "https://www.npmjs.com/package/digipology-protocol",
+    "https://www.npmjs.com/package/digipology-lua",
+    "https://www.npmjs.com/package/digipology-ai",
+    "https://www.npmjs.com/package/digipology-covers",
+    "https://www.npmjs.com/package/digipology-demo-games",
+    "https://www.npmjs.com/search?q=digipology-"
+  ]
+}

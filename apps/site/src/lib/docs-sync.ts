@@ -23,6 +23,7 @@ export interface TransformedRepositoryDoc {
 // Directory entries exclude their complete subtree.
 export const repositoryDocExclusions = [
   "adr/",
+  "evidence/",
   "runbooks/",
   "spec/",
   "releasing.md",
