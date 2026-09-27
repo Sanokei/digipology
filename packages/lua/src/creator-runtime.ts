@@ -325,7 +325,102 @@ if __function_name == "on_game_resumed" and ctx.roster ~= nil then
     resume_roster_key = resume_roster_key .. string.len(entry.playerId) .. ":" .. entry.playerId .. ";"
   end
 end
-if resume_roster_key ~= nil and ctx.removedPlayerIds ~= nil and
+-- Pending resume state is private stdlib escrow. Its order uses seats, never
+-- ghost IDs in visible turns/scores. All turns pause until the saved seats join.
+local function publish_pending_turns()
+  local pending = state.__stdlib.pending_resume
+  if pending == nil then return end
+  local seen = {}
+  for _, seat_id in ipairs(pending.order) do seen[seat_id] = true end
+  for _, player in ipairs(players:list()) do
+    if player.seat ~= nil and not seen[player.seat.id] then
+      table.insert(pending.order, player.seat.id)
+      seen[player.seat.id] = true
+    end
+  end
+  local order, index = {}, 0
+  for _, seat_id in ipairs(pending.order) do
+    local player = players:by_seat(seat_id)
+    if player ~= nil then
+      table.insert(order, player.id)
+      if seat_id == pending.current then index = #order end
+    end
+  end
+  local waiting = false
+  for _, seat_id in ipairs(pending.seats) do
+    if players:by_seat(seat_id) == nil then waiting = true end
+  end
+  state.__stdlib.turns = { order = order, index = index, active = pending.active and not waiting and #order > 0 }
+  if not waiting then state.__stdlib.pending_resume = nil end
+end
+
+if resume_roster_key ~= nil and ctx.resumeSeats ~= nil and
+    state.__stdlib.last_resume_roster_key ~= resume_roster_key then
+  local prior = state.__stdlib.pending_resume
+  local by_id, seats = {}, {}
+  for _, entry in ipairs(ctx.resumeSeats) do
+    by_id[entry.previousPlayerId] = entry.seatId
+    table.insert(seats, entry.seatId)
+  end
+  local order, current, active = {}, false, state.__stdlib.turns.active
+  if prior ~= nil then
+    order, current, active = prior.order, prior.current, prior.active
+  else
+    for index, id in ipairs(state.__stdlib.turns.order) do
+      local seat_id = by_id[id]
+      if seat_id ~= nil then
+        table.insert(order, seat_id)
+        if index == state.__stdlib.turns.index then current = seat_id end
+      end
+    end
+  end
+  local seen = {}
+  for _, seat_id in ipairs(order) do seen[seat_id] = true end
+  for _, player in ipairs(players:list()) do
+    if player.seat ~= nil and not seen[player.seat.id] then
+      table.insert(order, player.seat.id)
+      seen[player.seat.id] = true
+    end
+  end
+  if current == false and #order > 0 then current = order[1] end
+  local removed, live_scores, pending_scores = {}, {}, {}
+  for _, id in ipairs(ctx.removedPlayerIds) do removed[id] = true end
+  local keys = {}
+  for id in pairs(state.__stdlib.scores) do table.insert(keys, id) end
+  table.sort(keys)
+  for _, id in ipairs(keys) do
+    local seat_id = by_id[id]
+    if seat_id ~= nil then
+      local player = players:by_seat(seat_id)
+      if player ~= nil then live_scores[player.id] = state.__stdlib.scores[id]
+      else pending_scores[seat_id] = state.__stdlib.scores[id] end
+    elseif not removed[id] then live_scores[id] = state.__stdlib.scores[id] end
+  end
+  if prior ~= nil then
+    for _, seat_id in ipairs(prior.seats) do
+      local score = prior.scores[seat_id]
+      if score ~= nil then
+        local player = players:by_seat(seat_id)
+        if player ~= nil then live_scores[player.id] = score
+        else pending_scores[seat_id] = score end
+      end
+    end
+  end
+  state.__stdlib.scores = live_scores
+  state.__stdlib.pending_resume = { seats = seats, order = order, current = current, active = active, scores = pending_scores }
+  state.__stdlib.last_resume_roster_key = resume_roster_key
+  publish_pending_turns()
+elseif __function_name == "on_seat_claimed" and state.__stdlib.pending_resume ~= nil then
+  local pending = state.__stdlib.pending_resume
+  local score = pending.scores[ctx.seatId]
+  if score ~= nil then
+    state.__stdlib.scores[ctx.playerId] = score
+    pending.scores[ctx.seatId] = nil
+  end
+  publish_pending_turns()
+end
+
+if resume_roster_key ~= nil and ctx.resumeSeats == nil and ctx.removedPlayerIds ~= nil and
     state.__stdlib.last_resume_roster_key ~= resume_roster_key then
   local live, remap, removed = {}, {}, {}
   for _, player in ipairs(players:list()) do live[player.id] = true end
@@ -378,6 +473,7 @@ end
 
 turns = {
   start = function(_, first)
+    if state.__stdlib.pending_resume ~= nil then return nil end
     local ordered = players:list()
     state.__stdlib.turns.order = {}
     for index, player in ipairs(ordered) do state.__stdlib.turns.order[index] = player.id end
@@ -402,7 +498,10 @@ turns = {
     local current = turns:current()
     return current ~= nil and player ~= nil and current.id == (player.id or player)
   end,
-  stop = function() state.__stdlib.turns.active = false end,
+  stop = function()
+    state.__stdlib.turns.active = false
+    if state.__stdlib.pending_resume ~= nil then state.__stdlib.pending_resume.active = false end
+  end,
 }
 
 local function score_id(subject) return type(subject) == "table" and subject.id or subject end
@@ -563,8 +662,13 @@ export async function createCreatorScriptRuntime(options: CreatorScriptRuntimeOp
         ok: false,
         error: { kind: "runtime", message: `Unknown script: ${request.binding.scriptId}` },
       };
-      const loadPrefix = `${CREATOR_API_V1}\n${request.readOnly ? "" : STDLIB_V1}\nlocal function __load_script()\n`;
-      const wrapper = `${loadPrefix}${source}\nend\n__load_script()\nlocal __fn = _G[__function_name]\nif __fn == nil then return { handled = false, state = state } end\nlocal __first, __second = __fn(ctx)\nreturn { handled = true, state = state, allowed = __first, reason = __second }`;
+      // Seat recovery is reserved for stdlib reconciliation. Creator hooks cannot
+      // reject a claim after the Room has durably assigned its seat and timers.
+      const reservedClaim = request.functionName === "on_seat_claimed" && !request.readOnly;
+      const loadPrefix = `${CREATOR_API_V1}\n${request.readOnly ? "" : STDLIB_V1}\n${reservedClaim ? "" : "local function __load_script()\n"}`;
+      const wrapper = reservedClaim
+        ? `${loadPrefix}return { handled = true, state = state }`
+        : `${loadPrefix}${source}\nend\n__load_script()\nlocal __fn = _G[__function_name]\nif __fn == nil then return { handled = false, state = state } end\nlocal __first, __second = __fn(ctx)\nreturn { handled = true, state = state, allowed = __first, reason = __second }`;
       try {
         const value = await sandbox.run(wrapper, {
           ...invocationEnvironment(request, refs, definitions),

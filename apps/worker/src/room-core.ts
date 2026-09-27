@@ -344,6 +344,14 @@ export function resumeBaseFromSave(saved: GameSnapshot): GameSnapshot {
   return snapshot({ ...state, sequence: 0 });
 }
 
+/** Only actual saved identities create recoverable seats (vacant/dangling seats do not). */
+export function savedSeatPlayerId(state: CanonicalGameState, seatId: string): string | undefined {
+  const pending = state.pendingSeats?.[seatId]?.player.id;
+  if (pending !== undefined) return pending;
+  const playerId = state.seats[seatId]?.playerId;
+  return typeof playerId === "string" && Object.prototype.hasOwnProperty.call(state.players, playerId) ? playerId : undefined;
+}
+
 /** Build the deterministic saved-id to live-roster mapping for sequence one. */
 export function resumedRosterFromSave(
   state: CanonicalGameState,
@@ -358,16 +366,31 @@ export function resumedRosterFromSave(
       do { seatId = `seat_${nextSeat++}`; } while (reservedSeatIds.has(seatId));
       reservedSeatIds.add(seatId);
     }
-    const previousPlayerId = state.seats[seatId]?.playerId;
+    const previousPlayerId = savedSeatPlayerId(state, seatId);
     return {
       playerId: player.playerId,
       name: player.displayName,
       seatId,
-      ...(typeof previousPlayerId === "string" && state.players[previousPlayerId] !== undefined
+      ...(previousPlayerId !== undefined
         ? { previousPlayerId }
         : {}),
     };
   });
+}
+
+/** Allocate a service seat without simulating Lua or overwriting prior joins. */
+export function nextResumedSeatId(
+  state: CanonicalGameState,
+  assignedSeatIds: readonly string[],
+): string {
+  const savedSeatIds = Object.keys(state.seats).sort();
+  const occupied = new Set(assignedSeatIds);
+  const available = savedSeatIds.find((id) => !occupied.has(id));
+  if (available !== undefined) return available;
+  const reserved = new Set([...savedSeatIds, ...assignedSeatIds]);
+  let next = 1;
+  while (reserved.has(`seat_${next}`)) next++;
+  return `seat_${next}`;
 }
 
 /** The same atomic first action used by RoomDO.startIfNeeded and replay tests. */
@@ -376,7 +399,11 @@ export function sequenceGameResume(
   state: CanonicalGameState,
   livePlayers: readonly { playerId: string; displayName: string }[],
 ): SequenceResult {
-  const payload = { roster: resumedRosterFromSave(state, livePlayers) } satisfies GameResumedPayload;
+  const roster = resumedRosterFromSave(state, livePlayers);
+  const assigned = new Set(roster.map((entry) => entry.seatId));
+  const pending = state.pendingSeats !== undefined || Object.keys(state.seats).some((id) =>
+    !assigned.has(id) && savedSeatPlayerId(state, id) !== undefined);
+  const payload: GameResumedPayload = { roster, ...(pending ? { preservePendingSeats: true } : {}) };
   if (!validateGameResumedPayload(payload)) throw new TypeError("Invalid resumed roster payload");
   return core.sequenceSystem({ type: "system.game_resumed", payload }, "game_resumed");
 }

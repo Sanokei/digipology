@@ -1,5 +1,7 @@
-// Saved-table production smoke: authenticated host save + new-room resume.
-// Usage: SMOKE_SESSION=<dgp_session token> bun scripts/smoke-saves.ts https://play.digipology.com
+// Saved-table network smoke: authenticated host save + new-room resume.
+// Usage: SMOKE_SESSION=<local dgp_session token> bun scripts/smoke-saves.ts http://127.0.0.1:8787
+// Default exercises host-first arrival. SMOKE_PREJOIN=1 retains the baseline
+// simultaneous-roster scenario. The default also checks late-guest score and turn recovery.
 //
 // Runs full save/resume convergence for unscripted First Deal and scripted
 // Zone Runner v2, including resumed Lua stdlib roster reconciliation.
@@ -127,6 +129,14 @@ async function runScenario(slug: "first-deal" | "zone-runner", scripted: boolean
         .find((candidate) => candidate.status === "open" && candidate.playerId === roomA.a.playerId);
       expect(prompt !== undefined, "host has no opening Zone Runner prompt");
       await sendAndApply(roomA, roomA.a, "prompt.respond", { promptId: prompt.id, response: "run" });
+      // Both seats earn a point before saving: resetting a returning guest to
+      // zero must fail even if both clients converge on that incorrect state.
+      for (const [client, piece] of [[roomA.a, "runner_seat_1_a"], [roomA.b, "runner_seat_2_a"]] as const) {
+        await sendAndApply(roomA, client, "entity.grab", { entityId: piece });
+        await sendAndApply(roomA, client, "entity.drop", { entityId: piece, transform: {
+          position: { x: -3, y: 0, z: 0 }, rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: { x: 1, y: 1, z: 1 },
+        } });
+      }
     }
 
     const entityId = findGrabbable(requireState(roomA.a));
@@ -179,6 +189,10 @@ async function runScenario(slug: "first-deal" | "zone-runner", scripted: boolean
     expect(resumed.status === 201, `resume returned ${resumed.status}`);
     expect(resumed.value.roomId !== created.value.roomId, "resume reused room A");
     expect(resumed.value.joinCode !== created.value.joinCode, "resume reused room A's invite code");
+    const hostFirst = Bun.env.SMOKE_PREJOIN !== "1";
+    const resumedHost = hostFirst ? await connect("B host", resumed.value, bundleResponse.value) : null;
+    if (resumedHost !== null) await applyUntil(resumedHost,
+      (message) => message.type === "ordered_action" && message.action.type === "system.game_resumed");
     const resumedGuest = await postJson<JoinRoomResponse>(
       "/api/rooms/join",
       { code: resumed.value.joinCode, displayName: `${label} Resumed Guest` },
@@ -186,7 +200,7 @@ async function runScenario(slug: "first-deal" | "zone-runner", scripted: boolean
     expect(resumedGuest.status === 200, `room B join returned ${resumedGuest.status}`);
 
     const roomB: Pair = {
-      a: await connect("B host", resumed.value, bundleResponse.value),
+      a: resumedHost ?? await connect("B host", resumed.value, bundleResponse.value),
       b: await connect("B guest", resumedGuest.value, bundleResponse.value),
     };
     const oldPlayers = new Set([roomA.a.playerId, roomA.b.playerId]);
@@ -214,7 +228,21 @@ async function runScenario(slug: "first-deal" | "zone-runner", scripted: boolean
         `resumed turn order contains a ghost: ${JSON.stringify(turns?.order)}`);
       expect(Object.keys(scores ?? {}).every((key) => !oldPlayers.has(key)),
         `resumed scores contain a ghost: ${JSON.stringify(scores)}`);
+      const oldStdlib = savedState.state.scriptState as {
+        __stdlib: { turns: { order: string[]; index: number }; scores: Record<string, number> };
+      };
+      const savedSeats = Object.keys(savedState.state.seats).sort();
+      const mapping = new Map(savedSeats.slice(0, 2).map((seatId, index) =>
+        [savedState.state.seats[seatId]!.playerId, index === 0 ? roomB.a.playerId : roomB.b.playerId]));
+      for (const [oldId, newId] of mapping) {
+        if (typeof oldId === "string" && oldStdlib.__stdlib.scores[oldId] !== undefined) {
+          expect(scores?.[newId] === oldStdlib.__stdlib.scores[oldId],
+            `F2: returning seat lost score ${oldStdlib.__stdlib.scores[oldId]}`);
+        }
+      }
+      const expectedCurrent = mapping.get(oldStdlib.__stdlib.turns.order[oldStdlib.__stdlib.turns.index - 1]!);
       const current = turns!.order![Math.max(0, (turns?.index ?? 1) - 1)];
+      expect(current === expectedCurrent, `F2: saved current turn was not restored`);
       expect(current === roomB.a.playerId || current === roomB.b.playerId,
         `current resumed player ${String(current)} is not live`);
     }

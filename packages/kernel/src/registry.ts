@@ -177,6 +177,11 @@ export function applyOrderedWithRegistry(
     );
   }
 
+  if (state.pendingSeats !== undefined && Object.keys(state.pendingSeats).length > 0 &&
+    !(ordered.actor.type === "system" && ["system.game_resumed", "system.seat_claim", "system.player_joined", "system.seat_assign"].includes(ordered.action.type))) {
+    return rejected(state, ordered, "Saved seats must be claimed before gameplay resumes");
+  }
+
   const draft = cloneCanonical(state);
   draft.sequence = ordered.sequence;
   const validationState = cloneCanonical(state);
@@ -263,6 +268,7 @@ function eventDeliveries(event: KernelEvent): CallbackDelivery[] {
   };
   switch (event.type) {
     case "game.started": return [{ functionName: "on_start", context: cloneCanonical(event.data) }];
+    case "seat.claimed": return [{ functionName: "on_seat_claimed", context: cloneCanonical(event.data) }];
     case "game.resumed": return [{ functionName: "on_game_resumed", context: cloneCanonical(event.data) }];
     case "player.joined": return [{ functionName: "on_player_join", context: cloneCanonical(event.data) }];
     case "entity.grabbed": return entity("on_grab");

@@ -39,12 +39,14 @@ export type ActionRequest = {
 
 /** Canonical first action of a resumed room; membership is validated by the kernel. */
 export interface GameResumedPayload {
+  preservePendingSeats?: true;
   roster: Array<{ playerId: string; name?: string; seatId: string; previousPlayerId?: string }>;
 }
 
 /** Shape validation only: no saved snapshot or game rules belong in the protocol. */
 export function validateGameResumedPayload(value: unknown): value is GameResumedPayload {
-  if (!isObject(value) || Object.keys(value).some((key) => key !== "roster") ||
+  if (!isObject(value) || Object.keys(value).some((key) => key !== "roster" && key !== "preservePendingSeats") ||
+      (hasOwn(value, "preservePendingSeats") && value.preservePendingSeats !== true) ||
       !Array.isArray(value.roster) || value.roster.length === 0) return false;
   return value.roster.every((entry: unknown) => {
     if (!isObject(entry) || Object.keys(entry).some((key) =>
@@ -55,6 +57,19 @@ export function validateGameResumedPayload(value: unknown): value is GameResumed
       (!hasOwn(entry, "previousPlayerId") ||
         (typeof entry.previousPlayerId === "string" && entry.previousPlayerId.length > 0));
   });
+}
+
+/** System-only recovery of a saved seat; the kernel verifies pending membership. */
+export interface SeatClaimPayload {
+  playerId: string;
+  name?: string;
+  seatId: string;
+  previousPlayerId: string;
+}
+
+export function validateSeatClaimPayload(value: unknown): value is SeatClaimPayload {
+  return validateGameResumedPayload({ roster: [value] }) && isObject(value) &&
+    typeof value.previousPlayerId === "string" && value.previousPlayerId.length > 0;
 }
 
 export type PingMessage = {

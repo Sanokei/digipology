@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   parseClientMessage,
   validateGameResumedPayload,
+  validateSeatClaimPayload,
   parseServerMessage,
   type ClientMessage,
   type ParseErrorCode,
@@ -416,6 +417,8 @@ describe("UTF-8 size limits", () => {
 test("resume payload DTO validates shape while leaving membership and authorization to the kernel", () => {
   const payload = { roster: [{ playerId: "live", name: "Live", seatId: "seat_1", previousPlayerId: "saved" }] };
   expect(validateGameResumedPayload(payload)).toBe(true);
+  expect(validateGameResumedPayload({ ...payload, preservePendingSeats: true })).toBe(true);
+  expect(validateGameResumedPayload({ ...payload, preservePendingSeats: false })).toBe(false);
   expect(validateGameResumedPayload({ roster: [{ playerId: "live", seatId: "seat_1" }] })).toBe(true);
   for (const invalid of [null, {}, { roster: [] }, { ...payload, extra: true },
     { roster: [null] }, { roster: [{ playerId: "", seatId: "s" }] },
@@ -431,4 +434,19 @@ test("resume payload DTO validates shape while leaving membership and authorizat
   expect(parseClientMessage(JSON.stringify({ type: "action_request", protocolVersion: 1,
     requestId: "bad-resume", predictedAtSequence: 0,
     action: { type: "system.game_resumed", payload: {} } })).ok).toBe(true);
+});
+
+
+test("seat claim shape is strict; authorization remains canonical", () => {
+  const payload = { playerId: "guest", seatId: "seat_2", previousPlayerId: "saved_guest" };
+  expect(validateSeatClaimPayload(payload)).toBe(true);
+  for (const invalid of [null, {}, { ...payload, extra: true }, { ...payload, previousPlayerId: "" },
+    { ...payload, seatId: "" }, { ...payload, name: null }, { playerId: "guest", seatId: "seat_2" }]) {
+    expect(validateSeatClaimPayload(invalid)).toBe(false);
+  }
+  expect(parseServerMessage(JSON.stringify({ ...orderedPlayer, actor: { type: "system" },
+    action: { type: "system.seat_claim", payload } })).ok).toBe(true);
+  expect(parseClientMessage(JSON.stringify({ type: "action_request", protocolVersion: 1,
+    requestId: "unauthorized-claim", predictedAtSequence: 1,
+    action: { type: "system.seat_claim", payload } })).ok).toBe(true);
 });

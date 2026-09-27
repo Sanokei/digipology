@@ -795,7 +795,7 @@ export async function handlePlatformRequest(
     const upload = await readUploadJson(request);
     if (upload.oversize) return jsonError(413, "save_too_large", "Save exceeds the 1 MiB limit");
     const requestBody = asRecord(upload.value);
-    if (requestBody === null || typeof requestBody.roomToken !== "string") {
+    if (requestBody === null || typeof requestBody.roomToken !== "string" || requestBody.roomToken.length === 0) {
       return jsonError(403, "save_unauthorized", "Room token was not accepted");
     }
     const parsed = validateSaveTableRequest(upload.value);
@@ -895,6 +895,21 @@ export async function handlePlatformRequest(
     const uploaded = builtinRelease === null ? await repositories.getUploadedRelease(record.releaseId) : null;
     if (builtinGame === null && (uploaded === null || uploaded.status !== "ready")) {
       return jsonError(410, "release_unavailable", "This game's release is no longer available");
+    }
+    if (uploaded !== null) {
+      const releases = releaseBucket(env);
+      if (releases === null) return jsonError(503, "release_storage_unavailable", "Release storage is unavailable");
+      const bundleObject = await releases.get(uploaded.bundleKey);
+      if (bundleObject === null) return jsonError(410, "release_unavailable", "This game's release is no longer available");
+      try {
+        const bundle: unknown = JSON.parse(await bundleObject.text());
+        const bundleRecord = asRecord(bundle);
+        if (bundleRecord?.releaseId !== record.releaseId
+          || asRecord(bundleRecord.integrity)?.manifestHash !== uploaded.manifestHash
+          || validateUploadedBundle(bundle, uploaded.minPlayers, uploaded.maxPlayers).some((check) => !check.ok)) {
+          throw new Error("Pinned release bundle failed validation");
+        }
+      } catch { return jsonError(410, "release_unavailable", "This game's release is no longer available"); }
     }
     const bucket = saveBucket(env);
     if (bucket === null) return jsonError(503, "save_storage_unavailable", "Save storage is unavailable");

@@ -216,6 +216,7 @@ describe("merged action and Lua surfaces", () => {
       "system.player_joined",
       "system.player_left",
       "system.seat_assign",
+      "system.seat_claim",
       "system.timer_fire",
       "text.set",
       "timer.cancel",

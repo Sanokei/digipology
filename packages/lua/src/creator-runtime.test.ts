@@ -111,3 +111,28 @@ test("ordinary callbacks cannot trigger roster reconciliation through similarly 
     expect(result.scriptState).toEqual(savedState);
   } finally { runtime.close(); }
 });
+
+test("creator code cannot reject a reserved seat claim after the room assigns it", async () => {
+  const runtime = await createCreatorScriptRuntime({
+    scripts: { rules: 'function on_seat_claimed(ctx) error("creator rejected claim") end' },
+    instructionBudget: 50_000,
+  });
+  try {
+    const request = invocation({ __stdlib: {
+      turns: { active: false, order: ["host"], index: 1 },
+      scores: { host: 0 },
+      pending_resume: { seats: ["seat_1", "seat_2"], order: ["seat_1", "seat_2"],
+        current: "seat_2", active: true, scores: { seat_2: 7 } },
+    } });
+    const result = await runtime.invoke({ ...request, functionName: "on_seat_claimed",
+      state: { ...request.state, players: { host: { id: "host" }, guest: { id: "guest" } },
+        seats: { seat_1: { playerId: "host" }, seat_2: { playerId: "guest" } } },
+      context: { playerId: "guest", seatId: "seat_2", previousPlayerId: "old_b" },
+    });
+    expect(result.ok).toBe(true);
+    expect(result.scriptState).toMatchObject({ __stdlib: {
+      turns: { active: true, order: ["host", "guest"], index: 2 },
+      scores: { host: 0, guest: 7 },
+    } });
+  } finally { runtime.close(); }
+});

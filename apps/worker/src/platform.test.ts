@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { getBuiltinRelease } from "digipology-demo-games";
 import type { GameSnapshotDto } from "digipology-protocol/http";
+import { prepareUploadedBundle } from "./release-validation";
 import { createSession, type SessionRecord, type SessionRepository } from "./auth";
 import { builtinCatalog } from "./catalog";
 import { handlePlatformRequest, isCsrfSafe, readCoverBody, readUploadJson, writeReleaseThenCommit } from "./platform";
@@ -445,6 +446,63 @@ describe("uploaded game authorization", () => {
 });
 
 describe("saved tables routes", () => {
+  test("rejects empty and missing save tokens as unauthorized before persistence", async () => {
+    const harness = await savedTablesTestEnv();
+    for (const body of [{ roomToken: "" }, {}]) {
+      const response = await harness.request("POST", `/api/rooms/${harness.roomId}/save`, body);
+      expect(response.status).toBe(403);
+      expect(await response.json()).toMatchObject({ error: { code: "save_unauthorized" } });
+    }
+    expect(harness.bucket.objects.size).toBe(0);
+    expect(harness.db.query("SELECT COUNT(*) AS count FROM saved_tables").get()).toEqual({ count: 0 });
+  });
+
+  test("checks the exact uploaded bundle before allocating a resumed room", async () => {
+    const harness = await savedTablesTestEnv();
+    const releaseId = "release_community";
+    insertUploadedRelease(harness.db, releaseId, "ready");
+    const { bundle } = prepareUploadedBundle(builtinCatalog.getRelease(harnessReleaseId())!.bundle, {
+      gameId: "game_community", releaseId, releaseNumber: 1, title: "Community Game",
+    });
+    harness.db.query("UPDATE releases SET manifest_hash = ? WHERE id = ?")
+      .run(bundle.integrity.manifestHash, releaseId);
+    harness.db.query("UPDATE games SET min_players = ?, max_players = ? WHERE id = 'game_community'")
+      .run(bundle.minPlayers, bundle.maxPlayers);
+    insertSavedTable(harness.db, {
+      id: "save_uploaded", ownerUserId: harness.userId, releaseId,
+      gameSlug: "community", createdAt: 100, stateHash: bundle.initialSnapshot.stateHash,
+      sequence: bundle.initialSnapshot.sequence,
+    });
+    harness.bucket.objects.set("saves/save_uploaded.json", JSON.stringify(bundle.initialSnapshot));
+    let allocations = 0;
+    harness.env.ROOM.newUniqueId = (() => {
+      allocations += 1;
+      return { toString: () => harness.newRoomId };
+    }) as typeof harness.env.ROOM.newUniqueId;
+    // An available different release must never replace the save's immutable pin.
+    harness.bucket.objects.set("releases/release_other.json", JSON.stringify(builtinCatalog.getRelease(harnessReleaseId())!.bundle));
+    const corrupt = structuredClone(bundle);
+    corrupt.initialSnapshot.stateHash = `sha256:${"0".repeat(64)}`;
+    for (const unavailable of [undefined, "{", "{}", JSON.stringify(corrupt),
+      JSON.stringify(builtinCatalog.getRelease(harnessReleaseId())!.bundle)]) {
+      if (unavailable === undefined) harness.bucket.objects.delete(`releases/${releaseId}.json`);
+      else harness.bucket.objects.set(`releases/${releaseId}.json`, unavailable);
+      const response = await harness.request("POST", "/api/saves/save_uploaded/resume", {});
+      expect(response.status).toBe(410);
+      expect(await response.json()).toMatchObject({ error: { code: "release_unavailable" } });
+      expect(allocations).toBe(0);
+      expect(harness.initializedFromSave).toBeNull();
+      expect(harness.db.query("SELECT COUNT(*) AS count FROM rooms_index WHERE room_id = ?")
+        .get(harness.newRoomId)).toEqual({ count: 0 });
+    }
+    harness.bucket.objects.set(`releases/${releaseId}.json`, JSON.stringify(bundle));
+    const resumed = await harness.request("POST", "/api/saves/save_uploaded/resume", {});
+    expect(resumed.status).toBe(201);
+    expect(await resumed.json()).toMatchObject({ releaseId });
+    expect(allocations).toBe(1);
+    expect(harness.initializedFromSave).toEqual(bundle.initialSnapshot);
+  });
+
   test("require authentication for save, list, delete, and resume", async () => {
     const roomId = "d".repeat(64);
     for (const [method, path, body] of [

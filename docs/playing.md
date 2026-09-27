@@ -21,7 +21,9 @@ Only the table Host can create a persistent save, and the Host must be signed in
 
 Open **Saved tables** from the account menu or visit `/saves` to list or delete your saves. Choosing **Resume** creates a new room with a new invite code. Share that new code with the other players: everyone must join the resumed room again, and the old room's invite code does not lead to it.
 
-Games that use scripts can be saved, but they cannot be resumed yet. Those saves stay in **Saved tables** with **Resume** switched off until support lands.
+Scripted resume is implemented: saves pin the exact game release, and resume restores saved script state in a new room without restarting the game. If that release is no longer available, resume reports that it cannot load the release.
+
+A resumed table restores saved seats as players join the new room. Play waits until every saved seat is claimed, preserving scores, turns, and open prompts. Share the new invite with the intended players in seat order. If someone cannot return, you can invite a replacement to take that saved seat, or save the paused table and resume it later. A replacement receives that seat's saved game state.
 
 ## Host a room
 
