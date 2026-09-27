@@ -340,10 +340,13 @@ export function assembleAiGameDraft(
 
   let state: CanonicalGameState;
   try {
+    const settings = { ...authoring.settings };
+    if (authoring.interactionMode === "sandbox") settings.sandbox = true;
+    else delete settings.sandbox;
     state = createInitialState({
       releaseId,
       rng: { algorithm: DRAFT_RNG_ALGORITHM, state: authoring.rngSeed, draws: 0 },
-      settings: authoring.settings,
+      settings,
       seats: generatedSeats(authoring.maxPlayers, authoring.entities),
       entities: authoring.entities,
       scriptState: authoring.scriptState,

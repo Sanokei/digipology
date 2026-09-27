@@ -246,7 +246,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
   const faceTextures = new Map<string, { texture: DynamicTexture; references: number }>();
   const highlights = {
     hover: null as string | null,
-    selected: null as string | null,
+    selected: new Set<string>(),
     held: new Set<string>(),
     locked: new Set<string>(),
   };
@@ -257,7 +257,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
     presentationHighlight.removeMesh(piece.mesh);
     const kind: HighlightKind | undefined = highlights.held.has(entityId) ? "held"
       : highlights.locked.has(entityId) ? "locked"
-        : highlights.selected === entityId ? "selected"
+        : highlights.selected.has(entityId) ? "selected"
           : highlights.hover === entityId ? "hover" : undefined;
     if (kind === undefined) return;
     const colors: Record<HighlightKind, Color3> = {
@@ -629,7 +629,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       activeDrag = null;
     },
     setHighlight(entityId: string | null, kind: HighlightKind): void {
-      if (kind === "held" || kind === "locked") {
+      if (kind === "held" || kind === "locked" || kind === "selected") {
         const targets = highlights[kind];
         if (entityId === null) {
           const previous = [...targets];

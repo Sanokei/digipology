@@ -13,6 +13,14 @@ export {
 } from "./canonical";
 export { componentRegistry } from "./components";
 export {
+  OBJECT_LIBRARY,
+  OBJECT_LIBRARY_VERSION,
+  STANDARD_CARD_IDS,
+  libraryTransform,
+  objectLibraryItem,
+  simpleLibraryComponents,
+} from "./object-library";
+export {
   builtInActions,
   canPlayerViewContainer,
   destroyEntity,
@@ -65,6 +73,7 @@ export type {
   LockableComponent,
   JsonPrimitive,
   JsonValue,
+  LibraryComponent,
   KernelEvent,
   Ok,
   OrderedActionInput,

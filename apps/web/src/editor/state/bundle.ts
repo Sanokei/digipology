@@ -54,6 +54,7 @@ export function createEmptyEditorDraft(id: string, now = new Date().toISOString(
   const state = createInitialState({
     releaseId,
     rng: { algorithm: "sfc32-v1", state: [1, 2, 3, 4], draws: 0 },
+    settings: { sandbox: true },
   });
   const bundle: ReleaseBundleDto = {
     formatVersion: 1,
@@ -110,6 +111,7 @@ function prepareTemplate(
   draft.bundle.interactionMode = "scripted";
   draft.bundle.title = title;
   const state = draft.bundle.initialSnapshot.state as CanonicalGameState;
+  delete state.settings.sandbox;
   state.seats = {
     "playtest-seat": { id: "playtest-seat", playerId: null },
   };

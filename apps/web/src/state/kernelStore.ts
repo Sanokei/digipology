@@ -56,7 +56,7 @@ export interface KernelStoreSnapshot {
 
 export type ApplyStreamResult = { ok: true } | { ok: false; expected: number; actual: number };
 
-const PREDICTED_ACTION_TYPES = new Set(["entity.grab", "entity.drop", "entity.flip", "entity.rotate"]);
+const PREDICTED_ACTION_TYPES = new Set(["entity.grab", "entity.drop", "entity.flip", "entity.rotate", "group.move"]);
 const STALE_TIMER_FIRE_REASON = "Timer has already fired or was canceled";
 
 export function isPredictableAction(action: PredictionAction): boolean {

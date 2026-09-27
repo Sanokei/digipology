@@ -28,4 +28,5 @@ export const componentRegistry: Readonly<Record<string, ComponentDefinition>> =
     text: { type: "text", behavior: "implemented", requires: [] },
     button: { type: "button", behavior: "implemented", requires: [] },
     script: { type: "script", behavior: "implemented", requires: [] },
+    library: { type: "library", behavior: "implemented", requires: [] },
   });
