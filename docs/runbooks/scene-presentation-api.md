@@ -11,9 +11,12 @@ Pass a `PresentationSettingsSource` as `SceneAdapterDependencies.settings`. The 
 - `setSelection(ids)` replaces the complete local selection. An empty array clears it.
 - `showSnapGhost(entityId, pose)` replaces the single transient snap preview with a non-pickable translucent copy at the proposed pose.
 - `clearSnapGhost()` removes that preview. Call it on drop, cancel, mode change, and unmount.
+- `animateCardFlight(sourceEntityId, destination, delayMs?)` creates a transient card-shaped flight for authoritative deal/draw events. It is suppressed when reduced motion is enabled.
 - Existing `setHighlight(id, "hover" | "held" | "locked" | "selected")` remains compatible. New interaction work should use `setSelection` for selection because it supports more than one entity.
 
-The adapters derive remote held colors from the holder's seat when the player roster is available. Neither highlights nor ghosts alter `KernelStoreSnapshot`.
+The adapters derive remote held colors from the holder's seat when the player roster is available. Neither highlights, ghosts, nor flights alter `KernelStoreSnapshot`.
+
+Presentation audio is driven from authoritative kernel event batches. Merge, deal, draw/take, spawn, delete, shuffle, and cut events map to the shared scene cues, so rejected actions stay silent and both adapters behave identically.
 
 ## Camera and diagnostics
 

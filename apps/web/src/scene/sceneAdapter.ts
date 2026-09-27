@@ -56,6 +56,8 @@ export interface SceneAdapter {
   /** Shows one transient interaction preview; a later call replaces it. */
   showSnapGhost(entityId: string, pose: ScenePose): void;
   clearSnapGhost(): void;
+  /** Plays a transient, non-canonical card flight from an entity to a table point. */
+  animateCardFlight(sourceEntityId: string, destination: ScenePose["position"], delayMs?: number): void;
   getPerformanceStats(): ScenePerformanceStats;
   camera: {
     attach(): void;

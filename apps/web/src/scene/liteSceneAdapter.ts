@@ -105,6 +105,14 @@ interface PieceGraph {
   contactShadow?: Mesh;
 }
 
+interface CardFlightAnimation {
+  mesh: Mesh;
+  material: StandardMaterialProps;
+  from: [number, number, number];
+  destination: { x: number; y: number; z: number };
+  elapsed: number;
+}
+
 const LIFT_HEIGHT = 0.22;
 const HIGHLIGHT_COLORS: Record<HighlightKind, [number, number, number]> = {
   hover: [0.18, 0.12, 0.04],
@@ -376,6 +384,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
   let settings: PresentationSettings = dependencies.settings?.getSnapshot() ?? defaultPresentationSettings(false);
   let unsubscribeSettings: (() => void) | null = null;
   let snapGhost: Mesh | null = null;
+  const cardFlights: CardFlightAnimation[] = [];
   let measuredFps = 0;
   let frameElapsed = 0;
   let frameSamples = 0;
@@ -842,7 +851,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
 
       picker = createGpuPicker(scene);
       let cameraIntroMs = 0;
-      onBeforeRender(scene, (deltaMs) => {
+      onBeforeRender(mountedScene, (deltaMs) => {
         frameSamples += 1;
         frameElapsed += deltaMs;
         if (frameElapsed >= 500) {
@@ -873,6 +882,24 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
             markMaterialUboDirty(material);
           }
         }
+        for (let index = cardFlights.length - 1; index >= 0; index -= 1) {
+          const flight = cardFlights[index]!;
+          flight.elapsed += deltaMs;
+          if (flight.elapsed < 0) continue;
+          flight.material.alpha = 0.82;
+          markMaterialUboDirty(flight.material);
+          const linear = Math.min(flight.elapsed / 520, 1);
+          const eased = 1 - (1 - linear) ** 3;
+          flight.mesh.position.set(
+            mix(flight.from[0], flight.destination.x, eased),
+            mix(flight.from[1], flight.destination.y, eased) + Math.sin(linear * Math.PI) * 0.9,
+            mix(flight.from[2], flight.destination.z, eased),
+          );
+          if (linear === 1) {
+            removeFromScene(mountedScene, flight.mesh);
+            cardFlights.splice(index, 1);
+          }
+        }
       });
       await registerScene(scene);
       await startEngine(engine);
@@ -899,6 +926,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       engine = null;
       canvas = null;
       snapGhost = null;
+      cardFlights.length = 0;
       tableStyleMaterials = null;
     },
     syncEntities(view: KernelStoreSnapshot): void {
@@ -936,7 +964,6 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
             if (!settings.reducedMotion && entity.components.card !== undefined && origin !== undefined) {
               created.mesh.position.set(origin.x, origin.y + 0.35, origin.z);
               startCorrection(created, entity.components.transform, 420);
-              dependencies.audio?.play("card-slide");
             }
           }
         } else {
@@ -947,8 +974,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
           else if (entity.components.die !== undefined) {
             dependencies.audio?.play("dice-rattle");
             dependencies.audio?.play("dice-land");
-          } else if (entity.components.deck !== undefined) dependencies.audio?.play("deck-shuffle");
-          else if (entity.components.counter !== undefined) dependencies.audio?.play("chip-clink");
+          } else if (entity.components.counter !== undefined) dependencies.audio?.play("chip-clink");
           destroyPiece(existing);
           const created = makePiece(entity);
           if (created === null) pieces.delete(id);
@@ -1105,20 +1131,6 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
         }
         return;
       }
-      if (kind === "selected") {
-        const previous = [...highlights.selected];
-        highlights.selected.clear();
-        if (entityId !== null) highlights.selected.add(entityId);
-        for (const id of previous) {
-          const piece = pieces.get(id);
-          if (piece !== undefined) applyPieceHighlight(piece);
-        }
-        if (entityId !== null) {
-          const piece = pieces.get(entityId);
-          if (piece !== undefined) applyPieceHighlight(piece);
-        }
-        return;
-      }
       const previous = highlights.hover;
       highlights.hover = entityId;
       if (previous !== null) {
@@ -1163,6 +1175,28 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
     clearSnapGhost(): void {
       if (snapGhost !== null && scene !== null) removeFromScene(scene, snapGhost);
       snapGhost = null;
+    },
+    animateCardFlight(sourceEntityId, destination, delayMs = 0): void {
+      if (scene === null || engine === null || settings.reducedMotion) return;
+      const source = pieces.get(sourceEntityId)?.mesh;
+      if (source === undefined) return;
+      const flight = createBox(engine, { width: 0.62, height: 0.035, depth: 0.88 });
+      flight.name = "card-flight";
+      flight.pickable = false;
+      const flightMaterial = createStandardMaterial();
+      flightMaterial.diffuseColor = hexColor("#efe4c8", "#efe4c8");
+      flightMaterial.emissiveColor = hexColor("#40392c", "#40392c");
+      flightMaterial.alpha = delayMs > 0 ? 0 : 0.82;
+      flight.material = flightMaterial;
+      flight.position.set(source.position.x, source.position.y, source.position.z);
+      addToScene(scene, flight);
+      cardFlights.push({
+        mesh: flight,
+        material: flightMaterial,
+        from: [source.position.x, source.position.y, source.position.z],
+        destination,
+        elapsed: -delayMs,
+      });
     },
     getPerformanceStats() {
       return { fps: measuredFps, visiblePieces: pieces.size, textureCount: faceTextures.size };

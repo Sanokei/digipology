@@ -24,6 +24,7 @@ function adapterThat(mount: () => Promise<void>, disposed: string[], name: strin
     setSelection: () => undefined,
     showSnapGhost: () => undefined,
     clearSnapGhost: () => undefined,
+    animateCardFlight: () => undefined,
     getPerformanceStats: () => ({ fps: 0, visiblePieces: 0, textureCount: 0 }),
     camera: {
       attach: () => undefined,

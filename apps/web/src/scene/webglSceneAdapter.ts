@@ -722,7 +722,6 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
             if (!settings.reducedMotion && scene !== null && entity.components.card !== undefined && origin !== undefined) {
               created.mesh.position.set(origin.x, origin.y + 0.35, origin.z);
               created.cancelCorrection = animateTransform(scene, created.mesh, entity.components.transform, created.restingY, 420);
-              dependencies.audio?.play("card-slide");
             }
           }
         } else {
@@ -733,8 +732,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
           else if (entity.components.die !== undefined) {
             dependencies.audio?.play("dice-rattle");
             dependencies.audio?.play("dice-land");
-          } else if (entity.components.deck !== undefined) dependencies.audio?.play("deck-shuffle");
-          else if (entity.components.counter !== undefined) dependencies.audio?.play("chip-clink");
+          } else if (entity.components.counter !== undefined) dependencies.audio?.play("chip-clink");
           destroyPiece(existing);
           const created = makePiece(entity);
           if (created === null) pieces.delete(id);
@@ -839,14 +837,6 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
         }
         return;
       }
-      if (kind === "selected") {
-        const previous = [...highlights.selected];
-        highlights.selected.clear();
-        if (entityId !== null) highlights.selected.add(entityId);
-        for (const id of previous) refreshHighlight(id);
-        if (entityId !== null) refreshHighlight(entityId);
-        return;
-      }
       const previous = highlights.hover;
       highlights.hover = entityId;
       if (previous !== null) refreshHighlight(previous);
@@ -882,6 +872,40 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
     clearSnapGhost(): void {
       snapGhost?.dispose(false, true);
       snapGhost = null;
+    },
+    animateCardFlight(sourceEntityId, destination, delayMs = 0): void {
+      if (scene === null || settings.reducedMotion) return;
+      const source = pieces.get(sourceEntityId)?.mesh;
+      if (source === undefined) return;
+      const targetScene = scene;
+      const flight = CreateBox("card-flight", { width: 0.62, height: 0.035, depth: 0.88 }, targetScene);
+      flight.isPickable = false;
+      flight.metadata = null;
+      const flightMaterial = new StandardMaterial("card-flight-material", targetScene);
+      flightMaterial.diffuseColor = Color3.FromHexString("#efe4c8");
+      flightMaterial.emissiveColor = Color3.FromHexString("#40392c");
+      flightMaterial.alpha = delayMs > 0 ? 0 : 0.82;
+      flight.material = flightMaterial;
+      const from = source.position.clone();
+      flight.position.copyFrom(from);
+      let elapsed = -delayMs;
+      const observer = targetScene.onBeforeRenderObservable.add(() => {
+        elapsed += targetScene.getEngine().getDeltaTime();
+        if (elapsed < 0) return;
+        flightMaterial.alpha = 0.82;
+        const linear = Math.min(elapsed / 520, 1);
+        const eased = easeOutCubic(linear);
+        flight.position.set(
+          from.x + (destination.x - from.x) * eased,
+          from.y + (destination.y - from.y) * eased + Math.sin(linear * Math.PI) * 0.9,
+          from.z + (destination.z - from.z) * eased,
+        );
+        flight.rotation.y = linear * Math.PI * 0.35;
+        if (linear === 1) {
+          targetScene.onBeforeRenderObservable.remove(observer);
+          flight.dispose(false, true);
+        }
+      });
     },
     getPerformanceStats() {
       return { fps: measuredFps, visiblePieces: pieces.size, textureCount: faceTextures.size };

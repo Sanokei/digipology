@@ -21,6 +21,7 @@ import { boxSelectionIds, nearestCompatibleSnap, reconcileSelection, toggleSelec
 import type { TableHintGesture } from "../components/TableHints";
 import { createSceneAudio } from "./sceneAudio";
 import { browserPresentationSettings } from "./presentationSettings";
+import { cardFlightsForSceneEvents, soundsForSceneEvents } from "./scenePresentationEvents";
 
 export interface TableContextRequest {
   entityId: string;
@@ -29,7 +30,6 @@ export interface TableContextRequest {
 }
 
 export interface TableHoverRequest extends TableContextRequest {}
-export interface TableSnapPreview { entityId: string; snapPointId: string; x: number; y: number }
 
 async function loadAdapter(
   renderer: RendererAdapterKind,
@@ -61,7 +61,6 @@ export function useBabylonScene(
   onSelectionChange?: (ids: readonly string[]) => void,
   onSelectionBoxChange?: (rectangle: SelectionRectangle | null) => void,
   touchSelectionMode = false,
-  onSnapPreviewChange?: (preview: TableSnapPreview | null) => void,
 ): void {
   const pausedRef = useRef(interactionsPaused);
   pausedRef.current = interactionsPaused;
@@ -90,8 +89,6 @@ export function useBabylonScene(
   selectionBoxChangeRef.current = onSelectionBoxChange;
   const touchSelectionModeRef = useRef(touchSelectionMode);
   touchSelectionModeRef.current = touchSelectionMode;
-  const snapPreviewChangeRef = useRef(onSnapPreviewChange);
-  snapPreviewChangeRef.current = onSnapPreviewChange;
   const cancelTouchRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
@@ -207,15 +204,38 @@ export function useBabylonScene(
       let seatCameraInitialized = false;
       const publishSelection = (next: readonly string[]): void => {
         selectedIds = [...next].sort();
-        adapter.setHighlight(null, "selected");
-        for (const id of selectedIds) adapter.setHighlight(id, "selected");
+        adapter.setSelection(selectedIds);
         selectionChangeRef.current?.(selectedIds);
       };
+      let presentedSequence = store.getSnapshot().state?.sequence ?? null;
       let heldHighlight = "";
       let lockedHighlight = "";
       const sync = () => {
         const snapshot = store.getSnapshot();
         adapter.syncEntities(snapshot);
+        const sequence = snapshot.state?.sequence ?? null;
+        if (sequence !== null && sequence !== presentedSequence) {
+          presentedSequence = sequence;
+          for (const sound of soundsForSceneEvents(snapshot.events)) audio.play(sound);
+          const state = snapshot.displayedState;
+          if (state !== null) {
+            const seats = Object.keys(state.seats).sort();
+            const handSeatIds: Record<string, string> = {};
+            for (const seatId of seats) {
+              const handId = state.seats[seatId]?.handId;
+              if (typeof handId === "string") handSeatIds[handId] = seatId;
+            }
+            for (const flight of cardFlightsForSceneEvents(snapshot.events, handSeatIds)) {
+              const seatIndex = seats.indexOf(flight.seatId);
+              if (seatIndex < 0) continue;
+              const angle = seatIndex * Math.PI * 2 / Math.max(seats.length, 1);
+              const destination = { x: Math.sin(angle) * 4.8, y: 0.35, z: Math.cos(angle) * 3.2 };
+              for (let index = 0; index < Math.min(flight.count, 12); index += 1) {
+                adapter.animateCardFlight(flight.deckId, destination, index * 90);
+              }
+            }
+          }
+        }
         if (!seatCameraInitialized && snapshot.displayedState !== null) {
           const seatId = localSeatId(snapshot.displayedState, playerId ?? "");
           if (seatId !== null) {
@@ -256,6 +276,12 @@ export function useBabylonScene(
       let hoverPoint = { x: 0, y: 0 };
       let hoverEntityId: string | null = null;
       let spacePan = false;
+      let snapGhostId: string | null = null;
+      const clearSnapGhost = (): void => {
+        if (snapGhostId === null) return;
+        snapGhostId = null;
+        adapter.clearSnapGhost();
+      };
       const hoverPicker = createHoverPicker(adapter, (entityId) => {
         hoverEntityId = entityId;
         adapter.setHighlight(entityId, "hover");
@@ -514,13 +540,13 @@ export function useBabylonScene(
         if (active !== null && tablePoint !== null) {
           const state = store.getSnapshot().displayedState;
           const snapPointId = state === null ? null : nearestCompatibleSnap(state, active.entityId, tablePoint);
-          const target = snapPointId === null ? null : state?.entities[snapPointId]?.components.transform?.position;
-          const projected = target === null || target === undefined ? null : adapter.projectFromTable(target);
-          snapPreviewChangeRef.current?.(projected === null || snapPointId === null ? null : {
-            entityId: active.entityId, snapPointId, x: projected.x + rect.left, y: projected.y + rect.top,
-          });
+          const target = snapPointId === null ? undefined : state?.entities[snapPointId]?.components.transform;
+          if (snapPointId !== null && target !== undefined) {
+            if (snapGhostId !== snapPointId) adapter.showSnapGhost(active.entityId, target);
+            snapGhostId = snapPointId;
+          } else clearSnapGhost();
         } else {
-          snapPreviewChangeRef.current?.(null);
+          clearSnapGhost();
         }
         if (decisions.length > 0) {
           event.preventDefault();
@@ -539,7 +565,7 @@ export function useBabylonScene(
         }
         event.preventDefault();
         applyDesktopDecisions(desktop.up(event.pointerId, event.clientX, event.clientY));
-        snapPreviewChangeRef.current?.(null);
+        clearSnapGhost();
         if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
       };
       const handlePointerCancel = (event: PointerEvent): void => {
@@ -548,7 +574,7 @@ export function useBabylonScene(
           return;
         }
         applyDesktopDecisions(desktop.cancel(event.pointerId));
-        snapPreviewChangeRef.current?.(null);
+        clearSnapGhost();
       };
       const handleLostPointerCapture = (event: PointerEvent): void => {
         if (releasedPointerIds.delete(event.pointerId)) return;
@@ -719,7 +745,7 @@ export function useBabylonScene(
         hoverRequestRef.current?.(null);
         selectionBoxChangeRef.current?.(null);
         selectionChangeRef.current?.([]);
-        snapPreviewChangeRef.current?.(null);
+        adapter.clearSnapGhost();
         resize.disconnect();
         clearInterval(diagnosticsTimer);
         document.removeEventListener("visibilitychange", syncRenderLoop);
