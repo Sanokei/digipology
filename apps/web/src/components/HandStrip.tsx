@@ -79,12 +79,12 @@ export function HandStrip({
         }}><option value="none">None</option><option value="label">By label</option></select></label>
         {items.length === 0
           ? <span className="hand-strip__empty">Your hand is empty</span>
-          : <div className="hand-strip__cards">{displayedItems.map((item) => (
+          : <div className="hand-strip__cards">{displayedItems.map((item, index) => (
               <button
                 key={item.entityId}
                 type="button"
                 className="hand-card"
-                style={{ "--card-color": item.color } as CSSProperties}
+                style={{ "--card-color": item.color, "--hand-index": index, "--hand-count": displayedItems.length } as CSSProperties}
                 onClick={() => {
                   if (suppressClickRef.current) { suppressClickRef.current = false; return; }
                   setInspected(item);
@@ -128,7 +128,7 @@ export function HandStrip({
                 onPointerCancel={() => { clearTimer(); dragRef.current = null; }}
                 aria-label={`Inspect ${item.label}`}
               >
-                <i aria-hidden="true" />
+                {item.imageUrl === undefined ? <i aria-hidden="true" /> : <img alt="" src={item.imageUrl} draggable={false} />}
                 <span>{item.label}</span>
               </button>
             ))}</div>}

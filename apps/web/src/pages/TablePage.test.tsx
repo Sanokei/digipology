@@ -22,7 +22,7 @@ test("375px table chrome exposes compact controls and the thumb hand tray", asyn
   expect(html).toContain("Show 2 players");
   expect(html).toContain("hand-strip__cards");
   expect(html).toContain("Inspect Ace");
-  expect(playersPanelOpenByDefault(false)).toBe(false);
+  expect(playersPanelOpenByDefault(false)).toBe(true);
   expect(playersPanelOpenByDefault(true)).toBe(true);
 
   const css = await Bun.file(new URL("../styles.css", import.meta.url)).text();

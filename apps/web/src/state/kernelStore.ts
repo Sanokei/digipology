@@ -50,8 +50,10 @@ export interface KernelStoreSnapshot {
   /** Hash of confirmed state only. */
   stateHash: string | null;
   diagnostic: string | null;
-  definitions: Readonly<Record<string, { label?: string; color?: string }>>;
+  definitions: Readonly<Record<string, { label?: string; color?: string; face?: unknown }>>;
   gameTitle: string | null;
+  gameSlug: string | null;
+  rules: string | null;
 }
 
 export type ApplyStreamResult = { ok: true } | { ok: false; expected: number; actual: number };
@@ -65,6 +67,15 @@ export function isPredictableAction(action: PredictionAction): boolean {
 
 function bundleSnapshot(bundle: ReleaseBundleDto): GameSnapshot {
   return bundle.initialSnapshot as unknown as GameSnapshot;
+}
+
+function rulesFromBundle(bundle: ReleaseBundleDto): string | null {
+  if (typeof bundle.rules === "string" && bundle.rules.trim().length > 0) return bundle.rules;
+  const rulesPath = typeof bundle.refs?.rules === "string" ? bundle.refs.rules : null;
+  const file = [...(bundle.files ?? [])].sort((a, b) => a.path.localeCompare(b.path)).find((candidate) =>
+    candidate.path === rulesPath || /(^|\/)rules(?:\.[a-z0-9_-]+)?\.(?:md|txt)$/i.test(candidate.path) || /(^|\/)rules\.(?:md|txt)$/i.test(candidate.path)
+  );
+  return file?.content?.trim() ? file.content : null;
 }
 
 function toKernelAction(message: OrderedAction): OrderedActionInput<unknown> {
@@ -108,7 +119,7 @@ export class KernelStore {
   private current: KernelStoreSnapshot = {
     state: null, displayedState: null, events: [], players: [], pendingRequestIds: new Set(),
     predictionLedger: [], correction: null, endedReason: null, stateHash: null,
-    diagnostic: null, definitions: {}, gameTitle: null,
+    diagnostic: null, definitions: {}, gameTitle: null, gameSlug: null, rules: null,
   };
   private readonly listeners = new Set<() => void>();
   private initialSnapshot: GameSnapshot | null = null;
@@ -136,6 +147,8 @@ export class KernelStore {
       ...this.current,
       definitions: bundle.definitions ?? {},
       gameTitle: bundle.title ?? null,
+      gameSlug: bundle.gameId,
+      rules: rulesFromBundle(bundle),
     });
   }
 
@@ -150,7 +163,7 @@ export class KernelStore {
     this.scriptRuntime = await createCreatorScriptRuntime({
       scripts: scriptsFromReleaseFiles(files),
       refs: { ...entityRefs, ...(bundle.refs ?? {}) },
-      definitions: bundle.definitions ?? {},
+      definitions: (bundle.definitions ?? {}) as NonNullable<Parameters<typeof createCreatorScriptRuntime>[0]["definitions"]>,
       instructionBudget: 50_000,
       memoryBudgetBytes: 512 * 1024,
     });
@@ -362,6 +375,10 @@ export class KernelStore {
       endedReason: reason,
       diagnostic: `Room ended: ${reason}`,
     });
+  }
+
+  setPlayers(players: PlayerInfo[]): void {
+    this.publish({ ...this.current, players });
   }
 
   clearCorrection(id: number): void {

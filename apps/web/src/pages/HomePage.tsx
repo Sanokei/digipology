@@ -131,6 +131,7 @@ export function HomePage() {
       ...result.value,
       inviteUrl: `https://play.digipology.com/join/${normalizeJoinCode(result.value.joinCode)}`,
       gameTitle: game.title,
+      gameSlug: game.slug,
     };
     const success = dispatchFlow(game.slug, { type: "succeeded", session });
     if (success.phase !== "success") return;

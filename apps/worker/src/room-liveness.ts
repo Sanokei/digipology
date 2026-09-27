@@ -1,4 +1,4 @@
-import { ROOM_HEARTBEAT_INTERVAL_MS } from "./quickplay";
+import { ROOM_HEARTBEAT_INTERVAL_MS, ROOM_HEARTBEAT_STALE_MS } from "./quickplay";
 import { TIMER_CANCEL_GRACE_MS } from "./room-core";
 
 export const EMPTY_ROOM_TTL_MS = 30 * 60 * 1000;
@@ -64,6 +64,14 @@ export function planRoomAlarm(now: number, state: RoomAlarmState): RoomAlarmPlan
     expiryDue: now >= expiryAt,
     nextAlarmAt: now >= expiryAt ? null : expiryAt,
   };
+}
+
+export function isDiscoverablePublicRoom(
+  now: number,
+  room: { playerCount: number; lastHeartbeatAt: number | null },
+): boolean {
+  return room.playerCount > 0 && room.lastHeartbeatAt !== null &&
+    room.lastHeartbeatAt >= now - ROOM_HEARTBEAT_STALE_MS;
 }
 
 /** Multiplex the single DO alarm; canonical game timers pause while empty. */

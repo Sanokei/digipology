@@ -1,9 +1,11 @@
 import type { CanonicalGameState, TransformComponent } from "digipology-kernel";
+import { cardPresentation } from "./cardPresentation";
 
 export interface HandStripItem {
   entityId: string;
   label: string;
   color: string;
+  imageUrl?: string;
   transform?: TransformComponent;
 }
 
@@ -65,7 +67,7 @@ export function handPlayActions(
 export function localHandItems(
   state: CanonicalGameState | null,
   playerId: string,
-  definitions: Readonly<Record<string, { label?: string; color?: string }>>,
+  definitions: Readonly<Record<string, { label?: string; color?: string; face?: unknown }>>,
 ): HandStripItem[] {
   if (state === null) return [];
   const handId = localHandId(state, playerId);
@@ -75,11 +77,12 @@ export function localHandItems(
     const entity = state.entities[entityId];
     if (entity === undefined) return [];
     const definitionId = entity.components.card?.definitionId;
-    const label = definitionId === undefined ? "Card" : definitions[definitionId]?.label ?? "Card";
+    const presentation = cardPresentation(definitionId === undefined ? undefined : definitions[definitionId]);
     return [{
       entityId,
-      label,
-      color: definitionId === undefined ? "#e7dfc8" : definitions[definitionId]?.color ?? "#e7dfc8",
+      label: presentation.label,
+      color: presentation.color,
+      ...(presentation.imageUrl === null ? {} : { imageUrl: presentation.imageUrl }),
       ...(entity.components.transform === undefined ? {} : { transform: entity.components.transform }),
     }];
   });

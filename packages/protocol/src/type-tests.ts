@@ -31,6 +31,9 @@ export function exhaustServerMessage(message: ServerMessage): string {
     case "chat_message":
     case "cursor_update":
     case "table_ping":
+    case "players_updated":
+    case "room_redirect":
+    case "room_kicked":
       return message.type;
     default:
       return assertNever(message);

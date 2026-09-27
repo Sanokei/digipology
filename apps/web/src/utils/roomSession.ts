@@ -7,6 +7,8 @@ export interface SavedRoomSession {
   wsUrl: string;
   releaseId: string;
   gameTitle: string;
+  gameSlug?: string;
+  visibility?: "private" | "public";
 }
 
 const roomKey = (roomId: string) => `digipology.room.${roomId}`;

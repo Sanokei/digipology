@@ -54,6 +54,9 @@ export function useBabylonScene(
   onTablePointerMove?: (point: { x: number; y: number; z: number }) => void,
   onTablePing?: (point: { x: number; y: number; z: number }) => void,
   onRendererStatus?: (status: RendererStatus) => void,
+  graphicsQuality: "auto" | "high" | "low" = "auto",
+  cameraSensitivity = 1,
+  invertCameraY = false,
 ): void {
   const pausedRef = useRef(interactionsPaused);
   pausedRef.current = interactionsPaused;
@@ -76,6 +79,8 @@ export function useBabylonScene(
   const tablePingRef = useRef(onTablePing);
   tablePingRef.current = onTablePing;
   const adapterRef = useRef<SceneAdapter | null>(null);
+  const cameraSettingsRef = useRef({ cameraSensitivity, invertCameraY });
+  cameraSettingsRef.current = { cameraSensitivity, invertCameraY };
   const cancelTouchRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
@@ -96,12 +101,15 @@ export function useBabylonScene(
         deviceMemory?: number;
         userAgentData?: { mobile?: boolean };
       };
-      const tier = classifyRendererTier({
+      const adaptiveTier = classifyRendererTier({
         deviceMemory: deviceNavigator.deviceMemory,
         hardwareConcurrency: deviceNavigator.hardwareConcurrency,
         userAgent: deviceNavigator.userAgent,
         mobile: deviceNavigator.userAgentData?.mobile,
       });
+      const tier = graphicsQuality === "auto"
+        ? adaptiveTier
+        : graphicsQuality === "low" ? "low" : "default";
       const selection = selectRendererAdapter(
         "gpu" in navigator,
         rendererOverrideFromSearch(window.location.search),
@@ -242,7 +250,11 @@ export function useBabylonScene(
           } else if (decision.type === "camera-start") {
             adapter.camera.attach();
           } else if (decision.type === "camera-pan") {
-            adapter.camera.pan(decision.deltaX, decision.deltaY);
+            const camera = cameraSettingsRef.current;
+            adapter.camera.pan(
+              decision.deltaX * camera.cameraSensitivity,
+              decision.deltaY * camera.cameraSensitivity * (camera.invertCameraY ? -1 : 1),
+            );
             hintGestureRef.current?.("primary");
           } else if (decision.type === "camera-pinch") {
             adapter.camera.pinch(decision.previousDistance, decision.distance);
@@ -277,10 +289,18 @@ export function useBabylonScene(
             adapter.cancelDrag(decision.pointerId);
             canvas.style.cursor = hoverEntityId !== null && adapter.isGrabbable(hoverEntityId) ? "grab" : "default";
           } else if (decision.type === "camera-orbit") {
-            adapter.camera.orbit(decision.deltaX, decision.deltaY);
+            const camera = cameraSettingsRef.current;
+            adapter.camera.orbit(
+              decision.deltaX * camera.cameraSensitivity,
+              decision.deltaY * camera.cameraSensitivity * (camera.invertCameraY ? -1 : 1),
+            );
             hintGestureRef.current?.("primary");
           } else if (decision.type === "camera-pan") {
-            adapter.camera.pan(decision.deltaX, decision.deltaY);
+            const camera = cameraSettingsRef.current;
+            adapter.camera.pan(
+              decision.deltaX * camera.cameraSensitivity,
+              decision.deltaY * camera.cameraSensitivity * (camera.invertCameraY ? -1 : 1),
+            );
             hintGestureRef.current?.("primary");
           } else {
             void pickContextRequest(
@@ -550,5 +570,5 @@ export function useBabylonScene(
       pendingAdapter?.dispose();
       pendingAdapter = null;
     };
-  }, [canvasRef, client, playerId, store]);
+  }, [canvasRef, client, graphicsQuality, playerId, store]);
 }

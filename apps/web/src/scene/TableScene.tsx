@@ -35,6 +35,9 @@ interface TableSceneProps {
   onRendererStatus?: (status: RendererStatus) => void;
   rendererStatus?: RendererStatus | null;
   rendererOverrideActive?: boolean;
+  graphicsQuality?: "auto" | "high" | "low";
+  cameraSensitivity?: number;
+  invertCameraY?: boolean;
 }
 
 export function TableScene({
@@ -53,6 +56,9 @@ export function TableScene({
   onRendererStatus,
   rendererStatus = null,
   rendererOverrideActive = false,
+  graphicsQuality = "auto",
+  cameraSensitivity = 1,
+  invertCameraY = false,
 }: TableSceneProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const view = useKernelStore(store);
@@ -82,6 +88,9 @@ export function TableScene({
     onTablePointerMove,
     onTablePing,
     onRendererStatus,
+    graphicsQuality,
+    cameraSensitivity,
+    invertCameraY,
   );
 
   const state = view.displayedState;

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { ROOM_HEARTBEAT_INTERVAL_MS } from "./quickplay";
 import { TIMER_CANCEL_GRACE_MS } from "./room-core";
 import {
+  isDiscoverablePublicRoom,
   EMPTY_ROOM_TTL_MS,
   nextRoomAlarmAt,
   planCanonicalTimerAlarm,
@@ -9,6 +10,13 @@ import {
 } from "./room-liveness";
 
 describe("room alarm multiplexing", () => {
+  test("public discovery hides empty and stale rooms", () => {
+    const now = 120_000;
+    expect(isDiscoverablePublicRoom(now, { playerCount: 1, lastHeartbeatAt: now })).toBe(true);
+    expect(isDiscoverablePublicRoom(now, { playerCount: 0, lastHeartbeatAt: now })).toBe(false);
+    expect(isDiscoverablePublicRoom(now, { playerCount: 2, lastHeartbeatAt: null })).toBe(false);
+    expect(isDiscoverablePublicRoom(now, { playerCount: 2, lastHeartbeatAt: 0 })).toBe(false);
+  });
   test("refreshes connected rooms on the coarse heartbeat cadence", () => {
     const now = 100_000;
     expect(planRoomAlarm(now, {

@@ -5,6 +5,8 @@ import {
   type ClientSocialMessage,
   type OrderedAction,
   type PlayerInfo,
+  type RoomKickedMessage,
+  type RoomRedirectMessage,
   type RoomEndedMessage,
   type ServerMessage,
 } from "digipology-protocol";
@@ -23,7 +25,8 @@ import {
   type ConnectionState,
 } from "./message-handler";
 import { handlePlatformRequest } from "./platform";
-import { generatePlayerId, generateSessionToken } from "./random";
+import { generateJoinCode, generatePlayerId, generateSessionToken, normalizeJoinCode } from "./random";
+import { authorizeHostCommand, validatedSeatChange } from "./room-admin";
 import { createBuiltinInitialState, orderedInitialSeatIds } from "./initial-state";
 import {
   ACTION_RETENTION,
@@ -87,7 +90,7 @@ interface RoomMetadataRow extends Record<string, SqlStorageValue> {
 interface PlayerRow extends Record<string, SqlStorageValue> {
   player_id: string;
   display_name: string;
-  seat_id: string;
+  seat_id: string | null;
   user_id: string | null;
 }
 
@@ -162,6 +165,9 @@ type JoinResult =
   | { status: "full" }
   | { status: "ended" }
   | { status: "ineligible" };
+
+export type RoomAdminOutcome = "ok" | "unauthorized" | "host_only" | "invalid_target" | "unavailable";
+export type RoomRestartOutcome = "restarted" | Exclude<RoomAdminOutcome, "ok" | "invalid_target">;
 
 export type SaveSnapshotOutcome =
   | { status: "ok"; snapshotJson: string; releaseId: string; sequence: number; stateHash: string }
@@ -252,7 +258,7 @@ export class RoomDO extends DurableObject<Env> {
       if (count >= room.capacity) return { status: "full" };
       const seatId = room.resumed === 1
         ? nextResumedSeatId(loadSnapshot(this.requiredInitialSnapshot(room)),
-          this.playerRows().map((player) => player.seat_id))
+          this.playerRows().flatMap((player) => player.seat_id === null ? [] : [player.seat_id]))
         : `seat_${count + 1}`;
       this.ctx.storage.sql.exec(
         `INSERT INTO players
@@ -325,6 +331,7 @@ export class RoomDO extends DurableObject<Env> {
     });
     if (result.status === "ok") {
       for (const ordered of orderedActions) this.broadcast(ordered);
+      this.broadcast({ type: "players_updated", protocolVersion: PROTOCOL_VERSION, players: this.players() });
       this.scheduleIndexMetadataUpdate();
       if (orderedActions.some((ordered) => ordered.action.type === "system.seat_claim")) await this.rescheduleAlarm(Date.now());
     }
@@ -332,6 +339,180 @@ export class RoomDO extends DurableObject<Env> {
   }
 
   hostPlayerId(): string | null { return this.room()?.host_player_id ?? null; }
+
+  async passHostWithToken(roomToken: string, targetPlayerId: string): Promise<RoomAdminOutcome> {
+    const requester = await this.authenticateRoomToken(roomToken);
+    const room = this.room();
+    if (room === null || room.ended_reason !== null) return "unavailable";
+    const authorization = authorizeHostCommand(requester, room.host_player_id, targetPlayerId);
+    if (authorization !== "allowed") return authorization;
+    const target = this.playerRows().find((player) => player.player_id === targetPlayerId);
+    if (target === undefined) return "invalid_target";
+    this.ctx.storage.sql.exec("UPDATE room SET host_player_id = ? WHERE singleton = 1", targetPlayerId);
+    this.broadcast({ type: "players_updated", protocolVersion: PROTOCOL_VERSION, players: this.players() });
+    return "ok";
+  }
+
+  async kickWithToken(roomToken: string, targetPlayerId: string): Promise<RoomAdminOutcome> {
+    const requester = await this.authenticateRoomToken(roomToken);
+    const room = this.room();
+    if (room === null || room.ended_reason !== null) return "unavailable";
+    const authorization = authorizeHostCommand(requester, room.host_player_id, targetPlayerId);
+    if (authorization !== "allowed") return authorization;
+    const target = this.playerRows().find((player) => player.player_id === targetPlayerId);
+    if (target === undefined) return "invalid_target";
+
+    let ordered: OrderedAction | null = null;
+    this.ctx.storage.transactionSync(() => {
+      const current = this.requiredRoom();
+      if (current.started === 1) {
+        const core = this.loadCore(current);
+        ordered = core.sequenceSystem(
+          { type: "system.player_left", payload: { playerId: targetPlayerId } },
+          `player_kicked_${targetPlayerId}`,
+        ).orderedAction;
+        this.persistSystemAction(ordered);
+        this.ctx.storage.sql.exec(
+          "UPDATE room SET last_sequence = ? WHERE singleton = 1",
+          ordered.sequence,
+        );
+      }
+      this.ctx.storage.sql.exec("DELETE FROM active_players WHERE player_id = ?", targetPlayerId);
+      this.ctx.storage.sql.exec("DELETE FROM players WHERE player_id = ?", targetPlayerId);
+    });
+    if (ordered !== null) this.broadcast(ordered);
+    const kicked: RoomKickedMessage = {
+      type: "room_kicked",
+      protocolVersion: PROTOCOL_VERSION,
+      message: "The host removed you from this table.",
+    };
+    for (const socket of this.ctx.getWebSockets()) {
+      const state = socket.deserializeAttachment() as SocketAttachment | null;
+      if (state?.authenticated === true && state.playerId === targetPlayerId) {
+        sendServerMessage(socket, kicked);
+        state.authenticated = false;
+        socket.serializeAttachment(state);
+        socket.close(1008, "Removed by host");
+      }
+    }
+    this.broadcast({ type: "players_updated", protocolVersion: PROTOCOL_VERSION, players: this.players() });
+    this.scheduleIndexMetadataUpdate();
+    return "ok";
+  }
+
+  async setVisibilityWithToken(
+    roomToken: string,
+    visibility: "private" | "public",
+  ): Promise<RoomAdminOutcome> {
+    const requester = await this.authenticateRoomToken(roomToken);
+    const room = this.room();
+    if (room === null || room.ended_reason !== null) return "unavailable";
+    const authorization = authorizeHostCommand(requester, room.host_player_id);
+    if (authorization !== "allowed") return authorization === "invalid_target" ? "unauthorized" : authorization;
+    await this.env.DB.prepare(
+      "UPDATE rooms_index SET visibility = ? WHERE room_id = ? AND ended_at IS NULL",
+    ).bind(visibility, room.room_id).run();
+    return "ok";
+  }
+
+  async restartWithToken(roomToken: string, publicOrigin: string): Promise<RoomRestartOutcome> {
+    const requester = await this.authenticateRoomToken(roomToken);
+    const room = this.room();
+    if (room === null || room.ended_reason !== null) return "unavailable";
+    const authorization = authorizeHostCommand(requester, room.host_player_id);
+    if (authorization !== "allowed") return authorization === "invalid_target" ? "unauthorized" : authorization;
+    const metadata = await this.env.DB.prepare(
+      "SELECT visibility, game_slug, max_players, creator_user_id FROM rooms_index WHERE room_id = ? AND ended_at IS NULL",
+    ).bind(room.room_id).first<{
+      visibility: "private" | "public";
+      game_slug: string;
+      max_players: number;
+      creator_user_id: string | null;
+    }>();
+    if (metadata === null) return "unavailable";
+
+    const joinedPlayers = this.playerRows().sort((left, right) => {
+      if (left.player_id === room.host_player_id) return -1;
+      if (right.player_id === room.host_player_id) return 1;
+      return 0;
+    });
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const joinCode = generateJoinCode();
+      const id = this.env.ROOM.newUniqueId();
+      const newRoomId = id.toString();
+      try {
+        await this.env.DB.prepare(
+          `INSERT INTO rooms_index
+            (room_id, join_code, join_code_normalized, visibility, release_id,
+             player_count, max_players, created_at, ended_at, origin,
+             last_heartbeat_at, game_slug, joinable, creator_user_id)
+           VALUES (?, ?, ?, ?, ?, 0, ?, ?, NULL, 'hosted', ?, ?, 1, ?)`,
+        ).bind(
+          newRoomId,
+          joinCode,
+          normalizeJoinCode(joinCode),
+          metadata.visibility,
+          room.release_id,
+          metadata.max_players,
+          Date.now(),
+          Date.now(),
+          metadata.game_slug,
+          metadata.creator_user_id,
+        ).run();
+      } catch {
+        continue;
+      }
+      const replacement = this.env.ROOM.get(id);
+      if (!await replacement.init(
+        newRoomId,
+        joinCode,
+        room.release_id,
+        metadata.max_players,
+        metadata.creator_user_id,
+      )) continue;
+      const redirects = new Map<string, RoomRedirectMessage>();
+      let failed = false;
+      for (const player of joinedPlayers) {
+        const joined = await replacement.join(player.display_name, false, player.user_id);
+        if (joined.status !== "ok") { failed = true; break; }
+        redirects.set(player.player_id, {
+          type: "room_redirect",
+          protocolVersion: PROTOCOL_VERSION,
+          roomId: newRoomId,
+          joinCode,
+          inviteUrl: `${publicOrigin}/join/${joinCode}`,
+          playerId: joined.playerId,
+          roomToken: joined.roomToken,
+          wsUrl: roomWebSocketUrl(publicOrigin, newRoomId),
+          releaseId: room.release_id,
+          visibility: metadata.visibility,
+        });
+      }
+      if (failed) {
+        await replacement.end("expired");
+        continue;
+      }
+      await this.env.DB.prepare(
+        "UPDATE rooms_index SET player_count = ? WHERE room_id = ?",
+      ).bind(joinedPlayers.length, newRoomId).run();
+      this.ctx.storage.sql.exec(
+        "UPDATE room SET ended_reason = 'host_ended', quickplay_joinable = 0 WHERE singleton = 1",
+      );
+      await this.env.DB.prepare(
+        "UPDATE rooms_index SET ended_at = ?, player_count = 0, joinable = 0 WHERE room_id = ?",
+      ).bind(Date.now(), room.room_id).run();
+      for (const socket of this.ctx.getWebSockets()) {
+        const state = socket.deserializeAttachment() as SocketAttachment | null;
+        const redirect = state?.playerId === null || state?.playerId === undefined
+          ? undefined
+          : redirects.get(state.playerId);
+        if (redirect !== undefined) sendServerMessage(socket, redirect);
+        socket.close(1012, "Table restarted");
+      }
+      return "restarted";
+    }
+    return "unavailable";
+  }
 
   async endWithToken(roomToken: string): Promise<"ended" | "unauthorized" | "host_only" | "unavailable"> {
     const playerId = await this.authenticateRoomToken(roomToken);
@@ -919,12 +1100,30 @@ export class RoomDO extends DurableObject<Env> {
           message: JSON.parse(existing.body) as OrderedAction,
           duplicate: true,
           becameIneligible: false,
+          rosterChanged: false,
         };
       }
 
       const room = this.requiredRoom();
       const core = this.loadCore(room);
       const result = core.sequence(request, playerId);
+      let rosterChanged = false;
+      if (request.action.type === "seat.change") {
+        const rows = this.playerRows();
+        const knownSeatIds = new Set(rows.flatMap((player) => player.seat_id === null ? [] : [player.seat_id]));
+        if (room.initial_snapshot !== null) {
+          for (const seatId of Object.keys(loadSnapshot(JSON.parse(room.initial_snapshot) as GameSnapshot).seats)) {
+            knownSeatIds.add(seatId);
+          }
+        }
+        const occupants = new Map(rows.flatMap((player) =>
+          player.seat_id === null ? [] : [[player.seat_id, player.player_id] as const]));
+        const change = validatedSeatChange(playerId, request.action.payload, knownSeatIds, occupants);
+        if (change.accepted) {
+          this.ctx.storage.sql.exec("UPDATE players SET seat_id = ? WHERE player_id = ?", change.seatId, playerId);
+          rosterChanged = true;
+        }
+      }
       this.ctx.storage.sql.exec(
         `UPDATE room
          SET last_sequence = ?, quickplay_joinable = 0, last_action_at = ?
@@ -959,9 +1158,13 @@ export class RoomDO extends DurableObject<Env> {
         // metadata on every action would cost one D1 write per gameplay
         // action for nothing.
         becameIneligible: room.quickplay_joinable === 1,
+        rosterChanged,
       };
     });
     if (sequenced.becameIneligible) this.scheduleIndexMetadataUpdate();
+    if (sequenced.rosterChanged === true) {
+      this.broadcast({ type: "players_updated", protocolVersion: PROTOCOL_VERSION, players: this.players() });
+    }
     return { message: sequenced.message, duplicate: sequenced.duplicate };
   }
 
@@ -1267,6 +1470,26 @@ export class RoomDO extends DurableObject<Env> {
     }
     if (departingIdentity !== null) {
       this.broadcastSocial(presenceChatMessage(departingIdentity.displayName, "left"), socket);
+    }
+    const connectedAfterDeparture = new Set(peers.flatMap((peer) => {
+      const peerState = peer.deserializeAttachment() as SocketAttachment | null;
+      return peerState?.authenticated === true && peerState.playerId !== null ? [peerState.playerId] : [];
+    }));
+    const hostAfterDeparture = this.requiredRoom().host_player_id;
+    const rosterMessage: ServerMessage = {
+      type: "players_updated",
+      protocolVersion: PROTOCOL_VERSION,
+      players: this.playerRows().map((player) => ({
+        playerId: player.player_id,
+        displayName: player.display_name,
+        seatId: player.seat_id,
+        connected: connectedAfterDeparture.has(player.player_id),
+        ...(player.player_id === hostAfterDeparture ? { host: true } : {}),
+      })),
+    };
+    for (const peer of peers) {
+      const peerState = peer.deserializeAttachment() as SocketAttachment | null;
+      if (peerState?.authenticated === true) sendServerMessage(peer, rosterMessage);
     }
     if (peers.length === 0) {
       const emptySinceAt = room.empty_since_at ?? now;
@@ -1748,4 +1971,11 @@ export default {
 function normalizeDisplayName(value: string): string {
   const normalized = value.trim().replaceAll(/\s+/g, " ");
   return Array.from(normalized || "Player").slice(0, 64).join("");
+}
+
+function roomWebSocketUrl(publicOrigin: string, roomId: string): string {
+  const origin = new URL(publicOrigin);
+  const url = new URL(`/api/rooms/${roomId}/ws`, origin);
+  url.protocol = origin.protocol === "https:" ? "wss:" : "ws:";
+  return url.toString();
 }

@@ -61,6 +61,10 @@ export interface ApiClient {
   resumeSave(saveId: string, input?: ResumeSaveRequest): Promise<ApiResult<ResumeSaveResponse>>;
   deleteSave(saveId: string): Promise<ApiResult<void>>;
   endTable(roomId: string, roomToken: string): Promise<ApiResult<void>>;
+  kickPlayer(roomId: string, roomToken: string, playerId: string): Promise<ApiResult<void>>;
+  passHost(roomId: string, roomToken: string, playerId: string): Promise<ApiResult<void>>;
+  restartTable(roomId: string, roomToken: string): Promise<ApiResult<void>>;
+  setRoomVisibility(roomId: string, roomToken: string, visibility: "private" | "public"): Promise<ApiResult<void>>;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -162,6 +166,10 @@ export function createApiClient(fetcher: Fetcher = fetch): ApiClient {
     resumeSave: (saveId, input = {}) => post(`/api/saves/${encodeURIComponent(saveId)}/resume`, input),
     deleteSave: (saveId) => request(`/api/saves/${encodeURIComponent(saveId)}`, { method: "DELETE" }),
     endTable: (roomId, roomToken) => post(`/api/rooms/${encodeURIComponent(roomId)}/end`, { roomToken }),
+    kickPlayer: (roomId, roomToken, playerId) => post(`/api/rooms/${encodeURIComponent(roomId)}/kick`, { roomToken, playerId }),
+    passHost: (roomId, roomToken, playerId) => post(`/api/rooms/${encodeURIComponent(roomId)}/pass-host`, { roomToken, playerId }),
+    restartTable: (roomId, roomToken) => post(`/api/rooms/${encodeURIComponent(roomId)}/restart`, { roomToken }),
+    setRoomVisibility: (roomId, roomToken, visibility) => post(`/api/rooms/${encodeURIComponent(roomId)}/visibility`, { roomToken, visibility }),
   };
 }
 

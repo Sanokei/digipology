@@ -20,6 +20,7 @@ export interface QuickPlayResponse {
   wsUrl: string;
   releaseId: string;
   joinCode: string;
+  visibility?: "private" | "public";
 }
 
 export function gameMetrics(game: CatalogGameSummaryDto): {

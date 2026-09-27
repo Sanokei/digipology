@@ -56,6 +56,8 @@ export function HostDialog({ initialSlug, onClose, onSignIn }: HostDialogProps) 
       ...room.value,
       releaseId: game.value.latestRelease.releaseId,
       gameTitle: game.value.game.title,
+      gameSlug: game.value.game.slug,
+      visibility: room.value.visibility ?? visibility,
     };
     saveRoomSession(saved);
     setCreated(saved);

@@ -145,6 +145,32 @@ export type RoomEndedMessage = {
   reason: "host_ended" | "expired" | "moderation";
 };
 
+export type PlayersUpdatedMessage = {
+  type: "players_updated";
+  protocolVersion: 1;
+  players: PlayerInfo[];
+};
+
+/** Private per-player handoff emitted when a host restarts the table. */
+export type RoomRedirectMessage = {
+  type: "room_redirect";
+  protocolVersion: 1;
+  roomId: string;
+  joinCode: string;
+  inviteUrl: string;
+  playerId: string;
+  roomToken: string;
+  wsUrl: string;
+  releaseId: string;
+  visibility: "private" | "public";
+};
+
+export type RoomKickedMessage = {
+  type: "room_kicked";
+  protocolVersion: 1;
+  message: string;
+};
+
 export type OrderedAction = {
   type: "ordered_action";
   protocolVersion: 1;
@@ -205,6 +231,9 @@ export type ServerMessage =
   | ResyncRequiredMessage
   | ProtocolErrorMessage
   | RoomEndedMessage
+  | PlayersUpdatedMessage
+  | RoomRedirectMessage
+  | RoomKickedMessage
   | OrderedAction
   | PongMessage
   | ServerSocialMessage;
@@ -239,6 +268,9 @@ export const DEFAULT_MESSAGE_SIZE_LIMITS = Object.freeze({
   resync_required: 4 * 1024,
   protocol_error: 4 * 1024,
   room_ended: 4 * 1024,
+  players_updated: 64 * 1024,
+  room_redirect: 8 * 1024,
+  room_kicked: 4 * 1024,
   ordered_action: 64 * 1024,
   pong: 256,
   chat_message: 2048,
@@ -262,6 +294,9 @@ const SERVER_TYPES = new Set([
   "resync_required",
   "protocol_error",
   "room_ended",
+  "players_updated",
+  "room_redirect",
+  "room_kicked",
   "ordered_action",
   "pong",
   "chat_message",
@@ -450,6 +485,12 @@ function validateServerMessage(message: JsonObject): ParseFailure | undefined {
       return validateProtocolError(message);
     case "room_ended":
       return validateRoomEnded(message);
+    case "players_updated":
+      return validatePlayersUpdated(message);
+    case "room_redirect":
+      return validateRoomRedirect(message);
+    case "room_kicked":
+      return validateRoomKicked(message);
     case "ordered_action":
       return validateOrderedAction(message, "$");
     case "pong":
@@ -658,6 +699,43 @@ function validateRoomEnded(message: JsonObject): ParseFailure | undefined {
     return wrongType("$.reason", "a recognized room-ended reason");
   }
   return undefined;
+}
+
+function validatePlayersUpdated(message: JsonObject): ParseFailure | undefined {
+  const extra = rejectExtraKeys(message, ["type", "protocolVersion", "players"], "$");
+  if (extra !== undefined) return extra;
+  if (!Array.isArray(message.players)) return wrongType("$.players", "an array");
+  for (let index = 0; index < message.players.length; index += 1) {
+    const error = validatePlayerInfo(message.players[index], `$.players[${index}]`);
+    if (error !== undefined) return error;
+  }
+  return undefined;
+}
+
+function validateRoomRedirect(message: JsonObject): ParseFailure | undefined {
+  const keys = [
+    "type", "protocolVersion", "roomId", "joinCode", "inviteUrl", "playerId",
+    "roomToken", "wsUrl", "releaseId", "visibility",
+  ];
+  const extra = rejectExtraKeys(message, keys, "$");
+  if (extra !== undefined) return extra;
+  for (const key of ["roomId", "joinCode", "inviteUrl", "playerId", "roomToken", "wsUrl", "releaseId"] as const) {
+    if (typeof message[key] !== "string" || message[key].length === 0) {
+      return wrongType(`$.${key}`, "a non-empty string");
+    }
+  }
+  if (message.visibility !== "private" && message.visibility !== "public") {
+    return wrongType("$.visibility", '"private" or "public"');
+  }
+  return undefined;
+}
+
+function validateRoomKicked(message: JsonObject): ParseFailure | undefined {
+  const extra = rejectExtraKeys(message, ["type", "protocolVersion", "message"], "$");
+  if (extra !== undefined) return extra;
+  return typeof message.message === "string" && message.message.length > 0
+    ? undefined
+    : wrongType("$.message", "a non-empty string");
 }
 
 function validateOrderedAction(

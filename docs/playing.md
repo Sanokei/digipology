@@ -17,7 +17,7 @@ Quick Play works for signed-in players and guests. When a guest has no saved dis
 
 ## Saving and resuming a table
 
-Only the table Host can create a persistent save, and the Host must be signed in. Open the table menu in the top bar and choose **Save table**. A guest Host can sign in from that action without leaving the table; after sign-in completes, return to the table tab and the save continues.
+Only the table Host can create a persistent save, and the Host must be signed in. Choose **Save** in the table toolbar. The **Game** panel also lets the host copy the invite, change visibility, end the table, or restart it with the same release. Restart creates a new room and moves every connected player there automatically.
 
 Open **Saved tables** from the account menu or visit `/saves` to list or delete your saves. Choosing **Resume** creates a new room with a new invite code. Share that new code with the other players: everyone must join the resumed room again, and the old room's invite code does not lead to it.
 
@@ -52,7 +52,19 @@ Rooms do not remain active forever after everyone leaves. After sustained inacti
 
 ## Your hand and playing cards
 
-Your private hand tray stays along the bottom of the table and shows each card's label and color. Choose **None** to keep the game's canonical hand order or **By label** for a local, room-specific sort; sorting never changes the shared game. Tap a card to inspect it, or drag it onto the table. On touch, hold a hand card for **Inspect** and **Play to table**.
+Your private hand tray stays along the bottom of the table. Cards overlap in a fan and lift when hovered or focused; artwork is used when the release provides it, with the definition label and color as a fallback. Choose **None** to keep the game's canonical hand order or **By label** for a local, room-specific sort; sorting never changes the shared game. Tap a card to inspect it, or drag it onto the table. On touch, hold a hand card for **Inspect** and **Play to table**. Badges at the table edges show how many cards other players hold without revealing them.
+
+## Seats, rules, log, and prompts
+
+The **Players** panel opens when you join. Pick any open colored seat around the table diagram, choose **Spectate**, or return later to change seats. The player list shows connection, host, current turn, and hand count. Hosts can remove a player or pass host from the same list.
+
+Use **Rules** for the release's safe text rules and game guide link. **Log** shows human-readable game events; chat can be included in that view without becoming part of the canonical replay. Script failures are visible only to the host. Lua choices appear in a large tray above your hand and show the time limit when the prompt has an associated timer.
+
+On narrow phones, the toolbar becomes a bottom sheet. Panels and the hand tray stay inside safe areas and remain usable at increased browser zoom.
+
+## Table settings
+
+**Settings** stores preferences on this device: adaptive/high/low graphics, interface scale, camera sensitivity and vertical inversion, volume and mute, reduced motion, and patterned seat colors. Audio and renderer integrations read the same settings store, so future scene effects inherit these preferences without a second settings screen. Storage is optional; blocked private-storage modes fall back to defaults.
 
 ## Inspect and object actions
 

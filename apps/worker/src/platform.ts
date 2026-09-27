@@ -87,6 +87,7 @@ const SAVE_COUNT_LIMIT = 50;
 
 interface RoomIndexLookupRow {
   room_id: string;
+  visibility?: "private" | "public";
 }
 
 interface RoomSaveLookupRow { release_id: string; game_slug: string; }
@@ -596,6 +597,7 @@ export async function handlePlatformRequest(
         roomToken: result.value.roomToken,
         wsUrl: websocketUrl(configuredOrigin(env), result.candidate.roomId),
         releaseId: result.value.releaseId,
+        visibility: "public",
       };
       return jsonResponse(response, 200, sessionCookieHeaders(session));
     }
@@ -619,6 +621,7 @@ export async function handlePlatformRequest(
       roomToken: created.roomToken,
       wsUrl: websocketUrl(configuredOrigin(env), created.roomId),
       releaseId: created.releaseId,
+      visibility: "public",
     };
     return jsonResponse(response, 200, sessionCookieHeaders(session));
   }
@@ -692,6 +695,7 @@ export async function handlePlatformRequest(
         playerId: joined.playerId,
         roomToken: joined.roomToken,
         wsUrl: websocketUrl(configuredOrigin(env), roomId),
+        visibility: parsed.value.visibility,
       };
       return jsonResponse(response, 201, sessionCookieHeaders(session));
     }
@@ -713,7 +717,7 @@ export async function handlePlatformRequest(
     if (!isValidJoinCode(parsed.value.code)) return joinError("not_found");
     const normalizedCode = normalizeJoinCode(parsed.value.code);
     const row = await env.DB.prepare(
-      "SELECT room_id FROM rooms_index WHERE join_code_normalized = ?",
+      "SELECT room_id, visibility FROM rooms_index WHERE join_code_normalized = ?",
     ).bind(normalizedCode).first<RoomIndexLookupRow>();
     if (row === null) return joinError("not_found");
 
@@ -740,6 +744,7 @@ export async function handlePlatformRequest(
       roomToken: result.roomToken,
         wsUrl: websocketUrl(configuredOrigin(env), row.room_id),
       releaseId: result.releaseId,
+      ...(row.visibility === undefined ? {} : { visibility: row.visibility }),
     };
     return jsonResponse(response);
   }
@@ -749,8 +754,10 @@ export async function handlePlatformRequest(
       `SELECT join_code, release_id, player_count, max_players, created_at
        FROM rooms_index
        WHERE visibility = 'public' AND ended_at IS NULL
+         AND player_count > 0
+         AND last_heartbeat_at IS NOT NULL AND last_heartbeat_at >= ?
        ORDER BY created_at DESC LIMIT 100`,
-    ).all<PublicRoomRow>();
+    ).bind(now - ROOM_HEARTBEAT_STALE_MS).all<PublicRoomRow>();
     const rooms: PublicRoomsResponse["rooms"] = [];
     for (const row of result.results) {
       const release = builtinCatalog.getRelease(row.release_id);
@@ -783,6 +790,40 @@ export async function handlePlatformRequest(
       if (outcome === "unavailable") return jsonError(409, "end_unavailable", "The table has already ended");
       return new Response(null, { status: 204 });
     } catch { return jsonError(404, "not_found", "Room not found"); }
+  }
+
+  const roomAdminMatch = /^\/api\/rooms\/([0-9a-f]{64})\/(kick|pass-host|visibility|restart)$/.exec(url.pathname);
+  if (request.method === "POST" && roomAdminMatch?.[1] !== undefined && roomAdminMatch[2] !== undefined) {
+    const body = asRecord(await readJson(request));
+    if (body === null || typeof body.roomToken !== "string") {
+      return jsonError(403, "room_admin_unauthorized", "Room token was not accepted");
+    }
+    try {
+      const room = env.ROOM.get(env.ROOM.idFromString(roomAdminMatch[1]));
+      let outcome: string;
+      if (roomAdminMatch[2] === "kick" || roomAdminMatch[2] === "pass-host") {
+        if (typeof body.playerId !== "string" || body.playerId.length === 0) {
+          return invalidRequest("playerId must be a non-empty string");
+        }
+        outcome = roomAdminMatch[2] === "kick"
+          ? await room.kickWithToken(body.roomToken, body.playerId)
+          : await room.passHostWithToken(body.roomToken, body.playerId);
+      } else if (roomAdminMatch[2] === "visibility") {
+        if (body.visibility !== "private" && body.visibility !== "public") {
+          return invalidRequest('visibility must be "private" or "public"');
+        }
+        outcome = await room.setVisibilityWithToken(body.roomToken, body.visibility);
+      } else {
+        outcome = await room.restartWithToken(body.roomToken, configuredOrigin(env));
+      }
+      if (outcome === "unauthorized") return jsonError(403, "room_admin_unauthorized", "Room token was not accepted");
+      if (outcome === "host_only") return jsonError(403, "room_admin_host_only", "Only the table host can do that");
+      if (outcome === "invalid_target") return jsonError(409, "room_admin_invalid_target", "That player cannot be selected");
+      if (outcome === "unavailable") return jsonError(409, "room_admin_unavailable", "The table is no longer available");
+      return new Response(null, { status: 204 });
+    } catch {
+      return jsonError(404, "not_found", "Room not found");
+    }
   }
 
   const roomSaveMatch = /^\/api\/rooms\/([0-9a-f]{64})\/save$/.exec(url.pathname);

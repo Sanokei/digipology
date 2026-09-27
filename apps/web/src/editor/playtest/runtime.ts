@@ -29,7 +29,7 @@ export const PLAYTEST_MEMORY_BUDGET_BYTES = 512 * 1024;
 export const PLAYTEST_INTERACTION_ACTIONS = new Set([
   "entity.grab", "entity.drop", "entity.flip", "entity.rotate", "die.roll", "button.press",
   "deck.shuffle", "deck.draw_to_container", "counter.set", "counter.add",
-  "entity.set_locked", "stack.remove_top", "prompt.respond",
+  "entity.set_locked", "stack.remove_top", "prompt.respond", "seat.change",
 ]);
 const REGISTERED_ACTIONS = new Set(builtInActions.map((definition) => definition.type));
 
@@ -74,7 +74,7 @@ export class PlaytestRuntime {
     const runtime = new PlaytestRuntime(bundle, await createCreatorScriptRuntime({
       scripts: scriptsFromReleaseFiles(bundle.files),
       refs: { ...entityRefs, ...(bundle.refs ?? {}) },
-      definitions: bundle.definitions ?? {},
+      definitions: (bundle.definitions ?? {}) as NonNullable<Parameters<typeof createCreatorScriptRuntime>[0]["definitions"]>,
       instructionBudget: PLAYTEST_INSTRUCTION_BUDGET,
       memoryBudgetBytes: PLAYTEST_MEMORY_BUDGET_BYTES,
     }), onLog);

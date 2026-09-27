@@ -30,7 +30,7 @@ export function GamesPage() {
       const cover = gameCoverUrl(game);
       return <Link className="game-card" key={game.slug} to={`/games/${encodeURIComponent(game.slug)}`}>
         <div className="game-card__cover">{cover ? <img alt="" src={cover} /> : <span aria-hidden="true">{game.title.slice(0, 1)}</span>}</div>
-        <div className="game-card__copy"><span>{game.builtin ? "Digipology original" : `by ${game.creatorHandle ?? "community creator"}`}</span><h2>{game.title}</h2><p>{game.tagline}</p><small>{game.minPlayers}–{game.maxPlayers} players · {game.currentPlayers} playing now</small></div>
+        <div className="game-card__copy"><span>{game.builtin ? "Digipology original" : `by ${game.creatorHandle ?? "community creator"}`}</span><h2>{game.title}</h2><p>{game.tagline}</p><div className="game-card__chips"><small>{game.minPlayers}–{game.maxPlayers} players</small>{game.playTimeMinutes === undefined ? null : <small>{game.playTimeMinutes} min</small>}{game.tags?.slice(0, 2).map((tag) => <small key={tag}>{tag}</small>)}</div><small>{game.currentPlayers} playing now</small></div>
       </Link>;
     })}</div> : null}
   </main></div>;

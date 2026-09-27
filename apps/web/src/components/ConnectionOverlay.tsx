@@ -2,15 +2,15 @@ import { Link } from "react-router-dom";
 
 import type { RoomClientStatus } from "../net/roomClient";
 
-export function ConnectionOverlay({ status, onReload }: { status: RoomClientStatus; onReload(): void }) {
+export function ConnectionOverlay({ status, gameTitle, coverUrl, onReload }: { status: RoomClientStatus; gameTitle?: string; coverUrl?: string; onReload(): void }) {
   if (status.state === "connected") return null;
   if (status.state === "connecting" || status.state === "loading_release" || status.state === "starting") {
-    const label = status.state === "loading_release" ? "Loading Game" : "Joining Table";
+    const step = status.state === "connecting" ? 0 : status.state === "loading_release" ? 1 : 2;
     return <div className="connection-overlay connection-overlay--solid">
-      <div className="loading-spinner" />
-      <p className="eyebrow">{label}</p>
-      <h2>{status.message}</h2>
-      <ol className="loading-steps"><li className={status.state === "loading_release" ? "done" : "active"}>Joining Table</li><li className={status.state === "loading_release" ? "active" : status.state === "starting" ? "done" : ""}>Loading Game</li></ol>
+      <div className="connection-cover" aria-hidden="true">{coverUrl === undefined ? <span>{gameTitle?.slice(0, 1) ?? "D"}</span> : <img src={coverUrl} alt="" />}</div>
+      <p className="eyebrow">Preparing your table</p>
+      <h2>{gameTitle ?? status.message}</h2>
+      <ol className="loading-steps"><li className={step > 0 ? "done" : "active"}>Fetching release</li><li className={step > 1 ? "done" : step === 1 ? "active" : ""}>Starting Lua</li><li className={step === 2 ? "active" : ""}>Synchronizing</li></ol>
     </div>;
   }
   const passthrough = status.state === "reconnecting" || status.state === "synchronizing";

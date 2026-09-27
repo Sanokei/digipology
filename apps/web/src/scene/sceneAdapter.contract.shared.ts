@@ -116,6 +116,8 @@ export function contractSnapshot(
     diagnostic: null,
     definitions: { card: { label: "Contract Card", color: "#abcdef" } },
     gameTitle: null,
+    gameSlug: null,
+    rules: null,
   };
 }
 

@@ -313,6 +313,44 @@ describe("player and seat lifecycle", () => {
     expect(seated.events[0]?.type).toBe("seat.assigned");
   });
 
+  test("players change seats or spectate without displacing another player", () => {
+    const initial = state();
+    initial.seats.seat_2 = { id: "seat_2", playerId: "bob" };
+    initial.seats.seat_3 = { id: "seat_3", playerId: null };
+    const moved = applyOrdered(initial, ordered(
+      initial,
+      "move_alice",
+      "seat.change",
+      { seatId: "seat_3" },
+      { type: "player", playerId: "alice" },
+    ));
+    expect(moved.rejection).toBeUndefined();
+    expect(moved.state.seats.seat_1?.playerId).toBeNull();
+    expect(moved.state.seats.seat_3?.playerId).toBe("alice");
+    expect(moved.events.map((event) => event.type)).toEqual(["seat.left", "seat.assigned"]);
+
+    const occupied = applyOrdered(moved.state, ordered(
+      moved.state,
+      "take_bob",
+      "seat.change",
+      { seatId: "seat_2" },
+      { type: "player", playerId: "alice" },
+    ));
+    expect(occupied.rejection?.reason).toContain("occupied");
+    expect(occupied.state.seats.seat_3?.playerId).toBe("alice");
+
+    const spectating = applyOrdered(occupied.state, ordered(
+      occupied.state,
+      "spectate",
+      "seat.change",
+      { seatId: null },
+      { type: "player", playerId: "alice" },
+    ));
+    expect(spectating.rejection).toBeUndefined();
+    expect(spectating.state.seats.seat_3?.playerId).toBeNull();
+    expect(spectating.events.map((event) => event.type)).toEqual(["seat.left"]);
+  });
+
   test("voluntary departure releases held entities, clears seats, then removes player", () => {
     const result = applyOrdered(
       state(),

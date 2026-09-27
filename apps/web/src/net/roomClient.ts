@@ -32,6 +32,8 @@ export interface RoomClientStatus {
   progress?: { applied: number; total: number };
 }
 
+export type RoomControlMessage = Extract<ServerMessage, { type: "room_redirect" | "room_kicked" }>;
+
 type SocketFactory = (url: string) => WebSocket;
 type TimerMetadataReporter = (input: {
   operation: "register" | "cancel";
@@ -75,6 +77,7 @@ export class RoomClient {
   private socialSupport: boolean | null = null;
   private socialSubscriptionRequested = false;
   private readonly socialListeners = new Set<(message: ServerSocialMessage) => void>();
+  private readonly controlListeners = new Set<(message: RoomControlMessage) => void>();
   private readonly cursorThrottle: CursorThrottle<{ x: number; z: number }>;
 
   constructor(
@@ -150,12 +153,18 @@ export class RoomClient {
     this.socket = null;
     this.cursorThrottle.cancel();
     this.socialListeners.clear();
+    this.controlListeners.clear();
     this.store.dispose();
   }
 
   subscribeSocial(listener: (message: ServerSocialMessage) => void): () => void {
     this.socialListeners.add(listener);
     return () => this.socialListeners.delete(listener);
+  }
+
+  subscribeControl(listener: (message: RoomControlMessage) => void): () => void {
+    this.controlListeners.add(listener);
+    return () => this.controlListeners.delete(listener);
   }
 
   sendChat(text: string): boolean {
@@ -347,6 +356,21 @@ export class RoomClient {
         this.socket?.close(4001, "Protocol error");
         return;
       case "room_ended": this.store.roomEnded(message.reason); this.onStatus({ state: "ended", message: "This table has ended." }); this.stop(); return;
+      case "players_updated":
+        this.store.setPlayers(message.players);
+        return;
+      case "room_redirect":
+        this.stopped = true;
+        if (this.reconnectTimer !== null) this.reconnectTimers.clear(this.reconnectTimer);
+        this.reconnectTimer = null;
+        for (const listener of this.controlListeners) listener(message);
+        return;
+      case "room_kicked":
+        this.stopped = true;
+        this.store.setDiagnostic(message.message);
+        this.onStatus({ state: "ended", message: "You were removed from this table.", detail: message.message });
+        for (const listener of this.controlListeners) listener(message);
+        return;
       case "pong": return;
       case "chat_message":
       case "cursor_update":

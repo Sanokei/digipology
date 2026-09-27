@@ -1016,6 +1016,49 @@ const seatAssign: ActionDefinition<unknown> = {
   },
 };
 
+/** Player-requested seat move. The room service separately validates its roster metadata. */
+const seatChange: ActionDefinition<unknown> = {
+  type: "seat.change",
+  version: 1,
+  sources: ["player"],
+  validate(state, action) {
+    if (
+      !isRecord(action.payload) ||
+      !onlyKeys(action.payload, ["seatId"]) ||
+      (action.payload.seatId !== null &&
+        (typeof action.payload.seatId !== "string" || action.payload.seatId.length === 0)) ||
+      action.actor.type !== "player"
+    ) {
+      return reject("Payload requires only a non-empty seatId string or null");
+    }
+    if (!hasOwn.call(state.players, action.actor.playerId)) {
+      return reject(`Unknown player: ${action.actor.playerId}`);
+    }
+    if (action.payload.seatId === null) return OK;
+    const seat = state.seats[action.payload.seatId];
+    if (seat === undefined) return reject(`Unknown seat: ${action.payload.seatId}`);
+    return seat.playerId === null || seat.playerId === undefined || seat.playerId === action.actor.playerId
+      ? OK
+      : reject(`Seat is occupied: ${action.payload.seatId}`);
+  },
+  apply(draft, action, ctx) {
+    if (action.actor.type !== "player") throw new Error("Validated seat actor disappeared");
+    const playerId = action.actor.playerId;
+    const targetSeatId = (action.payload as { seatId: string | null }).seatId;
+    for (const seatId of Object.keys(draft.seats).sort(compareIds)) {
+      const seat = draft.seats[seatId];
+      if (seat?.playerId !== playerId || seatId === targetSeatId) continue;
+      seat.playerId = null;
+      ctx.emit("seat.left", { playerId, seatId });
+    }
+    if (targetSeatId === null) return;
+    const target = draft.seats[targetSeatId];
+    if (target === undefined) throw new Error("Validated target seat disappeared");
+    target.playerId = playerId;
+    ctx.emit("seat.assigned", { playerId, seatId: targetSeatId });
+  },
+};
+
 const entityGrab: ActionDefinition<unknown> = {
   type: "entity.grab",
   version: 1,
@@ -2055,6 +2098,7 @@ export const builtInActions: ReadonlyArray<ActionDefinition<unknown>> = [
   playerJoined,
   playerLeft,
   seatAssign,
+  seatChange,
   entityGrab,
   entityDrop,
   entityMove,

@@ -140,6 +140,17 @@ Records a kick or administrative removal.
 
 Requires non-empty IDs and an existing player. A previously absent seat is created; an existing seat's `playerId` is replaced. The action emits `seat.assigned`.
 
+### seat.change
+
+```json
+{ "type": "seat.change", "payload": { "seatId": "seat_2" } }
+```
+
+Player-only. `seatId` is an existing unoccupied seat, or `null` to spectate. A
+successful move clears the actor's prior seat and emits `seat.left` followed by
+`seat.assigned` when a new seat is chosen. Occupied and unknown seats reject
+atomically while still consuming their ordered sequence.
+
 ### system.timer_fire
 
 | Property | Contract |

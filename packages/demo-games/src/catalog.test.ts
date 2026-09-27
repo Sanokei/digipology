@@ -212,6 +212,7 @@ describe("merged action and Lua surfaces", () => {
       "prompt.cancel",
       "prompt.create",
       "prompt.respond",
+      "seat.change",
       "snap.attach",
       "stack.add",
       "stack.create",

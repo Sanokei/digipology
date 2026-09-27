@@ -139,6 +139,7 @@ export interface CreateRoomResponse {
   playerId: string;
   roomToken: string;
   wsUrl: string;
+  visibility?: RoomVisibility;
 }
 
 export interface JoinRoomRequest {
@@ -152,6 +153,13 @@ export interface JoinRoomResponse {
   roomToken: string;
   wsUrl: string;
   releaseId: string;
+  visibility?: RoomVisibility;
+}
+
+export interface RoomAdminRequest {
+  roomToken: string;
+  playerId?: string;
+  visibility?: RoomVisibility;
 }
 
 /** Client-authored canonical checkpoint submitted to a room coordinator. */
@@ -259,7 +267,9 @@ export interface ReleaseBundleDto {
   integrity: { manifestHash: string };
   initialSnapshot: GameSnapshotDto;
   title?: string;
-  definitions?: Record<string, { label?: string; color?: string }>;
+  /** Optional Markdown-lite rules. Renderers must treat this as untrusted plain text. */
+  rules?: string;
+  definitions?: Record<string, { label?: string; color?: string; face?: unknown }>;
   /** Stable editor-authored names mapped to immutable entity IDs. */
   refs?: Record<string, string>;
 }
@@ -808,7 +818,7 @@ function releaseBundleShape(value: unknown):
   const top = strictRecord(value, [
     "formatVersion", "gameId", "releaseId", "releaseNumber", "kernelVersion",
     "luaApiVersion", "luaStdlibVersion", "networkProtocolVersion", "interactionMode", "minPlayers",
-    "maxPlayers", "files", "integrity", "initialSnapshot", "title", "definitions", "refs",
+    "maxPlayers", "files", "integrity", "initialSnapshot", "title", "rules", "definitions", "refs",
   ]);
   if (!top.ok) return top;
   const object = top.value;
@@ -883,6 +893,9 @@ function releaseBundleShape(value: unknown):
   if (object.title !== undefined && (typeof object.title !== "string" || !boundedTrimmedText(object.title, 1, GAME_TITLE_MAX_LENGTH))) {
     return shapeInvalid(`title must contain 1 to ${GAME_TITLE_MAX_LENGTH} characters`);
   }
+  if (object.rules !== undefined && (typeof object.rules !== "string" || object.rules.length > 64 * 1024)) {
+    return shapeInvalid("rules must be a plain-text string no larger than 64 KiB");
+  }
   if (object.definitions !== undefined && !validDefinitions(object.definitions)) {
     return shapeInvalid("definitions must map IDs to optional label/color strings");
   }
@@ -907,8 +920,9 @@ function releaseBundleShape(value: unknown):
       integrity: { manifestHash: integrity.value.manifestHash },
       initialSnapshot: snapshotValue,
       ...(typeof object.title === "string" ? { title: object.title } : {}),
+      ...(typeof object.rules === "string" ? { rules: object.rules } : {}),
       ...(object.definitions === undefined ? {} : {
-        definitions: object.definitions as Record<string, { label?: string; color?: string }>,
+        definitions: object.definitions as Record<string, { label?: string; color?: string; face?: unknown }>,
       }),
       ...(object.refs === undefined ? {} : { refs: object.refs as Record<string, string> }),
     },
@@ -930,6 +944,7 @@ function manifestHashInput(bundle: ReleaseBundleDto): JsonObject {
     maxPlayers: bundle.maxPlayers,
     files: bundle.files.map(({ path, contentHash, byteLength }) => ({ path, contentHash, byteLength })),
     ...(bundle.refs === undefined ? {} : { refs: bundle.refs }),
+    ...(bundle.rules === undefined ? {} : { rules: bundle.rules }),
   };
 }
 
@@ -1005,12 +1020,20 @@ function shapeInvalid(detail: string): { ok: false; detail: string } {
 function validDefinitions(value: unknown): boolean {
   if (!isJsonObject(value)) return false;
   for (const definition of Object.values(value)) {
-    const record = strictRecord(definition, ["label", "color"]);
+    const record = strictRecord(definition, ["label", "color", "face"]);
     if (!record.ok) return false;
     if (record.value.label !== undefined && typeof record.value.label !== "string") return false;
     if (record.value.color !== undefined && typeof record.value.color !== "string") return false;
+    if (record.value.face !== undefined && !isLooseJsonValue(record.value.face)) return false;
   }
   return true;
+}
+
+function isLooseJsonValue(value: unknown): boolean {
+  if (value === null || typeof value === "string" || typeof value === "boolean") return true;
+  if (typeof value === "number") return Number.isFinite(value);
+  if (Array.isArray(value)) return value.every(isLooseJsonValue);
+  return isJsonObject(value) && Object.values(value).every(isLooseJsonValue);
 }
 
 function validRefs(value: unknown): boolean {

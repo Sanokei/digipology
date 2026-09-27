@@ -90,7 +90,7 @@ export function GameCapsule({ game, pending, onQuickPlay, onHost, onDetails }: G
           quickPlay();
         }}
       >
-        <span className="game-capsule__poster" style={coverUrl && !coverFailed ? undefined : { background: placeholder.background }}>
+        <span className="game-capsule__poster" style={{ background: placeholder.background }}>
           {coverUrl && !coverFailed ? (
             <img
               src={coverUrl}
