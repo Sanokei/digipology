@@ -15,7 +15,7 @@ import {
 import { localHandId, localSeatId } from "../pages/tableHandModel";
 import type { KernelStore } from "../state/kernelStore";
 import { useKernelStore } from "../state/useKernelStore";
-import { useBabylonScene, type TableHoverRequest, type TableSnapPreview } from "./useBabylonScene";
+import { useBabylonScene, type TableHoverRequest } from "./useBabylonScene";
 import type { RendererStatus } from "./rendererPolicy";
 import type { SelectionRectangle } from "../pages/tableSelectionModel";
 
@@ -74,7 +74,6 @@ export function TableScene({
   const [touchSelectionMode, setTouchSelectionMode] = useState(false);
   const [searchDeckId, setSearchDeckId] = useState<string | null>(null);
   const [altPeek, setAltPeek] = useState(false);
-  const [snapPreview, setSnapPreview] = useState<TableSnapPreview | null>(null);
   const [hintEvent, setHintEvent] = useState<TableHintEvent | null>(null);
   const projectorRef = useRef<((clientX: number, clientY: number) => { x: number; y: number; z: number } | null) | null>(null);
   const scenePaused = interactionsPaused || readOnly || contextMenu !== null || inspectedId !== null || searchDeckId !== null;
@@ -104,7 +103,6 @@ export function TableScene({
     setSelectedIds,
     setSelectionBox,
     touchSelectionMode,
-    setSnapPreview,
   );
 
   const state = view.displayedState;
@@ -203,7 +201,6 @@ export function TableScene({
       <strong>{entityDisplayLabel(hoverEntity, view.definitions)}</strong>
     </div> : null}
     {selectionBox === null ? null : <div className="table-selection-box" style={{ left: Math.min(selectionBox.start.x, selectionBox.end.x), top: Math.min(selectionBox.start.y, selectionBox.end.y), width: Math.abs(selectionBox.end.x - selectionBox.start.x), height: Math.abs(selectionBox.end.y - selectionBox.start.y) }} />}
-    {snapPreview === null ? null : <div className="table-snap-ghost" style={{ left: snapPreview.x, top: snapPreview.y }} aria-hidden="true"><span>Snap</span></div>}
     {!touchSelectionMode ? null : <div className="table-selection-count" role="status">Selecting · {selectedIds.length}</div>}
     <button type="button" className="table-selection-toggle" aria-pressed={touchSelectionMode} onClick={() => setTouchSelectionMode((value) => !value)}>Select</button>
     {panels}{overlay}

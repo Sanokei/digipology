@@ -53,9 +53,9 @@ test("appearance definitions override shape, size, tint, and flippable face safe
   expect(piecePresentationSignature(piece, { shape: "meeple", back })).toContain("face-v1-");
 });
 
-test("legacy objects retain their established geometry without an appearance definition", () => {
-  expect(piecePresentation(entity("card", { card: { definitionId: "missing", faceUp: true } }))).toMatchObject({ shape: "box", width: 0.86, depth: 1.22, height: 0.09 });
-  expect(piecePresentation(entity("die", { die: { definitionId: "missing", value: 6 } }))).toMatchObject({ shape: "box", width: 0.72, depth: 0.72, height: 0.72 });
+test("legacy objects gain semantic geometry without requiring appearance definitions", () => {
+  expect(piecePresentation(entity("card", { card: { definitionId: "missing", faceUp: true } }))).toMatchObject({ shape: "card", width: 0.86, depth: 1.22, height: 0.09, materialKind: "card-stock" });
+  expect(piecePresentation(entity("die", { die: { definitionId: "missing", value: 6 } }))).toMatchObject({ shape: "cube", width: 0.72, depth: 0.72, height: 0.72, materialKind: "plastic" });
 });
 
 test("face-down cards never select front art or front presentation fields", () => {

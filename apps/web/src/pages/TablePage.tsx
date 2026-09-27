@@ -48,6 +48,8 @@ export function RendererDiagnostics({ status }: { status: RendererStatus | null 
     <dt>Selected because</dt><dd>{status === null ? "Pending" : RENDERER_REASON_TEXT[status.reason]}</dd>
     <dt>Fallback</dt><dd>{status?.fallback ? `Lite failed to start: ${status.fallback.error}` : "none"}</dd>
     <dt>Tier</dt><dd>{status?.tier ?? "—"}</dd>
+    <dt>FPS</dt><dd>{status?.fps === undefined ? "—" : Math.round(status.fps)}</dd>
+    <dt>Visible pieces</dt><dd>{status?.visiblePieces ?? "—"}</dd>
   </>;
 }
 

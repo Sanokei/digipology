@@ -710,7 +710,6 @@ button.action-card { width: 100%; border-right: 0; border-left: 0; text-align: l
 .table-card-peek { position: fixed; z-index: 5; display: grid; place-items: center; width: 190px; aspect-ratio: .7; padding: 18px; border: 3px solid #efe5cf; border-radius: 12px; background: linear-gradient(145deg,#fffdf5,#ded4bf); box-shadow: 0 20px 56px rgba(0,0,0,.5); color: #17211d; text-align: center; pointer-events: none; }
 .table-card-peek img { display: block; width: 100%; aspect-ratio: 5 / 7; border-radius: 8px; object-fit: cover; }
 .table-selection-box { position: fixed; z-index: 4; border: 1px solid #d5ff76; background: rgba(213,255,118,.12); pointer-events: none; }
-.table-snap-ghost { position: fixed; z-index: 4; display: grid; place-items: center; width: 76px; height: 96px; translate: -50% -50%; border: 2px dashed #d5ff76; border-radius: 9px; background: rgba(213,255,118,.14); color: #d5ff76; font-size: .62rem; font-weight: 800; pointer-events: none; }
 .table-selection-toggle { position: absolute; z-index: 5; right: 14px; bottom: calc(92px + env(safe-area-inset-bottom)); min-height: 40px; border: 1px solid var(--line); border-radius: 8px; background: #102019; color: #dce8df; }
 .table-selection-toggle[aria-pressed="true"] { border-color: #d5ff76; color: #d5ff76; }
 .table-selection-count { position: absolute; z-index: 5; right: 82px; bottom: calc(102px + env(safe-area-inset-bottom)); color: #d5ff76; font-size: .7rem; }

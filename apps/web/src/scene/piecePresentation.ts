@@ -22,6 +22,9 @@ export interface PiecePresentation {
   readonly billboardLabel: boolean;
   readonly face?: FaceSpec;
   readonly isBoard: boolean;
+  readonly materialKind: "card-stock" | "wood" | "plastic" | "felt" | "stone" | "metal";
+  readonly cornerRadius: number;
+  readonly stackLayers: number;
 }
 
 function cardFaceUp(entity: EntityRecord): boolean {
@@ -60,7 +63,9 @@ function applyDefinition(presentation: PiecePresentation, entity: EntityRecord, 
   const tintSeat = entity.components.appearance?.seat ?? entity.id;
   const color = definition.seatTint === true ? seatColor(tintSeat)
     : back ? definition.backColor ?? presentation.color : definition.color ?? presentation.color;
-  const label = back ? definition.backLabel ?? presentation.label : definition.label ?? presentation.label;
+  const label = back
+    ? definition.backLabel ?? (definition.shape === undefined ? presentation.label : "")
+    : definition.label ?? (definition.shape === undefined ? presentation.label : "");
   return {
     ...presentation,
     ...(definition.shape === undefined ? {} : { shape: definition.shape, ...shapeDefaults(definition.shape) }),
@@ -81,23 +86,26 @@ export function piecePresentation(entity: EntityRecord, definition?: PieceDefini
     shape: "box", width: 0.9, depth: 0.9, height: 0.18, label: "", color: "#d7b26d",
     labelColor: "#13211c", labelBackground: "#f2ecd9", specular: "#281d13",
     emissive: "#000000", alpha: 1, billboardLabel: false, isBoard: false,
+    materialKind: "wood", cornerRadius: 0.055, stackLayers: 1,
   };
   let result: PiecePresentation;
   if (components.deck !== undefined) result = {
-    ...base, width: 1.02, depth: 1.42, height: 0.14 + Math.min(components.container?.items.length ?? 0, 20) * 0.012,
+    ...base, shape: "card", width: 1.02, depth: 1.42, height: 0.14 + Math.min(components.container?.items.length ?? 0, 20) * 0.012,
     label: `Deck · ${components.container?.items.length ?? 0}`, color: components.deck.enabled ? "#6f382b" : "#46413d",
-    labelColor: "#fff5df", labelBackground: "#6f382b",
+    labelColor: "#fff5df", labelBackground: "#6f382b", materialKind: "card-stock", cornerRadius: 0.09,
+    stackLayers: Math.min(Math.max(components.container?.items.length ?? 1, 1), 6),
   };
   else if (components.card !== undefined) {
     const faceUp = cardFaceUp(entity);
-    result = { ...base, width: 0.86, depth: 1.22, height: 0.09,
+    result = { ...base, shape: "card", width: 0.86, depth: 1.22, height: 0.09,
       label: faceUp ? definition?.label ?? "Card" : definition?.backLabel ?? "DIGIPOLOGY",
       color: faceUp ? definition?.color ?? "#e8dfc9" : definition?.backColor ?? "#8d3429",
-      labelColor: faceUp ? "#17211d" : "#fff2d5", labelBackground: faceUp ? "#f3edda" : "#8d3429", specular: "#3d3328" };
+      labelColor: faceUp ? "#17211d" : "#fff2d5", labelBackground: faceUp ? "#f3edda" : "#8d3429", specular: "#3d3328",
+      materialKind: "card-stock", cornerRadius: 0.075 };
   }
-  else if (components.die !== undefined) result = { ...base, width: 0.72, depth: 0.72, height: 0.72, label: String(components.die.value), color: "#ece7d8", labelBackground: "#ece7d8", specular: "#6c6558" };
+  else if (components.die !== undefined) result = { ...base, shape: "cube", width: 0.72, depth: 0.72, height: 0.72, label: String(components.die.value), color: "#ece7d8", labelBackground: "#ece7d8", specular: "#6c6558", materialKind: "plastic", cornerRadius: 0.105 };
   else if (components.counter !== undefined) { const color = seatColor(entity.id); result = { ...base, shape: "cylinder", width: 0.76, depth: 0.76, height: 0.18, label: String(components.counter.value), color, labelColor: "#111713", labelBackground: color, specular: "#5d4827", billboardLabel: true }; }
-  else if (components.zone !== undefined) result = { ...base, width: 1, depth: 1, height: 0.028, color: "#66c69c", specular: "#000000", emissive: "#12372b", alpha: components.zone.visibleInPlay ? 0.16 : 0 };
+  else if (components.zone !== undefined) result = { ...base, width: 1, depth: 1, height: 0.028, color: "#66c69c", specular: "#000000", emissive: "#12372b", alpha: components.zone.visibleInPlay ? 0.16 : 0, materialKind: "felt" };
   else if (components["snap-point"] !== undefined) { const occupied = (components["snap-point"].attached?.length ?? 0) > 0; result = { ...base, shape: "ring", width: 1.02, depth: 1.02, height: 0.08, color: occupied ? "#d5ff76" : "#203b31", specular: "#0a1511", emissive: occupied ? "#34441c" : "#07130f", alpha: 0.92 }; }
   else if (components.text !== undefined) result = { ...base, width: 2.5, depth: 0.7, height: 0.07, label: components.text.value, color: "#14261f", labelColor: "#d9efdf", labelBackground: "#14261f", specular: "#07110e", emissive: "#091a14" };
   else if (components.button !== undefined) result = { ...base, width: 1.05, depth: 0.72, height: 0.2, label: components.button.label, color: components.button.enabled ? "#d5ff76" : "#625f58", labelBackground: components.button.enabled ? "#d5ff76" : "#625f58" };

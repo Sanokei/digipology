@@ -7,7 +7,9 @@ Use this checklist before changing either table scene adapter. Test the same rel
 - `rendererPolicy.test.ts`: WebGPU present/absent, both overrides, invalid override, and the no-WebGPU Lite fallback decision.
 - `mountSceneAdapter.test.ts`: Lite mount failure disposal and WebGL remount; WebGL failures remain visible.
 - `sceneInteraction.test.ts`: async target resolution preserves the 450 ms long-press and drag thresholds, stale cancellation preserves double-tap state, and hover picks are coalesced.
-- `sceneAdapter.contract.shared.ts`, `sceneAdapter.contract.test.ts`, and `sceneAdapter.contract.webgl.test.ts`: the same sync/create/update/destroy, async pick-to-gesture, drag payload, grabbability, highlight, 180 ms correction, camera, pause, and disposal contract runs against both real adapters. Lite uses a thin mocked Lite engine; WebGL uses Babylon's `NullEngine` and the real `attachDragBehavior` through injected browser-owned construction surfaces.
+- `sceneAdapter.contract.shared.ts`, `sceneAdapter.contract.test.ts`, and `sceneAdapter.contract.webgl.test.ts`: the same sync/create/update/destroy, async pick-to-gesture, drag payload, grabbability, multi-selection, snap ghost, smooth remote pose, instant reduced-motion pose, 180 ms correction, camera, pause, and disposal contract runs against both real adapters. Lite uses a thin mocked Lite engine; WebGL uses Babylon's `NullEngine` and the real `attachDragBehavior` through injected browser-owned construction surfaces.
+- `presentationMotion.test.ts`: easing, bounce, quaternion interpolation, and cosmetic tumble finish on exact canonical end states.
+- `sceneAudio.test.ts`: all procedural audio cues are scheduled without requiring a browser `AudioContext`.
 - Existing `dragBehavior.test.ts`, `dragActions.test.ts`, `touchGestures.test.ts`, and `rendererTier.test.ts` remain the shared pure behavior floor.
 - `bun run --filter digipology-web check-chunks` verifies the built vendor chunks do not contain symbols from the other engine.
 
@@ -25,6 +27,10 @@ Use this checklist before changing either table scene adapter. Test the same rel
 | Card, die, and counter labels remain legible | Not yet executed | Not yet executed | Not yet executed | Lite card/die labels stay top-facing; counter labels are raised camera-facing planes |
 | Hover/selected/held feedback is clear | Not yet executed | Not yet executed | Not yet executed | WebGL outline vs Lite emissive affordance |
 | Dispose/remount leaves one responsive canvas | Not yet executed | Not yet executed | Not yet executed | Navigate away/back or remount the component |
+| Warm room, three-point light, table style, and contact depth match | Not yet executed | Not yet executed | Not yet executed | Low tier intentionally omits contact and real-time shadows |
+| Remote moves/flip/die changes animate and reduced motion is instant | Not yet executed | Not yet executed | Not yet executed | Animation must finish at the canonical pose/value |
+| Multi-selection and snap ghost clear without stale highlights | Not yet executed | Not yet executed | Not yet executed | APIs are documented in `scene-presentation-api.md` |
+| Diagnostics reports plausible FPS and visible piece count | Not yet executed | Not yet executed | Not yet executed | Stress with approximately 300 simple pieces |
 | Forced Lite without WebGPU shows WebGL, not black canvas | Not yet executed | Not applicable | Not yet executed | Confirm the override hint and Diagnostics Renderer/reason/fallback rows |
 | Drag a hand card from the tray onto the table | Not yet executed | Not yet executed | Not yet executed | Card leaves the private hand and appears at the projected drop point |
 | Long-press a hand card | Not yet executed | Not yet executed | Not yet executed | Inspect and Play to table are available; moving beyond slop cancels |

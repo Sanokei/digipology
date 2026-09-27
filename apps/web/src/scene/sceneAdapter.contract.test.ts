@@ -5,8 +5,10 @@ import { createInitialState, type EntityRecord } from "digipology-kernel";
 import type { KernelStoreSnapshot } from "../state/kernelStore";
 import { handleTouchPointerInput } from "./sceneInteraction";
 import type { SceneAdapter } from "./sceneAdapter";
+import type { PresentationSettings } from "./sceneAdapter";
 import { TouchGestureMachine, type TouchGestureDecision } from "./touchGestures";
 import { runSceneAdapterContract } from "./sceneAdapter.contract.shared";
+import { createPresentationSettingsStore, defaultPresentationSettings } from "./presentationSettings";
 
 interface FakeVec3 {
   x: number;
@@ -462,9 +464,13 @@ function pieceMesh(entityId: string): FakeMesh {
   return result;
 }
 
-async function mountAdapter(sendAction?: (action: { type: string; payload: unknown }) => unknown) {
+async function mountAdapter(
+  sendAction?: (action: { type: string; payload: unknown }) => unknown,
+  settings?: Partial<PresentationSettings>,
+) {
   const canvas = new FakeCanvas();
-  const adapter = createLiteSceneAdapter(sendAction === undefined ? {} : { sendAction });
+  const source = createPresentationSettingsStore({ ...defaultPresentationSettings(false), ...settings });
+  const adapter = createLiteSceneAdapter({ ...(sendAction === undefined ? {} : { sendAction }), settings: source });
   await adapter.mount(canvas as unknown as HTMLCanvasElement, { tier: "default" });
   return { adapter, canvas };
 }
@@ -486,8 +492,8 @@ runSceneAdapterContract({
   name: "lite",
   handlesDesktopDrag: false,
   supportedHighlights: ["hover", "selected", "held", "locked"],
-  async mount(sendAction) {
-    const mounted = await mountAdapter(sendAction);
+  async mount(sendAction, settings) {
+    const mounted = await mountAdapter(sendAction, settings);
     return {
       adapter: mounted.adapter,
       hasPointerCapture: (pointerId) => mounted.canvas.hasPointerCapture(pointerId),
@@ -529,6 +535,7 @@ runSceneAdapterContract({
       listenerCount: () => ["touchstart", "touchmove", "touchend", "touchcancel"]
         .reduce((count, type) => count + mounted.canvas.listenerCount(type), 0),
       disposed: () => fakeState.engine?.disposed === true && fakeState.scene?.disposed === true,
+      snapGhostVisible: () => fakeState.scene?.meshes.some((mesh) => mesh.name === "snap-ghost") === true,
     };
   },
 });
@@ -616,6 +623,8 @@ describe("real Lite SceneAdapter contract through a thin engine mock", () => {
 
     adapter.syncEntities(snapshot({ "card-1": card(3), "die-1": die(), "counter-1": counter() }));
     expect(pieceMesh("card-1")).toBe(initialCard);
+    expect(initialCard.position.x).toBe(1);
+    fakeState.scene?.beforeRender?.(220);
     expect(initialCard.position.x).toBe(3);
 
     adapter.syncEntities(snapshot({ "card-1": card(3, false), "die-1": die(), "counter-1": counter() }));

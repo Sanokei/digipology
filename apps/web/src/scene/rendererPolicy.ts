@@ -26,6 +26,8 @@ export interface RendererStatus {
   reason: RendererSelectionReason;
   fallback: RendererFallback | null;
   tier: RendererTier;
+  fps?: number | undefined;
+  visiblePieces?: number | undefined;
 }
 
 export interface RendererDeviceProfile {
