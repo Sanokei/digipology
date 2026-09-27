@@ -24,6 +24,7 @@ import type {
   JsonValue,
   LockableComponent,
   PlayerRecord,
+  PendingSeat,
   PromptKind,
   PromptRecord,
   Reject,
@@ -656,7 +657,8 @@ const gameStart: ActionDefinition<unknown> = {
 };
 
 function resumedRosterPayload(action: ActionInstance<unknown>): GameResumedPayload | Reject {
-  if (!isRecord(action.payload) || !onlyKeys(action.payload, ["roster"]) ||
+  if (!isRecord(action.payload) || !onlyKeys(action.payload, ["roster", "preservePendingSeats"]) ||
+    (hasOwn.call(action.payload, "preservePendingSeats") && action.payload.preservePendingSeats !== true) ||
     !Array.isArray(action.payload.roster) || action.payload.roster.length === 0) {
     return reject("Payload must contain a non-empty roster array");
   }
@@ -680,8 +682,38 @@ function resumedRosterPayload(action: ActionInstance<unknown>): GameResumedPaylo
         : {}),
     });
   }
-  return { roster };
+  return { roster, ...(action.payload.preservePendingSeats === true ? { preservePendingSeats: true } : {}) };
 }
+
+function restorePendingSeat(draft: CanonicalGameState, seatId: string, playerId: string, name?: string): void {
+  const entry = draft.pendingSeats![seatId]!;
+  draft.players[playerId] = { ...entry.player, id: playerId, ...(name === undefined ? {} : { name }) };
+  draft.seats[seatId]!.playerId = playerId;
+  for (const id of Object.keys(entry.prompts).sort(compareIds)) draft.prompts[id] = { ...entry.prompts[id]!, playerId };
+  for (const id of entry.handIds) draft.entities[id]!.components.hand!.owner = playerId;
+  for (const id of entry.visibilityIds) draft.entities[id]!.components.container!.visibility = `owner:${playerId}`;
+  delete draft.pendingSeats![seatId];
+  if (Object.keys(draft.pendingSeats!).length === 0) delete draft.pendingSeats;
+}
+
+const seatClaim: ActionDefinition<unknown> = {
+  type: "system.seat_claim", version: 1, sources: ["system"],
+  validate(state, action) {
+    const parsed = resumedRosterPayload({ ...action, payload: { roster: [action.payload] } });
+    if (isReject(parsed)) return parsed;
+    const entry = parsed.roster[0]!;
+    const pending = state.pendingSeats?.[entry.seatId];
+    if (pending === undefined || pending.player.id !== entry.previousPlayerId) return reject("Unknown pending seat identity");
+    if (hasOwn.call(state.players, entry.playerId) || state.seats[entry.seatId]?.playerId !== null ||
+      Object.values(state.pendingSeats ?? {}).some((slot) => slot.player.id === entry.playerId)) return reject("Claim identity or seat is occupied");
+    return OK;
+  },
+  apply(draft, action, ctx) {
+    const entry = action.payload as ResumedRosterEntry;
+    restorePendingSeat(draft, entry.seatId, entry.playerId, entry.name);
+    ctx.emit("seat.claimed", { ...cloneCanonical(entry), player: cloneCanonical(draft.players[entry.playerId]!) });
+  },
+};
 
 const gameResumed: ActionDefinition<unknown> = {
   type: "system.game_resumed",
@@ -691,16 +723,27 @@ const gameResumed: ActionDefinition<unknown> = {
     if (state.sequence !== 0) return reject("A resumed roster can only be applied at sequence zero");
     const payload = resumedRosterPayload(action);
     if (isReject(payload)) return payload;
+    if (state.pendingSeats !== undefined && payload.preservePendingSeats !== true) return reject("Pending seats require an escrow-aware resume");
     const playerIds = new Set<string>();
     const seatIds = new Set<string>();
     const previousPlayerIds = new Set<string>();
     for (const entry of payload.roster) {
+      if (payload.preservePendingSeats === true) {
+        const occupant = state.pendingSeats?.[entry.seatId]?.player.id ?? state.seats[entry.seatId]?.playerId;
+        const savedIdentity = typeof occupant === "string" &&
+          (hasOwn.call(state.players, occupant) || state.pendingSeats?.[entry.seatId] !== undefined) ? occupant : undefined;
+        if (entry.previousPlayerId !== savedIdentity) return reject("Resume identity must match its saved seat");
+        if (hasOwn.call(state.players, entry.playerId) ||
+          Object.values(state.pendingSeats ?? {}).some((slot) => slot.player.id === entry.playerId)) {
+          return reject("Escrow-aware resume requires fresh player identities");
+        }
+      }
       if (playerIds.has(entry.playerId)) return reject(`Duplicate resumed player: ${entry.playerId}`);
       if (seatIds.has(entry.seatId)) return reject(`Duplicate resumed seat: ${entry.seatId}`);
       playerIds.add(entry.playerId);
       seatIds.add(entry.seatId);
       if (entry.previousPlayerId === undefined) continue;
-      if (!hasOwn.call(state.players, entry.previousPlayerId)) {
+      if (!hasOwn.call(state.players, entry.previousPlayerId) && state.pendingSeats?.[entry.seatId]?.player.id !== entry.previousPlayerId) {
         return reject(`Unknown previous player: ${entry.previousPlayerId}`);
       }
       if (previousPlayerIds.has(entry.previousPlayerId)) {
@@ -711,12 +754,29 @@ const gameResumed: ActionDefinition<unknown> = {
     return OK;
   },
   apply(draft, action, ctx) {
-    const { roster } = action.payload as GameResumedPayload;
+    const { roster, preservePendingSeats } = action.payload as GameResumedPayload;
+    const hadPending = draft.pendingSeats !== undefined;
+    const resumeSeats = (preservePendingSeats === true ? Object.keys(draft.seats).sort(compareIds) : []).flatMap((seatId) => {
+      const previousPlayerId = draft.pendingSeats?.[seatId]?.player.id ?? draft.seats[seatId]?.playerId;
+      return typeof previousPlayerId === "string" && (hasOwn.call(draft.players, previousPlayerId) || draft.pendingSeats?.[seatId] !== undefined)
+        ? [{ seatId, previousPlayerId }] : [];
+    });
     const removedPlayerIds = Object.keys(draft.players).sort(compareIds);
     const removed = new Set(removedPlayerIds);
     const remap = new Map(roster.flatMap((entry) => entry.previousPlayerId === undefined
       ? []
       : [[entry.previousPlayerId, entry.playerId] as const]));
+    // Only absent seated identities are escrowed. Unseated saved players retain
+    // the historical removal policy; they have no deterministic seat claim.
+    const pendingByPlayer = new Map<string, string>();
+    for (const entry of resumeSeats) {
+      if (draft.pendingSeats?.[entry.seatId] !== undefined || remap.has(entry.previousPlayerId)) continue;
+      const player = draft.players[entry.previousPlayerId];
+      if (player === undefined) continue;
+      const pending: PendingSeat = { player: cloneCanonical(player), prompts: {}, handIds: [], visibilityIds: [] };
+      (draft.pendingSeats ??= {})[entry.seatId] = pending;
+      pendingByPlayer.set(entry.previousPlayerId, entry.seatId);
+    }
     for (const entityId of sortedEntityIds(draft)) {
       const components = draft.entities[entityId]?.components;
       const grabbable = components?.grabbable as
@@ -729,12 +789,20 @@ const gameResumed: ActionDefinition<unknown> = {
       if (hand !== undefined && removed.has(hand.owner)) {
         const replacement = remap.get(hand.owner);
         if (replacement !== undefined) hand.owner = replacement;
+        else {
+          const seatId = pendingByPlayer.get(hand.owner);
+          if (seatId !== undefined) { draft.pendingSeats![seatId]!.handIds.push(entityId); hand.owner = seatId; }
+        }
       }
       const container = components?.container as ContainerComponent | undefined;
       if (container?.visibility.startsWith("owner:") === true) {
         const owner = container.visibility.slice("owner:".length);
         const replacement = remap.get(owner);
         if (replacement !== undefined) container.visibility = `owner:${replacement}`;
+        else {
+          const seatId = pendingByPlayer.get(owner);
+          if (seatId !== undefined) { draft.pendingSeats![seatId]!.visibilityIds.push(entityId); container.visibility = `owner:${seatId}`; }
+        }
       }
     }
     for (const seatId of Object.keys(draft.seats).sort(compareIds)) {
@@ -743,6 +811,10 @@ const gameResumed: ActionDefinition<unknown> = {
     }
     draft.players = {};
     for (const entry of roster) {
+      if (draft.pendingSeats?.[entry.seatId]?.player.id === entry.previousPlayerId && entry.previousPlayerId !== undefined) {
+        restorePendingSeat(draft, entry.seatId, entry.playerId, entry.name);
+        continue;
+      }
       draft.players[entry.playerId] = {
         id: entry.playerId,
         ...(entry.name === undefined ? {} : { name: entry.name }),
@@ -756,12 +828,16 @@ const gameResumed: ActionDefinition<unknown> = {
       const prompt = draft.prompts[promptId];
       if (prompt === undefined || !removed.has(prompt.playerId)) continue;
       const replacement = remap.get(prompt.playerId);
-      if (replacement === undefined) delete draft.prompts[promptId];
-      else prompt.playerId = replacement;
+      if (replacement === undefined) {
+        const seatId = pendingByPlayer.get(prompt.playerId);
+        if (seatId !== undefined) draft.pendingSeats![seatId]!.prompts[promptId] = cloneCanonical(prompt);
+        delete draft.prompts[promptId];
+      } else prompt.playerId = replacement;
     }
     ctx.emit("game.resumed", {
       roster: cloneCanonical(roster as unknown as JsonValue),
       removedPlayerIds,
+      ...(hadPending || draft.pendingSeats !== undefined ? { resumeSeats } : {}),
     });
   },
 };
@@ -1922,6 +1998,7 @@ const timerFire: ActionDefinition<unknown> = {
 export const builtInActions: ReadonlyArray<ActionDefinition<unknown>> = [
   gameStart,
   gameResumed,
+  seatClaim,
   playerJoined,
   playerLeft,
   seatAssign,

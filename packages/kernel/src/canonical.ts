@@ -629,6 +629,44 @@ function validateTimers(value: unknown): void {
   }
 }
 
+function validatePendingSeats(candidate: Record<string, unknown>): void {
+  if (!hasOwn.call(candidate, "pendingSeats")) return;
+  const pending = requireRecord(candidate.pendingSeats, "pendingSeats");
+  const seats = requireRecord(candidate.seats, "seats");
+  const players = requireRecord(candidate.players, "players");
+  const ids = new Set<string>();
+  const prompts = new Set<string>(Object.keys(requireRecord(candidate.prompts, "prompts")));
+  for (const seatId of sortedKeys(pending)) {
+    const entry = requireRecord(pending[seatId], `pendingSeats.${seatId}`);
+    const seat = requireRecord(seats[seatId], `seats.${seatId}`);
+    const player = requireRecord(entry.player, "pending player");
+    if (Object.keys(entry).some((key) => !["player", "prompts", "handIds", "visibilityIds"].includes(key)) ||
+      seat.playerId !== null || typeof player.id !== "string" || player.id.length === 0 ||
+      hasOwn.call(players, player.id) || ids.has(player.id)) throw new InvalidGameStateError("Invalid pending seat identity");
+    ids.add(player.id);
+    validatePrompts(entry.prompts);
+    for (const id of sortedKeys(entry.prompts as object)) {
+      const prompt = (entry.prompts as Record<string, Record<string, unknown>>)[id]!;
+      if (prompt.playerId !== player.id || prompts.has(id)) throw new InvalidGameStateError("Invalid pending prompt identity");
+      prompts.add(id);
+    }
+    for (const key of ["handIds", "visibilityIds"] as const) {
+      validateStringArray(entry[key], `pendingSeats.${seatId}.${key}`);
+      const values = entry[key] as string[];
+      if (new Set(values).size !== values.length) throw new InvalidGameStateError("Duplicate pending ownership reference");
+      const entities = requireRecord(candidate.entities, "entities");
+      for (const id of values) {
+        const entity = requireRecord(entities[id], "pending entity");
+        const components = requireRecord(entity.components, "pending entity components");
+        const component = requireRecord(components[key === "handIds" ? "hand" : "container"], "pending ownership");
+        if (key === "handIds" ? component.owner !== seatId : component.visibility !== `owner:${seatId}`) {
+          throw new InvalidGameStateError("Invalid pending ownership reference");
+        }
+      }
+    }
+  }
+}
+
 /** Throw unless the complete state satisfies the v1 canonical schema/invariants. */
 export function validateCanonicalGameState(state: unknown): asserts state is CanonicalGameState {
   canonicalStringify(state);
@@ -663,6 +701,7 @@ export function validateCanonicalGameState(state: unknown): asserts state is Can
   validateIdentityRecords(candidate.players, "players");
   validateIdentityRecords(candidate.seats, "seats");
   validatePrompts(candidate.prompts);
+  validatePendingSeats(candidate);
   const entities = validateIdentityRecords(candidate.entities, "entities");
   const memberships: Record<string, string> = {};
   if (hasOwn.call(candidate, "stacks")) {

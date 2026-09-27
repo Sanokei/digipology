@@ -96,42 +96,89 @@ from the immutable initial snapshot and durable join order. This avoids running
 Lua or inferring seats from the live canonical simulation. It does not repair
 canonical overwrites already sequenced by the previous implementation.
 
-### F2 remains blocked — proposed pending-seat recovery design
+### F2: canonical pending seats and claims (2026-09-27)
 
-The current first action irreversibly prunes absent players' stdlib scores and
-turn entries and deletes their prompts. Ordinary subsequent joins cannot
-recover them. F1/F3 do **not** satisfy late-guest save/resume acceptance. The
-focused `F2 BLOCKED` expected-failure test preserves the intended score, current
-turn and open-prompt assertion; passing that test in expected-failure mode is
-not recovery evidence.
+New partial resume actions opt into `preservePendingSeats: true`. Without the
+flag, historical `system.game_resumed` frames retain their original behavior
+and hashes. Full-roster resumes without escrow still emit the original payload.
+This is an additive action/state extension, not a reinterpretation of old logs;
+no frozen fixture or release bundle changes. New escrow-aware streams require
+clients with this kernel/Lua extension, just as any new canonical action does.
 
-The selected follow-up design is a canonical pending-seat escrow plus a new
-system-only seat-claim action, rather than staging the room or leaving ghost
-players in visible collections. Before pruning, the atomic resume transaction
-must retain per-seat saved identity, prompt/ownership references, stdlib score,
-turn position and a pending-current-turn marker. Kernel-owned pending data must
-be validated and hashed in snapshots; Lua-owned pending data stays under a
-reserved stdlib key. `players:list()`, score queries and visible turn order
-contain only live IDs. An unresolved current turn must pause turn progression,
-not silently advance to the host. The Room sequences claims using its persisted
-seat allocation; it never reads or executes Lua rules.
+An absent **seated** saved identity is retained in optional canonical
+`pendingSeats[seatId]`: its player record, prompts, and references to player-owned
+hands/container visibility. The identity leaves `players`, its seat becomes
+vacant, and its prompts leave the live prompt collection. Pending ownership is
+represented by the seat ID and restored to the claiming player atomically.
+Shape, identity uniqueness, prompt ownership and entity references are validated;
+the entire escrow is included in the ordinary snapshot/hash. Snapshot load,
+checkpoint and replay need no separate persistence channel. Unseated saved
+identities retain the historical removal policy because no deterministic seat
+exists to claim them.
 
-A claim must atomically install the live player and seat, restore escrowed
-prompts and ownership, and reconcile the stdlib before an optional creator
-recovery callback. It must **not** run ordinary join initialization, which resets
-Zone Runner's saved score. Duplicate claims, wrong-seat claims, player-origin
-claims and callback failures need rejection/rollback tests. Pending data must
-survive checkpoint/replay and saving/resuming again before all seats are claimed.
-Saved participants without seats need an explicit policy. Timers while the
-current turn is pending also need defined behavior. Existing releases and frozen
-fixtures must continue replaying unchanged; only partial-roster transitions may
-introduce escrow state, with additive golden fixtures covering all these paths.
+Lua stores pending scores and the saved turn order/current seat/active flag under
+`__stdlib.pending_resume`, using seat IDs. Visible `turns.order` and `scores`
+contain only live player IDs (plus existing non-player score keys). Standard
+library reconciliation is idempotent across bindings, even without a creator
+hook. A repeated save/resume remaps current live identities and preserves still
+pending seats. A subsequent resume may also claim all remaining seats in its
+first action. Creator-owned IDs outside the stdlib still require creator hooks.
 
-This is an unimplemented canonical-state and action-contract change, not a
-missing Worker mapping. Completing it safely requires coordinated kernel
-schema/action/event validation and Lua reconciliation with the above invariants.
-This patch deliberately leaves F2 open instead of shipping a partial escrow that
-could lose data again on repeated saves or expose ghost IDs through stdlib APIs.
+For later arrivals the Room sequences one system-only `system.seat_claim` with
+`seatId`, `previousPlayerId`, new `playerId`, and optional name. The kernel checks
+that the saved identity matches the pending seat and that the new identity is
+unused. It restores the player (including saved metadata), seat, prompts and
+ownership, then delivers `on_seat_claimed(ctx)` with the old/new identity and
+player record. Lua restores scores and turns before this optional callback.
+Ordinary `on_player_join` is not called for a recovered identity, avoiding saved
+score initialization. Invalid/duplicate/player/script-origin claims reject
+atomically and consume a sequence; callback failure rolls back escrow, player,
+prompts, script state, queued commands and RNG. The DO never runs Lua.
+
+Gameplay remains paused while **any** saved seat is pending. Player actions,
+canonical timer delivery and canonical departures reject without gameplay
+mutation; system resume/claim and ordinary join/seat metadata actions remain
+available. Visible turns are inactive during this pause; the saved active flag,
+order and current seat are restored when the final claim completes. Previously
+stopped turns remain stopped. Fresh players joining vacant non-reserved seats
+are appended after the saved turn order.
+
+`room.resume_pending_since` is service metadata, persisted at partial startup.
+The DO withholds timer delivery and timer alarm deadlines while it is set. Timer
+registration during the pause stores its relative remaining delay against the
+pause origin. Final roster claim shifts scheduled deadlines by the elapsed
+pause and resumes alarms; canceled timers stay canceled. Reload/hibernation
+therefore cannot consume a paused timer. Kernel rejection remains a second
+boundary against premature timer delivery. Already-started legacy rooms have
+no pause marker and keep ordinary late-join sequencing; their previously lost
+data cannot be reconstructed by migration. The original save can be resumed
+into a new escrow-aware room.
+
+### Disconnects, abandonment, and host recovery
+
+There is deliberately no automatic abandonment timeout: a timer cannot decide
+to discard saved gameplay or change the saved current turn. An absent saved
+guest who never returns leaves the room paused indefinitely (subject to normal
+live-room expiration). The authenticated host can save the paused canonical state
+and resume it later, or invite a replacement through the ordinary join code.
+Join order claims the next reserved seat; this is seat recovery, not an account
+identity check, and any invited replacement may take that seat. The host may
+also fill it from another session. No new host-discard/skip-seat action is needed
+for these recovery paths, and none is introduced. A future explicit abandon-seat
+feature would need its own canonical policy for score, prompts and turns.
+
+Socket departure is transport-only, including during the pause. It neither
+drops escrow nor vacates already claimed canonical seats. A claimant who joins
+by HTTP and then never opens a socket has already claimed the seat; their bearer
+session can reconnect. A further invite cannot steal that assigned seat. If the
+claimant loses that session, this patch does not add takeover of a live occupied
+seat; saving and resuming into a fresh room provides fresh seat allocation.
+Host migration on socket departure remains administrative metadata.
+
+A creator callback that rejects resume/claim is surfaced as a canonical failure,
+with saved data retained by rollback. There is no automatic in-room claim retry
+RPC; saving the retained state and resuming a fresh room can retry, but a
+permanently failing pinned creator hook still needs creator-level correction.
 
 Timer clarification for item 7: each independent room may fire its own timer.
 Rearming deduplicates within the new room's timer lifecycle; it does not stop the

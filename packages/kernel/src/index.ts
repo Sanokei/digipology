@@ -70,6 +70,7 @@ export type {
   PlayerActor,
   PlayerId,
   PlayerRecord,
+  PendingSeat,
   PromptId,
   PromptKind,
   PromptRecord,
