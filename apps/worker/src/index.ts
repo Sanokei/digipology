@@ -2,6 +2,7 @@ import { DurableObject } from "cloudflare:workers";
 import {
   PROTOCOL_VERSION,
   type ActionRequest,
+  type ClientSocialMessage,
   type OrderedAction,
   type PlayerInfo,
   type RoomEndedMessage,
@@ -52,6 +53,7 @@ import {
   planCanonicalTimerAlarm,
   planRoomAlarm,
 } from "./room-liveness";
+import { presenceChatMessage, relaySocialMessage, type RoomSocialIdentity } from "./room-social";
 
 const DEFAULT_ROOM_CAPACITY = 8;
 const DUMMY_HASH = "0".repeat(64);
@@ -866,6 +868,25 @@ export class RoomDO extends DurableObject<Env> {
       broadcast: (message: ServerMessage): void => {
         this.broadcast(message);
       },
+      socialSubscribe: (playerId: string): void => {
+        socket.serializeAttachment(state);
+        const alreadyPresent = this.ctx.getWebSockets().some((peer) => {
+          if (peer === socket) return false;
+          const peerState = peer.deserializeAttachment() as SocketAttachment | null;
+          return peerState?.authenticated === true &&
+            peerState.playerId === playerId &&
+            peerState.socialSubscribed === true;
+        });
+        if (!alreadyPresent) {
+          const identity = this.socialIdentity(playerId);
+          this.broadcastSocial(presenceChatMessage(identity.displayName, "joined"));
+        }
+      },
+      relaySocial: (
+        playerId: string,
+        message: Exclude<ClientSocialMessage, { type: "social_subscribe" }>,
+      ): ServerMessage => relaySocialMessage(this.socialIdentity(playerId), message),
+      broadcastSocial: (message: ServerMessage): void => this.broadcastSocial(message),
     };
   }
 
@@ -1145,6 +1166,29 @@ export class RoomDO extends DurableObject<Env> {
     }
   }
 
+  private broadcastSocial(message: ServerMessage, excluded?: WebSocket): void {
+    for (const peer of this.ctx.getWebSockets()) {
+      if (peer === excluded) continue;
+      const peerState = peer.deserializeAttachment() as SocketAttachment | null;
+      if (peerState?.authenticated === true && peerState.socialSubscribed === true) {
+        sendServerMessage(peer, message);
+      }
+    }
+  }
+
+  private socialIdentity(playerId: string): RoomSocialIdentity {
+    const player = this.ctx.storage.sql.exec<PlayerRow>(
+      "SELECT player_id, display_name, seat_id, user_id FROM players WHERE player_id = ?",
+      playerId,
+    ).toArray()[0];
+    if (player === undefined) throw new Error("Authenticated social player is missing");
+    return {
+      playerId: player.player_id,
+      displayName: player.display_name,
+      seatId: player.seat_id,
+    };
+  }
+
   private markPlayerActive(playerId: string): void {
     this.ctx.storage.sql.exec(
       "INSERT OR IGNORE INTO active_players (player_id) VALUES (?)",
@@ -1162,6 +1206,22 @@ export class RoomDO extends DurableObject<Env> {
     if (room === null || room.ended_reason !== null) return;
     const state = socket.deserializeAttachment() as SocketAttachment | null;
     const peers = this.ctx.getWebSockets().filter((peer) => peer !== socket);
+    const socialDeparture = state?.authenticated === true &&
+      state.playerId !== null &&
+      state.socialSubscribed === true &&
+      !peers.some((peer) => {
+        const peerState = peer.deserializeAttachment() as SocketAttachment | null;
+        return peerState?.authenticated === true &&
+          peerState.playerId === state.playerId &&
+          peerState.socialSubscribed === true;
+      });
+    const departingIdentity = socialDeparture && state?.playerId !== null
+      ? this.socialIdentity(state.playerId)
+      : null;
+    if (socialDeparture && state !== null) {
+      state.socialSubscribed = false;
+      socket.serializeAttachment(state);
+    }
     const now = Date.now();
     const bootstrappedBeforeDeparture = new Set<string>();
     if (isBootstrappedAttachment(state)) bootstrappedBeforeDeparture.add(state.playerId);
@@ -1193,6 +1253,9 @@ export class RoomDO extends DurableObject<Env> {
           }
         }
       }
+    }
+    if (departingIdentity !== null) {
+      this.broadcastSocial(presenceChatMessage(departingIdentity.displayName, "left"), socket);
     }
     if (peers.length === 0) {
       const emptySinceAt = room.empty_since_at ?? now;

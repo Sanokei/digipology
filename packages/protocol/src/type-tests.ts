@@ -9,6 +9,10 @@ export function exhaustClientMessage(message: ClientMessage): string {
     case "hello":
     case "action_request":
     case "ping":
+    case "social_subscribe":
+    case "chat_send":
+    case "cursor_update":
+    case "table_ping":
       return message.type;
     default:
       return assertNever(message);
@@ -24,6 +28,9 @@ export function exhaustServerMessage(message: ServerMessage): string {
     case "room_ended":
     case "ordered_action":
     case "pong":
+    case "chat_message":
+    case "cursor_update":
+    case "table_ping":
       return message.type;
     default:
       return assertNever(message);

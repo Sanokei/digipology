@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { parseServerMessage, type ActionRequest, type ServerMessage } from "digipology-protocol";
 import { handleTextFrame, type ConnectionState, type MessageHandlerContext, type MessageSocket } from "./message-handler";
 import { RoomCore } from "./room-core";
+import { relaySocialMessage } from "./room-social";
 
 class MockSocket implements MessageSocket {
   sent: ServerMessage[] = [];
@@ -71,6 +72,48 @@ describe("protocol message handler", () => {
     await handleTextFrame(socket, action, ctx);
     expect(ctx.broadcasts).toHaveLength(1);
     expect(socket.sent.at(-1)).toEqual(ctx.broadcasts[0]);
+  });
+
+  test("relays subscribed social frames without sequencing or persistence and rate-limits chat per connection", async () => {
+    const core = new RoomCore("room123");
+    const socket = new MockSocket();
+    const ctx = context(core);
+    const social: ServerMessage[] = [];
+    let now = 1_000;
+    ctx.socialSubscribe = () => undefined;
+    ctx.relaySocial = (_playerId, message) => relaySocialMessage({
+      playerId: "player_alice",
+      displayName: "Server Alice",
+      seatId: "seat_1",
+    }, message);
+    ctx.broadcastSocial = (message) => social.push(message);
+    ctx.now = () => now;
+    await handleTextFrame(socket, JSON.stringify({
+      type: "hello", protocolVersion: 1, sessionToken: "valid", lastSequence: null,
+    }), ctx);
+    await handleTextFrame(socket, JSON.stringify({ type: "social_subscribe", protocolVersion: 1 }), ctx);
+    await handleTextFrame(socket, JSON.stringify({
+      type: "cursor_update", protocolVersion: 1, x: 1, z: 2,
+    }), ctx);
+    for (let index = 0; index < 6; index += 1) {
+      await handleTextFrame(socket, JSON.stringify({
+        type: "chat_send", protocolVersion: 1, text: `line ${index}`,
+      }), ctx);
+    }
+    expect(social).toHaveLength(6);
+    expect(social[0]).toMatchObject({
+      type: "cursor_update",
+      playerId: "player_alice",
+      displayName: "Server Alice",
+    });
+    expect(socket.sent.at(-1)).toMatchObject({ type: "protocol_error", code: "rate_limited" });
+    expect(core.state.lastSequence).toBe(0);
+
+    now += 10_000;
+    await handleTextFrame(socket, JSON.stringify({
+      type: "chat_send", protocolVersion: 1, text: "new window",
+    }), ctx);
+    expect(social).toHaveLength(7);
   });
 
   test("sends bootstrap before its ordered catch-up stream", async () => {

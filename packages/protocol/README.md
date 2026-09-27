@@ -61,6 +61,12 @@ can evolve independently from the platform HTTP API.
   authenticated session.
 - `ping` is a liveness message. Optional finite number `t` may be echoed by a
   `pong`.
+- `social_subscribe` opts a connection into backward-compatible transient room
+  messages. Servers do not send social frames to clients that never subscribe.
+- `chat_send` carries 1–280 plain-text characters. It contains no identity;
+  the Room derives the sender from the authenticated connection.
+- `cursor_update` and `table_ping` carry finite table-plane `x`/`z` positions.
+  They contain no client-claimed player, name, or seat fields.
 
 ## Server messages
 
@@ -82,6 +88,10 @@ can evolve independently from the platform HTTP API.
   validation remains the kernel action registry's responsibility.
 - `pong` is the server liveness response and may carry optional finite number
   `t`.
+- `chat_message` is either a server-authored system line or a player line with
+  authoritative `playerId` and `displayName`.
+- `cursor_update` and `table_ping` add authoritative player/name/seat identity
+  to a transient table-plane position. They are not canonical actions.
 
 Each `PlayerInfo` contains string `playerId` and `displayName`, nullable string
 `seatId`, and boolean `connected`.
@@ -109,6 +119,10 @@ Parser failures use the applicable subset: `malformed_message`,
 | `hello` | 4 KiB |
 | `action_request` | 32 KiB |
 | `ping` / `pong` | 256 B |
+| `social_subscribe` | 256 B |
+| `chat_send` | 1 KiB |
+| `cursor_update` / `table_ping` | 512 B |
+| `chat_message` | 2 KiB |
 | `ordered_action` | 64 KiB |
 | `bootstrap` / `resume` | 4 MiB |
 | `resync_required` / `protocol_error` / `room_ended` | 4 KiB |

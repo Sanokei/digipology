@@ -58,6 +58,21 @@ Your private hand tray stays along the bottom of the table and shows each card's
 
 Inspect is a local, read-only view: it does not take a game action. Owned cards show their face, while a face-down card you do not own stays a card back. Open the object action menu with right-click on desktop or a hold on touch. The menu only offers actions the object supports, such as Flip, Roll, Press, Draw to hand, Shuffle, counter changes, taking a stack top, or sandbox Lock/Unlock. It also identifies another player who is holding the object.
 
+## Chat, cursors, pings, and controls
+
+Open **Chat** in the lower-left corner to talk to everyone currently at the table. Chat accepts plain text up to 280 characters and shows join/leave system lines. The unread badge counts messages received while the panel is collapsed. Chat is live-room history only: it is not included in canonical state, replays, or saved tables.
+
+Other players' pointers appear over the table in their seat color and disappear after a short idle period. Hold **Alt** (Windows/Linux) or **Option** (macOS) and click the table to send a two-second ping. On touch, hold an object and choose **Ping here** from its action menu.
+
+Desktop bindings:
+
+- **LMB drag** moves a piece; **RMB drag** orbits; **MMB drag** pans; the wheel zooms.
+- **Q / E** rotates a held or hovered object left/right in deterministic 15° steps. The object menu exposes the same rotate actions.
+- **F** flips a held or hovered card. **R** rolls a hovered die or shuffles a hovered deck.
+- The wheel rotates a held object, **Space** resets the camera, and **?** opens the complete controls overlay.
+
+Touch keeps tap/drag, long-press actions, two-finger camera movement, and pinch zoom. Rotation is available from the long-press object menu; two-finger twist remains reserved so it does not conflict with camera pan and pinch.
+
 ## Reconnecting and synchronizing
 
 **Reconnecting** and **Synchronizing Table** appear as small non-blocking cards, so you can still orbit, pan, or pinch the visible table while shared game actions pause. Synchronizing may show how many catch-up actions have been applied. If repeated attempts cannot restore the room, choose **Reload table** to create a fresh connection without leaving the page, or **Leave table** to return home. Technical connection details remain in Diagnostics.

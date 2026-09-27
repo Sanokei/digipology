@@ -16,7 +16,7 @@ import { createHoverPicker, handleTouchPointerInput, pickContextRequest } from "
 import type { SceneAdapter, SceneAdapterDependencies } from "./sceneAdapter";
 import { TouchGestureMachine, type TouchGestureDecision } from "./touchGestures";
 import { localSeatId } from "../pages/tableHandModel";
-import { presentationHighlightIds, primaryActionFor } from "../pages/tableContextModel";
+import { keyboardRollActionFor, presentationHighlightIds, primaryActionFor } from "../pages/tableContextModel";
 import type { TableHintGesture } from "../components/TableHints";
 
 export interface TableContextRequest {
@@ -50,6 +50,9 @@ export function useBabylonScene(
   onHoverRequest?: (request: TableHoverRequest | null) => void,
   onHintGesture?: (gesture: TableHintGesture) => void,
   onProjectorChange?: (projector: ((clientX: number, clientY: number) => { x: number; y: number; z: number } | null) | null) => void,
+  onScreenProjectorChange?: (projector: ((point: { x: number; y: number; z: number }) => { x: number; y: number } | null) | null) => void,
+  onTablePointerMove?: (point: { x: number; y: number; z: number }) => void,
+  onTablePing?: (point: { x: number; y: number; z: number }) => void,
   onRendererStatus?: (status: RendererStatus) => void,
 ): void {
   const pausedRef = useRef(interactionsPaused);
@@ -66,6 +69,12 @@ export function useBabylonScene(
   hintGestureRef.current = onHintGesture;
   const projectorChangeRef = useRef(onProjectorChange);
   projectorChangeRef.current = onProjectorChange;
+  const screenProjectorChangeRef = useRef(onScreenProjectorChange);
+  screenProjectorChangeRef.current = onScreenProjectorChange;
+  const tablePointerMoveRef = useRef(onTablePointerMove);
+  tablePointerMoveRef.current = onTablePointerMove;
+  const tablePingRef = useRef(onTablePing);
+  tablePingRef.current = onTablePing;
   const adapterRef = useRef<SceneAdapter | null>(null);
   const cancelTouchRef = useRef<(() => void) | null>(null);
 
@@ -140,6 +149,7 @@ export function useBabylonScene(
         if (clientX < rect.left || clientY < rect.top || clientX > rect.right || clientY > rect.bottom) return null;
         return adapter.projectToTable(clientX - rect.left, clientY - rect.top);
       });
+      screenProjectorChangeRef.current?.((point) => adapter.projectFromTable(point));
       publishRendererStatus(fallback === null ? selection.renderer : "webgl");
       adapter.setPaused(pausedRef.current);
       let heldHighlight = "";
@@ -347,6 +357,11 @@ export function useBabylonScene(
         event.preventDefault();
         canvas.focus({ preventScroll: true });
         const rect = canvas.getBoundingClientRect();
+        if (event.button === 0 && event.altKey) {
+          const point = adapter.projectToTable(event.clientX - rect.left, event.clientY - rect.top);
+          if (point !== null) tablePingRef.current?.(point);
+          return;
+        }
         desktop.down({
           pointerId: event.pointerId,
           button: event.button,
@@ -362,6 +377,9 @@ export function useBabylonScene(
         });
       };
       const handlePointerMove = (event: PointerEvent): void => {
+        const rect = canvas.getBoundingClientRect();
+        const tablePoint = adapter.projectToTable(event.clientX - rect.left, event.clientY - rect.top);
+        if (tablePoint !== null) tablePointerMoveRef.current?.(tablePoint);
         if (event.pointerType === "touch") {
           event.preventDefault();
           queueTouch(event, "move");
@@ -373,7 +391,6 @@ export function useBabylonScene(
           applyDesktopDecisions(decisions);
           return;
         }
-        const rect = canvas.getBoundingClientRect();
         if (event.buttons !== 0) return;
         hoverPoint = { x: event.clientX, y: event.clientY };
         hoverPicker.request(event.clientX - rect.left, event.clientY - rect.top);
@@ -438,6 +455,12 @@ export function useBabylonScene(
         } else if ((event.key === "e" || event.key === "E") && active !== null) {
           event.preventDefault();
           adapter.rotateDrag(Math.PI / 12);
+        } else if ((event.key === "q" || event.key === "Q") && hoverEntityId !== null) {
+          event.preventDefault();
+          client?.sendAction({ type: "entity.rotate", payload: { entityId: hoverEntityId, steps: -1 } });
+        } else if ((event.key === "e" || event.key === "E") && hoverEntityId !== null) {
+          event.preventDefault();
+          client?.sendAction({ type: "entity.rotate", payload: { entityId: hoverEntityId, steps: 1 } });
         } else if ((event.key === "f" || event.key === "F") && active !== null && canFlip(active.entityId)) {
           event.preventDefault();
           adapter.flipDrag();
@@ -446,6 +469,13 @@ export function useBabylonScene(
         } else if ((event.key === "f" || event.key === "F") && hoverEntityId !== null && canFlip(hoverEntityId)) {
           event.preventDefault();
           client?.sendAction({ type: "entity.flip", payload: { entityId: hoverEntityId } });
+        } else if ((event.key === "r" || event.key === "R") && hoverEntityId !== null) {
+          const entity = store.getSnapshot().displayedState?.entities[hoverEntityId];
+          const action = entity === undefined ? null : keyboardRollActionFor(entity);
+          if (action !== null) {
+            event.preventDefault();
+            client?.sendAction(action);
+          }
         } else if (event.code === "Space" && active === null) {
           event.preventDefault();
           adapter.camera.reset();
@@ -487,6 +517,7 @@ export function useBabylonScene(
         applyDesktopDecisions(desktop.abort());
         unsubscribe();
         projectorChangeRef.current?.(null);
+        screenProjectorChangeRef.current?.(null);
         hoverRequestRef.current?.(null);
         resize.disconnect();
         document.removeEventListener("visibilitychange", syncRenderLoop);

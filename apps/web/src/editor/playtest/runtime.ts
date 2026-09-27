@@ -27,7 +27,7 @@ export const PLAYTEST_INSTRUCTION_BUDGET = 50_000;
 export const PLAYTEST_MEMORY_BUDGET_BYTES = 512 * 1024;
 
 export const PLAYTEST_INTERACTION_ACTIONS = new Set([
-  "entity.grab", "entity.drop", "entity.flip", "die.roll", "button.press",
+  "entity.grab", "entity.drop", "entity.flip", "entity.rotate", "die.roll", "button.press",
   "deck.shuffle", "deck.draw_to_container", "counter.set", "counter.add",
   "entity.set_locked", "stack.remove_top", "prompt.respond",
 ]);
