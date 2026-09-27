@@ -377,7 +377,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
   } | null = null;
   const highlights = {
     hover: null as string | null,
-    selected: null as string | null,
+    selected: new Set<string>(),
     held: new Set<string>(),
     locked: new Set<string>(),
   };
@@ -397,7 +397,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
     const entityId = (piece.mesh.metadata as { entityId?: unknown } | undefined)?.entityId;
     if (typeof entityId === "string") {
       if (highlights.hover === entityId) color = HIGHLIGHT_COLORS.hover;
-      if (highlights.selected === entityId) color = HIGHLIGHT_COLORS.selected;
+      if (highlights.selected.has(entityId)) color = HIGHLIGHT_COLORS.selected;
       if (highlights.locked.has(entityId)) color = HIGHLIGHT_COLORS.locked;
       if (highlights.held.has(entityId)) color = HIGHLIGHT_COLORS.held;
       if (localHeld === entityId) color = HIGHLIGHT_COLORS.held;
@@ -883,7 +883,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       finishDrag(pointerId, true);
     },
     setHighlight(entityId: string | null, kind: HighlightKind): void {
-      if (kind === "held" || kind === "locked") {
+      if (kind === "held" || kind === "locked" || kind === "selected") {
         const targets = highlights[kind];
         if (entityId === null) {
           const previous = [...targets];

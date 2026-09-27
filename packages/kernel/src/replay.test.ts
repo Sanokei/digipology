@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import fixture from "../fixtures/replay-card-deal-v1.json";
 import scriptedZone from "../fixtures/scripted-zone-v1.json";
+import tableInteraction from "../fixtures/replay-table-interaction-v1.json";
 import {
   applyOrdered,
   loadSnapshot,
@@ -85,5 +86,26 @@ describe("scripted-zone-v1 golden contract", () => {
       (event) => event.actionId === "drop_tie" && event.type === "snap.attached",
     );
     expect(tiedAttachment?.data.snapPointId).toBe("snap_a");
+  });
+});
+
+describe("replay-table-interaction-v1 golden contract", () => {
+  test("spawn, deal, take, and merge replay to the pinned hash and event sequence", () => {
+    const replay = () => {
+      let state = loadSnapshot(tableInteraction.initialSnapshot as GameSnapshot);
+      const events: string[] = [];
+      for (const action of tableInteraction.actions) {
+        const result = applyOrdered(state, action as OrderedActionInput);
+        expect(result.rejection).toBeUndefined();
+        state = result.state;
+        events.push(...result.events.map((event) => event.type));
+      }
+      return { state, events };
+    };
+    const first = replay();
+    const second = replay();
+    expect(snapshot(first.state).stateHash).toBe(tableInteraction.expectedFinalStateHash);
+    expect(second.state).toEqual(first.state);
+    expect(first.events).toEqual(tableInteraction.expectedEventTypes);
   });
 });
