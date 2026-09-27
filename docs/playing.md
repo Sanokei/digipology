@@ -23,7 +23,7 @@ Open **Saved tables** from the account menu or visit `/saves` to list or delete 
 
 Scripted resume is implemented: saves pin the exact game release, and resume restores saved script state in a new room without restarting the game. If that release is no longer available, resume reports that it cannot load the release.
 
-Production availability is contingent on deployment and verification of the saved-table changes. Returning-player identity and seat handling during staggered joins are still under correction; preservation of every returning player’s scores, turns, and prompts is not yet verified for that flow.
+A resumed table restores saved seats as players join the new room. Play waits until every saved seat is claimed, preserving scores, turns, and open prompts. Share the new invite with the intended players in seat order. If someone cannot return, you can invite a replacement to take that saved seat, or save the paused table and resume it later. A replacement receives that seat's saved game state.
 
 ## Host a room
 

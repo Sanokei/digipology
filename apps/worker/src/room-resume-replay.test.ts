@@ -40,7 +40,8 @@ async function replay(repeat: boolean, active = true, prejoined = false, extraPl
     expect(state.pendingSeats?.seat_10?.player.id).toBe("bob");
     expect(state.pendingSeats?.seat_2?.player.id).toBe("charlie");
     await apply("system.seat_claim", { playerId: "guest", seatId: "seat_10", previousPlayerId: "bob" });
-    expect(state.scriptState).toMatchObject({ __stdlib: { scores: { guest: 7 }, turns: { active: false } }, claim_score: 7 });
+    expect(state.scriptState).toMatchObject({ __stdlib: { scores: { guest: 7 }, turns: { active: false } } });
+    expect((state.scriptState as Record<string, unknown>).claim_score).toBeUndefined();
     if (repeat) {
       state = loadSnapshot(snapshot({ ...state, sequence: 0 }));
       hashes.push(snapshot(state).stateHash);
@@ -84,10 +85,10 @@ test("pending resume additive golden hashes", async () => {
   expect((await replay(true)).hashes).toEqual([
     "sha256:f44b12cb4751a28f6f79a56521e0158d6aaa806dfee68e19236d0ca0db0fb1f4",
     "sha256:8751c3cf3c7065cf613f2c84ad82cc822b7cb221770125b6c7f63ce5dc55c144",
-    "sha256:7d6735cd97d9437d8b86e7bbc61307d08c7a4e77a9838babc4a24cad76960304",
-    "sha256:19a6f9c818e607c70870b8ba2087fce32cb7677279b0d44fd9ea25921d7bd53d",
-    "sha256:b93d63d90558c95ef9791f43f23392feccdfa52398b947761f1a523d5dbbfe68",
-    "sha256:ffbe13c2916fe3b9ffbce4fb0dd5f3ffd910d0cc7599b431dbd8a90a804924fd",
+    "sha256:766c0aac06d72f204ae59d7944a705b7cb79d06253fa05b942bec27ec7b84734",
+    "sha256:d13349b7ba3e7672eb461335ddf9b3ea890215852d2ec1bbf0384ec6f00f8037",
+    "sha256:a5957f017121ed47153342b164a4d433e775cbfd0f9524500b13e2d8b70c2ad7",
+    "sha256:bd6257002522761680aa1fd3df61d666f4fa80869047b1d9109dec4e48cc25d5",
   ]);
 });
 

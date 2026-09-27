@@ -128,12 +128,15 @@ For later arrivals the Room sequences one system-only `system.seat_claim` with
 `seatId`, `previousPlayerId`, new `playerId`, and optional name. The kernel checks
 that the saved identity matches the pending seat and that the new identity is
 unused. It restores the player (including saved metadata), seat, prompts and
-ownership, then delivers `on_seat_claimed(ctx)` with the old/new identity and
-player record. Lua restores scores and turns before this optional callback.
-Ordinary `on_player_join` is not called for a recovered identity, avoiding saved
-score initialization. Invalid/duplicate/player/script-origin claims reject
-atomically and consume a sequence; callback failure rolls back escrow, player,
-prompts, script state, queued commands and RNG. The DO never runs Lua.
+ownership, then delivers a reserved `on_seat_claimed(ctx)` runtime event with
+the old/new identity and player record. Only the trusted stdlib processes this
+event, restoring scores and turns. Creator-defined functions with that name are
+not invoked: the DO cannot observe a creator callback rejection after assigning
+the seat and restarting timers. Ordinary `on_player_join` is not called for a
+recovered identity, avoiding saved score initialization. Invalid, duplicate,
+player-origin and script-origin claims reject atomically and consume a sequence.
+Runtime failure still rolls back escrow, player, prompts, script state, queued
+commands and RNG. The DO never runs Lua.
 
 Gameplay remains paused while **any** saved seat is pending. Player actions,
 canonical timer delivery and canonical departures reject without gameplay

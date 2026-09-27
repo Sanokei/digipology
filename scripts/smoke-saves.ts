@@ -1,7 +1,7 @@
 // Saved-table network smoke: authenticated host save + new-room resume.
 // Usage: SMOKE_SESSION=<local dgp_session token> bun scripts/smoke-saves.ts http://127.0.0.1:8787
 // Default exercises host-first arrival. SMOKE_PREJOIN=1 retains the baseline
-// simultaneous-roster scenario; it does not establish late-guest recovery.
+// simultaneous-roster scenario. The default also checks late-guest score and turn recovery.
 //
 // Runs full save/resume convergence for unscripted First Deal and scripted
 // Zone Runner v2, including resumed Lua stdlib roster reconciliation.

@@ -662,8 +662,13 @@ export async function createCreatorScriptRuntime(options: CreatorScriptRuntimeOp
         ok: false,
         error: { kind: "runtime", message: `Unknown script: ${request.binding.scriptId}` },
       };
-      const loadPrefix = `${CREATOR_API_V1}\n${request.readOnly ? "" : STDLIB_V1}\nlocal function __load_script()\n`;
-      const wrapper = `${loadPrefix}${source}\nend\n__load_script()\nlocal __fn = _G[__function_name]\nif __fn == nil then return { handled = false, state = state } end\nlocal __first, __second = __fn(ctx)\nreturn { handled = true, state = state, allowed = __first, reason = __second }`;
+      // Seat recovery is reserved for stdlib reconciliation. Creator hooks cannot
+      // reject a claim after the Room has durably assigned its seat and timers.
+      const reservedClaim = request.functionName === "on_seat_claimed" && !request.readOnly;
+      const loadPrefix = `${CREATOR_API_V1}\n${request.readOnly ? "" : STDLIB_V1}\n${reservedClaim ? "" : "local function __load_script()\n"}`;
+      const wrapper = reservedClaim
+        ? `${loadPrefix}return { handled = true, state = state }`
+        : `${loadPrefix}${source}\nend\n__load_script()\nlocal __fn = _G[__function_name]\nif __fn == nil then return { handled = false, state = state } end\nlocal __first, __second = __fn(ctx)\nreturn { handled = true, state = state, allowed = __first, reason = __second }`;
       try {
         const value = await sandbox.run(wrapper, {
           ...invocationEnvironment(request, refs, definitions),
