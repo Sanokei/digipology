@@ -13,6 +13,7 @@ describe("built-in covers", () => {
       "first-deal",
       "dice-dash",
       "zone-runner",
+      "checkers",
     ]);
     for (const [slug, spec] of Object.entries(BUILTIN_COVER_SPECS)) {
       expect(renderCoverSvg(spec, { title: slug, tagline: "Playable tabletop" }))
@@ -22,11 +23,11 @@ describe("built-in covers", () => {
     }
   });
 
-  test("pins the single cache rollover for the third built-in", () => {
-    expect(BUILTIN_COVER_VERSION).toBe(3);
-    expect(getBuiltinCover("zone-runner")).toMatchObject({
+  test("pins the cache rollover for the generated catalog", () => {
+    expect(BUILTIN_COVER_VERSION).toBe(4);
+    expect(getBuiltinCover("checkers")).toMatchObject({
       contentType: "image/svg+xml",
-      version: 3,
+      version: 4,
     });
   });
 });

@@ -14,6 +14,7 @@ import {
   type GameSnapshot,
 } from "digipology-kernel";
 import type { CheckpointAttestationRequest, GameSnapshotDto, ReleaseBundleDto } from "digipology-protocol/http";
+import { getBuiltinRelease } from "digipology-demo-games";
 import { hashSelector, sha256Hex, timingSafeHashEqual } from "./crypto";
 import {
   handleTextFrame,
@@ -22,7 +23,7 @@ import {
 } from "./message-handler";
 import { handlePlatformRequest } from "./platform";
 import { generatePlayerId, generateSessionToken } from "./random";
-import { createBuiltinInitialState } from "./initial-state";
+import { createBuiltinInitialState, orderedInitialSeatIds } from "./initial-state";
 import {
   ACTION_RETENTION,
   attestCheckpointCandidate,
@@ -956,11 +957,14 @@ export class RoomDO extends DurableObject<Env> {
     }));
     const resumed = before.resumed === 1;
     const builtinState = resumed ? null : createBuiltinInitialState(before.release_id, roster);
+    const generatedBuiltinSnapshot = resumed
+      ? undefined
+      : getBuiltinRelease(before.release_id)?.initialSnapshot;
     const baseSnapshot = resumed
       ? this.requiredInitialSnapshot(before)
-      : builtinState === null
-        ? await this.uploadedInitialSnapshot(before.release_id)
-        : snapshot(builtinState);
+      : builtinState !== null
+        ? snapshot(builtinState)
+        : generatedBuiltinSnapshot ?? await this.uploadedInitialSnapshot(before.release_id);
     const resumeState = resumed ? loadSnapshot(baseSnapshot) : null;
     const timersToArm = resumeState === null ? [] : scheduledTimersToArm(resumeState);
     this.ctx.storage.transactionSync(() => {
@@ -975,6 +979,7 @@ export class RoomDO extends DurableObject<Env> {
       if (baseSnapshot.releaseId !== room.release_id) throw new Error("Room release snapshot mismatch");
       if (baseSnapshot.sequence !== 0) throw new Error("Room initial snapshot must start at sequence 0");
       const initialState = loadSnapshot(baseSnapshot);
+      const authoredSeatIds = orderedInitialSeatIds(initialState.seats);
       const core = this.loadCore(room);
       if (!resumed) {
         const started = core.sequenceSystem(
@@ -995,7 +1000,13 @@ export class RoomDO extends DurableObject<Env> {
           );
           this.persistSystemAction(joined.orderedAction);
           const seated = core.sequenceSystem(
-            { type: "system.seat_assign", payload: { playerId: player.playerId, seatId: `seat_${index + 1}` } },
+            {
+              type: "system.seat_assign",
+              payload: {
+                playerId: player.playerId,
+                seatId: authoredSeatIds[index] ?? `seat_${index + 1}`,
+              },
+            },
             `seat_assign_${player.playerId}`,
           );
           this.persistSystemAction(seated.orderedAction);

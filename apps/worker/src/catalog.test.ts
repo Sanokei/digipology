@@ -2,12 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { getBuiltinRelease } from "digipology-demo-games";
 import { loadSnapshot, snapshot, type GameSnapshot } from "digipology-kernel";
 import { builtinCatalog, gameSummary, releaseSummary } from "./catalog";
-import { createBuiltinInitialState } from "./initial-state";
+import { createBuiltinInitialState, orderedInitialSeatIds } from "./initial-state";
 
 describe("built-in game catalog", () => {
-  test("lists all three demo games and resolves their slugs and immutable release IDs", () => {
+  test("lists legacy and generated games and resolves their immutable release IDs", () => {
     const games = builtinCatalog.listGames();
-    expect(games.map((game) => game.slug)).toEqual(["first-deal", "dice-dash", "zone-runner"]);
+    expect(games.map((game) => game.slug)).toEqual(["first-deal", "dice-dash", "zone-runner", "checkers"]);
 
     for (const game of games) {
       const bySlug = builtinCatalog.resolveRelease(game.slug);
@@ -50,6 +50,14 @@ describe("built-in game catalog", () => {
     }
   });
 
+  test("serves a generated snapshot without a legacy initial-state builder", () => {
+    const release = builtinCatalog.getRelease("builtin_tabletop_classics_checkers_1")!;
+    const source = getBuiltinRelease(release.releaseId)!;
+    expect(release.bundle.initialSnapshot).toEqual(source.initialSnapshot!);
+    expect(loadSnapshot(release.bundle.initialSnapshot as GameSnapshot).entities.square_7_7).toBeDefined();
+    expect(createBuiltinInitialState(release.releaseId, [])).toBeNull();
+  });
+
   test("builds a valid room snapshot from the live roster and deterministic seats", () => {
     const roster = [
       { playerId: "player_host", displayName: "Host" },
@@ -65,6 +73,14 @@ describe("built-in game catalog", () => {
       seat_1: { id: "seat_1", playerId: "player_host", scoreId: "score_seat_1" },
       seat_2: { id: "seat_2", playerId: "player_guest", scoreId: "score_seat_2" },
     });
+  });
+
+  test("orders authored seats naturally through the ten-player range", () => {
+    const seats = Object.fromEntries([10, 2, 1, 9].map((number) => [
+      `seat_${number}`,
+      { id: `seat_${number}`, playerId: null },
+    ]));
+    expect(orderedInitialSeatIds(seats)).toEqual(["seat_1", "seat_2", "seat_9", "seat_10"]);
   });
 
   test("builds Zone Runner hands, zones, snap slots, and script bindings for a live roster", () => {
@@ -114,12 +130,19 @@ describe("built-in game catalog", () => {
       builtin: true,
       currentPlayers: 0,
       totalPlays: 0,
-      coverVersion: 3,
+      coverVersion: 4,
     });
     expect(releaseSummary(release)).toEqual({
       releaseId: "builtin_first_deal_1",
       kernelVersion: 1,
       luaApiVersion: 1,
+      releaseNumber: 1,
+    });
+    expect(gameSummary(builtinCatalog.getGame("checkers")!)).toMatchObject({
+      tags: ["strategy", "classic", "abstract"],
+      playTimeMinutes: 30,
+      complexity: 2,
+      description: expect.stringContaining("8×8 board"),
     });
   });
 });
