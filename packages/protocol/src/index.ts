@@ -37,6 +37,26 @@ export type ActionRequest = {
   action: { type: string; payload: unknown };
 };
 
+/** Canonical first action of a resumed room; membership is validated by the kernel. */
+export interface GameResumedPayload {
+  roster: Array<{ playerId: string; name?: string; seatId: string; previousPlayerId?: string }>;
+}
+
+/** Shape validation only: no saved snapshot or game rules belong in the protocol. */
+export function validateGameResumedPayload(value: unknown): value is GameResumedPayload {
+  if (!isObject(value) || Object.keys(value).some((key) => key !== "roster") ||
+      !Array.isArray(value.roster) || value.roster.length === 0) return false;
+  return value.roster.every((entry: unknown) => {
+    if (!isObject(entry) || Object.keys(entry).some((key) =>
+      !["playerId", "name", "seatId", "previousPlayerId"].includes(key))) return false;
+    return typeof entry.playerId === "string" && entry.playerId.length > 0 &&
+      typeof entry.seatId === "string" && entry.seatId.length > 0 &&
+      (!hasOwn(entry, "name") || typeof entry.name === "string") &&
+      (!hasOwn(entry, "previousPlayerId") ||
+        (typeof entry.previousPlayerId === "string" && entry.previousPlayerId.length > 0));
+  });
+}
+
 export type PingMessage = {
   type: "ping";
   protocolVersion: 1;

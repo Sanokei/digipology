@@ -32,3 +32,50 @@ SPEC 05.10 and 07.5 require an authenticated administrative Host to persist a ca
 - Resume creates a distinct Room and invite code while retaining canonical board, seat, hand, prompt, and timer state.
 - The complete identity transition is visible as one atomic first action in the new Room's ordered stream, and scripted creator logic remains client-side.
 - Scripted saves are resumable: standard-library turn and score state is reconciled before the optional creator resume hook runs.
+
+
+## Issue #94 amendment: opaque script state and verification (2026-09-27)
+
+A saved roster is also embedded in opaque `scriptState`: standard-library turns
+store literal player IDs, and scores may be keyed by player ID. Cleaning only
+`players` and seats cannot repair those references. The earlier “no kernel
+change needed” reasoning applies to excluding transient presentation state,
+not to the identity transition. Items 6, 9, and 10 therefore require the
+canonical `system.game_resumed` action and client-side Lua reconciliation.
+The kernel continues to treat script state as opaque; the Worker never runs Lua.
+
+The issue sketch simultaneously requested validation at sequence zero and
+sequencing resume after departures and joins. We choose one atomic first action:
+the input snapshot is sequence 0, unchanged apart from rebasing and rehashing;
+`system.game_resumed` is sequence 1. No preceding departure/join actions or
+`system.game_start` are emitted. This preserves the bootstrap hash and lets
+creator hooks see the entire live roster together. A failed creator hook follows
+normal rejection semantics: gameplay rolls back, sequence 1 is consumed, and the
+failure is surfaced; setup is not silently rerun.
+
+Saved seats are mapped to the Room's live players in durable join order. Seat
+IDs use code-unit ordering, matching `players:list()`; additional players receive
+unused generated seat IDs, including when saved seat names are sparse. Unmapped
+saved players are removed. The event's `removedPlayerIds` names every prior
+identity, including mapped identities; creators use `roster.previousPlayerId`
+to distinguish replacement from removal.
+
+The stdlib preserves the mapped current turn if present, otherwise selects the
+first surviving turn. It appends new live players in `players:list()` order and
+preserves stopped turns. Saved-player scores follow the mapping; unmapped saved
+scores are removed. Arbitrary non-player keys (for example team scores) are
+preserved: v1 scores accept both player proxies and arbitrary strings, so
+unknown string keys cannot safely be classified as departed players. Creator
+state outside `__stdlib` remains the creator's responsibility via the new hook.
+Reconciliation is restricted to resume deliveries and runs even without a hook;
+the existing live-roster marker prevents repeating it for multiple bindings.
+Fresh Room player IDs make a subsequent save/resume a new transition.
+
+This extends v1 only for the new resume event. Live `player_left` semantics are
+unchanged; continuous departure pruning (option b) needs a separately versioned
+stdlib decision. No builtin Lua source, immutable release bundle, or prior
+fixture is changed. `zone-runner-resume-v2.json` adds sequence-by-sequence hashes
+for independent replay clients, including the rebased base, a full turn cycle,
+three timer re-arms, and a winning move. CI rejects modifications, deletions,
+or renames of existing demo fixtures relative to the PR base (or prior main
+commit), while allowing new files.

@@ -45,6 +45,31 @@ function gameplayHash(state: CanonicalGameState): string {
 }
 
 describe("kernel-owned script transactions", () => {
+  test("resume hook failure rolls back roster, opaque script state, and RNG while consuming sequence one", async () => {
+    const initial = stateWithBindings();
+    initial.scriptState = { __stdlib: { scores: { player: 5 } }, custom: { player: 7 } };
+    const seen: string[] = [];
+    const runtime: ScriptRuntime = {
+      bindings() { return [{ bindingId: "b", scriptId: "b.lua", props: {} }]; },
+      async invoke(request) {
+        seen.push(request.functionName);
+        expect(Object.keys(request.state.players)).toEqual(["live"]);
+        expect(request.context.removedPlayerIds).toEqual(["other", "player"]);
+        request.bridge.randomInt(1, 6);
+        request.bridge.queue({ type: "counter.add", payload: { entityId: "score", amount: 1 } });
+        return { ok: false, error: { kind: "runtime", message: "resume hook failed" } };
+      },
+    };
+    const result = await applyOrderedWithScripts(initial, ordered(initial, "system.game_resumed", {
+      roster: [{ playerId: "live", seatId: "seat_1", previousPlayerId: "player" }],
+    }), { runtime });
+    expect(seen).toEqual(["on_game_resumed"]);
+    expect(result.rejection?.reason).toBe("resume hook failed");
+    expect(result.state.sequence).toBe(1);
+    expect(gameplayHash(result.state)).toBe(gameplayHash(initial));
+    expect(result.events.some((event) => event.type === "game.resumed")).toBe(false);
+  });
+
   test("dispatches three subscribers in stable ScriptBindingId order", async () => {
     const calls: string[] = [];
     const runtime: ScriptRuntime = {

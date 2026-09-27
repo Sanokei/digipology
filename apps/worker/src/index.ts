@@ -39,7 +39,7 @@ import {
   TIMER_CANCEL_GRACE_MS,
   timerFireDedupKey,
   nextHost,
-  resumedRosterFromSave,
+  sequenceGameResume,
   scheduledTimersToArm,
   validateCheckpointAttestationSnapshot,
   type RoomCoreState,
@@ -931,7 +931,6 @@ export class RoomDO extends DurableObject<Env> {
         : snapshot(builtinState);
     const resumeState = resumed ? loadSnapshot(baseSnapshot) : null;
     const timersToArm = resumeState === null ? [] : scheduledTimersToArm(resumeState);
-    const resumedRoster = resumeState === null ? [] : resumedRosterFromSave(resumeState, roster);
     this.ctx.storage.transactionSync(() => {
       const room = this.requiredRoom();
       if (room.started === 1 || room.ended_reason !== null) return;
@@ -952,10 +951,7 @@ export class RoomDO extends DurableObject<Env> {
         );
         this.persistSystemAction(started.orderedAction);
       } else {
-        const resumedAction = core.sequenceSystem(
-          { type: "system.game_resumed", payload: { roster: resumedRoster } },
-          "game_resumed",
-        );
+        const resumedAction = sequenceGameResume(core, initialState, roster);
         this.persistSystemAction(resumedAction.orderedAction);
       }
       if (builtinState === null && !resumed) {

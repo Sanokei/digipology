@@ -123,3 +123,10 @@ optional field types, finite/safe sequence numbers, actors, players, and strict
 field sets are checked here. Payload and snapshot contents are checked only to
 ensure they are JSON values. The validator walks those values iteratively, so a
 deeply nested payload does not consume the JavaScript call stack.
+
+
+`GameResumedPayload` describes the trusted `system.game_resumed` roster payload.
+`validateGameResumedPayload(value)` checks its shape at worker startup. The kernel
+validates membership, duplicate mappings, source authorization, and sequence.
+Wire parsers keep action payloads opaque, so even invalid player action requests
+can be sequenced and canonically rejected without changing protocol version 1.

@@ -165,6 +165,7 @@ describe("die.roll", () => {
 describe("player and seat lifecycle", () => {
   test("resume atomically replaces the saved roster at sequence one", () => {
     const initial = state();
+    initial.scriptState = { scores: { alice: 3, bob: 4 }, creatorOwned: true };
     initial.prompts.choice = {
       id: "choice", kind: "confirm", playerId: "alice", title: "Continue?", status: "open",
     };
@@ -198,7 +199,13 @@ describe("player and seat lifecycle", () => {
       type: "game.resumed",
       data: { roster: payload.roster, removedPlayerIds: ["alice", "bob"] },
     })]);
+    expect(result.state.scriptState).toEqual(initial.scriptState);
     expect(snapshot(result.state).stateHash).toBe(snapshot(resume().state).stateHash);
+    // Insertion order in the saved roster and opaque state cannot affect StateHash.
+    initial.scriptState = { creatorOwned: true, scores: { bob: 4, alice: 3 } };
+    initial.players = Object.fromEntries(Object.entries(initial.players).reverse());
+    initial.seats = Object.fromEntries(Object.entries(initial.seats).reverse());
+    expect(snapshot(resume().state).stateHash).toBe(snapshot(result.state).stateHash);
   });
 
   test("resume rejects non-system, repeated, duplicate, and unknown mappings", () => {
@@ -206,11 +213,14 @@ describe("player and seat lifecycle", () => {
     const valid = { roster: [{ playerId: "new", seatId: "seat_1", previousPlayerId: "alice" }] };
     expect(applyOrdered(initial, ordered(initial, "player_resume", "system.game_resumed", valid))
       .rejection?.reason).toContain("does not allow source player");
+    expect(applyOrdered(initial, ordered(initial, "script_resume", "system.game_resumed", valid,
+      { type: "script", scriptId: "rules" })).rejection?.reason).toContain("does not allow source script");
     const started = applyOrdered(initial, ordered(initial, "started", "system.game_start", {}, { type: "system" })).state;
     expect(applyOrdered(started, ordered(started, "late_resume", "system.game_resumed", valid, { type: "system" }))
       .rejection?.reason).toContain("sequence zero");
     for (const [payload, reason] of [
       [{ roster: [] }, "non-empty roster"],
+      [{ roster: [{ playerId: "one", seatId: "s1", previousPlayerId: "alice" }, { playerId: "two", seatId: "s2", previousPlayerId: "alice" }] }, "Duplicate previous player"],
       [{ roster: [{ playerId: "new", seatId: "seat_1", previousPlayerId: "missing" }] }, "Unknown previous player"],
       [{ roster: [{ playerId: "new", seatId: "seat_1" }, { playerId: "new", seatId: "seat_2" }] }, "Duplicate resumed player"],
       [{ roster: [{ playerId: "one", seatId: "seat_1" }, { playerId: "two", seatId: "seat_1" }] }, "Duplicate resumed seat"],

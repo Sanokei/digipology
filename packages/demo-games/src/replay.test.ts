@@ -14,6 +14,7 @@ import diceDashV2Json from "../fixtures/dice-dash-replay-v2.json";
 import zoneRunnerJson from "../fixtures/zone-runner-replay-v1.json";
 import zoneRunnerV2Json from "../fixtures/zone-runner-replay-v2.json";
 import zoneRunnerResumeJson from "../fixtures/zone-runner-resume-v1.json";
+import zoneRunnerResumeV2Json from "../fixtures/zone-runner-resume-v2.json";
 import {
   DemoLuaHost,
   createBuiltinCreatorRuntime,
@@ -113,9 +114,15 @@ async function replay(fixture: ReplayFixture): Promise<RunResult> {
   );
 }
 
-async function replayResumeFixture(fixture: ResumeReplayFixture): Promise<RunResult> {
+async function replayResumeFixture(fixture: ResumeReplayFixture): Promise<RunResult & {
+  hashes: string[]; baseHash: string; turns: string[]; timerIds: string[];
+}> {
   const runtime = await createBuiltinCreatorRuntime(fixture.releaseId);
   let state = createZoneRunnerV2InitialState();
+  const hashes: string[] = [];
+  const turns: string[] = [];
+  const timerIds: string[] = [];
+  let baseHash = "";
   let rejectionCount = 0;
   const eventTypes: string[] = [];
   try {
@@ -126,18 +133,34 @@ async function replayResumeFixture(fixture: ResumeReplayFixture): Promise<RunRes
     }
 
     const saved = snapshot(state);
+    expect(saved.stateHash).toBe(zoneRunnerResumeV2Json.expectedSavedStateHash);
+    baseHash = snapshot({ ...loadSnapshot(saved), sequence: 0 }).stateHash;
     state = loadSnapshot(snapshot({ ...loadSnapshot(saved), sequence: 0 }));
+    hashes.push(snapshot(state).stateHash);
 
     for (const ordered of fixture.resumedActions) {
       const result = await applyOrderedWithScripts(state, ordered, { runtime });
       state = result.state;
       eventTypes.push(...result.events.map((event) => event.type));
       if (result.rejection !== undefined) rejectionCount += 1;
+      expect(result.rejection).toBeUndefined();
+      hashes.push(snapshot(state).stateHash);
+      const stdlib = state.scriptState.__stdlib as {
+        turns: { active: boolean; order: string[]; index: number }; scores: Record<string, number>;
+      };
+      expect(stdlib.turns.order.every((id) => state.players[id] !== undefined)).toBe(true);
+      expect(Object.keys(stdlib.scores).every((id) => state.players[id] !== undefined)).toBe(true);
+      if (stdlib.turns.active) turns.push(stdlib.turns.order[stdlib.turns.index - 1]!);
+      if (ordered.action.type === "system.timer_fire") {
+        const scheduled = Object.values(state.timers ?? {}).filter((timer) => timer.status === "scheduled");
+        expect(scheduled).toHaveLength(1);
+        timerIds.push(scheduled[0]!.id);
+      }
     }
   } finally {
     runtime.close();
   }
-  return { state, rejectionCount, eventTypes };
+  return { state, rejectionCount, eventTypes, hashes, baseHash, turns, timerIds };
 }
 
 function counterValue(state: CanonicalGameState, entityId: string): number {
@@ -291,6 +314,15 @@ describe("game contracts", () => {
 
     expect(first.rejectionCount).toBe(0);
     expect(second.rejectionCount).toBe(0);
+    expect(first.hashes).toHaveLength(zoneRunnerResume.resumedActions.length + 1);
+    expect(first.hashes).toEqual(second.hashes);
+    expect(first.hashes).toEqual(zoneRunnerResumeV2Json.expectedStateHashes);
+    expect(zoneRunnerResumeV2Json.savedActions).toEqual(zoneRunnerResume.savedActions);
+    expect(zoneRunnerResumeV2Json.resumedActions).toEqual(zoneRunnerResume.resumedActions);
+    expect(first.hashes[0]).toBe(first.baseHash);
+    expect(first.baseHash).toBe(second.baseHash);
+    expect(first.turns.slice(0, 4)).toEqual(["guest_live", "host_live", "guest_live", "host_live"]);
+    expect(new Set(first.timerIds).size).toBe(3);
     expect(firstHash).toBe(zoneRunnerResume.expectedFinalStateHash);
     expect(snapshot(second.state).stateHash).toBe(zoneRunnerResume.expectedFinalStateHash);
     expect(second.state).toEqual(first.state);
