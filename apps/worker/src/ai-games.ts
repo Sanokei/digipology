@@ -317,6 +317,8 @@ function buildAiRequest(
     },
     maxTokens: 900,
     temperature: 0.35,
+    // Qwen3 hybrid thinking burns the token budget on reasoning instead of the forced tool call.
+    extraBody: { enable_thinking: false },
   });
 }
 

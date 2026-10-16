@@ -50,6 +50,24 @@ describe("makeModelFetch", () => {
     });
     expect(seenInit?.body).toBe(JSON.stringify(request));
   });
+  test("merges extraBody into the top-level POST body and strips the key", async () => {
+    let seenInit: RequestInit | undefined;
+    globalThis.fetch = (async (_input, init) => {
+      seenInit = init;
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as typeof fetch;
+
+    const port = makeModelFetch({ baseUrl: "https://qwen.example/" });
+    expect(port).not.toBeNull();
+    await port!({ ...request, extraBody: { enable_thinking: false } }, 100);
+    const body = JSON.parse(String(seenInit?.body)) as Record<string, unknown>;
+    expect(body.enable_thinking).toBe(false);
+    expect("extraBody" in body).toBe(false);
+    expect(body.model).toBe("qwen3-0.6b");
+  });
 
   test("omits the authorization header when keyless", async () => {
     let seenInit: RequestInit | undefined;

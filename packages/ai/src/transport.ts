@@ -32,10 +32,16 @@ export function makeModelFetch(options: {
       };
       // llama-server needs no key: omit Authorization entirely when absent.
       if (apiKey) headers["authorization"] = `Bearer ${apiKey}`;
+      // Merge provider-neutral extraBody fields into the top-level wire body
+      // (e.g. enable_thinking); the extraBody key itself is stripped. When
+      // extraBody is undefined the body is byte-identical to before.
+      const { extraBody, ...fields } = payload;
       const response = await fetch(`${baseUrl}/chat/completions`, {
         method: "POST",
         headers,
-        body: JSON.stringify(payload),
+        body: JSON.stringify(
+          extraBody === undefined ? payload : { ...fields, ...extraBody },
+        ),
         signal: controller.signal,
       });
       const data: unknown = await response.json().catch(() => null);

@@ -41,4 +41,29 @@ describe("request builders", () => {
     });
     expect(request).not.toHaveProperty("response_format");
   });
+  test("buildRequest carries extraBody through only when provided", () => {
+    const base = {
+      model: "qwen3-0.6b",
+      messages: [{ role: "user", content: "Build it" }] as const,
+      tool: {
+        name: "emit_result",
+        description: "Emit a result",
+        properties: { title: STR("Title") },
+        required: ["title"],
+      },
+    };
+
+    const withExtra = buildRequest({
+      ...base,
+      messages: [...base.messages],
+      extraBody: { enable_thinking: false },
+    });
+    expect(withExtra.extraBody).toEqual({ enable_thinking: false });
+
+    const withoutExtra = buildRequest({
+      ...base,
+      messages: [...base.messages],
+    });
+    expect(withoutExtra).not.toHaveProperty("extraBody");
+  });
 });
