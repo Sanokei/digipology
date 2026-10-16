@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { Database, type SQLQueryBindings } from "bun:sqlite";
-import { responseUsd, type DeepseekFetch, type DeepSeekRequest } from "digipology-ai";
+import { responseRequests, type ModelFetch, type ModelRequest } from "digipology-ai";
 import { normalizeCoverSpec, seededSpec, type CoverSpec } from "digipology-covers";
 import type { ReleaseBundleDto } from "digipology-protocol/http";
 import { createSession } from "./auth";
@@ -82,8 +82,8 @@ describe("AI game route matrices", () => {
 
     test(`${route}: rejects the cap boundary before the model`, async () => {
       const fixture = await routeFixture();
-      fixture.db.query("INSERT INTO deepseek_usage (user_id, day, usd) VALUES (?, ?, ?)")
-        .run("user_owner", "2026-08-14", 1);
+      fixture.db.query("INSERT INTO ai_usage (user_id, day, requests) VALUES (?, ?, ?)")
+        .run("user_owner", "2026-08-14", 50);
       let calls = 0;
       const response = await requestRoute(route, fixture.env, fixture.cookie, async () => {
         calls += 1;
@@ -117,7 +117,7 @@ describe("AI game route matrices", () => {
 
     test(`${route}: three invalid drafts return 502 and typed feedback`, async () => {
       const fixture = await routeFixture();
-      const requests: DeepSeekRequest[] = [];
+      const requests: ModelRequest[] = [];
       const invalid = authoringFromBundle(builtinCatalog.getRelease("builtin_dice_dash_2")!.bundle);
       (invalid.files as Array<{ content: string }>)[0]!.content += '\n{"type":"deck.teleport"}';
       const response = await requestRoute(route, fixture.env, fixture.cookie, async (payload) => {
@@ -147,14 +147,14 @@ describe("AI game route matrices", () => {
 
   test("forces the source-derived function tool and never sends response_format", async () => {
     const fixture = await routeFixture();
-    let captured: DeepSeekRequest | null = null;
+    let captured: ModelRequest | null = null;
     const response = await requestRoute("create", fixture.env, fixture.cookie, async (payload) => {
       captured = payload;
       return validModelResponse();
     });
     expect(response.status).toBe(200);
-    const request = captured! as DeepSeekRequest;
-    expect(request.model).toBe("deepseek-v4-flash");
+    const request = captured! as ModelRequest;
+    expect(request.model).toBe("qwen3-0.6b");
     expect(request.tool_choice).toEqual({ type: "function", function: { name: "emit_game_bundle_draft" } });
     expect(request.tools[0]?.function.parameters).toMatchObject({ additionalProperties: false });
     expect(request.messages[0]?.content).toContain("deck.draw_to_container");
@@ -165,23 +165,23 @@ describe("AI game route matrices", () => {
 });
 
 describe("AI game budgets", () => {
-  test("records response cost before failed extraction and accumulates all attempts", async () => {
+  test("records a request before failed extraction and accumulates all attempts", async () => {
     const fixture = await routeFixture();
     const unextractable = { choices: [{ message: { content: "no tool object" } }], usage: {
       prompt_tokens: 1_000, completion_tokens: 1_000,
     } };
     const response = await requestRoute("create", fixture.env, fixture.cookie, async () => unextractable);
     expect(response.status).toBe(502);
-    const row = fixture.db.query("SELECT day, usd FROM deepseek_usage WHERE user_id = ?")
-      .get("user_owner") as { day: string; usd: number };
+    const row = fixture.db.query("SELECT day, requests FROM ai_usage WHERE user_id = ?")
+      .get("user_owner") as { day: string; requests: number };
     expect(row.day).toBe("2026-08-14");
-    expect(row.usd).toBeCloseTo(responseUsd(unextractable) * 3, 12);
+    expect(row.requests).toBe(responseRequests(unextractable) * 3);
   });
 
   test("allows just under the cap and then records the completed call", async () => {
     const fixture = await routeFixture();
-    fixture.db.query("INSERT INTO deepseek_usage (user_id, day, usd) VALUES (?, ?, ?)")
-      .run("user_owner", "2026-08-14", 0.999999);
+    fixture.db.query("INSERT INTO ai_usage (user_id, day, requests) VALUES (?, ?, ?)")
+      .run("user_owner", "2026-08-14", 49);
     let calls = 0;
     const response = await requestRoute("create", fixture.env, fixture.cookie, async () => {
       calls += 1;
@@ -189,14 +189,14 @@ describe("AI game budgets", () => {
     });
     expect(response.status).toBe(200);
     expect(calls).toBe(1);
-    const usd = (fixture.db.query("SELECT usd FROM deepseek_usage WHERE user_id = ? AND day = ?")
-      .get("user_owner", "2026-08-14") as { usd: number }).usd;
-    expect(usd).toBeGreaterThan(0.999999);
+    const requests = (fixture.db.query("SELECT requests FROM ai_usage WHERE user_id = ? AND day = ?")
+      .get("user_owner", "2026-08-14") as { requests: number }).requests;
+    expect(requests).toBe(50);
   });
 
   test("feeds a typed violation to attempt two and meters both calls", async () => {
     const fixture = await routeFixture();
-    const captured: DeepSeekRequest[] = [];
+    const captured: ModelRequest[] = [];
     const invalid = authoringFromBundle(builtinCatalog.getRelease("builtin_dice_dash_2")!.bundle);
     (invalid.files as Array<{ content: string }>)[0]!.content += '\n{"type":"counter.multiply"}';
     const valid = authoringFromBundle(builtinCatalog.getRelease("builtin_dice_dash_2")!.bundle);
@@ -208,14 +208,14 @@ describe("AI game budgets", () => {
     expect(response.status).toBe(200);
     expect(captured).toHaveLength(2);
     expect(captured[1]?.messages.at(-1)?.content).toContain("counter.multiply");
-    const usd = (fixture.db.query("SELECT usd FROM deepseek_usage WHERE user_id = ?")
-      .get("user_owner") as { usd: number }).usd;
-    expect(usd).toBeCloseTo(responseUsd(modelResponse(invalid)) + responseUsd(responseTemplate), 12);
+    const requests = (fixture.db.query("SELECT requests FROM ai_usage WHERE user_id = ?")
+      .get("user_owner") as { requests: number }).requests;
+    expect(requests).toBe(responseRequests(modelResponse(invalid)) + responseRequests(responseTemplate));
   });
 
   test("rechecks the cap between validator-loop attempts", async () => {
     const fixture = await routeFixture();
-    Object.assign(fixture.env, { AI_DAILY_USD_CAP: "0.001" });
+    Object.assign(fixture.env, { AI_DAILY_REQUEST_CAP: "1" });
     let calls = 0;
     const costlyInvalid = {
       choices: [{ message: { content: "unextractable" } }],
@@ -227,8 +227,8 @@ describe("AI game budgets", () => {
     });
     expect(response.status).toBe(429);
     expect(calls).toBe(1);
-    expect((fixture.db.query("SELECT usd FROM deepseek_usage WHERE user_id = ?")
-      .get("user_owner") as { usd: number }).usd).toBeCloseTo(responseUsd(costlyInvalid), 12);
+    expect((fixture.db.query("SELECT requests FROM ai_usage WHERE user_id = ?")
+      .get("user_owner") as { requests: number }).requests).toBe(1);
   });
 });
 
@@ -250,8 +250,8 @@ describe("cover generation route matrix", () => {
     expect(keylessBody.candidates).toHaveLength(4);
 
     const capped = await routeFixture();
-    capped.db.query("INSERT INTO deepseek_usage (user_id, day, usd) VALUES (?, ?, ?)")
-      .run("user_owner", "2026-08-14", 1);
+    capped.db.query("INSERT INTO ai_usage (user_id, day, requests) VALUES (?, ?, ?)")
+      .run("user_owner", "2026-08-14", 50);
     let calls = 0;
     const cappedResponse = await requestCoverRoute(capped.env, capped.cookie, async () => {
       calls += 1;
@@ -268,7 +268,7 @@ describe("cover generation route matrix", () => {
 
   test("forces the cover tool and returns four normalized AI candidates", async () => {
     const fixture = await routeFixture();
-    let captured: DeepSeekRequest | null = null;
+    let captured: ModelRequest | null = null;
     const response = await requestCoverRoute(fixture.env, fixture.cookie, async (request) => {
       captured = request;
       return coverModelResponse(validCoverSpecs());
@@ -278,14 +278,14 @@ describe("cover generation route matrix", () => {
     expect(body.source).toBe("ai");
     expect(body.candidates).toHaveLength(4);
     expect(body.candidates.every(({ spec, svg }) => normalizeCoverSpec(spec) !== null && svg.includes('viewBox="0 0 336 504"'))).toBe(true);
-    const request = captured! as DeepSeekRequest;
+    const request = captured! as ModelRequest;
     expect(request.tool_choice).toEqual({ type: "function", function: { name: "emit_cover_specs" } });
     expect(request.tools[0]?.function.parameters).toMatchObject({ additionalProperties: false });
     expect(request.messages.at(-1)?.content).toContain("Owned Game");
     expect(JSON.stringify(request)).not.toContain("response_format");
     expect(COVER_GENERATION_TOOL.function.parameters).toMatchObject({ additionalProperties: false });
-    expect((fixture.db.query("SELECT usd FROM deepseek_usage WHERE user_id = ?")
-      .get("user_owner") as { usd: number }).usd).toBeGreaterThan(0);
+    expect((fixture.db.query("SELECT requests FROM ai_usage WHERE user_id = ?")
+      .get("user_owner") as { requests: number }).requests).toBe(1);
   });
 
   test("replaces invalid emitted specs positionally and still returns four AI candidates", async () => {
@@ -312,9 +312,9 @@ describe("cover generation route matrix", () => {
     const response = await requestCoverRoute(fixture.env, fixture.cookie, async () => malformed);
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ source: "procedural", candidates: expect.any(Array) });
-    const usage = fixture.db.query("SELECT usd FROM deepseek_usage WHERE user_id = ?")
-      .get("user_owner") as { usd: number };
-    expect(usage.usd).toBeCloseTo(responseUsd(malformed), 12);
+    const usage = fixture.db.query("SELECT requests FROM ai_usage WHERE user_id = ?")
+      .get("user_owner") as { requests: number };
+    expect(usage.requests).toBe(responseRequests(malformed));
   });
 });
 
@@ -353,6 +353,7 @@ async function routeFixture(sessionUser = "user_owner"): Promise<RouteFixture> {
   for (const name of [
     "0001_platform_v1.sql", "0002_uploaded_games_v1.sql",
     "0003_quickplay_metrics_covers.sql", "0004_deepseek_usage.sql",
+    "0007_ai_usage.sql",
   ]) db.exec(await Bun.file(new URL(`../migrations/${name}`, import.meta.url)).text());
   db.query("INSERT INTO users (id, name, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?)")
     .run("user_owner", "Owner", "owner@example.com", NOW, NOW);
@@ -400,8 +401,8 @@ async function routeFixture(sessionUser = "user_owner"): Promise<RouteFixture> {
       DB: d1,
       RELEASES: releases,
       SESSION_SECRET,
-      AI_DAILY_USD_CAP: "1",
-      DEEPSEEK_MODEL: "deepseek-v4-flash",
+      AI_DAILY_REQUEST_CAP: "50",
+      AI_MODEL: "qwen3-0.6b",
     } as unknown as Env,
     cookie: `dgp_session=${session.token}`,
     r2Gets,
@@ -413,7 +414,7 @@ async function requestRoute(
   route: "create" | "edit",
   env: Env,
   cookie: string | null,
-  fetch: DeepseekFetch | null,
+  fetch: ModelFetch | null,
 ): Promise<Response> {
   const path = route === "create" ? "/api/ai/games" : "/api/ai/games/owned-game/edit";
   const headers = new Headers(CSRF);
@@ -422,20 +423,20 @@ async function requestRoute(
     method: "POST",
     headers,
     body: JSON.stringify(route === "create" ? { prompt: "Make a quick dice game" } : { instruction: "Make scoring clearer" }),
-  }), env, { deepseekFetch: fetch, now: NOW });
+  }), env, { modelFetch: fetch, now: NOW });
 }
 
 async function requestCoverRoute(
   env: Env,
   cookie: string | null,
-  fetch: DeepseekFetch | null,
+  fetch: ModelFetch | null,
 ): Promise<Response> {
   const headers = new Headers(CSRF);
   if (cookie !== null) headers.set("Cookie", cookie);
   return handlePlatformRequest(new Request(
     "https://play.digipology.com/api/games/owned-game/covers/generate",
     { method: "POST", headers },
-  ), env, { deepseekFetch: fetch, now: NOW });
+  ), env, { modelFetch: fetch, now: NOW });
 }
 
 function validModelResponse(): unknown {

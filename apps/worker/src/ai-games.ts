@@ -1,18 +1,18 @@
 import { canonicalStringify, hashValue, sha256 } from "digipology-canonical-json";
 import {
   BOOL,
-  DEFAULT_DEEPSEEK_MODEL,
+  DEFAULT_MODEL_ID,
   NUM,
   STR,
   buildRequest,
   dayKey,
   extractToolPayload,
-  makeDeepseekFetch,
-  responseUsd,
+  makeModelFetch,
+  responseRequests,
   runStructuredTask,
-  type DeepseekFetch,
-  type DeepSeekRequest,
-  type DeepSeekTool,
+  type ModelFetch,
+  type ModelRequest,
+  type ModelTool,
   type Violation,
 } from "digipology-ai";
 import {
@@ -107,7 +107,7 @@ const definitionSchema = strictObject({
 }, ["id", "label", "color"]);
 
 /** Strict forced-function schema for the model-owned, authorable surface only. */
-export const AI_GAME_TOOL: DeepSeekTool = {
+export const AI_GAME_TOOL: ModelTool = {
   type: "function",
   function: {
     name: AI_TOOL_NAME,
@@ -137,8 +137,8 @@ export const AI_GAME_TOOL: DeepSeekTool = {
 };
 
 export interface AiGameDependencies {
-  /** Tests inject a hermetic port. Omit to construct the production DeepSeek port. */
-  deepseekFetch?: DeepseekFetch | null;
+  /** Tests inject a hermetic port. Omit to construct the production model port. */
+  modelFetch?: ModelFetch | null;
 }
 
 export interface AiGameRouteInput {
@@ -167,7 +167,7 @@ interface AssemblyResult {
 }
 
 interface UsageRow {
-  usd: number;
+  requests: number;
 }
 
 export async function handleAiGameRequest(input: AiGameRouteInput): Promise<Response> {
@@ -176,15 +176,15 @@ export async function handleAiGameRequest(input: AiGameRouteInput): Promise<Resp
     : null;
   if (ownedGame instanceof Response) return ownedGame;
 
-  const deepseekFetch = resolveDeepseekFetch(input.env, input.dependencies);
-  if (deepseekFetch === null) {
+  const modelFetch = resolveModelFetch(input.env, input.dependencies);
+  if (modelFetch === null) {
     return jsonError(503, "ai_unconfigured", "AI creation isn't set up on this server yet");
   }
 
   const usageDay = dayKey(new Date(input.now));
   const cap = dailyCap(input.env);
   if (await usageAtOrAboveCap(input.env.DB, input.session.user.id, usageDay, cap)) {
-    return dailyCapResponse();
+    return dailyCapResponse(cap);
   }
 
   const limiter = new FixedWindowRateLimiter(input.repositories, AI_RATE_LIMIT, AI_RATE_WINDOW_MS);
@@ -232,8 +232,8 @@ export async function handleAiGameRequest(input: AiGameRouteInput): Promise<Resp
   };
   const request = buildAiRequest(input.env, input.mode, prompt, existingBundle);
   let lastAssembly: AssemblyResult = failedAssembly("The model did not emit a usable draft");
-  const metered = createMeteredDeepseekFetch({
-    deepseekFetch,
+  const metered = createMeteredModelFetch({
+    modelFetch,
     db: input.env.DB,
     userId: input.session.user.id,
     day: usageDay,
@@ -259,7 +259,7 @@ export async function handleAiGameRequest(input: AiGameRouteInput): Promise<Resp
     };
     return jsonResponse(response);
   }
-  if (metered.capReached()) return dailyCapResponse();
+  if (metered.capReached()) return dailyCapResponse(cap);
 
   const response: AiGameGenerationErrorResponse = {
     error: {
@@ -277,7 +277,7 @@ function buildAiRequest(
   mode: "create" | "edit",
   prompt: string,
   existingBundle: ReleaseBundleDto | null,
-): DeepSeekRequest {
+): ModelRequest {
   const reference = builtinCatalog.getRelease("builtin_dice_dash_2")?.bundle;
   const referenceText = reference === undefined
     ? ""
@@ -291,7 +291,7 @@ function buildAiRequest(
     return `${type}${requires.length === 0 ? "" : ` (requires ${requires.join(", ")})`}`;
   }).join(", ");
   const system = [
-    "You create valid Digipology release drafts through the forced tool only.",
+    "You create valid Digipology release drafts through the forced tool if you can call it, otherwise as raw JSON.",
     "The tool schema is the authorable bundle surface; never emit IDs, hashes, byte lengths, integrity, or snapshots.",
     `Registered kernel actions only: ${actions}.`,
     `Registered components only: ${components}.`,
@@ -301,12 +301,13 @@ function buildAiRequest(
     "Lua math.random and math.randomseed are removed; os.time() and os.clock() deterministically return 0. There is no require, package, io, debug, loadfile, dofile, network, filesystem, timers, or JS interop.",
     "Files must stay under runtime/ or scripts/. Use only registered action names in JSON or Lua.",
     referenceText,
+    "If you cannot call the tool, emit the complete payload as ONE raw JSON object as your entire message content — no prose, no markdown fences, no explanation.",
   ].join("\n");
   const user = mode === "create"
     ? `Create a complete playable game draft from this description:\n${prompt}`
     : `Edit the current game according to this instruction and emit the complete replacement draft:\n${prompt}${current}`;
   return buildRequest({
-    model: configuredString(env, "DEEPSEEK_MODEL", DEFAULT_DEEPSEEK_MODEL),
+    model: configuredString(env, "AI_MODEL", DEFAULT_MODEL_ID),
     messages: [{ role: "system", content: system }, { role: "user", content: user }],
     tool: {
       name: AI_GAME_TOOL.function.name,
@@ -314,7 +315,7 @@ function buildAiRequest(
       properties: AI_GAME_TOOL.function.parameters.properties as Record<string, unknown>,
       required: AI_GAME_TOOL.function.parameters.required as string[],
     },
-    maxTokens: 16_000,
+    maxTokens: 900,
     temperature: 0.35,
   });
 }
@@ -643,16 +644,21 @@ async function ownedGameForEdit(
   return game;
 }
 
-export function resolveDeepseekFetch(env: Env, dependencies: AiGameDependencies | undefined): DeepseekFetch | null {
-  if (dependencies !== undefined && Object.prototype.hasOwnProperty.call(dependencies, "deepseekFetch")) {
-    return dependencies.deepseekFetch ?? null;
+export function resolveModelFetch(env: Env, dependencies: AiGameDependencies | undefined): ModelFetch | null {
+  if (dependencies !== undefined && Object.prototype.hasOwnProperty.call(dependencies, "modelFetch")) {
+    return dependencies.modelFetch ?? null;
   }
-  return makeDeepseekFetch({ apiKey: configuredString(env, "DEEPSEEK_API_KEY", "") || undefined });
+  const apiKey = configuredString(env, "AI_API_KEY", "") || undefined;
+  const baseUrl = configuredString(env, "AI_BASE_URL", "") || undefined;
+  return makeModelFetch({
+    ...(apiKey === undefined ? {} : { apiKey }),
+    ...(baseUrl === undefined ? {} : { baseUrl }),
+  });
 }
 
 export function dailyCap(env: Env): number {
-  const parsed = Number(configuredString(env, "AI_DAILY_USD_CAP", "1"));
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 1;
+  const parsed = Number(configuredString(env, "AI_DAILY_REQUEST_CAP", "50"));
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 50;
 }
 
 export async function usageAtOrAboveCap(
@@ -662,36 +668,36 @@ export async function usageAtOrAboveCap(
   cap: number,
 ): Promise<boolean> {
   const row = await db.prepare(
-    "SELECT usd FROM deepseek_usage WHERE user_id = ? AND day = ?",
+    "SELECT requests FROM ai_usage WHERE user_id = ? AND day = ?",
   ).bind(userId, day).first<UsageRow>();
-  return (row?.usd ?? 0) >= cap;
+  return (row?.requests ?? 0) >= cap;
 }
 
 export async function recordUsage(
   db: D1Database,
   userId: string,
   day: string,
-  usd: number,
+  requests: number,
 ): Promise<void> {
   await db.prepare(
-    `INSERT INTO deepseek_usage (user_id, day, usd) VALUES (?, ?, ?)
-     ON CONFLICT(user_id, day) DO UPDATE SET usd = deepseek_usage.usd + excluded.usd`,
-  ).bind(userId, day, Number.isFinite(usd) && usd > 0 ? usd : 0).run();
+    `INSERT INTO ai_usage (user_id, day, requests) VALUES (?, ?, ?)
+     ON CONFLICT(user_id, day) DO UPDATE SET requests = ai_usage.requests + excluded.requests`,
+  ).bind(userId, day, Number.isFinite(requests) && requests > 0 ? requests : 0).run();
 }
 
-export interface MeteredDeepseekFetch {
-  fetch: DeepseekFetch;
+export interface MeteredModelFetch {
+  fetch: ModelFetch;
   capReached(): boolean;
 }
 
 /** Wraps a model port so every response is billed before any caller parses it. */
-export function createMeteredDeepseekFetch(input: {
-  deepseekFetch: DeepseekFetch;
+export function createMeteredModelFetch(input: {
+  modelFetch: ModelFetch;
   db: D1Database;
   userId: string;
   day: string;
   cap: number;
-}): MeteredDeepseekFetch {
+}): MeteredModelFetch {
   let reached = false;
   return {
     fetch: async (payload, timeoutMs) => {
@@ -699,9 +705,9 @@ export function createMeteredDeepseekFetch(input: {
         reached = true;
         return null;
       }
-      const response = await input.deepseekFetch(payload, timeoutMs);
+      const response = await input.modelFetch(payload, timeoutMs);
       if (response !== null) {
-        await recordUsage(input.db, input.userId, input.day, responseUsd(response));
+        await recordUsage(input.db, input.userId, input.day, responseRequests(response));
       }
       return response;
     },
@@ -747,11 +753,11 @@ function releaseBucket(env: Env): R2Bucket | null {
   return value !== null && typeof value === "object" ? value as R2Bucket : null;
 }
 
-function dailyCapResponse(): Response {
+function dailyCapResponse(cap: number): Response {
   return jsonError(
     429,
     "ai_daily_cap",
-    "You've reached today's AI creation limit. It resets at UTC midnight.",
+    `You've reached today's AI creation limit (${cap} requests). It resets at UTC midnight.`,
   );
 }
 

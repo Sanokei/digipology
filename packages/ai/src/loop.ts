@@ -1,5 +1,5 @@
-import type { DeepSeekMessage, DeepSeekRequest } from "./request";
-import type { DeepseekFetch } from "./transport";
+import type { ModelMessage, ModelRequest } from "./request";
+import type { ModelFetch } from "./transport";
 
 export interface Violation {
   code: string;
@@ -15,8 +15,8 @@ export interface StructuredTaskTelemetry {
 }
 
 export interface RunStructuredTaskOptions<T> {
-  fetch: DeepseekFetch;
-  request: DeepSeekRequest;
+  fetch: ModelFetch;
+  request: ModelRequest;
   extract: (response: unknown) => T | null;
   validate: (value: T) => Violation[];
   maxAttempts?: number;
@@ -35,7 +35,7 @@ function feedbackTurns<T>(
   value: T,
   violations: Violation[],
   toolName: string,
-): DeepSeekMessage[] | null {
+): ModelMessage[] | null {
   let payload: string;
   try {
     payload = JSON.stringify(value);
@@ -57,9 +57,9 @@ function feedbackTurns<T>(
 }
 
 function requestWithFeedback(
-  request: DeepSeekRequest,
-  feedback: DeepSeekMessage[] | null,
-): DeepSeekRequest {
+  request: ModelRequest,
+  feedback: ModelMessage[] | null,
+): ModelRequest {
   return {
     ...request,
     messages: feedback === null ? [...request.messages] : [...request.messages, ...feedback],
@@ -76,7 +76,7 @@ export async function runStructuredTask<T>(
 ): Promise<{ result: T | null; telemetry: StructuredTaskTelemetry }> {
   const maxAttempts = attemptLimit(options.maxAttempts);
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  let feedback: DeepSeekMessage[] | null = null;
+  let feedback: ModelMessage[] | null = null;
   let lastViolations: Violation[] = [];
   let attempts = 0;
 

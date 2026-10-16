@@ -1,11 +1,11 @@
 import {
-  DEFAULT_DEEPSEEK_MODEL,
+  DEFAULT_MODEL_ID,
   NUM,
   STR,
   buildRequest,
   dayKey,
   extractToolPayload,
-  type DeepSeekTool,
+  type ModelTool,
 } from "digipology-ai";
 import {
   COVER_LAYOUTS,
@@ -20,9 +20,9 @@ import type { AuthenticatedSession } from "./auth";
 import type { D1Repositories } from "./d1-repositories";
 import {
   configuredString,
-  createMeteredDeepseekFetch,
+  createMeteredModelFetch,
   dailyCap,
-  resolveDeepseekFetch,
+  resolveModelFetch,
   usageAtOrAboveCap,
   type AiGameDependencies,
 } from "./ai-games";
@@ -54,7 +54,7 @@ const coverSpecSchema = strictObject({
   seed: { ...NUM("Non-negative integer controlling deterministic layout jitter."), minimum: 0, multipleOf: 1 },
 }, ["palette", "layout", "motif", "titleTreatment", "seed"]);
 
-export const COVER_GENERATION_TOOL: DeepSeekTool = {
+export const COVER_GENERATION_TOOL: ModelTool = {
   type: "function",
   function: {
     name: COVER_TOOL_NAME,
@@ -92,8 +92,8 @@ export async function handleCoverGeneration(input: CoverGenerationInput): Promis
   }
 
   const fallback = proceduralResponse(input.slug, game.title, game.tagline);
-  const deepseekFetch = resolveDeepseekFetch(input.env, input.dependencies);
-  if (deepseekFetch === null) return jsonResponse(fallback);
+  const modelFetch = resolveModelFetch(input.env, input.dependencies);
+  if (modelFetch === null) return jsonResponse(fallback);
 
   const day = dayKey(new Date(input.now));
   const cap = dailyCap(input.env);
@@ -101,8 +101,8 @@ export async function handleCoverGeneration(input: CoverGenerationInput): Promis
     return jsonResponse(fallback);
   }
 
-  const metered = createMeteredDeepseekFetch({
-    deepseekFetch,
+  const metered = createMeteredModelFetch({
+    modelFetch,
     db: input.env.DB,
     userId: input.session.user.id,
     day,
@@ -122,7 +122,7 @@ export async function handleCoverGeneration(input: CoverGenerationInput): Promis
 
 function buildCoverRequest(env: Env, title: string, tagline: string) {
   return buildRequest({
-    model: configuredString(env, "DEEPSEEK_MODEL", DEFAULT_DEEPSEEK_MODEL),
+    model: configuredString(env, "AI_MODEL", DEFAULT_MODEL_ID),
     messages: [
       {
         role: "system",

@@ -1,9 +1,9 @@
-export interface DeepSeekMessage {
+export interface ModelMessage {
   role: "system" | "user" | "assistant";
   content: string;
 }
 
-export interface DeepSeekTool {
+export interface ModelTool {
   type: "function";
   function: {
     name: string;
@@ -12,10 +12,10 @@ export interface DeepSeekTool {
   };
 }
 
-export interface DeepSeekRequest {
+export interface ModelRequest {
   model: string;
-  messages: DeepSeekMessage[];
-  tools: DeepSeekTool[];
+  messages: ModelMessage[];
+  tools: ModelTool[];
   tool_choice: { type: "function"; function: { name: string } };
   max_tokens?: number;
   temperature?: number;
@@ -27,7 +27,7 @@ export const BOOL = (description: string) => ({ type: "boolean", description }) 
 
 export interface BuildRequestOptions {
   model: string;
-  messages: DeepSeekMessage[];
+  messages: ModelMessage[];
   tool: {
     name: string;
     description: string;
@@ -39,8 +39,8 @@ export interface BuildRequestOptions {
 }
 
 /** Builds one strict object-valued function tool and pins the model to it. */
-export function buildRequest(options: BuildRequestOptions): DeepSeekRequest {
-  const request: DeepSeekRequest = {
+export function buildRequest(options: BuildRequestOptions): ModelRequest {
+  const request: ModelRequest = {
     model: options.model,
     messages: [...options.messages],
     tools: [

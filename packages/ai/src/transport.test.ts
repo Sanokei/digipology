@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
-import type { DeepSeekRequest } from "./request";
-import { makeDeepseekFetch } from "./transport";
+import type { ModelRequest } from "./request";
+import { makeModelFetch, DEFAULT_MODEL_BASE_URL } from "./transport";
 
-const request: DeepSeekRequest = {
-  model: "deepseek-v4-flash",
+const request: ModelRequest = {
+  model: "qwen3-0.6b",
   messages: [{ role: "user", content: "hello" }],
   tools: [],
   tool_choice: { type: "function", function: { name: "emit" } },
@@ -16,10 +16,12 @@ afterEach(() => {
   globalThis.fetch = originalFetch;
 });
 
-describe("makeDeepseekFetch", () => {
-  test("returns null for missing and empty keys", () => {
-    expect(makeDeepseekFetch({ apiKey: undefined })).toBeNull();
-    expect(makeDeepseekFetch({ apiKey: "" })).toBeNull();
+describe("makeModelFetch", () => {
+  test("returns null only when baseUrl is explicitly empty without a key", () => {
+    expect(makeModelFetch({ baseUrl: "" })).toBeNull();
+    expect(makeModelFetch({ baseUrl: "", apiKey: "" })).toBeNull();
+    expect(makeModelFetch({})).not.toBeNull();
+    expect(makeModelFetch({ apiKey: "secret" })).not.toBeNull();
   });
 
   test("posts the OpenAI-compatible request with authorization", async () => {
@@ -34,19 +36,53 @@ describe("makeDeepseekFetch", () => {
       });
     }) as typeof fetch;
 
-    const port = makeDeepseekFetch({
+    const port = makeModelFetch({
       apiKey: "secret",
-      baseUrl: "https://deepseek.example/",
+      baseUrl: "https://qwen.example/",
     });
     expect(port).not.toBeNull();
     expect(await port!(request, 100)).toEqual({ ok: true });
-    expect(seenUrl).toBe("https://deepseek.example/chat/completions");
+    expect(seenUrl).toBe("https://qwen.example/chat/completions");
     expect(seenInit?.method).toBe("POST");
     expect(seenInit?.headers).toEqual({
       "content-type": "application/json",
       authorization: "Bearer secret",
     });
     expect(seenInit?.body).toBe(JSON.stringify(request));
+  });
+
+  test("omits the authorization header when keyless", async () => {
+    let seenInit: RequestInit | undefined;
+    globalThis.fetch = (async (_input, init) => {
+      seenInit = init;
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as typeof fetch;
+
+    const port = makeModelFetch({ baseUrl: "https://qwen.example/" });
+    expect(port).not.toBeNull();
+    await port!(request, 100);
+    const headers = seenInit?.headers as Record<string, string> | undefined;
+    expect(headers).toBeDefined();
+    expect("authorization" in (headers ?? {})).toBeFalse();
+  });
+
+  test("uses the local default base URL when omitted", async () => {
+    let seenUrl = "";
+    globalThis.fetch = (async (input) => {
+      seenUrl = String(input);
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as typeof fetch;
+
+    const port = makeModelFetch({});
+    expect(port).not.toBeNull();
+    await port!(request, 100);
+    expect(seenUrl.startsWith(DEFAULT_MODEL_BASE_URL)).toBeTrue();
   });
 
   test("aborts at timeout and resolves null", async () => {
@@ -59,7 +95,7 @@ describe("makeDeepseekFetch", () => {
         });
       })) as unknown as typeof fetch;
 
-    const port = makeDeepseekFetch({ apiKey: "secret" });
+    const port = makeModelFetch({ apiKey: "secret" });
     expect(await port!(request, 1)).toBeNull();
     expect(aborted).toBeTrue();
   });
@@ -69,14 +105,14 @@ describe("makeDeepseekFetch", () => {
       new Response(JSON.stringify({ error: "no" }), {
         status: 503,
       })) as unknown as typeof fetch;
-    const port = makeDeepseekFetch({ apiKey: "secret" });
+    const port = makeModelFetch({ apiKey: "secret" });
     expect(await port!(request, 100)).toBeNull();
   });
 
   test("resolves null for unparseable response JSON", async () => {
     globalThis.fetch = (async () =>
       new Response("not-json", { status: 200 })) as unknown as typeof fetch;
-    const port = makeDeepseekFetch({ apiKey: "secret" });
+    const port = makeModelFetch({ apiKey: "secret" });
     expect(await port!(request, 100)).toBeNull();
   });
 
@@ -84,7 +120,7 @@ describe("makeDeepseekFetch", () => {
     globalThis.fetch = (async () => {
       throw new Error("network down");
     }) as unknown as typeof fetch;
-    const port = makeDeepseekFetch({ apiKey: "secret" });
+    const port = makeModelFetch({ apiKey: "secret" });
     expect(await port!(request, 100)).toBeNull();
   });
 });

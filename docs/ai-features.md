@@ -27,8 +27,8 @@ Cover creation remains available without the model: if AI is not configured, the
 
 ## Availability and limits
 
-The browser never asks you for a model provider API key. Prompt-based creation and editing run through the server's own DeepSeek configuration.
+The browser never asks you for a model provider API key. Prompt-based creation and editing run through the server's own Qwen 0.6B configuration (local model, no API key needed by default).
 
 If that configuration is missing, game creation and edit requests return `ai_unconfigured` with **“AI creation isn't set up on this server yet”**. Prompt-based drafting is unavailable on that server; the manual editor remains available, and cover generation uses its procedural fallback.
 
-AI game draft requests also have a per-user daily spend cap configured by the server through `AI_DAILY_USD_CAP`, plus request rate limiting. Operations can change those limits, so the interface does not promise a fixed number of drafts. When the daily cap is reached, the request returns `ai_daily_cap` and explains that today's AI creation limit resets at UTC midnight. When requests arrive too quickly, it returns `rate_limited` with **“Too many AI draft requests; try again later”**.
+AI game draft requests also have a per-user daily request cap configured by the server through `AI_DAILY_REQUEST_CAP`, plus request rate limiting. Operations can change those limits, so the interface does not promise a fixed number of drafts. When the daily cap is reached, the request returns `ai_daily_cap` and explains that today's AI creation limit resets at UTC midnight. When requests arrive too quickly, it returns `rate_limited` with **“Too many AI draft requests; try again later”**.

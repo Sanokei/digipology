@@ -255,8 +255,8 @@ export async function handlePlatformRequest(
     if (aiEditMatch?.[1] !== undefined && slug === null) {
       return jsonError(404, "not_found", "Game not found");
     }
-    const aiDependencies = Object.prototype.hasOwnProperty.call(dependencies, "deepseekFetch")
-      ? { deepseekFetch: dependencies.deepseekFetch ?? null }
+    const aiDependencies = Object.prototype.hasOwnProperty.call(dependencies, "modelFetch")
+      ? { modelFetch: dependencies.modelFetch ?? null }
       : undefined;
     return handleAiGameRequest({
       request,
@@ -386,8 +386,8 @@ export async function handlePlatformRequest(
     if (slug === null) return jsonError(404, "not_found", "Game not found");
     const session = await requestSession(request, repositories, env, now);
     if (session === null) return jsonError(401, "authentication_required", "Sign in to generate a cover");
-    const coverDependencies = Object.prototype.hasOwnProperty.call(dependencies, "deepseekFetch")
-      ? { deepseekFetch: dependencies.deepseekFetch ?? null }
+    const coverDependencies = Object.prototype.hasOwnProperty.call(dependencies, "modelFetch")
+      ? { modelFetch: dependencies.modelFetch ?? null }
       : undefined;
     return handleCoverGeneration({
       env,

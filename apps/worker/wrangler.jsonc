@@ -8,14 +8,16 @@
   "routes": [
     { "pattern": "play.digipology.com", "custom_domain": true }
   ],
-  // SESSION_SECRET and DEEPSEEK_API_KEY are Wrangler secrets configured out of band:
-  // `wrangler secret put SESSION_SECRET` and `wrangler secret put DEEPSEEK_API_KEY`.
+  // SESSION_SECRET and AI_API_KEY are Wrangler secrets configured out of band:
+  // `wrangler secret put SESSION_SECRET` and `wrangler secret put AI_API_KEY` (AI_API_KEY optional, only if the Qwen endpoint needs auth).
   // Never add either secret to `vars`.
   "vars": {
     "PUBLIC_ORIGIN": "https://play.digipology.com",
     "EMAIL_FROM": "noreply@digipology.com",
-    "AI_DAILY_USD_CAP": "1",
-    "DEEPSEEK_MODEL": "deepseek-v4-flash"
+    "AI_DAILY_REQUEST_CAP": "50",
+    "AI_MODEL": "/home/hatch/workspace/anascummis/apps/studio/.runtime/Qwen3-0.6B-Q4_0.gguf",
+    // Empty AI_BASE_URL falls back to the local default (http://127.0.0.1:8081/v1); production MUST set a publicly reachable Qwen URL because Workers cannot reach 127.0.0.1.
+    "AI_BASE_URL": ""
   },
   "d1_databases": [
     {

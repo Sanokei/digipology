@@ -1,23 +1,28 @@
 # digipology-ai
 
-Shared, zero-runtime-dependency DeepSeek harness for Digipology. It provides
-the OpenAI-compatible transport, forced-function-tool request shape, defensive
-payload extraction, conservative usage pricing, and validator-feedback retry
-loop used by AI features in Workers, Bun, and browsers.
+Shared, zero-runtime-dependency harness for a LOCAL Qwen3-0.6B model served
+over an OpenAI-compatible endpoint. It provides the transport,
+forced-function-tool request shape, defensive payload extraction,
+request-count metering, and validator-feedback retry loop used by AI
+features in Workers, Bun, and browsers.
 
 ## Keyless behavior
 
-`makeDeepseekFetch` returns `null` when no API key is configured. Consumers
-branch once at construction time and select their deterministic fallback:
+`makeModelFetch` returns `ModelFetch | null`. It returns `null` ONLY when
+`baseUrl` is explicitly empty AND no `apiKey` is given (deliberately
+unconfigured — callers serve a 503 `ai_unconfigured`). An undefined `baseUrl`
+falls back to `DEFAULT_MODEL_BASE_URL` (`http://127.0.0.1:8081/v1`); no API
+key is needed for a local endpoint. Consumers branch once at construction
+time and select their deterministic fallback:
 
 ```ts
-import { makeDeepseekFetch, runStructuredTask } from "digipology-ai";
+import { makeModelFetch, runStructuredTask } from "digipology-ai";
 
-const deepseekFetch = makeDeepseekFetch({ apiKey: env.DEEPSEEK_API_KEY });
-if (deepseekFetch === null) return deterministicFallback();
+const modelFetch = makeModelFetch({ apiKey: env.AI_API_KEY });
+if (modelFetch === null) return deterministicFallback();
 
 const outcome = await runStructuredTask({
-  fetch: deepseekFetch,
+  fetch: modelFetch,
   request,
   extract,
   validate,
@@ -25,9 +30,16 @@ const outcome = await runStructuredTask({
 return outcome.result ?? deterministicFallback();
 ```
 
-The API key belongs in the `DEEPSEEK_API_KEY` Worker secret and must never be
-shipped to a client. Call sites may replace `DEFAULT_DEEPSEEK_MODEL` with their
-configured `DEEPSEEK_MODEL` value.
+`AI_API_KEY` is an optional Worker secret, needed only if the endpoint
+requires auth, and must never be shipped to a client. Call sites may replace
+`DEFAULT_MODEL_ID` (the local Qwen3-0.6B model id/path) with their configured
+`AI_MODEL` value.
+
+## Usage metering
+
+Usage is metered in requests, not dollars: `responseRequests(response)`
+returns 0 for a null response and 1 otherwise (for the daily
+abuse-protection cap).
 
 ## Structured output
 

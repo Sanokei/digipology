@@ -63,6 +63,32 @@ describe("D1 migrations", () => {
     db.close();
   });
 
+  test("0007 adds per-user UTC-day AI request counts", async () => {
+    const db = new Database(":memory:");
+    for (const name of [
+      "0001_platform_v1.sql",
+      "0002_uploaded_games_v1.sql",
+      "0003_quickplay_metrics_covers.sql",
+      "0004_deepseek_usage.sql",
+      "0005_room_joinability.sql",
+      "0006_saved_tables.sql",
+      "0007_ai_usage.sql",
+    ]) db.exec(await Bun.file(new URL(`./${name}`, import.meta.url)).text());
+    db.query("INSERT INTO ai_usage (user_id, day, requests) VALUES (?, ?, ?)")
+      .run("user_1", "2026-08-14", 3);
+    expect(db.query("SELECT user_id, day, requests FROM ai_usage").get()).toEqual({
+      user_id: "user_1", day: "2026-08-14", requests: 3,
+    });
+    expect(() => db.query("INSERT INTO ai_usage (user_id, day, requests) VALUES (?, ?, ?)")
+      .run("user_1", "2026-08-14", 1)).toThrow();
+    db.query("INSERT INTO ai_usage (user_id, day) VALUES (?, ?)")
+      .run("user_2", "2026-08-14");
+    expect(db.query("SELECT requests FROM ai_usage WHERE user_id = 'user_2'").get()).toEqual({
+      requests: 0,
+    });
+    db.close();
+  });
+
   test("0005 conservatively excludes existing rooms and allows explicit new lobbies", async () => {
     const db = new Database(":memory:");
     for (const name of [
