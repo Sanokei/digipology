@@ -1,15 +1,15 @@
 import { describe, expect, test } from "bun:test";
 
-import { runStructuredTask, type Violation } from "./loop";
-import type { DeepSeekRequest } from "./request";
-import type { DeepseekFetch } from "./transport";
+import { runStructuredTask, type StructuredTaskEvent, type Violation } from "./loop";
+import type { ModelRequest } from "./request";
+import type { ModelFetch } from "./transport";
 
 interface FixtureValue {
   id: number;
   valid: boolean;
 }
 
-const baseRequest: DeepSeekRequest = {
+const baseRequest: ModelRequest = {
   model: "deepseek-v4-flash",
   messages: [
     { role: "system", content: "Return a value." },
@@ -50,7 +50,7 @@ function validate(value: FixtureValue): Violation[] {
 describe("runStructuredTask", () => {
   test("accepts a first-try valid value with exact telemetry", async () => {
     const timeouts: number[] = [];
-    const fetch: DeepseekFetch = async (_request, timeoutMs) => {
+    const fetch: ModelFetch = async (_request, timeoutMs) => {
       timeouts.push(timeoutMs);
       return { id: 1, valid: true };
     };
@@ -76,12 +76,12 @@ describe("runStructuredTask", () => {
   });
 
   test("feeds a rejected payload and typed violations into attempt 2", async () => {
-    const requests: DeepSeekRequest[] = [];
+    const requests: ModelRequest[] = [];
     const replies: FixtureValue[] = [
       { id: 1, valid: false },
       { id: 2, valid: true },
     ];
-    const fetch: DeepseekFetch = async (request) => {
+    const fetch: ModelFetch = async (request) => {
       requests.push(request);
       return replies[requests.length - 1] ?? null;
     };
@@ -107,7 +107,7 @@ describe("runStructuredTask", () => {
         content:
           "That payload was REJECTED by the validator:\n" +
           "- [invalid_1] Value 1 is invalid\n\n" +
-          "Fix every violation and re-emit the corrected payload through emit_value — no prose.",
+          "Fix every violation and re-emit the corrected payload as ONE raw JSON object — your entire message content, no prose, no markdown fences. /no_think",
       },
     ]);
     expect(baseRequest.messages).toHaveLength(2);
@@ -115,7 +115,7 @@ describe("runStructuredTask", () => {
 
   test("falls back after the default three attempts with last violations", async () => {
     let calls = 0;
-    const fetch: DeepseekFetch = async () => {
+    const fetch: ModelFetch = async () => {
       calls += 1;
       return { id: calls, valid: false };
     };
@@ -140,13 +140,13 @@ describe("runStructuredTask", () => {
   });
 
   test("an unparseable middle attempt resets feedback", async () => {
-    const requests: DeepSeekRequest[] = [];
+    const requests: ModelRequest[] = [];
     const replies: unknown[] = [
       { id: 1, valid: false },
       { malformed: true },
       { id: 3, valid: true },
     ];
-    const fetch: DeepseekFetch = async (request) => {
+    const fetch: ModelFetch = async (request) => {
       requests.push(request);
       return replies[requests.length - 1] ?? null;
     };
@@ -170,7 +170,7 @@ describe("runStructuredTask", () => {
 
   test("transport null and thrown failures are unusable attempts", async () => {
     let calls = 0;
-    const fetch: DeepseekFetch = async () => {
+    const fetch: ModelFetch = async () => {
       calls += 1;
       if (calls === 1) throw new Error("upstream failed");
       return null;
@@ -192,5 +192,103 @@ describe("runStructuredTask", () => {
         violations: [],
       },
     });
+  });
+
+  test("the default timeout fits local 0.6B-class generation (30 minutes)", async () => {
+    const timeouts: number[] = [];
+    const fetch: ModelFetch = async (_request, timeoutMs) => {
+      timeouts.push(timeoutMs);
+      return { id: 1, valid: true };
+    };
+    await runStructuredTask({ fetch, request: baseRequest, extract, validate });
+    expect(timeouts).toEqual([1_800_000]);
+  });
+
+  test("onProgress reports attempt lifecycle with outcomes", async () => {
+    const events: StructuredTaskEvent[] = [];
+    const replies: unknown[] = [null, { id: 2, valid: true }];
+    let calls = 0;
+    const fetch: ModelFetch = async () => replies[calls++] ?? null;
+    const outcome = await runStructuredTask({
+      fetch,
+      request: baseRequest,
+      extract,
+      validate,
+      maxAttempts: 2,
+      timeoutMs: 5_000,
+      onProgress: (event) => events.push(event),
+    });
+
+    expect(outcome.result).toEqual({ id: 2, valid: true });
+    expect(events).toHaveLength(4);
+    expect(events[0]).toEqual({
+      type: "attempt_started",
+      attempt: 1,
+      maxAttempts: 2,
+      timeoutMs: 5_000,
+    });
+    expect(events[1]).toMatchObject({
+      type: "attempt_finished",
+      attempt: 1,
+      outcome: "unusable",
+      violations: [],
+    });
+    expect(events[2]).toEqual({
+      type: "attempt_started",
+      attempt: 2,
+      maxAttempts: 2,
+      timeoutMs: 5_000,
+    });
+    expect(events[3]).toMatchObject({
+      type: "attempt_finished",
+      attempt: 2,
+      outcome: "valid",
+      violations: [],
+    });
+    for (const event of events) {
+      if (event.type === "attempt_finished") {
+        expect(event.elapsedMs).toBeGreaterThanOrEqual(0);
+      }
+    }
+  });
+
+  test("onProgress marks a rejected payload as invalid with its violations", async () => {
+    const events: StructuredTaskEvent[] = [];
+    const fetch: ModelFetch = async () => ({ id: 9, valid: false });
+    await runStructuredTask({
+      fetch,
+      request: baseRequest,
+      extract,
+      validate,
+      maxAttempts: 1,
+      onProgress: (event) => events.push(event),
+    });
+    expect(events[1]).toMatchObject({
+      type: "attempt_finished",
+      attempt: 1,
+      outcome: "invalid",
+      violations: [{ code: "invalid_9", message: "Value 9 is invalid" }],
+    });
+  });
+
+  test("feedback turns stay tool-free when the request carries no tools", async () => {
+    const requests: ModelRequest[] = [];
+    const replies: FixtureValue[] = [
+      { id: 1, valid: false },
+      { id: 2, valid: true },
+    ];
+    const fetch: ModelFetch = async (request) => {
+      requests.push(request);
+      return replies[requests.length - 1] ?? null;
+    };
+    const toolFree: ModelRequest = {
+      model: "qwen3",
+      messages: [{ role: "user", content: "Emit JSON." }],
+    };
+    await runStructuredTask({ fetch, request: toolFree, extract, validate });
+    expect(requests[1]?.tools).toBeUndefined();
+    expect(requests[1]?.tool_choice).toBeUndefined();
+    const feedback = requests[1]?.messages.at(-1);
+    expect(feedback?.content).toContain("/no_think");
   });
 });

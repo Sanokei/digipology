@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   extractToolPayload,
   salvageTruncatedJson,
+  stripMarkdownFences,
   stripModelArtifacts,
 } from "./extract";
 
@@ -25,6 +26,24 @@ function responseWithArguments(...argumentsTexts: string[]): unknown {
     ],
   };
 }
+
+describe("stripMarkdownFences", () => {
+  test("unwraps a fenced json block", () => {
+    expect(stripMarkdownFences('```json\n{"value":1}\n```')).toBe('{"value":1}');
+  });
+
+  test("unwraps a bare fence block", () => {
+    expect(stripMarkdownFences('```\n{"value":1}\n```')).toBe('{"value":1}');
+  });
+
+  test("removes stray fence lines around prose", () => {
+    expect(stripMarkdownFences('```json\n{"value":1}\n```\nDone!')).toBe('{"value":1}\n\nDone!');
+  });
+
+  test("leaves unfenced text untouched", () => {
+    expect(stripMarkdownFences('{"value":1}')).toBe('{"value":1}');
+  });
+});
 
 describe("stripModelArtifacts", () => {
   test("removes real fullwidth-bar DSML tags", () => {
@@ -102,6 +121,36 @@ describe("extractToolPayload ladder", () => {
       ],
     };
     expect(extractToolPayload(response, record)).toEqual({ value: "first" });
+  });
+
+  test("rung 4 extracts a fenced payload without any tool calls", () => {
+    const response = {
+      choices: [
+        { message: { content: '```json\n{"value":"fenced"}\n```' } },
+      ],
+    };
+    expect(extractToolPayload(response, record)).toEqual({ value: "fenced" });
+  });
+
+  test("rung 4 extracts whole unfenced content verbatim", () => {
+    const response = {
+      choices: [
+        { message: { content: '  {"value":"whole"}  ' } },
+      ],
+    };
+    expect(extractToolPayload(response, record)).toEqual({ value: "whole" });
+  });
+
+  test("rung 4 salvages a truncated fenced payload", () => {
+    const response = {
+      choices: [
+        { message: { content: '```json\n{"value":"kept","items":[1,2' } },
+      ],
+    };
+    expect(extractToolPayload(response, record)).toEqual({
+      value: "kept",
+      items: [1, 2],
+    });
   });
 
   test("rung 5 returns null when every source is unusable", () => {

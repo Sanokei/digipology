@@ -16,6 +16,7 @@
     "digipology-covers": "workspace:*",
     "digipology-demo-games": "workspace:*",
     "digipology-kernel": "workspace:*",
+    "digipology-lua": "workspace:*",
     "digipology-protocol": "workspace:*"
   },
   "devDependencies": {

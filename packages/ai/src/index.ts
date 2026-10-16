@@ -17,6 +17,7 @@ export {
 export {
   extractToolPayload,
   salvageTruncatedJson,
+  stripMarkdownFences,
   stripModelArtifacts,
 } from "./extract";
 export {
@@ -24,8 +25,16 @@ export {
   responseRequests,
 } from "./pricing";
 export {
+  runIterativeRefinement,
+  type IterativeRefinementResult,
+  type QualityIssue,
+  type RefinementEvent,
+  type RunIterativeRefinementOptions,
+} from "./refine";
+export {
   runStructuredTask,
   type RunStructuredTaskOptions,
+  type StructuredTaskEvent,
   type StructuredTaskTelemetry,
   type Violation,
 } from "./loop";

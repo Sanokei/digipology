@@ -30,7 +30,7 @@ describe("request builders", () => {
       type: "function",
       function: { name: "emit_result" },
     });
-    expect(request.tools[0]?.function.parameters).toEqual({
+    expect(request.tools?.[0]?.function.parameters).toEqual({
       type: "object",
       properties: {
         title: { type: "string", description: "Title" },
@@ -65,5 +65,23 @@ describe("request builders", () => {
       messages: [...base.messages],
     });
     expect(withoutExtra).not.toHaveProperty("extraBody");
+  });
+
+  test("buildRequest without a tool omits tools and tool_choice for the raw-JSON path", () => {
+    const request = buildRequest({
+      model: "qwen3-0.6b",
+      messages: [{ role: "user", content: "Emit raw JSON." }],
+      maxTokens: 3000,
+      temperature: 0.35,
+      extraBody: { enable_thinking: false },
+    });
+    expect(request).not.toHaveProperty("tools");
+    expect(request).not.toHaveProperty("tool_choice");
+    expect(request.max_tokens).toBe(3000);
+    expect(request.temperature).toBe(0.35);
+    expect(request.extraBody).toEqual({ enable_thinking: false });
+    // The wire body must not leak an undefined tools key either.
+    expect(JSON.parse(JSON.stringify(request)) as Record<string, unknown>)
+      .not.toHaveProperty("tools");
   });
 });

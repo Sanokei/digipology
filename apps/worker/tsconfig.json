@@ -13,6 +13,7 @@
       "digipology-covers": ["../../packages/covers/src/index.ts"],
       "digipology-demo-games": ["../../packages/demo-games/src/index.ts"],
       "digipology-kernel": ["../../packages/kernel/src/index.ts"],
+      "digipology-lua": ["../../packages/lua/src/index.ts"],
       "digipology-prng": ["../../packages/prng/src/index.ts"],
       "digipology-protocol": ["../../packages/protocol/src/index.ts"],
       "digipology-protocol/http": ["../../packages/protocol/src/http.ts"]

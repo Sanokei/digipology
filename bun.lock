@@ -1,5 +1,6 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "digipology-monorepo",
@@ -61,6 +62,7 @@
         "digipology-covers": "workspace:*",
         "digipology-demo-games": "workspace:*",
         "digipology-kernel": "workspace:*",
+        "digipology-lua": "workspace:*",
         "digipology-protocol": "workspace:*",
       },
       "devDependencies": {

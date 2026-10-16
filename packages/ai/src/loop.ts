@@ -14,6 +14,27 @@ export interface StructuredTaskTelemetry {
   violations: Violation[];
 }
 
+/**
+ * Progress events emitted while a structured task runs. Local 0.6B-class
+ * generation takes minutes per attempt; these keep a long generation from
+ * being a black box (callers log them to their own telemetry).
+ */
+export type StructuredTaskEvent =
+  | {
+      type: "attempt_started";
+      attempt: number;
+      maxAttempts: number;
+      timeoutMs: number;
+    }
+  | {
+      type: "attempt_finished";
+      attempt: number;
+      elapsedMs: number;
+      /** valid: extracted and passed validation. invalid: extracted but rejected. unusable: no payload (timeout/transport/parse failure). */
+      outcome: "valid" | "invalid" | "unusable";
+      violations: Violation[];
+    };
+
 export interface RunStructuredTaskOptions<T> {
   fetch: ModelFetch;
   request: ModelRequest;
@@ -21,10 +42,17 @@ export interface RunStructuredTaskOptions<T> {
   validate: (value: T) => Violation[];
   maxAttempts?: number;
   timeoutMs?: number;
+  onProgress?: (event: StructuredTaskEvent) => void;
 }
 
 const DEFAULT_MAX_ATTEMPTS = 3;
-const DEFAULT_TIMEOUT_MS = 30_000;
+/**
+ * Local 0.6B-class generation runs at a few tokens/sec; a multi-thousand-token
+ * draft needs tens of minutes per attempt. 30s could not complete any real
+ * structured task (see e2e-qa/REPORT.md F1). Callers doing large generations
+ * should still pass an explicit timeoutMs sized to their token budget.
+ */
+const DEFAULT_TIMEOUT_MS = 1_800_000;
 
 function attemptLimit(value: number | undefined): number {
   if (value === undefined || !Number.isFinite(value)) return DEFAULT_MAX_ATTEMPTS;
@@ -34,7 +62,6 @@ function attemptLimit(value: number | undefined): number {
 function feedbackTurns<T>(
   value: T,
   violations: Violation[],
-  toolName: string,
 ): ModelMessage[] | null {
   let payload: string;
   try {
@@ -51,7 +78,7 @@ function feedbackTurns<T>(
       role: "user",
       content:
         `That payload was REJECTED by the validator:\n${list}\n\n` +
-        `Fix every violation and re-emit the corrected payload through ${toolName} — no prose.`,
+        `Fix every violation and re-emit the corrected payload as ONE raw JSON object — your entire message content, no prose, no markdown fences. /no_think`,
     },
   ];
 }
@@ -60,15 +87,18 @@ function requestWithFeedback(
   request: ModelRequest,
   feedback: ModelMessage[] | null,
 ): ModelRequest {
-  return {
+  const next: ModelRequest = {
     ...request,
     messages: feedback === null ? [...request.messages] : [...request.messages, ...feedback],
-    tools: [...request.tools],
-    tool_choice: {
+  };
+  if (request.tools !== undefined) next.tools = [...request.tools];
+  if (request.tool_choice !== undefined) {
+    next.tool_choice = {
       type: "function",
       function: { name: request.tool_choice.function.name },
-    },
-  };
+    };
+  }
+  return next;
 }
 
 export async function runStructuredTask<T>(
@@ -83,6 +113,13 @@ export async function runStructuredTask<T>(
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     attempts = attempt;
     let value: T | null = null;
+    options.onProgress?.({
+      type: "attempt_started",
+      attempt,
+      maxAttempts,
+      timeoutMs,
+    });
+    const attemptStarted = Date.now();
     try {
       const response = await options.fetch(
         requestWithFeedback(options.request, feedback),
@@ -92,8 +129,16 @@ export async function runStructuredTask<T>(
     } catch {
       value = null;
     }
+    const elapsedMs = Date.now() - attemptStarted;
 
     if (value === null) {
+      options.onProgress?.({
+        type: "attempt_finished",
+        attempt,
+        elapsedMs,
+        outcome: "unusable",
+        violations: [],
+      });
       feedback = null;
       lastViolations = [];
       continue;
@@ -101,6 +146,13 @@ export async function runStructuredTask<T>(
 
     const violations = options.validate(value);
     if (violations.length === 0) {
+      options.onProgress?.({
+        type: "attempt_finished",
+        attempt,
+        elapsedMs,
+        outcome: "valid",
+        violations: [],
+      });
       return {
         result: value,
         telemetry: {
@@ -113,12 +165,15 @@ export async function runStructuredTask<T>(
       };
     }
 
-    lastViolations = [...violations];
-    feedback = feedbackTurns(
-      value,
+    options.onProgress?.({
+      type: "attempt_finished",
+      attempt,
+      elapsedMs,
+      outcome: "invalid",
       violations,
-      options.request.tool_choice.function.name,
-    );
+    });
+    lastViolations = [...violations];
+    feedback = feedbackTurns(value, violations);
   }
 
   return {

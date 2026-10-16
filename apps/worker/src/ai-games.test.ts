@@ -145,7 +145,7 @@ describe("AI game route matrices", () => {
     expect(await response.json()).toMatchObject({ error: { code: "forbidden" } });
   });
 
-  test("forces the source-derived function tool and never sends response_format", async () => {
+  test("sends a tool-free raw-JSON request with /no_think and a 3000-token budget", async () => {
     const fixture = await routeFixture();
     let captured: ModelRequest | null = null;
     const response = await requestRoute("create", fixture.env, fixture.cookie, async (payload) => {
@@ -155,11 +155,23 @@ describe("AI game route matrices", () => {
     expect(response.status).toBe(200);
     const request = captured! as ModelRequest;
     expect(request.model).toBe("qwen3-0.6b");
-    expect(request.tool_choice).toEqual({ type: "function", function: { name: "emit_game_bundle_draft" } });
-    expect(request.tools[0]?.function.parameters).toMatchObject({ additionalProperties: false });
-    expect(request.messages[0]?.content).toContain("deck.draw_to_container");
-    expect(request.messages[0]?.content).toContain("snap-point (requires transform)");
-    expect(request.messages[0]?.content).toContain("math.random and math.randomseed are removed");
+    // Raw-JSON path: no tools on the wire. llama-server rejects object-form
+    // tool_choice and Qwen3-0.6B never emits tool_calls, so sending the schema
+    // would only waste prompt tokens.
+    expect(request.tools).toBeUndefined();
+    expect(request.tool_choice).toBeUndefined();
+    expect(request.max_tokens).toBe(3000);
+    expect(request.temperature).toBe(0.35);
+    expect(request.extraBody).toEqual({ enable_thinking: false });
+    const system = request.messages[0]?.content ?? "";
+    expect(system).toContain("OUTPUT FORMAT");
+    expect(system).toContain("No markdown fences");
+    expect(system).toContain("- title (required):");
+    expect(system).toContain("deck.draw_to_container");
+    expect(system).toContain("snap-point (requires transform)");
+    expect(system).toContain("math.random and math.randomseed are removed");
+    const user = request.messages.at(-1)?.content ?? "";
+    expect(user.endsWith(" /no_think")).toBe(true);
     expect(JSON.stringify(request)).not.toContain("response_format");
   });
 });
@@ -280,7 +292,7 @@ describe("cover generation route matrix", () => {
     expect(body.candidates.every(({ spec, svg }) => normalizeCoverSpec(spec) !== null && svg.includes('viewBox="0 0 336 504"'))).toBe(true);
     const request = captured! as ModelRequest;
     expect(request.tool_choice).toEqual({ type: "function", function: { name: "emit_cover_specs" } });
-    expect(request.tools[0]?.function.parameters).toMatchObject({ additionalProperties: false });
+    expect(request.tools?.[0]?.function.parameters).toMatchObject({ additionalProperties: false });
     expect(request.messages.at(-1)?.content).toContain("Owned Game");
     expect(JSON.stringify(request)).not.toContain("response_format");
     expect(COVER_GENERATION_TOOL.function.parameters).toMatchObject({ additionalProperties: false });
@@ -444,8 +456,10 @@ function validModelResponse(): unknown {
 }
 
 function modelResponse(authoring: Record<string, unknown>): unknown {
+  // Production shape: the model emits the draft as raw JSON message content
+  // (llama-server + Qwen3-0.6B never produce tool_calls).
   return {
-    choices: [{ message: { tool_calls: [{ function: { arguments: JSON.stringify(authoring) } }] } }],
+    choices: [{ message: { content: JSON.stringify(authoring) } }],
     usage: { prompt_tokens: 1_000, completion_tokens: 1_000 },
   };
 }

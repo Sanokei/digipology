@@ -15,8 +15,14 @@ export interface ModelTool {
 export interface ModelRequest {
   model: string;
   messages: ModelMessage[];
-  tools: ModelTool[];
-  tool_choice: { type: "function"; function: { name: string } };
+  /**
+   * Optional forced function tools. Omit entirely on backends where tool
+   * calling is unsupported (e.g. llama-server + Qwen3-0.6B never emits
+   * tool_calls) and rely on the raw-JSON extraction ladder instead: sending
+   * tools then only wastes prompt tokens.
+   */
+  tools?: ModelTool[];
+  tool_choice?: { type: "function"; function: { name: string } };
   max_tokens?: number;
   temperature?: number;
   /**
@@ -33,7 +39,12 @@ export const BOOL = (description: string) => ({ type: "boolean", description }) 
 export interface BuildRequestOptions {
   model: string;
   messages: ModelMessage[];
-  tool: {
+  /**
+   * Optional strict object-valued function tool. When omitted the request
+   * carries no tools/tool_choice and the model is expected to emit the
+   * payload as raw JSON in its message content.
+   */
+  tool?: {
     name: string;
     description: string;
     properties: Record<string, unknown>;
@@ -44,12 +55,18 @@ export interface BuildRequestOptions {
   extraBody?: Record<string, unknown>;
 }
 
-/** Builds one strict object-valued function tool and pins the model to it. */
+/**
+ * Builds a chat-completion request. When `tool` is provided the model is
+ * pinned to one strict object-valued function tool; when omitted the request
+ * goes tool-free for the raw-JSON path.
+ */
 export function buildRequest(options: BuildRequestOptions): ModelRequest {
   const request: ModelRequest = {
     model: options.model,
     messages: [...options.messages],
-    tools: [
+  };
+  if (options.tool !== undefined) {
+    request.tools = [
       {
         type: "function",
         function: {
@@ -63,9 +80,12 @@ export function buildRequest(options: BuildRequestOptions): ModelRequest {
           },
         },
       },
-    ],
-    tool_choice: { type: "function", function: { name: options.tool.name } },
-  };
+    ];
+    request.tool_choice = {
+      type: "function",
+      function: { name: options.tool.name },
+    };
+  }
   if (options.maxTokens !== undefined) request.max_tokens = options.maxTokens;
   if (options.temperature !== undefined) request.temperature = options.temperature;
   if (options.extraBody !== undefined) request.extraBody = options.extraBody;

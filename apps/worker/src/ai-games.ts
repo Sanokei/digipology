@@ -13,6 +13,7 @@ import {
   type ModelFetch,
   type ModelRequest,
   type ModelTool,
+  type StructuredTaskEvent,
   type Violation,
 } from "digipology-ai";
 import {
@@ -51,6 +52,21 @@ const AI_RATE_WINDOW_MS = 60 * 60 * 1000;
 const AI_BODY_LIMIT = 64 * 1024;
 const AI_TOOL_NAME = "emit_game_bundle_draft";
 const DRAFT_RNG_ALGORITHM = "sfc32-v1";
+/**
+ * Token budget + timeout sizing (measured 2026-10-16 against :8081,
+ * Qwen3-0.6B-Q4_0, 8k context):
+ * - prompt ≈ 1,865 tokens (system ≈ 1,827 incl. reference bundle + user ≈ 38;
+ *   the 812-token tool schema is gone on the raw-JSON path).
+ * - attempt 1 ≈ 4,865 total; attempt 2 (feedback echoes the rejected payload)
+ *   ≈ 8,165; attempt 3 prompt ≈ 8,165 — the tail of a third attempt can exceed
+ *   8k, so the critical format rules are repeated at the END of the prompt
+ *   where eviction hits last. 4,000 max tokens would overflow attempt 2
+ *   already, hence 3,000.
+ * - generation measured at 4–10 tok/s; sized conservatively at 2 tok/s so
+ *   3,000 tokens ≈ 25 min per attempt.
+ */
+const AI_MAX_TOKENS = 3_000;
+const AI_TIMEOUT_MS = 2_400_000;
 const ACTION_REFERENCE = /\b(?:system|entity|deck|die|counter)\.[a-z][a-z0-9_]*\b/g;
 const RELEASE_PATH = /^(?:runtime|scripts)\/[a-z0-9][a-z0-9._/-]{0,127}$/;
 
@@ -244,6 +260,8 @@ export async function handleAiGameRequest(input: AiGameRouteInput): Promise<Resp
     fetch: metered.fetch,
     request,
     maxAttempts: 3,
+    timeoutMs: AI_TIMEOUT_MS,
+    onProgress: logAiProgress,
     extract: (response) => extractToolPayload(response, asRecord),
     validate: (authoring) => {
       lastAssembly = assembleAiGameDraft(authoring, assemblyContext);
@@ -272,7 +290,7 @@ export async function handleAiGameRequest(input: AiGameRouteInput): Promise<Resp
   return jsonResponse(response, 502);
 }
 
-function buildAiRequest(
+export function buildAiRequest(
   env: Env,
   mode: "create" | "edit",
   prompt: string,
@@ -290,9 +308,27 @@ function buildAiRequest(
     const requires = componentRegistry[type]?.requires ?? [];
     return `${type}${requires.length === 0 ? "" : ` (requires ${requires.join(", ")})`}`;
   }).join(", ");
+  // The model cannot call tools on this backend (llama-server + Qwen3-0.6B
+  // never emits tool_calls), so the draft MUST come back as raw JSON in the
+  // message content. The format rules open AND close the system prompt, and
+  // the field list is derived from AI_GAME_TOOL so prompt and schema cannot
+  // drift apart.
   const system = [
-    "You create valid Digipology release drafts through the forced tool if you can call it, otherwise as raw JSON.",
-    "The tool schema is the authorable bundle surface; never emit IDs, hashes, byte lengths, integrity, or snapshots.",
+    "OUTPUT FORMAT — THIS IS THE MOST IMPORTANT INSTRUCTION:",
+    "Your entire message content must be ONE raw JSON object matching the schema below.",
+    "No prose before it. No prose after it. No markdown fences (never write ```). No explanation.",
+    "Start your message with { and end it with }.",
+    "",
+    "You are creating a complete playable Digipology game draft as that JSON object.",
+    compactSchemaSummary(),
+    "Never emit IDs, hashes, byte lengths, integrity, or snapshots — the server adds those.",
+    "files, settings, entities, and definitions are JSON ARRAYS (square brackets [ ]) — never bare objects.",
+    "Each component is an object with EXACTLY two keys: \"type\" (the component name) and \"dataJson\" (a STRING holding JSON).",
+    "SHAPE GUIDE — copy this exact nesting (arrays stay arrays), but design YOUR OWN game: your own title, your own real Lua rules, every entity your game needs. Do NOT just copy these placeholder values.",
+    skeletonGuide(),
+    "Every object inside \"files\" MUST contain both a \"path\" key and a \"content\" key — never a path alone.",
+    "Every entity needs the components its types require: a \"die\" component needs a \"transform\" component on the same entity.",
+    "Your draft must be a COMPLETE playable game, not the skeleton: write real Lua code implementing the user's requested rules.",
     `Registered kernel actions only: ${actions}.`,
     `Registered components only: ${components}.`,
     "Component dataJson and scriptStateJson must be strict finite JSON with no comments.",
@@ -301,25 +337,92 @@ function buildAiRequest(
     "Lua math.random and math.randomseed are removed; os.time() and os.clock() deterministically return 0. There is no require, package, io, debug, loadfile, dofile, network, filesystem, timers, or JS interop.",
     "Files must stay under runtime/ or scripts/. Use only registered action names in JSON or Lua.",
     referenceText,
-    "If you cannot call the tool, emit the complete payload as ONE raw JSON object as your entire message content — no prose, no markdown fences, no explanation.",
+    "",
+    "FINAL REMINDER: emit ONE raw JSON object as your entire message content. No prose, no markdown fences, no explanation. Start with { and end with }.",
   ].join("\n");
+  // /no_think MUST stay at the end of the user message: the enable_thinking API
+  // flag is ignored by llama-server, and the suffix only works here (verified
+  // 2026-10-16: 0 reasoning chars with the suffix vs 1211 without).
+  const noThink = " /no_think";
   const user = mode === "create"
-    ? `Create a complete playable game draft from this description:\n${prompt}`
-    : `Edit the current game according to this instruction and emit the complete replacement draft:\n${prompt}${current}`;
+    ? `Create a complete playable game draft from this description:\n${prompt}${noThink}`
+    : `Edit the current game according to this instruction and emit the complete replacement draft:\n${prompt}${current}${noThink}`;
   return buildRequest({
     model: configuredString(env, "AI_MODEL", DEFAULT_MODEL_ID),
     messages: [{ role: "system", content: system }, { role: "user", content: user }],
-    tool: {
-      name: AI_GAME_TOOL.function.name,
-      description: AI_GAME_TOOL.function.description,
-      properties: AI_GAME_TOOL.function.parameters.properties as Record<string, unknown>,
-      required: AI_GAME_TOOL.function.parameters.required as string[],
-    },
-    maxTokens: 900,
+    maxTokens: AI_MAX_TOKENS,
     temperature: 0.35,
-    // Qwen3 hybrid thinking burns the token budget on reasoning instead of the forced tool call.
+    // Qwen3 hybrid thinking burns the token budget on reasoning instead of the draft.
     extraBody: { enable_thinking: false },
   });
+}
+
+/**
+ * A minimal shape guide: structurally valid nesting the model can copy.
+ * Built programmatically so the escaping is always correct.
+ */
+function skeletonGuide(): string {
+  return JSON.stringify({
+    title: "Dice Race",
+    tagline: "Roll to 30.",
+    interactionMode: "sandbox",
+    minPlayers: 2,
+    maxPlayers: 2,
+    files: [
+      { path: "runtime/main.lua", content: "-- game rules" },
+      { path: "scripts/setup.lua", content: "-- setup" },
+    ],
+    settings: [
+      { key: "targetScore", valueType: "number", stringValue: "", numberValue: 30, booleanValue: false },
+    ],
+    entities: [
+      {
+        id: "die",
+        components: [
+          {
+            type: "transform",
+            dataJson: JSON.stringify({
+              position: { x: 0, y: 0, z: 0 },
+              rotation: { w: 1, x: 0, y: 0, z: 0 },
+              scale: { x: 1, y: 1, z: 1 },
+            }),
+          },
+          { type: "die", dataJson: JSON.stringify({ faces: [1, 2, 3, 4, 5, 6] }) },
+        ],
+      },
+    ],
+    scriptStateJson: "{}",
+    rngSeed: [1, 2, 3, 4],
+    definitions: [],
+  });
+}
+
+/** Render AI_GAME_TOOL's parameters as a compact field list for the prompt. */
+function compactSchemaSummary(): string {
+  const parameters = AI_GAME_TOOL.function.parameters as {
+    properties: Record<string, { description?: string }>;
+    required: string[];
+  };
+  const lines = Object.entries(parameters.properties).map(([name, schema]) => {
+    const marker = parameters.required.includes(name) ? "required" : "optional";
+    const description = typeof schema.description === "string" ? schema.description : "";
+    return `- ${name} (${marker}): ${description}`;
+  });
+  return `The JSON object has exactly these fields:\n${lines.join("\n")}`;
+}
+
+/** Progress logging so a multi-minute generation is not a black box. */
+function logAiProgress(event: StructuredTaskEvent): void {
+  if (event.type === "attempt_started") {
+    console.log(
+      `ai-game: attempt ${event.attempt}/${event.maxAttempts} started (timeout ${event.timeoutMs}ms)`,
+    );
+  } else {
+    console.log(
+      `ai-game: attempt ${event.attempt} finished in ${event.elapsedMs}ms: ${event.outcome}` +
+      (event.violations.length === 0 ? "" : ` (${event.violations.length} violations)`),
+    );
+  }
 }
 
 export function assembleAiGameDraft(
@@ -789,7 +892,7 @@ function boundedText(value: unknown, minimum: number, maximum: number): string |
   return length >= minimum && length <= maximum ? value : null;
 }
 
-function validReleasePath(value: string): boolean {
+export function validReleasePath(value: string): boolean {
   return RELEASE_PATH.test(value) && value.split("/").every((segment) =>
     segment !== "" && segment !== "." && segment !== "..");
 }

@@ -4,6 +4,20 @@ export function stripModelArtifacts(text: string): string {
 }
 
 /**
+ * Remove ```json / ``` markdown fences around a payload. Weak models emit
+ * fences even when told not to; stripping them beats rejecting a good draft.
+ */
+export function stripMarkdownFences(text: string): string {
+  const trimmed = text.trim();
+  const wrapped = /^```(?:json)?[ \t]*\r?\n([\s\S]*?)\r?\n?```[ \t]*$/.exec(trimmed);
+  if (wrapped?.[1] !== undefined) return wrapped[1]!.trim();
+  return trimmed
+    .replace(/^```(?:json)?[ \t]*$/gim, "")
+    .replace(/^```[ \t]*$/gim, "")
+    .trim();
+}
+
+/**
  * Best-effort repair for a length-truncated JSON object. Each attempt closes
  * its open string/containers; on failure it drops the last incomplete element.
  */
@@ -115,8 +129,12 @@ function parseCleanSalvage<T>(
 }
 
 /**
- * Extract a normalized forced-tool payload through the production failure-mode
- * ladder: individual calls, joined cleaned calls, truncation salvage, content.
+ * Extract a normalized payload through the production failure-mode ladder:
+ * individual tool calls, joined cleaned calls, truncation salvage, and the
+ * raw-JSON content path. Tool calling does not work against llama-server +
+ * Qwen3-0.6B (the model never emits tool_calls), so the raw-JSON rungs are
+ * the production path; the tool-call rungs stay for backends that support
+ * them.
  */
 export function extractToolPayload<T>(
   response: unknown,
@@ -154,10 +172,18 @@ export function extractToolPayload<T>(
     if (salvaged !== null) return salvaged;
   }
 
-  // Rung 4: some responses put the tool object in assistant content instead.
+  // Rung 4: the raw-JSON path. The model may return the payload as the whole
+  // content (possibly fenced or truncated), or embed it inside prose.
   if (typeof record.content === "string") {
-    const objectText = firstBalancedObject(record.content);
-    if (objectText !== null) return parseCleanSalvage(objectText, normalize);
+    const unfenced = stripMarkdownFences(record.content);
+    const whole = parseCleanSalvage(unfenced, normalize);
+    if (whole !== null) return whole;
+
+    const objectText = firstBalancedObject(unfenced);
+    if (objectText !== null) {
+      const embedded = parseCleanSalvage(objectText, normalize);
+      if (embedded !== null) return embedded;
+    }
   }
 
   return null;
