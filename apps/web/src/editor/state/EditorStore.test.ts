@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { AUTO_SAVE_DEBOUNCE_MS, MAX_HISTORY_ENTRIES } from "./constants";
 import { EditorStore } from "./EditorStore";
 import { editorTestDraft } from "./testFixtures";
+import { createScript } from "./scripts";
 
 describe("EditorStore", () => {
   test("applies commands, undoes, redoes, and keeps snapshots stable between changes", () => {
@@ -37,7 +38,7 @@ describe("EditorStore", () => {
       jobs: { cover: { status: "pending", revision: 0 }, cardBack: { status: "not-needed", revision: 0 } } };
     const store = new EditorStore(draft);
     const originalHash = store.getSnapshot().bundle.integrity.manifestHash;
-    expect(store.applySceneCommand("Edit rule", (next) => { next.bundle.files.push({ path: "runtime/rules.md", content: "# Saved user rule edit", byteLength: 0, contentHash: "" }); })).toBe(true);
+    expect(store.applySceneCommand("Edit rule", (next) => { createScript(next, "rules-test.lua", "return {}"); })).toBe(true);
     const artworkGeneration = structuredClone(draft.artworkGeneration);
     artworkGeneration.jobs.cover.status = "failed";
     artworkGeneration.jobs.cover.message = "Provider unavailable";

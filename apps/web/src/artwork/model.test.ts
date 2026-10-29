@@ -4,6 +4,7 @@ import { rasterPng } from "../../../../packages/protocol/src/raster.fixture";
 import { artworkDataUrl, artworkHash } from "../editor/state/artworkData";
 import { createCardGameEditorDraft, createDiceGameEditorDraft, rebuildDraftIntegrity } from "../editor/state/bundle";
 import { attachCardBack } from "../editor/state/cardBack";
+import { updateScript } from "../editor/state/scripts";
 import { artworkJobsReady, artworkNeedsAutomaticReview, initialArtworkGeneration, selectedDraftImage } from "./model";
 
 function localRaster(width: number, height: number): ReadyDraftArtwork {
@@ -43,7 +44,8 @@ test("artwork completion checks its exact manifest without launching checks on e
   expect(artworkNeedsAutomaticReview(draft)).toBe(false);
   draft.artworkGeneration.reviewManifestHash = draft.bundle.integrity.manifestHash;
   expect(artworkNeedsAutomaticReview(draft)).toBe(true);
-  draft.bundle.files.find((file) => file.path.endsWith(".lua"))!.content += "\n-- User is still editing rules";
+  const file = draft.bundle.files.find((file) => file.path.endsWith(".lua"))!;
+  updateScript(draft, file.path, file.content + "\n-- User is still editing rules");
   rebuildDraftIntegrity(draft);
   expect(artworkNeedsAutomaticReview(draft)).toBe(false);
 });
