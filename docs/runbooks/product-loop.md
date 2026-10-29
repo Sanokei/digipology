@@ -86,3 +86,15 @@ Turn observations into specific backlog criteria and regression tests where
 possible. Live generation, external asset import, generated raster covers and
 human fun evaluations remain separate evidence requirements; the demo
 playthroughs do not establish one-shot greatness.
+# Observed scheduled execution
+
+The [2026-10-29 scheduled run](https://github.com/Sanokei/digipology/actions/runs/40931504883)
+started and stopped at **Check model credential prerequisite**. Its annotation
+reports that the `OPENAI_API_KEY` repository Actions secret is missing or empty.
+No implementation, validation, PR or merge step ran. This is an observed blocked
+run; it does not establish a working unattended improvement loop. Configure the
+existing repository secret through GitHub's account settings before expecting
+execution. No secret was provisioned or duplicate workflow dispatched during
+the source/UI work. The separate app text/image provider settings also remain
+required for genuine game/art generation.
+

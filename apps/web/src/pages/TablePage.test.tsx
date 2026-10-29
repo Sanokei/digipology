@@ -86,9 +86,11 @@ test("inspect renders a definition face without exposing a hidden card", () => {
   const face = renderToStaticMarkup(<InspectOverlay item={{ entityId: "card-secret", label: "Ace of Moons", color: "#abcdef", kind: "card", hidden: false }} onDismiss={() => {}} />);
   expect(face).toContain("Ace of Moons");
   expect(face).toContain("--inspect-color:#abcdef");
-  const hidden = renderToStaticMarkup(<InspectOverlay item={{ entityId: "card-secret", label: "Face-down card", color: "#abcdef", kind: "card", hidden: true }} onDismiss={() => {}} />);
+  const hidden = renderToStaticMarkup(<InspectOverlay item={{ entityId: "card-secret", label: "Queen of Hearts", color: "#abcdef", kind: "card", hidden: true, face: { rank: "Q", suit: "hearts" } }} onDismiss={() => {}} />);
   expect(hidden).toContain("Face-down card back");
-  expect(hidden).toContain("DIGIPOLOGY");
+  expect(hidden).toContain('aria-label="Inspecting Face-down card"');
+  expect(hidden).not.toContain("Queen of Hearts");
+  expect(hidden).not.toContain('data-card-face="standard-card"');
   expect(hidden).not.toContain("Ace of Moons");
   expect(hidden).not.toContain("#abcdef");
 });

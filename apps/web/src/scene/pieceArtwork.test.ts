@@ -66,23 +66,35 @@ test("the face-list changes the renderer signature even when the current die val
   expect(piecePresentationSignature(standard)).not.toBe(piecePresentationSignature(custom));
 });
 
-function drawingRecorder(): { context: CanvasRenderingContext2D; text: string[]; circles: number[]; scales: number[][]; rectangles: number[][] } {
+function drawingRecorder(): { context: CanvasRenderingContext2D; text: string[]; ink: Array<{ text: string; color: unknown }>; circles: number[]; scales: number[][]; rectangles: number[][] } {
   const text: string[] = []; const circles: number[] = [];
+  const ink: Array<{ text: string; color: unknown }> = [];
   const scales: number[][] = []; const rectangles: number[][] = [];
   const target: Record<string, unknown> = {
     createLinearGradient: () => ({ addColorStop() {} }), createRadialGradient: () => ({ addColorStop() {} }),
-    fillText: (value: string) => text.push(value), measureText: (value: string) => ({ width: value.length * 25 }),
+    fillText: (value: string) => { text.push(value); ink.push({ text: value, color: target.fillStyle }); }, measureText: (value: string) => ({ width: value.length * 25 }),
     arc: (_x: number, _y: number, radius: number, start: number, end: number) => { if (end - start > 6) circles.push(radius); },
     scale: (...values: number[]) => scales.push(values), fillRect: (...values: number[]) => rectangles.push(values),
   };
-  return { context: new Proxy(target, { get: (object, key) => object[String(key)] ?? (() => undefined) }) as unknown as CanvasRenderingContext2D, text, circles, scales, rectangles };
+  return { context: new Proxy(target, { get: (object, key) => object[String(key)] ?? (() => undefined) }) as unknown as CanvasRenderingContext2D, text, ink, circles, scales, rectangles };
 }
 
 test("raster artwork paints the correct number of card suits and die pips", () => {
-  const seven = drawingRecorder();
-  drawPieceArtwork(seven.context, 512, 736, { kind: "standard-card", identity: { rank: "7", suit: "hearts" } });
-  expect(seven.text.filter((text) => text === "♥")).toHaveLength(9); // seven pips + two corner suits
-  expect(seven.text.filter((text) => text === "7")).toHaveLength(2);
+  for (const [suit, symbol] of [["clubs", "♣"], ["spades", "♠"], ["hearts", "♥"], ["diamonds", "♦"]] as const) {
+    for (let rank = 2; rank <= 10; rank++) {
+      const drawing = drawingRecorder();
+      drawPieceArtwork(drawing.context, 512, 736, { kind: "standard-card", identity: { rank: String(rank), suit } });
+      expect(drawing.text.filter((text) => text === symbol)).toHaveLength(rank + 2); // actual pips plus two corner suits
+      expect(drawing.text.filter((text) => text === String(rank))).toHaveLength(2);
+      for (const glyph of drawing.ink.filter((glyph) => glyph.text === symbol)) {
+        expect(typeof glyph.color).toBe("string");
+        const color = glyph.color as string;
+        const [r, g, b] = [color.slice(1, 3), color.slice(3, 5), color.slice(5, 7)].map((channel) => Number.parseInt(channel, 16));
+        if (suit === "hearts" || suit === "diamonds") { expect(r!).toBeGreaterThan(g! * 1.5); expect(r!).toBeGreaterThan(b! * 1.5); }
+        else expect(Math.max(r!, g!, b!)).toBeLessThan(100);
+      }
+    }
+  }
   for (let value = 1; value <= 6; value++) {
     const recording = drawingRecorder();
     drawPieceArtwork(recording.context, 256, 256, { kind: "die-face", value, pips: true });

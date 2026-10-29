@@ -32,7 +32,7 @@ export function InspectOverlay({ item, onDismiss, cardBack }: { item: InspectOve
       ref={dialogRef}
       role="dialog"
       aria-modal="true"
-      aria-label={`Inspecting ${item.label}`}
+      aria-label={`Inspecting ${item.hidden ? "Face-down card" : item.label}`}
       onPointerDown={(event) => event.stopPropagation()}
       onKeyDown={(event) => {
         if (event.key === "Escape") {
