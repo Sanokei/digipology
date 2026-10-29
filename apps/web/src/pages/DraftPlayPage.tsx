@@ -41,6 +41,7 @@ function DraftPlayContent({ initialDraft }: { initialDraft: ArtworkDraft }) {
   const [rules, setRules] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [artworkOpen, setArtworkOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [retryStage, setRetryStage] = useState<DraftPublicationStage>("publication");
@@ -49,20 +50,28 @@ function DraftPlayContent({ initialDraft }: { initialDraft: ArtworkDraft }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const bar = useRef<HTMLElement>(null);
+  const top = useRef<HTMLDivElement>(null);
+  const dock = useRef<HTMLDivElement>(null);
+  const toolsButton = useRef<HTMLButtonElement>(null);
   const artwork = useDraftArtworkGeneration({ draft, api, enabled: user !== null,
     onDraftChange: (next) => setDraft(next), persistDraft: (next) => saveEditorDraft(localStorage, next) });
   const cardBack = draft.bundle.files.find((file) => file.path === CARD_BACK_PATH)?.content ?? null;
   useEffect(() => { controller.projection.setCardBackBundle(cardBack); }, [controller, cardBack, runtime.status]);
   useEffect(() => {
-    const header = bar.current;
+    const header = top.current, bottom = dock.current;
     const root = header?.closest<HTMLElement>(".table-scene");
-    if (!header || !root) return;
-    const update = () => root.style.setProperty("--draft-toolbar-bottom", `${header.getBoundingClientRect().bottom + 12}px`);
+    if (!header || !bottom || !root) return;
+    const update = () => {
+      const bounds = root.getBoundingClientRect();
+      const topInset = Math.ceil(header.getBoundingClientRect().bottom - bounds.top + 8);
+      const bottomInset = Math.ceil(bounds.bottom - bottom.getBoundingClientRect().top + 8);
+      root.style.setProperty("--draft-surface-top", `${topInset}px`);
+      root.style.setProperty("--draft-surface-bottom", `${bottomInset}px`);
+    };
     const observer = new ResizeObserver(update);
-    observer.observe(header); update();
-    return () => { observer.disconnect(); root.style.removeProperty("--draft-toolbar-bottom"); };
-  }, [draft]);
+    observer.observe(header); observer.observe(bottom); update();
+    return () => { observer.disconnect(); root.style.removeProperty("--draft-surface-top"); root.style.removeProperty("--draft-surface-bottom"); };
+  }, []);
   useEffect(() => {
     setPlayers(initialDraft.minPlayers);
     void controller.start(initialDraft, { playerCount: initialDraft.minPlayers });
@@ -89,15 +98,32 @@ function DraftPlayContent({ initialDraft }: { initialDraft: ArtworkDraft }) {
   const warning = runtime.logs.filter((entry) => entry.level !== "info").at(-1);
   const artworkIncomplete = !!draft.artworkGeneration && !artworkJobsReady(draft);
   const artworkBusy = user !== null && (artwork.activity !== null || (!!draft.artworkGeneration?.direction && Object.values(draft.artworkGeneration.jobs).some((job) => job.status === "pending" || job.status === "running")));
-  return <TableScene store={controller.projection} client={controller} playerId={runtime.playerId} interactionsPaused={paused}
+  return <TableScene className="draft-play-scene" store={controller.projection} client={controller} playerId={runtime.playerId} interactionsPaused={paused || toolsOpen}
     onProjectorChange={(next) => setProjector(next === null ? undefined : () => next)}
-    topBar={<header className="draft-play-bar" ref={bar}>
-      <div className="draft-play-bar__title"><Link to="/create" aria-label="Back to creation">←</Link><div><small>Draft saved here · reopening resets the playtest</small><strong>{draft.title}</strong>{draft.tagline ? <span className="draft-play-bar__tagline" title={draft.tagline}>{draft.tagline}</span> : null}</div></div>
-      <div className="draft-play-bar__actions"><button type="button" onClick={() => setRules(true)}>How to play</button>{review ? <button type="button" className="draft-play-review-button" aria-label="Review playtest" onClick={() => setReviewOpen(true)}>{review.stale ? "Review your changes" : `Review playtest · ${review.suggestions.length}`}</button> : null}<button type="button" className="draft-artwork-button" aria-label="Edit artwork" onClick={() => setArtworkOpen(true)}>{draft.artwork?.status === "ready" ? <img className="draft-artwork-thumb" src={draft.artwork.dataUrl} alt={`${draft.title} cover`} /> : null}{draft.artwork?.status === "unavailable" ? "Repair artwork" : artwork.activity === "review" ? "Checking game…" : artwork.activity ? "Creating artwork…" : draft.artworkGeneration && Object.values(draft.artworkGeneration.jobs).some((job) => job.status !== "ready" && job.status !== "not-needed") ? "Artwork pending" : "Artwork"}</button><AudioControls {...audio} /><Link to={`/edit/${encodeURIComponent(draft.id)}`}>Edit</Link>{artworkIncomplete ? <span className="draft-artwork-pending" role="status">Artwork pending · publishing uses ready images</span> : null}<button type="button" disabled={publishing || artworkBusy || draft.artwork?.status === "unavailable"} onClick={() => void publish()}>{publishing ? "Opening table…" : artworkIncomplete ? "Publish draft & invite" : "Publish & invite"}</button></div>
-      <div className="draft-play-bar__seats"><label>Play as<select aria-label="Play as" value={runtime.playerId} disabled={paused} onChange={(event) => controller.selectPlayer(event.currentTarget.value)}>{view.players.map((player) => <option value={player.playerId} key={player.playerId}>{player.displayName}</option>)}</select></label>
-        <label>Players<select aria-label="Playtest player count" value={players} onChange={(event) => setPlayers(Number(event.currentTarget.value))}>{Array.from({ length: draft.maxPlayers - draft.minPlayers + 1 }, (_, index) => draft.minPlayers + index).map((count) => <option key={count}>{count}</option>)}</select></label><button type="button" disabled={runtime.status === "starting"} onClick={restart}>Restart playtest</button><button type="button" disabled={paused} onClick={() => controller.tick()}>Advance time</button><span>Try each seat here. Publish an unlisted game to invite friends.</span></div>
-    </header>}
+    topBar={<div className="draft-play-top" ref={top}>
+      <header className="draft-play-bar">
+        <div className="draft-play-bar__title"><Link to="/create" aria-label="Back to creation">←</Link><div><small>{artwork.storageMessage ? "Draft needs saving" : "Private draft · saved here"}</small><strong title={draft.title}>{draft.title}</strong>{draft.tagline ? <span className="draft-play-bar__tagline" title={draft.tagline}>{draft.tagline}</span> : null}</div></div>
+        <button type="button" className="draft-play-publish" disabled={publishing || artworkBusy || draft.artwork?.status === "unavailable"} onClick={() => void publish()}>{publishing ? "Opening table…" : artworkIncomplete ? "Publish draft & invite" : "Publish & invite"}</button>
+        <div className="draft-play-bar__actions"><button type="button" className="draft-play-rules" aria-label="How to play" title="How to play" onClick={() => setRules(true)}><span aria-hidden="true">?</span><span className="draft-play-rules__label">How to play</span></button>{review ? <button type="button" className="draft-play-review-button" aria-label="Review playtest" title={review.stale ? "Review your changes" : `Review playtest · ${review.suggestions.length}`} onClick={() => setReviewOpen(true)}>{review.stale ? "Review your changes" : `Review playtest · ${review.suggestions.length}`}</button> : null}<button type="button" className="draft-artwork-button" aria-label="Edit artwork" title={draft.artwork?.status === "unavailable" ? "Repair artwork" : artworkIncomplete ? "Artwork pending" : "Artwork"} onClick={() => setArtworkOpen(true)}>{draft.artwork?.status === "ready" ? <img className="draft-artwork-thumb" src={draft.artwork.dataUrl} alt={`${draft.title} cover`} /> : null}<span>{draft.artwork?.status === "unavailable" ? "Repair artwork" : artwork.activity === "review" ? "Checking game…" : artwork.activity ? "Creating artwork…" : artworkIncomplete ? "Artwork pending" : "Artwork"}</span></button><AudioControls {...audio} /><Link to={`/edit/${encodeURIComponent(draft.id)}`}>Edit</Link><button ref={toolsButton} type="button" aria-label="Playtest tools" aria-expanded={toolsOpen} onClick={() => setToolsOpen(true)}>Tools</button></div>
+      </header>
+      <GameProgressPanel compact state={view.state} playerId={runtime.playerId} onPlayAgain={restart} continuationHint="Starts a fresh private playtest with the same game and players." />
+      {notice ? <div className="draft-play-notice" role="alert">{notice}<button type="button" disabled={publishing} onClick={() => void publish()}>{retryStage === "artwork" ? "Retry artwork publication" : retryStage === "table" ? "Retry opening table" : "Retry publication"}</button></div> : null}
+      {warning ? <p className="draft-play-warning" role="status">{warning.message}</p> : null}
+    </div>}
     panels={<>
+      {toolsOpen ? <ReadingDialog heading="Playtest tools" eyebrow="Your private table" closeLabel="Close playtest tools" bodyLabel="Playtest settings" returnFocusTo={toolsButton} onClose={() => setToolsOpen(false)}>
+        <div className="draft-play-tools">
+          <p className="draft-play-tools__title">{draft.title}</p>
+          <p>Try each seat without restarting. Reopening this draft resets the playtest.</p>
+          <label>Play as<select aria-label="Play as" value={runtime.playerId} disabled={paused} onChange={(event) => controller.selectPlayer(event.currentTarget.value)}>{view.players.map((player) => <option value={player.playerId} key={player.playerId}>{player.displayName}</option>)}</select></label>
+          <label>Players in a fresh playtest<select aria-label="Playtest player count" value={players} onChange={(event) => setPlayers(Number(event.currentTarget.value))}>{Array.from({ length: draft.maxPlayers - draft.minPlayers + 1 }, (_, index) => draft.minPlayers + index).map((count) => <option key={count}>{count}</option>)}</select></label>
+          <div className="draft-play-tools__actions"><button type="button" disabled={runtime.status === "starting"} onClick={restart}>Restart playtest</button><button type="button" disabled={paused} onClick={() => controller.tick()}>Advance time</button></div>
+          <p>The player count applies when you restart. Publish an unlisted game to invite friends.</p>
+          <button type="button" onClick={() => downloadBlob(new Blob([serializeEditorDraft(artwork.currentDraft())], { type: "application/json" }), "game-draft.editor.json")}>Download editable draft</button>
+          <section className="draft-play-tools__help" aria-label="Table controls"><h3>Move around the table</h3><p className="draft-play-tools__pointer-help">Left-drag pieces. Right-drag to orbit, middle-drag to pan, and use the wheel to zoom. Space resets the camera. Right-click a piece for its actions.</p><p className="draft-play-tools__touch-help">Drag pieces, use two fingers to move the table, and pinch to zoom. Hold a piece for its actions.</p></section>
+          <button type="button" className="draft-play-tools__back" onClick={() => setToolsOpen(false)}>Back to table</button>
+        </div>
+      </ReadingDialog> : null}
       {artworkOpen ? <GameArtworkDialog draft={draft} controller={artwork} canGenerate={user !== null}
         onSignIn={() => navigate("/login", { state: { backgroundLocation: location } })}
         onDownloadDraft={() => downloadBlob(new Blob([serializeEditorDraft(artwork.currentDraft())], { type: "application/json" }), "game-draft.editor.json")}
@@ -107,15 +133,12 @@ function DraftPlayContent({ initialDraft }: { initialDraft: ArtworkDraft }) {
         <p>{review.stale ? "The rules or setup changed after the automated playtest. Give your changes a fresh playthrough." : "Some checks still need a playthrough. Try these before you invite friends."}</p>
         <ul>{review.suggestions.map((suggestion) => <li key={suggestion}>{suggestion}</li>)}</ul>
       </ReadingDialog> : null}
-      <GameProgressPanel state={view.state} playerId={runtime.playerId} onPlayAgain={restart} continuationHint="Starts a fresh private playtest with the same game and players." />
-      {notice ? <div className="draft-play-notice" role="alert">{notice}<button type="button" disabled={publishing} onClick={() => void publish()}>{retryStage === "artwork" ? "Retry artwork publication" : retryStage === "table" ? "Retry opening table" : "Retry publication"}</button></div> : null}
-      {warning ? <p className="draft-play-warning" role="status">{warning.message}</p> : null}
-      <div className="table-bottom-dock">
+      <div className="table-bottom-dock" ref={dock}>
       {progress.winnerId === null ? <DiceControls dice={entities.filter((entity) => entity.components.die)} definitions={view.definitions} disabled={paused || wrongTurn} onRoll={(entityId) => controller.sendAction({ type: "die.roll", payload: { entityId } })} /> : null}
       {progress.winnerId === null && entities.some((entity) => entity.components.deck?.enabled) ? <aside className="card-controls dice-controls" aria-label="Card actions"><span>Cards</span>{entities.filter((entity) => entity.components.deck?.enabled).map((deck) => <div key={deck.id}><button type="button" disabled={paused || !handId || !deck.components.container?.items.length} onClick={() => controller.sendAction({ type: "deck.draw_to_container", payload: { deckId: deck.id, target: handId, count: 1 } })}>Draw card</button><button type="button" disabled={paused} onClick={() => controller.sendAction({ type: "deck.shuffle", payload: { deckId: deck.id } })}>Shuffle deck</button></div>)}</aside> : null}
       {handId ? <HandStrip key={`${draftId}:${runtime.playerId}`} items={hand} roomId={`draft-${draftId}`} client={controller} interactionsPaused={paused} {...(projector ? { projectToTable: projector } : {})} /> : null}
-      </div>
       {progress.winnerId === null && entities.some((entity) => entity.components.button) ? <aside className="draft-action-buttons" aria-label="Game actions">{entities.filter((entity) => entity.components.button).map((entity) => <button type="button" key={entity.id} disabled={paused || !entity.components.button?.enabled} onClick={() => controller.sendAction({ type: "button.press", payload: { entityId: entity.id } })}>{entity.components.button?.label || "Choose"}</button>)}</aside> : null}
+      </div>
       {(progress.winnerId === null ? openPromptsForPlayer(view.state, runtime.playerId) : []).map((prompt) => <PromptPanel key={prompt.id} prompt={prompt} disabled={paused} respond={(response) => controller.sendAction({ type: "prompt.respond", payload: { promptId: prompt.id, response } })} />)}
 
     </>}

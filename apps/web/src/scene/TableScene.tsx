@@ -23,6 +23,7 @@ export interface TableActionSender {
 }
 
 interface TableSceneProps {
+  className?: string;
   store: KernelStore;
   client?: TableActionSender | null;
   playerId?: string;
@@ -38,6 +39,7 @@ interface TableSceneProps {
 }
 
 export function TableScene({
+  className,
   store,
   client = null,
   playerId = "",
@@ -128,7 +130,7 @@ export function TableScene({
       : entityDisplayLabel(contextEntity, view.definitions);
   })();
 
-  return <main className="table-scene">
+  return <main className={`table-scene${className ? ` ${className}` : ""}`}>
     <canvas ref={canvasRef} className="table-scene__canvas" aria-label={readOnly ? "Read-only 3D draft preview" : "Live synchronized 3D tabletop"} aria-busy={renderState === "loading"} data-render-state={renderState} role="img" tabIndex={0} onContextMenu={(event) => event.preventDefault()} />
     {renderState === "ready" ? null : <div className="table-render-status" role={renderState === "failed" ? "alert" : "status"}>
       {renderState === "loading" ? <><span className="loading-spinner" /><p>Preparing your table…</p></>

@@ -41,7 +41,9 @@ test("fixture model goes through real repair into an unpublished playable draft,
   for (let turn = 0; turn < 40; turn++) {
     const status = await progress.getByRole("status").innerText();
     if (status.includes("wins Dice Dash!")) break;
+    await page.getByRole("button", { name: "Playtest tools", exact: true }).click();
     await page.getByLabel("Play as", { exact: true }).selectOption({ label: status.startsWith("Player 2") ? "Player 2" : "Player 1" });
+    await page.getByRole("button", { name: "Close playtest tools", exact: true }).click();
     await page.getByRole("button", { name: "Roll Die", exact: true }).click();
     await expect(progress.getByRole("status")).not.toHaveText(status);
   }

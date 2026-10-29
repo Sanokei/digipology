@@ -1,21 +1,71 @@
-.draft-play-bar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin:10px; padding:14px 18px; border:1px solid #68867a45; border-radius:15px; color:#edf3e9; background:#0b2725f5; pointer-events:auto; }
-.draft-play-bar__title { display:flex; align-items:center; gap:14px; min-width:0; }
+/* Only private drafts reserve canvas space; public tables retain their layout. */
+.draft-play-top { display:grid; gap:6px; margin:6px; pointer-events:none; }
+.draft-play-bar { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px 12px; align-items:center; padding:10px 12px; border:1px solid #68867a45; border-radius:13px; color:#edf3e9; background:#0b2725f5; pointer-events:auto; }
+.draft-play-bar__title { display:flex; align-items:center; gap:8px; min-width:0; }
 .draft-play-bar__title > div { min-width:0; }
-.draft-play-bar__title small { display:block; margin-bottom:5px; color:#bdc8b5; font-size:.65rem; }
-.draft-play-bar__title strong { display:block; max-width:360px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.draft-play-bar__tagline { display:block; max-width:46ch; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:5px; color:#cbd6c2; font-size:.72rem; }
-.draft-play-bar .draft-play-review-button { color:#ffdc9a; border-color:#d7b76c88; }
-.draft-play-bar__title > a { padding:10px; }
-.draft-play-bar__actions,.draft-play-bar__seats { display:flex; flex-wrap:wrap; align-items:center; gap:9px; }
-.draft-play-bar button,.draft-play-bar__actions > a { min-height:36px; padding:7px 11px; border:1px solid #8eaa8b55; border-radius:8px; color:#f5efdc; background:#214737; cursor:pointer; font-size:.73rem; }
+.draft-play-bar__title small { display:block; margin-bottom:4px; color:#bdc8b5; font-size:.65rem; }
+.draft-play-bar__title strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.draft-play-bar__tagline { display:block; max-width:46ch; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:4px; color:#cbd6c2; font-size:.72rem; }
+.draft-play-bar__title > a { display:grid; place-items:center; flex:0 0 36px; min-height:40px; }
+.draft-play-bar__actions { grid-column:1 / -1; display:flex; flex-wrap:wrap; align-items:center; gap:6px; min-width:0; }
+.draft-play-bar button,.draft-play-bar__actions > a { min-height:40px; padding:7px 10px; border:1px solid #8eaa8b55; border-radius:8px; color:#f5efdc; background:#214737; cursor:pointer; font-size:.73rem; }
 .draft-play-bar button:disabled { opacity:.5; cursor:wait; }
-.draft-play-bar__seats { flex-basis:100%; padding-top:10px; border-top:1px solid #ffffff12; }
-.draft-play-bar__seats label { display:flex; align-items:center; gap:7px; color:#cbd6c2; font-size:.7rem; }
-.draft-play-bar__seats select { min-height:34px; padding:5px 8px; border:1px solid #8eaa8b55; border-radius:7px; color:#fff2d5; background:#18382e; }
-.draft-play-bar__seats > span { margin-left:auto; color:#b4c2ac; font-size:.67rem; }
-.table-scene:has(.draft-play-bar) .game-progress { top:var(--draft-toolbar-bottom,152px); }
-.draft-play-warning,.draft-play-notice { position:absolute; z-index:6; top:154px; right:18px; max-width:min(390px,calc(100% - 36px)); margin:0; padding:12px 15px; border:1px solid #c6914b77; border-radius:10px; color:#ffe3b3; background:#26382a; font-size:.78rem; }
-.draft-play-notice button { display:block; min-height:40px; margin-top:10px; padding:9px 14px; border:1px solid #e6bc70; border-radius:7px; color:#182b22; background:#f3d9a8; cursor:pointer; font-size:.8rem; font-weight:600; }
-.draft-action-buttons { position:absolute; right:18px; top:210px; display:flex; flex-direction:column; gap:8px; max-width:200px; }
-.draft-action-buttons button { min-height:40px; padding:9px 14px; border:1px solid #8eaa8b55; border-radius:8px; color:#f5efdc; background:#214737; cursor:pointer; }
-@media(max-width:768px) { .draft-play-bar { gap:9px; padding:10px; margin:6px; } .draft-play-bar__title { flex-basis:100%; } .draft-play-bar__title strong,.draft-play-bar__tagline { max-width:280px; } .draft-play-bar__actions { gap:6px; } .draft-play-bar__seats { gap:8px; } .draft-play-bar__seats > span { display:none; } .draft-play-warning,.draft-play-notice { top:var(--draft-toolbar-bottom,220px); right:10px; } .draft-action-buttons { top:360px; right:10px; } }
+.draft-play-bar .draft-play-publish { grid-column:2; grid-row:1; max-width:180px; border-color:#d0a95e; background:#e9c67c; color:#172d24; font-weight:750; }
+.draft-play-bar .draft-play-review-button { color:#ffdc9a; border-color:#d7b76c88; }
+.draft-play-bar .draft-artwork-button { min-width:0; }
+.draft-artwork-button > span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.draft-play-rules > span:first-child { display:none; }
+.draft-play-bar__actions > a { display:grid; place-items:center; }
+.draft-play-bar .table-audio summary { min-height:40px; }
+.draft-play-scene > .table-scene__canvas { position:absolute; top:var(--draft-surface-top,180px); height:max(1px,calc(100% - var(--draft-surface-top,180px) - var(--draft-surface-bottom,80px))); }
+.draft-play-scene .game-progress--compact { position:static; display:flex; flex-wrap:wrap; align-items:center; gap:5px 10px; width:100%; padding:8px 12px; pointer-events:auto; border-radius:11px; }
+.draft-play-scene .game-progress--compact .game-progress__eyebrow { margin:0; font-size:.6rem; }
+.draft-play-scene .game-progress--compact .game-progress__status { flex:1 1 180px; min-width:0; max-height:4.5em; overflow:auto; font-size:.8rem; line-height:1.5; }
+.draft-play-scene .game-progress--compact ol { display:flex; flex:1 0 100%; flex-wrap:nowrap; gap:6px; margin:0; max-height:40px; overflow:auto; overscroll-behavior:contain; }
+.draft-play-scene .game-progress--compact li { flex:0 0 auto; align-items:center; gap:12px; margin:0; padding:4px 8px; font-size:.72rem; white-space:nowrap; }
+.draft-play-scene .game-progress--compact .game-progress__continuation { flex:1 0 100%; display:flex; flex-wrap:wrap; align-items:center; margin-top:4px; gap:8px; }
+.draft-play-scene .game-progress--compact .game-progress__continuation small { flex:1 0 100%; }
+.draft-play-scene .game-progress--compact :focus-visible { outline:2px solid #f2bb69; outline-offset:2px; }
+.draft-play-scene .table-bottom-dock { position:absolute; z-index:3; inset:auto 8px calc(8px + env(safe-area-inset-bottom)); display:flex; flex-direction:column; gap:8px; max-height:42dvh; overflow:auto; overscroll-behavior:contain; pointer-events:auto; }
+.draft-play-scene .table-bottom-dock > .dice-controls,.draft-play-scene .table-bottom-dock > .hand-strip { position:relative; inset:auto; translate:none; width:100%; max-width:100%; margin:0; flex-shrink:0; pointer-events:auto; }
+.draft-play-scene .table-bottom-dock > .dice-controls { min-height:56px; }
+.draft-play-scene .table-bottom-dock > .hand-strip:not(.hand-strip--empty) { height:124px; }
+.draft-play-scene .table-bottom-dock > .hand-strip--empty { height:48px; }
+.draft-play-scene .table-bottom-dock > .object-menu-backdrop,.draft-play-scene .table-bottom-dock > .inspect-overlay { position:fixed; inset:0; }
+.draft-play-scene .table-bottom-dock:has(> .inspect-overlay, > .object-menu-backdrop) { z-index:60; overflow:visible; }
+.draft-play-scene .table-hints { display:none; }
+.draft-play-notice,.draft-play-warning { position:static; max-width:none; max-height:140px; overflow:auto; margin:0; padding:10px 12px; border:1px solid #c6914b77; border-radius:10px; color:#ffe3b3; background:#26382a; font-size:.78rem; pointer-events:auto; }
+.draft-play-notice button { display:block; min-height:40px; margin-top:8px; padding:8px 12px; border:1px solid #e6bc70; border-radius:7px; color:#182b22; background:#f3d9a8; cursor:pointer; font-size:.8rem; font-weight:600; }
+.draft-play-warning { max-height:72px; }
+.draft-play-scene .draft-action-buttons { display:flex; flex-wrap:wrap; gap:8px; }
+.draft-action-buttons button { min-height:44px; padding:9px 14px; border:1px solid #8eaa8b55; border-radius:8px; color:#f5efdc; background:#214737; cursor:pointer; }
+.draft-play-tools { display:grid; gap:14px; padding-top:14px; }
+.draft-play-tools label { display:grid; gap:7px; color:#304d3e; font-size:.85rem; font-weight:650; }
+.draft-play-tools select { min-height:44px; width:100%; padding:9px 12px; border:1px solid #b5c1ad; border-radius:8px; color:#213e31; background:#fffdf6; }
+.draft-play-tools button { min-height:44px; padding:10px 14px; border:1px solid #a3b49b; border-radius:8px; color:#254534; background:#edf0e5; cursor:pointer; }
+.draft-play-tools button:disabled { opacity:.55; cursor:wait; }
+.draft-play-tools__actions { display:flex; flex-wrap:wrap; gap:8px; }
+.draft-play-tools .draft-play-tools__back { color:#fff9e9; background:#214737; }
+.draft-play-tools .draft-play-tools__title { font-weight:750; color:#254534; }
+.draft-play-tools__help { border-top:1px solid #ccd5c4; }
+.draft-play-tools__help h3 { margin-top:16px; }
+.draft-play-tools__touch-help { display:none; }
+@media(hover:none), (pointer:coarse) { .draft-play-tools__pointer-help { display:none; } .draft-play-tools__touch-help { display:block; } }
+@media(min-width:1000px) { .draft-play-bar { grid-template-columns:minmax(160px,1fr) auto auto; } .draft-play-bar__actions { grid-column:2; grid-row:1; } .draft-play-bar .draft-play-publish { grid-column:3; } }
+@media(max-width:768px) {
+ .draft-play-bar { padding:8px 10px; gap:7px; }
+ .draft-play-bar__tagline { display:none; }
+ .draft-play-bar__title > a { flex-basis:28px; }
+ .draft-play-bar__title strong { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; max-height:2.5em; line-height:1.25; white-space:normal; overflow-wrap:anywhere; }
+ .draft-play-bar .draft-play-publish { max-width:128px; min-height:40px; font-size:.68rem; }
+ .draft-play-bar__actions { display:grid; grid-template-columns:36px minmax(0,1fr) minmax(0,1fr) 36px 40px 52px; gap:4px; }
+ .draft-play-bar__actions > button,.draft-play-bar__actions > a { min-width:0; min-height:44px; padding:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+ .draft-play-bar__actions:not(:has(.draft-play-review-button)) { grid-template-columns:36px minmax(0,1fr) 36px 40px 52px; }
+ .draft-play-bar .draft-artwork-button { display:block; }
+ .draft-play-bar .draft-artwork-thumb { display:none; }
+ .draft-play-rules > span:first-child { display:inline; font-size:1.05rem; font-weight:750; }
+ .draft-play-rules__label { display:none; }
+ .draft-play-bar .table-audio summary { padding:6px; min-height:44px; justify-content:center; }
+ .draft-play-bar .table-audio__settings { position:fixed; top:120px; right:14px; max-height:calc(100dvh - 140px); }
+ .draft-play-scene .game-progress--compact { padding:7px 10px; gap:4px 8px; }
+}
