@@ -1,0 +1,4 @@
+e2e/game-detail.e2e.ts(1,29): error TS2305: Module '"./fixtures"' has no exported member 'Locator'.
+e2e/game-detail.e2e.ts(45,34): error TS7006: Parameter 'element' implicitly has an 'any' type.
+e2e/sounds.e2e.ts(1,40): error TS2305: Module '"./fixtures"' has no exported member 'BrowserContext'.
+$ tsc --noEmit

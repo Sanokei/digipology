@@ -1,0 +1,466 @@
+{
+  "source": "af009d58a820fb64d40bc6edbb6946e644feedab",
+  "run": 40943958148,
+  "url": "https://github.com/Sanokei/digipology/actions/runs/40943958148",
+  "conclusion": "failure",
+  "stats": {
+    "startTime": "2026-10-29T19:54:28.046Z",
+    "duration": 1254942.779,
+    "expected": 24,
+    "skipped": 0,
+    "unexpected": 9,
+    "flaky": 0
+  },
+  "tests": [
+    {
+      "title": "local alpha artwork survives private play, backup, owned publication, versioned reload and credit download",
+      "file": "artwork.e2e.ts",
+      "line": 28,
+      "status": "unexpected",
+      "results": [
+        {
+          "status": "timedOut",
+          "duration": 187114,
+          "errors": [
+            "\u001b[31mTest timeout of 180000ms exceeded.\u001b[39m",
+            "Error: locator.setInputFiles: Test timeout of 180000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByLabel('Image or saved artwork', { exact: true })\u001b[22m\n\n\n  45 |     return canvas.toDataURL(\"image/png\").split(\",\")[1]!;\n  46 |   });\n> 47 |   await dialog.getByLabel(\"Image or saved artwork\", { exact: true }).setInputFiles({ name: \"alpha-local-fixture.png\", mimeType: \"image/png\", buffer: Buffer.from(alpha, \"base64\") });\n     |   ^\n  48 |   await expect(dialog.getByRole(\"img\")).toBeVisible();\n  49 |   await expect(dialog.getByRole(\"button\", { name: \"Save artwork\", exact: true })).toBeEnabled();\n  50 |   await dialog.getByLabel(\"Artist / credit\", { exact: true }).fill(\"Digipology \u00b7 local QA fixture\");\n    at /home/runner/work/digipology/digipology/e2e/artwork.e2e.ts:47:3"
+          ]
+        }
+      ]
+    },
+    {
+      "title": "damaged saved artwork stays visible as a repair task and never silently publishes",
+      "file": "artwork.e2e.ts",
+      "line": 157,
+      "status": "unexpected",
+      "results": [
+        {
+          "status": "failed",
+          "duration": 34103,
+          "errors": [
+            "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeDisabled\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  getByRole('button', { name: 'Publish & invite', exact: true })\nExpected: disabled\nReceived: enabled\nTimeout:  15000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeDisabled\" getByRole('button', { name: 'Publish & invite', exact: true }) with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('button', { name: 'Publish & invite', exact: true })\u001b[22m\n\u001b[2m    33 \u00d7 locator resolved to <button type=\"button\">Publish & invite</button>\u001b[22m\n\u001b[2m       - unexpected value \"enabled\"\u001b[22m\n\n\n  162 |   });\n  163 |   await page.reload(); await ready(page);\n> 164 |   await expect(page.getByRole(\"button\", { name: \"Publish & invite\", exact: true })).toBeDisabled();\n      |                                                                                     ^\n  165 |   await page.getByRole(\"button\", { name: \"Edit artwork\", exact: true }).click();\n  166 |   await expect(page.getByRole(\"alert\")).toContainText(\"Replace it, or remove it\");\n  167 |   await page.setViewportSize({ width: 390, height: 844 });\n    at /home/runner/work/digipology/digipology/e2e/artwork.e2e.ts:164:85"
+          ]
+        }
+      ]
+    },
+    {
+      "title": "different games retain their own raster backs through editor, private play, publication, guest inspection and backup",
+      "file": "cardBacks.e2e.ts",
+      "line": 48,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 93095,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "missing game-back images show a playable fallback and recover through retry",
+      "file": "cardBacks.e2e.ts",
+      "line": 141,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 16092,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "real saved raster draft survives desktop rule edits, storage recovery, private review and idempotent publication",
+      "file": "editor-handoff.e2e.ts",
+      "line": 60,
+      "status": "unexpected",
+      "results": [
+        {
+          "status": "failed",
+          "duration": 88510,
+          "errors": [
+            "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveAttribute\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByRole('img', { name: 'Live synchronized 3D tabletop', exact: true })\nExpected: \u001b[32m\"ready\"\u001b[39m\nReceived: \u001b[31m\"loading\"\u001b[39m\nTimeout:  30000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveAttribute\" getByRole('img', { name: 'Live synchronized 3D tabletop', exact: true }) with timeout 30000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('img', { name: 'Live synchronized 3D tabletop', exact: true })\u001b[22m\n\u001b[2m    19 \u00d7 locator resolved to <canvas role=\"img\" tabindex=\"0\" aria-busy=\"true\" class=\"table-scene__canvas\" data-render-state=\"loading\" aria-label=\"Live synchronized 3D tabletop\"></canvas>\u001b[22m\n\u001b[2m       - unexpected value \"loading\"\u001b[22m\n\n\n  29 | async function ready(page: Page) {\n  30 |   await page.bringToFront();\n> 31 |   await expect(page.getByRole(\"img\", { name: \"Live synchronized 3D tabletop\", exact: true })).toHaveAttribute(\"data-render-state\", \"ready\", { timeout: 30_000 });\n     |                                                                                               ^\n  32 |   await expect(page.locator(\".table-render-status\")).toHaveCount(0);\n  33 | }\n  34 | async function download(page: Page, testInfo: TestInfo, name: string, trigger: () => Promise<void>) {\n    at ready (/home/runner/work/digipology/digipology/e2e/editor-handoff.e2e.ts:31:95)\n    at /home/runner/work/digipology/digipology/e2e/editor-handoff.e2e.ts:112:65"
+          ]
+        }
+      ]
+    },
+    {
+      "title": "artwork source field stays above its footer with keyboard focus at 390px and short height, including decode failure",
+      "file": "editor-handoff.e2e.ts",
+      "line": 180,
+      "status": "unexpected",
+      "results": [
+        {
+          "status": "failed",
+          "duration": 26919,
+          "errors": [
+            "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeFocused\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('button', { name: 'Close artwork', exact: true })\nExpected: focused\nTimeout: 15000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeFocused\" getByRole('button', { name: 'Close artwork', exact: true }) with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('button', { name: 'Close artwork', exact: true })\u001b[22m\n\n\n  185 |   await expect(page).toHaveURL(/\\/playtest\\//); await ready(page);\n  186 |   const edit = page.getByRole(\"button\", { name: \"Edit artwork\", exact: true }); await edit.click();\n> 187 |   await expect(page.getByRole(\"button\", { name: \"Close artwork\", exact: true })).toBeFocused();\n      |                                                                                  ^\n  188 |   await tabToSource(page);\n  189 |   await page.screenshot({ path: testInfo.outputPath(\"source-field-desktop.png\"), fullPage: true });\n  190 |   for (const height of [844, 480]) {\n    at /home/runner/work/digipology/digipology/e2e/editor-handoff.e2e.ts:187:82"
+          ]
+        }
+      ]
+    },
+    {
+      "title": "a public raster game exposes its identity and host action before artwork, preserving original downloads and invite entry",
+      "file": "game-detail.e2e.ts",
+      "line": 70,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 18883,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "long titles and absent, landscape or failed covers keep the entry usable across narrow, short and desktop layouts",
+      "file": "game-detail.e2e.ts",
+      "line": 142,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 6503,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "detail hosting keeps Close and Create table usable at short height and preserves the game through sign-in dismissal",
+      "file": "game-detail.e2e.ts",
+      "line": 176,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 1106,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "fixture model goes through real repair into an unpublished playable draft, then explicit publication and multiplayer",
+      "file": "generation.e2e.ts",
+      "line": 21,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 89912,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "provider failure preserves the prompt and never opens an accepted draft",
+      "file": "generation.e2e.ts",
+      "line": 104,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 9280,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "browser storage failure preserves accepted output and retries without another model request",
+      "file": "generation.e2e.ts",
+      "line": 115,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 9979,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "fixture review warnings, authored identity and saved-file recovery survive private play",
+      "file": "generation.e2e.ts",
+      "line": 148,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 37571,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "hosting keeps keyboard focus in the dialog and restores it after Escape",
+      "file": "host-dialog.e2e.ts",
+      "line": 3,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 3589,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "hosting hands focus to the invite and keeps the current app origin",
+      "file": "host-dialog.e2e.ts",
+      "line": 24,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 2278,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "the host dialog does not intercept Escape from the separate sign-in overlay",
+      "file": "host-dialog.e2e.ts",
+      "line": 40,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 2125,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "menu actions still accept a fresh mouse click and keyboard activation",
+      "file": "object-context-menu.e2e.ts",
+      "line": 85,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 12099,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "releasing a hand long press keeps the card private until a fresh menu tap",
+      "file": "object-context-menu.e2e.ts",
+      "line": 20,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 10851,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "game-directed cover and back finish without resetting play, then survive publication, privacy and editable backup",
+      "file": "rasterArt.e2e.ts",
+      "line": 65,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 82420,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "blank replacements retain selected originals and retry only artwork; interrupted replies reuse stored results",
+      "file": "rasterArt.e2e.ts",
+      "line": 183,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 42103,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "browser quota failure keeps prepared artwork downloadable and saves it without another provider operation",
+      "file": "rasterArt.e2e.ts",
+      "line": 232,
+      "status": "unexpected",
+      "results": [
+        {
+          "status": "failed",
+          "duration": 17661,
+          "errors": [
+            "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: 'Check your email', exact: true })\nExpected: visible\nTimeout: 15000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" getByRole('heading', { name: 'Check your email', exact: true }) with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: 'Check your email', exact: true })\u001b[22m\n\n\n  15 |   await page.getByLabel(\"Email address\", { exact: true }).fill(`raster-${Date.now()}@example.com`);\n  16 |   await page.getByRole(\"button\", { name: \"Email me a link\", exact: true }).click();\n> 17 |   await expect(page.getByRole(\"heading\", { name: \"Check your email\", exact: true })).toBeVisible();\n     |                                                                                      ^\n  18 |   const { link } = await (await page.request.get(\"/api/dev/last-magic-link\")).json();\n  19 |   await page.goto(link); await page.goto(\"/create\");\n  20 | }\n    at signIn (/home/runner/work/digipology/digipology/e2e/rasterArt.e2e.ts:17:86)\n    at /home/runner/work/digipology/digipology/e2e/rasterArt.e2e.ts:233:29"
+          ]
+        }
+      ]
+    },
+    {
+      "title": "unconfigured illustration preserves the playable rules and separate briefs without sample artwork",
+      "file": "rasterArt.e2e.ts",
+      "line": 274,
+      "status": "unexpected",
+      "results": [
+        {
+          "status": "failed",
+          "duration": 16184,
+          "errors": [
+            "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: 'Check your email', exact: true })\nExpected: visible\nTimeout: 15000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" getByRole('heading', { name: 'Check your email', exact: true }) with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: 'Check your email', exact: true })\u001b[22m\n\n\n  15 |   await page.getByLabel(\"Email address\", { exact: true }).fill(`raster-${Date.now()}@example.com`);\n  16 |   await page.getByRole(\"button\", { name: \"Email me a link\", exact: true }).click();\n> 17 |   await expect(page.getByRole(\"heading\", { name: \"Check your email\", exact: true })).toBeVisible();\n     |                                                                                      ^\n  18 |   const { link } = await (await page.request.get(\"/api/dev/last-magic-link\")).json();\n  19 |   await page.goto(link); await page.goto(\"/create\");\n  20 | }\n    at signIn (/home/runner/work/digipology/digipology/e2e/rasterArt.e2e.ts:17:86)\n    at /home/runner/work/digipology/digipology/e2e/rasterArt.e2e.ts:275:28"
+          ]
+        }
+      ]
+    },
+    {
+      "title": "source transport with a fixture provider preserves private input through play, editing and editable backup",
+      "file": "ruleSources.e2e.ts",
+      "line": 13,
+      "status": "unexpected",
+      "results": [
+        {
+          "status": "failed",
+          "duration": 16168,
+          "errors": [
+            "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: 'Check your email', exact: true })\nExpected: visible\nTimeout: 15000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" getByRole('heading', { name: 'Check your email', exact: true }) with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: 'Check your email', exact: true })\u001b[22m\n\n\n  17 |   await page.getByLabel(\"Email address\", { exact: true }).fill(`source-transport-${Date.now()}@example.com`);\n  18 |   await page.getByRole(\"button\", { name: \"Email me a link\", exact: true }).click();\n> 19 |   await expect(page.getByRole(\"heading\", { name: \"Check your email\", exact: true })).toBeVisible();\n     |                                                                                      ^\n  20 |   const { link } = await (await page.request.get(\"/api/dev/last-magic-link\")).json(); await page.goto(link); await page.goto(\"/create\");\n  21 |   await page.getByLabel(\"Game description\", { exact: true }).fill(prompt);\n  22 |   await page.getByLabel(\"Attach rule or card files\", { exact: true }).setInputFiles({ name: \"Transport fixture.csv\", mimeType: \"text/csv\", buffer: Buffer.from(text) });\n    at /home/runner/work/digipology/digipology/e2e/ruleSources.e2e.ts:19:86"
+          ]
+        }
+      ]
+    },
+    {
+      "title": "a real mastered creator bundle survives editor import, backup, private dice events, publication, credit download and guest reload",
+      "file": "sounds.e2e.ts",
+      "line": 66,
+      "status": "unexpected",
+      "results": [
+        {
+          "status": "failed",
+          "duration": 16137,
+          "errors": [
+            "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: 'Check your email', exact: true })\nExpected: visible\nTimeout: 15000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" getByRole('heading', { name: 'Check your email', exact: true }) with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: 'Check your email', exact: true })\u001b[22m\n\n\n  53 | async function signIn(page: Page) {\n  54 |   await page.goto(\"/login\"); await page.getByLabel(\"Email address\", { exact: true }).fill(`sounds-${Date.now()}@example.com`);\n> 55 |   await page.getByRole(\"button\", { name: \"Email me a link\", exact: true }).click(); await expect(page.getByRole(\"heading\", { name: \"Check your email\", exact: true })).toBeVisible();\n     |                                                                                                                                                                        ^\n  56 |   const { link } = await (await page.request.get(\"/api/dev/last-magic-link\")).json() as { link: string }; await page.goto(link);\n  57 | }\n  58 | async function download(page: Page, info: TestInfo, name: string, trigger: () => Promise<void>) {\n    at signIn (/home/runner/work/digipology/digipology/e2e/sounds.e2e.ts:55:168)\n    at /home/runner/work/digipology/digipology/e2e/sounds.e2e.ts:70:3"
+          ]
+        }
+      ]
+    },
+    {
+      "title": "normal card draws in another seat stay silent while public and own card events remain audible",
+      "file": "sounds.e2e.ts",
+      "line": 137,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 65242,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "source fetch and decoder failures show retry, preserve playable fallback and recover to exact decoded assets",
+      "file": "sounds.e2e.ts",
+      "line": 164,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 16967,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "two people play Dice Dash to a winner, hear feedback, and retain the finished game after reload",
+      "file": "table.e2e.ts",
+      "line": 35,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 78388,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "named cards remain private in hands, play visibly to the table, reveal and survive reload",
+      "file": "table.e2e.ts",
+      "line": 114,
+      "status": "unexpected",
+      "results": [
+        {
+          "status": "failed",
+          "duration": 84435,
+          "errors": [
+            "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('button', { name: 'Inspect Queen of Clubs', exact: true })\nExpected: visible\nTimeout: 15000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" getByRole('button', { name: 'Inspect Queen of Clubs', exact: true }) with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('button', { name: 'Inspect Queen of Clubs', exact: true })\u001b[22m\n\n\n  174 |     await other.page.screenshot({ path: testInfo.outputPath(\"played-card-revealed.png\"), fullPage: true });\n  175 |     await page.reload();\n> 176 |     await expect(page.getByRole(\"button\", { name: \"Inspect Queen of Clubs\", exact: true })).toBeVisible();\n      |                                                                                             ^\n  177 |     await renderedTable(page);\n  178 |     await page.screenshot({ path: testInfo.outputPath(\"card-hand-restored.png\"), fullPage: true });\n  179 |     await page.getByRole(\"button\", { name: \"Inspect Queen of Clubs\", exact: true }).click();\n    at /home/runner/work/digipology/digipology/e2e/table.e2e.ts:176:93"
+          ]
+        }
+      ]
+    },
+    {
+      "title": "mobile table keeps play controls reachable without horizontal overflow",
+      "file": "table.e2e.ts",
+      "line": 191,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 7218,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "an invalid invite provides a recovery route",
+      "file": "table.e2e.ts",
+      "line": 209,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 2053,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "rules support keyboard reading and copied invites use the current origin with honest feedback",
+      "file": "table.e2e.ts",
+      "line": 218,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 14034,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "a real transport interruption restores play and updates host controls on both clients",
+      "file": "table.e2e.ts",
+      "line": 242,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 58442,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "a failed table view offers recovery and reload preserves the existing private hand",
+      "file": "table.e2e.ts",
+      "line": 275,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 15278,
+          "errors": []
+        }
+      ]
+    }
+  ],
+  "artifactSha256": "48919c28297290cd9b8a05f1bf66eb7d0492d0b4a6d8f434ff4961e7ff4e2bfa",
+  "scope": "940 unit tests passed;24 browser cases passed and9 failed. Four login429s confirmed in normal Worker logs. Not a release pass."
+}

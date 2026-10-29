@@ -1,0 +1,169 @@
+{
+  "source": "85e433f0c443331208be53d3c8d4d212938d2bbf",
+  "run": 40950946771,
+  "url": "https://github.com/Sanokei/digipology/actions/runs/40950946771",
+  "conclusion": "success",
+  "unitPassed": 942,
+  "browserPassed": 34,
+  "browserCaseLines": [
+    "\u2713   1 e2e/artwork.e2e.ts:37:1 \u203a local alpha artwork survives private play, backup, owned publication, versioned reload and credit download (46.9s)",
+    "\u2713   2 e2e/artwork.e2e.ts:167:1 \u203a damaged saved artwork stays visible as a repair task and never silently publishes (13.8s)",
+    "\u2713   3 e2e/authIsolation.e2e.ts:4:1 \u203a independent visitors keep the production per-IP magic-link limit within each visit (1.3s)",
+    "\u2713   4 e2e/cardBacks.e2e.ts:48:1 \u203a different games retain their own raster backs through editor, private play, publication, guest inspection and backup (48.0s)",
+    "\u2713   5 e2e/cardBacks.e2e.ts:141:1 \u203a missing game-back images show a playable fallback and recover through retry (8.9s)",
+    "\u2713   6 e2e/editor-handoff.e2e.ts:60:1 \u203a real saved raster draft survives desktop rule edits, storage recovery, private review and idempotent publication (46.6s)",
+    "\u2713   7 e2e/editor-handoff.e2e.ts:180:1 \u203a artwork source field stays above its footer with keyboard focus at 390px and short height, including decode failure (17.8s)",
+    "\u2713   8 e2e/game-detail.e2e.ts:70:1 \u203a a public raster game exposes its identity and host action before artwork, preserving original downloads and invite entry (10.6s)",
+    "\u2713   9 e2e/game-detail.e2e.ts:142:1 \u203a long titles and absent, landscape or failed covers keep the entry usable across narrow, short and desktop layouts (4.0s)",
+    "\u2713  10 e2e/game-detail.e2e.ts:176:1 \u203a detail hosting keeps Close and Create table usable at short height and preserves the game through sign-in dismissal (758ms)",
+    "\u2713  11 e2e/generation.e2e.ts:21:1 \u203a fixture model goes through real repair into an unpublished playable draft, then explicit publication and multiplayer (39.3s)",
+    "\u2713  12 e2e/generation.e2e.ts:104:1 \u203a provider failure preserves the prompt and never opens an accepted draft (4.3s)",
+    "\u2713  13 e2e/generation.e2e.ts:115:1 \u203a browser storage failure preserves accepted output and retries without another model request (5.6s)",
+    "\u2713  14 e2e/generation.e2e.ts:148:1 \u203a fixture review warnings, authored identity and saved-file recovery survive private play (19.6s)",
+    "\u2713  15 e2e/host-dialog.e2e.ts:3:1 \u203a hosting keeps keyboard focus in the dialog and restores it after Escape (1.7s)",
+    "\u2713  16 e2e/host-dialog.e2e.ts:24:1 \u203a hosting hands focus to the invite and keeps the current app origin (1.3s)",
+    "\u2713  17 e2e/host-dialog.e2e.ts:40:1 \u203a the host dialog does not intercept Escape from the separate sign-in overlay (1.5s)",
+    "\u2713  18 e2e/object-context-menu.e2e.ts:20:3 \u203a native touch menu activation \u203a releasing a hand long press keeps the card private until a fresh menu tap (6.7s)",
+    "\u2713  19 e2e/object-context-menu.e2e.ts:85:1 \u203a menu actions still accept a fresh mouse click and keyboard activation (8.4s)",
+    "\u2713  20 e2e/rasterArt.e2e.ts:65:1 \u203a game-directed cover and back finish without resetting play, then survive publication, privacy and editable backup (49.3s)",
+    "\u2713  21 e2e/rasterArt.e2e.ts:183:1 \u203a blank replacements retain selected originals and retry only artwork; interrupted replies reuse stored results (25.2s)",
+    "\u2713  22 e2e/rasterArt.e2e.ts:232:1 \u203a browser quota failure keeps prepared artwork downloadable and saves it without another provider operation (13.8s)",
+    "\u2713  23 e2e/rasterArt.e2e.ts:274:1 \u203a unconfigured illustration preserves the playable rules and separate briefs without sample artwork (12.8s)",
+    "\u2713  24 e2e/ruleSources.e2e.ts:13:1 \u203a source transport with a fixture provider preserves private input through play, editing and editable backup (19.4s)",
+    "\u2713  25 e2e/sounds.e2e.ts:66:1 \u203a a real mastered creator bundle survives editor import, backup, private dice events, publication, credit download and guest reload (27.6s)",
+    "\u2713  26 e2e/sounds.e2e.ts:137:1 \u203a normal card draws in another seat stay silent while public and own card events remain audible (29.7s)",
+    "\u2713  27 e2e/sounds.e2e.ts:164:1 \u203a source fetch and decoder failures show retry, preserve playable fallback and recover to exact decoded assets (9.3s)",
+    "\u2713  28 e2e/table.e2e.ts:35:1 \u203a two people play Dice Dash to a winner, hear feedback, and retain the finished game after reload (47.9s)",
+    "\u2713  29 e2e/table.e2e.ts:114:1 \u203a named cards remain private in hands, play visibly to the table, reveal and survive reload (44.9s)",
+    "\u2713  30 e2e/table.e2e.ts:192:1 \u203a mobile table keeps play controls reachable without horizontal overflow (2.5s)",
+    "\u2713  31 e2e/table.e2e.ts:210:1 \u203a an invalid invite provides a recovery route (759ms)",
+    "\u2713  32 e2e/table.e2e.ts:219:1 \u203a rules support keyboard reading and copied invites use the current origin with honest feedback (7.7s)",
+    "\u2713  33 e2e/table.e2e.ts:243:1 \u203a a real transport interruption restores play and updates host controls on both clients (31.4s)",
+    "\u2713  34 e2e/table.e2e.ts:276:1 \u203a a failed table view offers recovery and reload preserves the existing private hand (6.7s)"
+  ],
+  "steps": [
+    {
+      "name": "Set up job",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-29T20:39:17Z",
+      "completed_at": "2026-10-29T20:39:18Z"
+    },
+    {
+      "name": "Run actions/checkout@v4",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-29T20:39:18Z",
+      "completed_at": "2026-10-29T20:39:21Z"
+    },
+    {
+      "name": "Preserve frozen replay fixtures",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-29T20:39:21Z",
+      "completed_at": "2026-10-29T20:39:21Z"
+    },
+    {
+      "name": "Run oven-sh/setup-bun@v2",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-29T20:39:21Z",
+      "completed_at": "2026-10-29T20:39:23Z"
+    },
+    {
+      "name": "Run bun install --frozen-lockfile",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-29T20:39:23Z",
+      "completed_at": "2026-10-29T20:39:25Z"
+    },
+    {
+      "name": "Prepare audio processing",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-29T20:39:25Z",
+      "completed_at": "2026-10-29T20:39:42Z"
+    },
+    {
+      "name": "Run bun run typecheck",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-29T20:39:42Z",
+      "completed_at": "2026-10-29T20:39:59Z"
+    },
+    {
+      "name": "Run bun test",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-29T20:39:59Z",
+      "completed_at": "2026-10-29T20:40:21Z"
+    },
+    {
+      "name": "Build site and check docs links",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-29T20:40:21Z",
+      "completed_at": "2026-10-29T20:40:23Z"
+    },
+    {
+      "name": "Build the playable app",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-29T20:40:23Z",
+      "completed_at": "2026-10-29T20:40:36Z"
+    },
+    {
+      "name": "Verify isolated renderer bundles",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-29T20:40:36Z",
+      "completed_at": "2026-10-29T20:40:36Z"
+    },
+    {
+      "name": "Install browser",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-29T20:40:36Z",
+      "completed_at": "2026-10-29T20:40:46Z"
+    },
+    {
+      "name": "Play full games in the browser",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-29T20:40:46Z",
+      "completed_at": "2026-10-29T20:51:11Z"
+    },
+    {
+      "name": "Save browser evidence",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-29T20:51:11Z",
+      "completed_at": "2026-10-29T20:51:14Z"
+    },
+    {
+      "name": "Post Run oven-sh/setup-bun@v2",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-29T20:51:14Z",
+      "completed_at": "2026-10-29T20:51:14Z"
+    },
+    {
+      "name": "Post Run actions/checkout@v4",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-29T20:51:14Z",
+      "completed_at": "2026-10-29T20:51:14Z"
+    },
+    {
+      "name": "Complete job",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-29T20:51:14Z",
+      "completed_at": "2026-10-29T20:51:14Z"
+    }
+  ],
+  "scope": "Original completed hosted job logs retained privately; no auth/server/debug log or trace redistributed. Totals parsed from actual command output, not inferred.",
+  "browserDeclaredTests": 34,
+  "browserReportedCaseLines": 34,
+  "noSkippedOrFailedCasesByDeclaredAndPassedTotals": true
+}

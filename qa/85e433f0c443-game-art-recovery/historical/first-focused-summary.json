@@ -1,0 +1,89 @@
+{
+  "source": "5f9e089: product repair applied; two incomplete harness expectations still fail (pending-publication label and missing CSRF header)",
+  "commandExit": 1,
+  "stats": {
+    "startTime": "2026-10-29T20:27:43.169Z",
+    "duration": 136294.397,
+    "expected": 3,
+    "skipped": 0,
+    "unexpected": 2,
+    "flaky": 0
+  },
+  "errors": [],
+  "tests": [
+    {
+      "title": "local alpha artwork survives private play, backup, owned publication, versioned reload and credit download",
+      "file": "artwork.e2e.ts",
+      "line": 37,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 41448,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "damaged saved artwork stays visible as a repair task and never silently publishes",
+      "file": "artwork.e2e.ts",
+      "line": 167,
+      "status": "unexpected",
+      "results": [
+        {
+          "status": "failed",
+          "duration": 29194,
+          "retry": 0,
+          "errors": [
+            "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeDisabled\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('button', { name: 'Publish & invite', exact: true })\nExpected: disabled\nTimeout: 15000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeDisabled\" getByRole('button', { name: 'Publish & invite', exact: true }) with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('button', { name: 'Publish & invite', exact: true })\u001b[22m\n\n\n  175 |   page.on(\"request\", (request) => { if (new URL(request.url()).pathname === \"/api/ai/artwork\") automaticRepairs++; });\n  176 |   await page.reload(); await ready(page);\n> 177 |   await expect(page.getByRole(\"button\", { name: \"Publish & invite\", exact: true })).toBeDisabled();\n      |                                                                                     ^\n  178 |   await replaceCover(page);\n  179 |   await expect(page.locator(\".artwork-dialog\").getByRole(\"alert\")).toContainText(\"Replace it, or remove it\");\n  180 |   await page.setViewportSize({ width: 390, height: 844 });\n    at /workspace/digipology/e2e/artwork.e2e.ts:177:85"
+          ]
+        }
+      ]
+    },
+    {
+      "title": "independent visitors keep the production per-IP magic-link limit within each visit",
+      "file": "authIsolation.e2e.ts",
+      "line": 3,
+      "status": "unexpected",
+      "results": [
+        {
+          "status": "failed",
+          "duration": 2517,
+          "retry": 0,
+          "errors": [
+            "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m204\u001b[39m\nReceived: \u001b[31m403\u001b[39m\n\n   8 |       headers: { Origin: origin }, data: { email: `ip-cap-${Date.now()}-${index}@example.com` },\n   9 |     });\n> 10 |     expect(response.status()).toBe(index < 10 ? 204 : 429);\n     |                               ^\n  11 |     if (index === 10) expect(await response.json()).toMatchObject({ error: { code: \"rate_limited\" } });\n  12 |   }\n  13 | });\n    at /workspace/digipology/e2e/authIsolation.e2e.ts:10:31"
+          ]
+        }
+      ]
+    },
+    {
+      "title": "real saved raster draft survives desktop rule edits, storage recovery, private review and idempotent publication",
+      "file": "editor-handoff.e2e.ts",
+      "line": 60,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 33254,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "artwork source field stays above its footer with keyboard focus at 390px and short height, including decode failure",
+      "file": "editor-handoff.e2e.ts",
+      "line": 180,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 11423,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    }
+  ]
+}

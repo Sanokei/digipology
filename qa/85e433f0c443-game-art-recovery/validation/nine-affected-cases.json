@@ -1,0 +1,141 @@
+{
+  "source": "85e433f0c443331208be53d3c8d4d212938d2bbf",
+  "commandExit": 0,
+  "stats": {
+    "startTime": "2026-10-29T20:32:41.086Z",
+    "duration": 234483.124,
+    "expected": 9,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "errors": [],
+  "tests": [
+    {
+      "title": "local alpha artwork survives private play, backup, owned publication, versioned reload and credit download",
+      "file": "artwork.e2e.ts",
+      "line": 37,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 40372,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "damaged saved artwork stays visible as a repair task and never silently publishes",
+      "file": "artwork.e2e.ts",
+      "line": 167,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 15709,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "independent visitors keep the production per-IP magic-link limit within each visit",
+      "file": "authIsolation.e2e.ts",
+      "line": 4,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 1581,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "real saved raster draft survives desktop rule edits, storage recovery, private review and idempotent publication",
+      "file": "editor-handoff.e2e.ts",
+      "line": 60,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 30467,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "artwork source field stays above its footer with keyboard focus at 390px and short height, including decode failure",
+      "file": "editor-handoff.e2e.ts",
+      "line": 180,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 11028,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "browser quota failure keeps prepared artwork downloadable and saves it without another provider operation",
+      "file": "rasterArt.e2e.ts",
+      "line": 232,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 12470,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "unconfigured illustration preserves the playable rules and separate briefs without sample artwork",
+      "file": "rasterArt.e2e.ts",
+      "line": 274,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 8714,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "a real mastered creator bundle survives editor import, backup, private dice events, publication, credit download and guest reload",
+      "file": "sounds.e2e.ts",
+      "line": 66,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 31919,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "named cards remain private in hands, play visibly to the table, reveal and survive reload",
+      "file": "table.e2e.ts",
+      "line": 114,
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 65743,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    }
+  ]
+}

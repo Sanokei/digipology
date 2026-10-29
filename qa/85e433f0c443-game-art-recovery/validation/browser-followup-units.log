@@ -1,0 +1,30 @@
+bun test v1.4.4 (38afee6c8)
+
+apps/web/src/artwork/model.test.ts:
+(pass) legacy manually selected cover and distinct back remain selected when generation metadata is added [15.39ms]
+(pass) a prior image does not count as a finished replacement or stand in for missing selected bytes [1.42ms]
+(pass) artwork completion checks its exact manifest without launching checks on every unrelated rule edit [4.11ms]
+(pass) a damaged saved cover blocks automatic replacement while other pending art may resume [1.18ms]
+(pass) manual cover replacement and removal preserve gameplay, credits, back and previous immutable draft [3.43ms]
+
+apps/web/src/editor/state/persistence.test.ts:
+(pass) editor draft persistence > returns a calm empty index for corrupt JSON [0.15ms]
+(pass) editor draft persistence > returns a calm empty index for wrong top-level shape
+(pass) editor draft persistence > returns a calm empty index for version missing [0.02ms]
+(pass) editor draft persistence > skips one bad index entry among good entries [0.05ms]
+(pass) editor draft persistence > saves and reloads byte-equivalent canonical drafts [3.00ms]
+Skipped invalid local editor draft. TypeError: This is not a supported editor draft.
+      at normalizeEditorDraft (/workspace/digipology/apps/web/src/editor/state/bundle.ts:340:15)
+      at deserializeEditorDraft (/workspace/digipology/apps/web/src/editor/state/persistence.ts:61:16)
+      at <anonymous> (/workspace/digipology/apps/web/src/editor/state/persistence.test.ts:47:12)
+
+(pass) editor draft persistence > rejects corrupt or versionless per-draft blobs [0.08ms]
+
+apps/web/src/editor/state/artwork.test.ts:
+(pass) draft backups retain artwork and credits outside the unchanged playable bundle [6.15ms]
+(pass) damaged bytes or mismatched dimensions become recoverable unavailable artwork with credits [1.00ms]
+
+ 13 pass
+ 0 fail
+ 45 expect() calls
+Ran 13 tests across 3 files. [57.00ms]

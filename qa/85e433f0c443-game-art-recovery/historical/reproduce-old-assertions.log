@@ -1,0 +1,78 @@
+bun test v1.4.4 (38afee6c8)
+
+apps/web/src/pages/TablePage.test.tsx:
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/workspace/digipology/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:816:11)
+    at div
+    at header
+    at TableTopBar (/workspace/digipology/apps/web/src/components/TableTopBar.tsx:5:65)
+    at Router (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1210:9)
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+(pass) 375px table chrome exposes compact controls and the thumb hand tray [9.07ms]
+(pass) empty hand remains visible but does not intercept the table [0.48ms]
+(pass) only exposes the local player's open canonical prompts [0.16ms]
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/workspace/digipology/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:816:11)
+    at div
+    at div
+    at ConnectionOverlay (/workspace/digipology/apps/web/src/components/ConnectionOverlay.tsx:6:7)
+    at Router (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1210:9)
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/workspace/digipology/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:816:11)
+    at div
+    at div
+    at ConnectionOverlay (/workspace/digipology/apps/web/src/components/ConnectionOverlay.tsx:6:7)
+    at Router (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1210:9)
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+(pass) connection overlays distinguish passthrough recovery, errors, synchronization, and ended rooms [1.98ms]
+(pass) first-use hints render for a new device and disappear after all gestures are remembered [0.54ms]
+86 |   const face = renderToStaticMarkup(<InspectOverlay item={{ entityId: "card-secret", label: "Ace of Moons", color: "#abcdef", kind: "card", hidden: false }} onDismiss={() => {}} />);
+87 |   expect(face).toContain("Ace of Moons");
+88 |   expect(face).toContain("--inspect-color:#abcdef");
+89 |   const hidden = renderToStaticMarkup(<InspectOverlay item={{ entityId: "card-secret", label: "Face-down card", color: "#abcdef", kind: "card", hidden: true }} onDismiss={() => {}} />);
+90 |   expect(hidden).toContain("Face-down card back");
+91 |   expect(hidden).toContain("DIGIPOLOGY");
+                      ^
+error: expect(received).toContain(expected)
+
+Expected to contain: "DIGIPOLOGY"
+Received: "<div class=\"inspect-overlay\" role=\"presentation\"><article role=\"dialog\" aria-modal=\"true\" aria-label=\"Inspecting Face-down card\"><button class=\"inspect-overlay__close\" type=\"button\" aria-label=\"Close inspect\">×</button><div class=\"inspect-overlay__preview inspect-overlay__preview--card inspect-overlay__preview--back\" aria-label=\"Face-down card back\"><span class=\"playing-card\" aria-hidden=\"true\" data-card-face=\"card-back\"><canvas width=\"512\" height=\"736\" hidden=\"\"></canvas><span class=\"playing-card__fallback\">Face-down card</span></span></div><strong>Face-down card</strong><small>Card</small></article></div>"
+
+      at <anonymous> (/workspace/digipology/apps/web/src/pages/TablePage.test.tsx:91:18)
+(fail) inspect renders a definition face without exposing a hidden card [1.38ms]
+(pass) dice controls use player-language definition labels and disambiguate duplicates [0.52ms]
+(pass) passthrough overlays and motion affordances have safe CSS [0.37ms]
+(pass) renderer diagnostics expose the mounted adapter, fallback, and tier [0.27ms]
+
+apps/web/src/components/PlayingCardFace.test.tsx:
+(pass) card markings use the explicit named deck and preserve custom and archived identities [0.15ms]
+11 | });
+12 | 
+13 | test("numbered card faces have the corresponding count of visible suit pips", () => {
+14 |   for (let rank = 2; rank <= 10; rank++) {
+15 |     const html = renderToStaticMarkup(<PlayingCardFace identity={{ rank: String(rank), suit: "diamonds" }} />);
+16 |     expect((html.match(/grid-column:/g) ?? []).length).toBe(rank);
+                                                            ^
+error: expect(received).toBe(expected)
+
+Expected: 2
+Received: 0
+
+      at <anonymous> (/workspace/digipology/apps/web/src/components/PlayingCardFace.test.tsx:16:56)
+(fail) numbered card faces have the corresponding count of visible suit pips [0.42ms]
+
+ 9 pass
+ 2 fail
+ 54 expect() calls
+Ran 11 tests across 2 files. [126.00ms]

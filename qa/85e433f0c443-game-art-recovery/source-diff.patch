@@ -1,0 +1,554 @@
+diff --git a/apps/web/src/artwork/GameArtworkDialog.tsx b/apps/web/src/artwork/GameArtworkDialog.tsx
+index 0082068..4642cf6 100644
+--- a/apps/web/src/artwork/GameArtworkDialog.tsx
++++ b/apps/web/src/artwork/GameArtworkDialog.tsx
+@@ -3,8 +3,9 @@ import type { ReadyDraftArtwork } from "digipology-protocol";
+ import { ArtworkDialog } from "../components/ArtworkDialog";
+ import { PlayingCardBack } from "../components/PlayingCardFace";
+ import { artworkPackage, downloadBlob, verifyArtwork } from "../editor/state/artwork";
++import { serializeEditorDraft } from "../editor/state/persistence";
+ import { cardBackPackage } from "../scene/cardBack";
+-import { ART_PURPOSES, artworkJobsReady, artworkScope, jobKey, purposeLabel, type ArtPurpose, type ArtworkDraft, type ArtworkGenerationJob, type GameArtDirection } from "./model";
++import { ART_PURPOSES, artworkJobsReady, artworkScope, jobKey, purposeLabel, withManualArtwork, type ArtPurpose, type ArtworkDraft, type ArtworkGenerationJob, type GameArtDirection } from "./model";
+ import type { DraftArtworkController } from "./useDraftArtworkGeneration";
+ import "./gameArtworkGeneration.css";
+ 
+@@ -25,6 +26,7 @@ function AssetPanel({ purpose, draft, controller, canGenerate, onReplace }: {
+ }) {
+   const title = useId();
+   const selected = controller.selectedImage(purpose);
++  const damaged = purpose === "cover" && draft.artwork?.status === "unavailable";
+   const prepared = controller.preparedImage(purpose);
+   const job = draft.artworkGeneration?.jobs[jobKey(purpose)];
+   const [previewError, setPreviewError] = useState<string | null>(null);
+@@ -45,7 +47,7 @@ function AssetPanel({ purpose, draft, controller, canGenerate, onReplace }: {
+     downloadBlob(new Blob([purpose === "cover" ? artworkPackage(prepared) : cardBackPackage(prepared)], { type: "application/json" }), `${purpose}.artwork.json`);
+   }
+   return <section className="game-art-asset" aria-labelledby={title} data-art-purpose={purpose}>
+-    <header><h3 id={title}>{purposeLabel(purpose)}</h3><span className={`game-art-asset__state is-${job?.status ?? "pending"}`}>{previewError ? "Image needs attention" : jobLabel(job, selected)}</span></header>
++    <header><h3 id={title}>{purposeLabel(purpose)}</h3><span className={`game-art-asset__state is-${job?.status ?? "pending"}`}>{previewError || damaged ? "Image needs attention" : jobLabel(job, selected)}</span></header>
+     <div className="game-art-asset__preview">
+       {selected && !previewError ? purpose === "cover"
+         ? <img src={selected.dataUrl} alt={`${draft.title} cover`} onError={() => setPreviewError("The cover preview could not be opened. Replace it or retry this image.")} />
+@@ -54,7 +56,7 @@ function AssetPanel({ purpose, draft, controller, canGenerate, onReplace }: {
+     </div>
+     <p className="game-art-asset__purpose">{purpose === "cover" ? "The first impression in your library and invitations." : "A separate design shared by this game’s concealed cards. It reveals no card identities."}</p>
+     {selected && job?.status === "running" ? <p className="game-art-asset__hint">Your current image stays in use until its replacement is ready.</p> : null}
+-    {previewError || job?.message ? <p className="game-art-asset__error" role="alert">{previewError ?? job?.message}</p> : null}
++    {damaged || previewError || job?.message ? <p className="game-art-asset__error" role="alert">{damaged ? "Saved artwork could not be read. Replace it, or remove it to publish. Retry creates a replacement using this game’s art direction." : previewError ?? job?.message}</p> : null}
+     <div className="game-art-asset__actions">
+       {needed ? <button type="button" disabled={!canRetry} onClick={() => void controller.retry(purpose, ready)}>{job?.failureKind === "storage" && prepared ? "Retry saving image" : ready ? `Create another ${purposeLabel(purpose).toLowerCase()}` : `Retry ${purposeLabel(purpose).toLowerCase()}`}</button> : null}
+       <button type="button" disabled={running} onClick={onReplace}>Replace image…</button>
+@@ -111,7 +113,7 @@ export function GameArtworkDialog({ draft, controller, canGenerate, onSignIn, on
+     await controller.saveDirection({ ...edited, style: edited.style.trim(), coverPrompt: edited.coverPrompt.trim(), cardBackPrompt: edited.cardBackPrompt.trim() });
+     setDirty(false);
+   }
+-  const manualImage = manual ? controller.selectedImage(manual) : undefined;
++  const manualImage = manual === "cover" ? draft.artwork : manual ? controller.selectedImage(manual) : undefined;
+   return <>
+     <dialog ref={dialog} className="game-art-dialog" aria-labelledby={title} onCancel={(event) => { event.preventDefault(); onClose(); }}>
+       <header className="game-art-dialog__header"><div><p className="game-art-eyebrow">Made for this game</p><h2 id={title}>Artwork for {draft.title}</h2><p className="game-art-progress" role="status">{done} of {purposes.length} images ready{controller.activity === "review" ? " · checking gameplay…" : busy ? " · creating artwork…" : ""}</p></div><button type="button" className="game-art-close" aria-label="Close game artwork" autoFocus onClick={onClose}>×</button></header>
+@@ -146,9 +148,14 @@ export function GameArtworkDialog({ draft, controller, canGenerate, onSignIn, on
+       </div>
+       <footer className="game-art-dialog__footer"><button type="button" onClick={onDownloadDraft}>Download editable draft</button><span>Rules, art briefs and completed images are kept together.</span><button type="button" onClick={onClose}>Back to game</button></footer>
+     </dialog>
+-    {manual ? <ArtworkDialog title={draft.title} purpose={manual} allowRemove={false} {...(manualImage ? { artwork: manualImage } : {})} onClose={() => setManual(null)} onSave={async (next) => {
+-      if (next?.status !== "ready") throw new Error("Choose a complete image to replace this artwork.");
+-      await controller.replaceImage(manual, next);
+-    }} /> : null}
++    {manual ? <ArtworkDialog title={draft.title} purpose={manual} allowRemove={manual === "cover"} {...(manualImage ? { artwork: manualImage } : {})} onClose={() => setManual(null)}
++      onDownloadDraft={(next) => {
++        if (!next || next.status === "unavailable") { onDownloadDraft(); return; }
++        const backup = withManualArtwork(controller.currentDraft(), manual, next);
++        downloadBlob(new Blob([serializeEditorDraft(backup)], { type: "application/json" }), "game-draft.editor.json");
++      }} onSave={async (next) => {
++        if (next?.status === "unavailable") throw new Error("Choose a complete image to replace this artwork.");
++        await controller.replaceImage(manual, next);
++      }} /> : null}
+   </>;
+ }
+diff --git a/apps/web/src/artwork/model.test.ts b/apps/web/src/artwork/model.test.ts
+index 00dc22a..523509d 100644
+--- a/apps/web/src/artwork/model.test.ts
++++ b/apps/web/src/artwork/model.test.ts
+@@ -5,7 +5,7 @@ import { artworkDataUrl, artworkHash } from "../editor/state/artworkData";
+ import { createCardGameEditorDraft, createDiceGameEditorDraft, rebuildDraftIntegrity } from "../editor/state/bundle";
+ import { attachCardBack } from "../editor/state/cardBack";
+ import { updateScript } from "../editor/state/scripts";
+-import { artworkJobsReady, artworkNeedsAutomaticReview, initialArtworkGeneration, selectedDraftImage } from "./model";
++import { artworkJobsReady, artworkNeedsAutomaticReview, canResumeArtwork, initialArtworkGeneration, selectedDraftImage, withManualArtwork } from "./model";
+ 
+ function localRaster(width: number, height: number): ReadyDraftArtwork {
+   const bytes = rasterPng(width, height);
+@@ -49,3 +49,30 @@ test("artwork completion checks its exact manifest without launching checks on e
+   rebuildDraftIntegrity(draft);
+   expect(artworkNeedsAutomaticReview(draft)).toBe(false);
+ });
++
++test("a damaged saved cover blocks automatic replacement while other pending art may resume", () => {
++  const draft = createCardGameEditorDraft("repair-cover", "2026-10-29T00:00:00.000Z");
++  draft.artwork = { status: "unavailable", credits: { artist: "Original artist", license: "Owned", sourceUrl: "" } };
++  draft.artworkGeneration = initialArtworkGeneration(draft);
++  expect(canResumeArtwork(draft, "cover")).toBe(false);
++  expect(canResumeArtwork(draft, "card-back")).toBe(true);
++  expect(artworkJobsReady(draft)).toBe(false);
++});
++
++test("manual cover replacement and removal preserve gameplay, credits, back and previous immutable draft", () => {
++  const draft = createCardGameEditorDraft("manual-backup", "2026-10-29T00:00:00.000Z");
++  const back = localRaster(6, 9); attachCardBack(draft, back); rebuildDraftIntegrity(draft);
++  const original = structuredClone(draft), cover = localRaster(4, 6);
++  const replaced = withManualArtwork(draft, "cover", cover);
++  expect(draft).toEqual(original);
++  expect(replaced.bundle).toEqual(original.bundle);
++  expect(replaced.artwork).toEqual(cover);
++  expect(selectedDraftImage(replaced, "card-back")).toEqual(back);
++  expect(artworkJobsReady(replaced)).toBe(true);
++  const removed = withManualArtwork(replaced, "cover", undefined);
++  expect(removed.artwork).toBeUndefined();
++  expect(removed.artworkGeneration?.jobs.cover).toMatchObject({ status: "failed", message: expect.stringContaining("No cover selected") });
++  expect(removed.artworkGeneration?.jobs.cover.outputSha256).toBeUndefined();
++  expect(removed.bundle).toEqual(original.bundle);
++  expect(() => withManualArtwork(replaced, "card-back", undefined)).toThrow("complete image");
++});
+diff --git a/apps/web/src/artwork/model.ts b/apps/web/src/artwork/model.ts
+index d868ac8..0e96abb 100644
+--- a/apps/web/src/artwork/model.ts
++++ b/apps/web/src/artwork/model.ts
+@@ -3,6 +3,8 @@ import type { ApiResult, ReleaseBundleDto } from "digipology-protocol/http";
+ import type { EditorDraft } from "../editor/state/types";
+ import type { CanonicalGameState } from "digipology-kernel";
+ import { CARD_BACK_PATH, readCardBackArtwork } from "../scene/cardBack";
++import { attachCardBack } from "../editor/state/cardBack";
++import { rebuildDraftIntegrity } from "../editor/state/bundle";
+ export type { ArtPurpose, ArtJobKey, GameArtDirection, ArtworkGeneration, ArtworkGenerationJob, GeneratedArtwork } from "digipology-protocol";
+ export type ArtworkDraft = EditorDraft;
+ export type ArtworkReviewResult = ArtworkDraftReview;
+@@ -35,6 +37,31 @@ export function selectedDraftImage(draft: EditorDraft, purpose: ArtPurpose): Rea
+   try { return content ? readCardBackArtwork(content) : undefined; } catch { return undefined; }
+ }
+ 
++/** A broken saved selection requires a deliberate repair, never an auto-overwrite. */
++export function canResumeArtwork(draft: EditorDraft, purpose: ArtPurpose): boolean {
++  return purpose !== "cover" || draft.artwork?.status !== "unavailable";
++}
++
++/** Also used for an editable backup when browser storage rejects a manual edit. */
++export function withManualArtwork(draft: ArtworkDraft, purpose: ArtPurpose, artwork: ReadyDraftArtwork | undefined): ArtworkDraft {
++  if (!artwork && purpose !== "cover") throw new Error("Choose a complete image for this game’s card backs.");
++  const next = structuredClone(draft);
++  next.artworkGeneration ??= initialArtworkGeneration(next);
++  const job = next.artworkGeneration.jobs[jobKey(purpose)];
++  job.revision += 1;
++  delete job.message; delete job.failureKind; delete job.assetId; delete job.selectedAssetId; delete job.originalSha256; delete job.outputSha256;
++  if (artwork) { job.status = "ready"; job.outputSha256 = artwork.info.sha256; }
++  else { job.status = "failed"; job.message = "No cover selected. Replace it or retry to create one."; }
++  if (purpose === "cover") {
++    if (artwork) next.artwork = artwork;
++    else delete next.artwork;
++  } else {
++    attachCardBack(next, artwork); rebuildDraftIntegrity(next);
++    next.artworkGeneration.reviewManifestHash = next.bundle.integrity.manifestHash;
++  }
++  return next;
++}
++
+ export function artworkJobsReady(draft: EditorDraft): boolean {
+   const generation = draft.artworkGeneration;
+   return !!generation && ART_PURPOSES.every((purpose) => {
+diff --git a/apps/web/src/artwork/useDraftArtworkGeneration.ts b/apps/web/src/artwork/useDraftArtworkGeneration.ts
+index a28d533..70264b1 100644
+--- a/apps/web/src/artwork/useDraftArtworkGeneration.ts
++++ b/apps/web/src/artwork/useDraftArtworkGeneration.ts
+@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
+ import type { ReadyDraftArtwork } from "digipology-protocol";
+ import { rebuildDraftIntegrity } from "../editor/state/bundle";
+ import { attachCardBack } from "../editor/state/cardBack";
+-import { ART_PURPOSES, artworkJobsReady, artworkNeedsAutomaticReview, initialArtworkGeneration, jobKey, purposeLabel, selectedDraftImage, type ArtPurpose, type ArtworkApi, type ArtworkDraft, type GameArtDirection, type PreparedResult } from "./model";
++import { ART_PURPOSES, artworkJobsReady, artworkNeedsAutomaticReview, canResumeArtwork, initialArtworkGeneration, jobKey, purposeLabel, selectedDraftImage, withManualArtwork, type ArtPurpose, type ArtworkApi, type ArtworkDraft, type GameArtDirection, type PreparedResult } from "./model";
+ import { prepareGeneratedArtwork } from "./prepareGeneratedArtwork";
+ import { acceptedArtworkReview } from "./review";
+ 
+@@ -146,7 +146,7 @@ export function useDraftArtworkGeneration({ draft, api, enabled, onDraftChange,
+     const next = ART_PURPOSES.find((purpose) => {
+       const job = draft.artworkGeneration!.jobs[jobKey(purpose)];
+       // A reloaded running request resumes through the same idempotent API key.
+-      return (job.status === "pending" || job.status === "running") && !attempted.current.has(requestKey(draft, purpose));
++      return canResumeArtwork(draft, purpose) && (job.status === "pending" || job.status === "running") && !attempted.current.has(requestKey(draft, purpose));
+     });
+     if (next) void runJob(next);
+   }, [draft, activity, enabled, runJob]);
+@@ -162,7 +162,9 @@ export function useDraftArtworkGeneration({ draft, api, enabled, onDraftChange,
+       if (another || next.failureKind === "decode") next.revision += 1;
+       next.status = "pending"; delete next.message; delete next.failureKind;
+     }, `Queued ${purposeLabel(purpose).toLowerCase()} artwork`);
+-  }, [applyPrepared, updateJob]);
++    // Explicit retry may repair a broken saved selection that auto-resume must preserve.
++    await runJob(purpose);
++  }, [applyPrepared, runJob, updateJob]);
+ 
+   const saveDirection = useCallback(async (direction: GameArtDirection) => {
+     const next = structuredClone(current.current);
+@@ -201,16 +203,12 @@ export function useDraftArtworkGeneration({ draft, api, enabled, onDraftChange,
+     finally { if (mounted.current && epoch.current === version) { active.current = null; setActivity(null); } }
+   }, [enabled, saveDirection]);
+ 
+-  const replaceImage = useCallback(async (purpose: ArtPurpose, artwork: ReadyDraftArtwork) => {
+-    const next = structuredClone(current.current);
+-    next.artworkGeneration ??= initialArtworkGeneration(next);
+-    const job = next.artworkGeneration.jobs[jobKey(purpose)];
+-    job.revision += 1; job.status = "ready"; job.outputSha256 = artwork.info.sha256;
+-    delete job.message; delete job.failureKind; delete job.assetId; delete job.selectedAssetId; delete job.originalSha256;
++  const replaceImage = useCallback(async (purpose: ArtPurpose, artwork: ReadyDraftArtwork | undefined) => {
++    const next = withManualArtwork(current.current, purpose, artwork);
+     prepared.current.delete(purpose);
+-    if (purpose === "cover") next.artwork = artwork;
+-    else { attachCardBack(next, artwork); rebuildDraftIntegrity(next); next.artworkGeneration.reviewManifestHash = next.bundle.integrity.manifestHash; }
+-    await commit(next, `Replaced ${purposeLabel(purpose).toLowerCase()} image`);
++    if (!await commit(next, `${artwork ? "Replaced" : "Removed"} ${purposeLabel(purpose).toLowerCase()} image`)) {
++      throw new Error("Your artwork is available in this tab, but browser storage could not save it. Download the draft or free storage and retry saving.");
++    }
+   }, [commit]);
+ 
+   const runReview = useCallback(async () => {
+diff --git a/apps/web/src/pages/DraftPlayPage.tsx b/apps/web/src/pages/DraftPlayPage.tsx
+index addda6b..6d2f9de 100644
+--- a/apps/web/src/pages/DraftPlayPage.tsx
++++ b/apps/web/src/pages/DraftPlayPage.tsx
+@@ -93,7 +93,7 @@ function DraftPlayContent({ initialDraft }: { initialDraft: ArtworkDraft }) {
+     onProjectorChange={(next) => setProjector(next === null ? undefined : () => next)}
+     topBar={<header className="draft-play-bar" ref={bar}>
+       <div className="draft-play-bar__title"><Link to="/create" aria-label="Back to creation">←</Link><div><small>Draft saved here · reopening resets the playtest</small><strong>{draft.title}</strong>{draft.tagline ? <span className="draft-play-bar__tagline" title={draft.tagline}>{draft.tagline}</span> : null}</div></div>
+-      <div className="draft-play-bar__actions"><button type="button" onClick={() => setRules(true)}>How to play</button>{review ? <button type="button" className="draft-play-review-button" aria-label="Review playtest" onClick={() => setReviewOpen(true)}>{review.stale ? "Review your changes" : `Review playtest · ${review.suggestions.length}`}</button> : null}<button type="button" className="draft-artwork-button" aria-label="Edit artwork" onClick={() => setArtworkOpen(true)}>{draft.artwork?.status === "ready" ? <img className="draft-artwork-thumb" src={draft.artwork.dataUrl} alt={`${draft.title} cover`} /> : null}{artwork.activity === "review" ? "Checking game…" : artwork.activity ? "Creating artwork…" : draft.artworkGeneration && Object.values(draft.artworkGeneration.jobs).some((job) => job.status !== "ready" && job.status !== "not-needed") ? "Artwork pending" : "Artwork"}</button><AudioControls {...audio} /><Link to={`/edit/${encodeURIComponent(draft.id)}`}>Edit</Link>{artworkIncomplete ? <span className="draft-artwork-pending" role="status">Artwork pending · publishing uses ready images</span> : null}<button type="button" disabled={publishing || artworkBusy || draft.artwork?.status === "unavailable"} onClick={() => void publish()}>{publishing ? "Opening table…" : artworkIncomplete ? "Publish draft & invite" : "Publish & invite"}</button></div>
++      <div className="draft-play-bar__actions"><button type="button" onClick={() => setRules(true)}>How to play</button>{review ? <button type="button" className="draft-play-review-button" aria-label="Review playtest" onClick={() => setReviewOpen(true)}>{review.stale ? "Review your changes" : `Review playtest · ${review.suggestions.length}`}</button> : null}<button type="button" className="draft-artwork-button" aria-label="Edit artwork" onClick={() => setArtworkOpen(true)}>{draft.artwork?.status === "ready" ? <img className="draft-artwork-thumb" src={draft.artwork.dataUrl} alt={`${draft.title} cover`} /> : null}{draft.artwork?.status === "unavailable" ? "Repair artwork" : artwork.activity === "review" ? "Checking game…" : artwork.activity ? "Creating artwork…" : draft.artworkGeneration && Object.values(draft.artworkGeneration.jobs).some((job) => job.status !== "ready" && job.status !== "not-needed") ? "Artwork pending" : "Artwork"}</button><AudioControls {...audio} /><Link to={`/edit/${encodeURIComponent(draft.id)}`}>Edit</Link>{artworkIncomplete ? <span className="draft-artwork-pending" role="status">Artwork pending · publishing uses ready images</span> : null}<button type="button" disabled={publishing || artworkBusy || draft.artwork?.status === "unavailable"} onClick={() => void publish()}>{publishing ? "Opening table…" : artworkIncomplete ? "Publish draft & invite" : "Publish & invite"}</button></div>
+       <div className="draft-play-bar__seats"><label>Play as<select aria-label="Play as" value={runtime.playerId} disabled={paused} onChange={(event) => controller.selectPlayer(event.currentTarget.value)}>{view.players.map((player) => <option value={player.playerId} key={player.playerId}>{player.displayName}</option>)}</select></label>
+         <label>Players<select aria-label="Playtest player count" value={players} onChange={(event) => setPlayers(Number(event.currentTarget.value))}>{Array.from({ length: draft.maxPlayers - draft.minPlayers + 1 }, (_, index) => draft.minPlayers + index).map((count) => <option key={count}>{count}</option>)}</select></label><button type="button" disabled={runtime.status === "starting"} onClick={restart}>Restart playtest</button><button type="button" disabled={paused} onClick={() => controller.tick()}>Advance time</button><span>Try each seat here. Publish an unlisted game to invite friends.</span></div>
+     </header>}
+diff --git a/docs/runbooks/product-loop.md b/docs/runbooks/product-loop.md
+index 4b39d1b..64c8a1c 100644
+--- a/docs/runbooks/product-loop.md
++++ b/docs/runbooks/product-loop.md
+@@ -86,6 +86,20 @@ Turn observations into specific backlog criteria and regression tests where
+ possible. Live generation, external asset import, generated raster covers and
+ human fun evaluations remain separate evidence requirements; the demo
+ playthroughs do not establish one-shot greatness.
++
++The artwork editor opens the game's art direction and separate cover/card-back
++panels. Use **Replace image…** inside the intended panel for a local image,
++credits or a saved artwork package. A damaged saved cover requires an explicit
++retry, replacement or removal; automatic pending jobs must not overwrite it on
++reload. A failed browser save keeps the edited image in the tab and offers an
++editable backup. Artwork changes do not restart the running playtest.
++
++Browser cases simulate separate visitors with stable per-test documentation-range
++IP addresses in the existing local Worker's `CF-Connecting-IP` header. Production
++limits are unchanged. A dedicated browser case still expects the eleventh
++magic-link request from one IP to fail with 429. This avoids unrelated tests
++consuming one shared visitor's allowance.
++
+ ## Observed scheduled execution
+ 
+ The [2026-10-29 scheduled run](https://github.com/Sanokei/digipology/actions/runs/40931504883)
+diff --git a/e2e/artwork.e2e.ts b/e2e/artwork.e2e.ts
+index 6f28593..6f3318f 100644
+--- a/e2e/artwork.e2e.ts
++++ b/e2e/artwork.e2e.ts
+@@ -1,4 +1,4 @@
+-import { test, expect, type Page } from "@playwright/test";
++import { test, expect, type Page } from "./fixtures";
+ import { readFile } from "node:fs/promises";
+ import { createHash } from "node:crypto";
+ 
+@@ -18,6 +18,15 @@ async function create(page: Page) {
+   await page.getByRole("button", { name: "Create & play", exact: true }).click();
+   await expect(page).toHaveURL(/\/playtest\//); await ready(page);
+ }
++async function replaceCover(page: Page) {
++  await page.getByRole("button", { name: "Edit artwork", exact: true }).click();
++  await page.locator('.game-art-asset[data-art-purpose="cover"]').getByRole("button", { name: "Replace image…", exact: true }).click();
++  return page.locator(".artwork-dialog");
++}
++async function closeArt(page: Page) {
++  await page.getByRole("button", { name: "Back to game", exact: true }).click();
++  await expect(page.getByRole("dialog")).toHaveCount(0);
++}
+ async function importDraft(page: Page, json: string) {
+   await page.goto("/create");
+   await page.locator("summary").filter({ hasText: "Upload an existing game" }).click();
+@@ -33,8 +42,7 @@ test("local alpha artwork survives private play, backup, owned publication, vers
+   await page.getByRole("button", { name: "Roll Die", exact: true }).click();
+   await expect(progress.getByRole("status")).not.toHaveText(oldStatus);
+   const scores = await progress.locator("li strong").allTextContents();
+-  await page.getByRole("button", { name: "Edit artwork", exact: true }).click();
+-  const dialog = page.getByRole("dialog");
++  const dialog = await replaceCover(page);
+   // Actual existing raster illustration with an explicitly transparent corner.
+   // Canvas only constructs this test upload; the app performs its own real edit/decode.
+   const alpha = await page.evaluate(async () => {
+@@ -82,6 +90,7 @@ test("local alpha artwork survives private play, backup, owned publication, vers
+   await page.evaluate(() => (window as unknown as { restoreStorage(): void }).restoreStorage());
+   await dialog.getByRole("button", { name: "Save artwork", exact: true }).click();
+   await expect(dialog).toHaveCount(0);
++  await closeArt(page);
+   await expect(progress.locator("li strong")).toHaveText(scores); // Saving artwork does not restart the game.
+   await ready(page);
+   await page.screenshot({ path: testInfo.outputPath("artwork-private-play-desktop.png"), fullPage: true });
+@@ -94,13 +103,14 @@ test("local alpha artwork survives private play, backup, owned publication, vers
+   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+   await expect(progress.getByRole("status")).toBeInViewport();
+   await expect(page.getByRole("combobox", { name: "Sort", exact: true })).toHaveCount(0);
+-  await page.getByRole("button", { name: "Edit artwork", exact: true }).click();
++  await replaceCover(page);
+   await expect(dialog.getByLabel("Artist / credit", { exact: true })).toHaveValue("Digipology · local QA fixture");
+   for (const name of ["Save artwork", "Remove artwork", "Download draft"]) {
+     await expect(dialog.getByRole("button", { name, exact: true })).toBeInViewport();
+   }
+   await page.screenshot({ path: testInfo.outputPath("artwork-restored-editor-narrow.png"), fullPage: true });
+   await page.keyboard.press("Escape");
++  await closeArt(page);
+   await page.screenshot({ path: testInfo.outputPath("artwork-private-play-narrow.png"), fullPage: true });
+   await page.setViewportSize({ width: 1440, height: 960 });
+   await page.route("**/api/games/*/cover", async (route) => { if (route.request().method() === "POST") await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { code: "cover_storage_unavailable", message: "Controlled upload failure" } }) }); else await route.continue(); });
+@@ -147,28 +157,39 @@ test("local alpha artwork survives private play, backup, owned publication, vers
+   await expect.poll(() => cover.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(768);
+   await page.screenshot({ path: testInfo.outputPath("artwork-recovered-image-desktop.png"), fullPage: true });
+   await importDraft(page, backupText);
+-  await page.getByRole("button", { name: "Edit artwork", exact: true }).click();
++  await replaceCover(page);
+   await page.getByLabel("Image or saved artwork", { exact: true }).setInputFiles(packagePath);
+   await expect(page.getByLabel("Artist / credit", { exact: true })).toHaveValue(backup.artwork.info.credits.artist);
+   await page.getByRole("button", { name: "Save artwork", exact: true }).click();
+-  await expect(page.getByRole("dialog")).toHaveCount(0); await ready(page);
++  await expect(page.locator(".artwork-dialog")).toHaveCount(0); await closeArt(page); await ready(page);
+ });
+ 
+ test("damaged saved artwork stays visible as a repair task and never silently publishes", async ({ page }, testInfo) => {
+   await create(page);
++  await expect(page.getByRole("button", { name: "Publish & invite", exact: true })).toBeEnabled({ timeout: 30_000 });
+   await page.evaluate(() => {
+     const key = Object.keys(localStorage).find((key) => key.startsWith("dgp.editor.draft."))!;
+-    const draft = JSON.parse(localStorage.getItem(key)!); draft.artwork = { status: "ready", dataUrl: "data:image/png;base64,broken", info: { formatVersion: 1 } }; localStorage.setItem(key, JSON.stringify(draft));
++    const draft = JSON.parse(localStorage.getItem(key)!); draft.artworkGeneration.jobs.cover.status = "running"; draft.artwork = { status: "ready", dataUrl: "data:image/png;base64,broken", info: { formatVersion: 1 } }; localStorage.setItem(key, JSON.stringify(draft));
+   });
++  let imageRequests = 0;
++  page.on("request", (request) => { if (new URL(request.url()).pathname === "/api/ai/artwork") imageRequests++; });
+   await page.reload(); await ready(page);
+-  await expect(page.getByRole("button", { name: "Publish & invite", exact: true })).toBeDisabled();
+-  await page.getByRole("button", { name: "Edit artwork", exact: true }).click();
+-  await expect(page.getByRole("alert")).toContainText("Replace it, or remove it");
++  await expect(page.getByRole("button", { name: "Publish draft & invite", exact: true })).toBeDisabled();
++  await replaceCover(page);
++  await expect(page.locator(".artwork-dialog").getByRole("alert")).toContainText("Replace it, or remove it");
+   await page.setViewportSize({ width: 390, height: 844 });
+-  await expect(page.getByRole("alert")).toBeInViewport();
++  await expect(page.locator(".artwork-dialog").getByRole("alert")).toBeInViewport();
+   await page.screenshot({ path: testInfo.outputPath("artwork-corrupt-backup-recovery-narrow.png"), fullPage: true });
+   await page.getByRole("button", { name: "Remove artwork", exact: true }).click();
+-  await expect(page.getByRole("dialog")).toHaveCount(0);
+-  await expect(page.getByRole("button", { name: "Publish & invite", exact: true })).toBeEnabled();
++  await closeArt(page);
++  await expect(page.getByRole("button", { name: "Publish draft & invite", exact: true })).toBeEnabled();
+   await expect(page.getByRole("button", { name: "Review playtest", exact: true })).toBeVisible();
++  expect(imageRequests).toBe(0);
++  await page.getByRole("button", { name: "Edit artwork", exact: true }).click();
++  await page.locator('.game-art-asset[data-art-purpose="cover"]').getByRole("button", { name: "Retry cover", exact: true }).click();
++  await expect(page.locator('.game-art-asset[data-art-purpose="cover"] .game-art-asset__state')).toHaveText("Ready");
++  await closeArt(page);
++  await expect(page.getByRole("button", { name: "Publish & invite", exact: true })).toBeEnabled();
++  expect(imageRequests).toBe(1); // Only the deliberate repair requests an image.
++  await page.screenshot({ path: testInfo.outputPath("artwork-explicit-repair-recovered-390.png"), fullPage: true });
+ });
+diff --git a/e2e/authIsolation.e2e.ts b/e2e/authIsolation.e2e.ts
+new file mode 100644
+index 0000000..d10d842
+--- /dev/null
++++ b/e2e/authIsolation.e2e.ts
+@@ -0,0 +1,14 @@
++import { test, expect } from "./fixtures";
++import { CSRF_HEADER } from "../packages/protocol/src/http";
++
++test("independent visitors keep the production per-IP magic-link limit within each visit", async ({ page }) => {
++  await page.goto("/login");
++  const origin = new URL(page.url()).origin;
++  for (let index = 0; index < 11; index++) {
++    const response = await page.request.post("/api/auth/request-link", {
++      headers: { Origin: origin, [CSRF_HEADER]: "1" }, data: { email: `ip-cap-${Date.now()}-${index}@example.com` },
++    });
++    expect(response.status()).toBe(index < 10 ? 204 : 429);
++    if (index === 10) expect(await response.json()).toMatchObject({ error: { code: "rate_limited" } });
++  }
++});
+diff --git a/e2e/cardBacks.e2e.ts b/e2e/cardBacks.e2e.ts
+index 52d316d..a3a074a 100644
+--- a/e2e/cardBacks.e2e.ts
++++ b/e2e/cardBacks.e2e.ts
+@@ -1,4 +1,4 @@
+-import { test, expect, type Page, type TestInfo } from "@playwright/test";
++import { test, expect, type Page, type TestInfo } from "./fixtures";
+ import { readFile, writeFile } from "node:fs/promises";
+ import { fileURLToPath } from "node:url";
+ import { createHash } from "node:crypto";
+diff --git a/e2e/editor-handoff.e2e.ts b/e2e/editor-handoff.e2e.ts
+index 0cd4eb8..e4769c7 100644
+--- a/e2e/editor-handoff.e2e.ts
++++ b/e2e/editor-handoff.e2e.ts
+@@ -1,4 +1,4 @@
+-import { test, expect, type Page, type TestInfo } from "@playwright/test";
++import { test, expect, type Page, type TestInfo } from "./fixtures";
+ import { readFile } from "node:fs/promises";
+ import { fileURLToPath } from "node:url";
+ import { createHash } from "node:crypto";
+@@ -184,6 +184,7 @@ test("artwork source field stays above its footer with keyboard focus at 390px a
+   await page.getByLabel("Game JSON file", { exact: true }).setInputFiles(fixturePath);
+   await expect(page).toHaveURL(/\/playtest\//); await ready(page);
+   const edit = page.getByRole("button", { name: "Edit artwork", exact: true }); await edit.click();
++  const replace = page.locator('.game-art-asset[data-art-purpose="cover"]').getByRole("button", { name: "Replace image…", exact: true }); await replace.click();
+   await expect(page.getByRole("button", { name: "Close artwork", exact: true })).toBeFocused();
+   await tabToSource(page);
+   await page.screenshot({ path: testInfo.outputPath("source-field-desktop.png"), fullPage: true });
+@@ -194,7 +195,7 @@ test("artwork source field stays above its footer with keyboard focus at 390px a
+     await expect(page.getByRole("button", { name: "Save artwork", exact: true })).toBeInViewport();
+     await page.screenshot({ path: testInfo.outputPath(`source-field-390x${height}.png`), fullPage: true });
+   }
+-  const preview = page.getByRole("dialog").getByRole("img"); const previous = await preview.getAttribute("src");
++  const preview = page.locator(".artwork-dialog").getByRole("img"); const previous = await preview.getAttribute("src");
+   const broken = rasterPng(768, 1152), view = new DataView(broken.buffer);
+   const length = view.getUint32(33); broken[41] = 0; broken[42] = 0; view.setUint32(41 + length, crc32(broken.subarray(37, 41 + length)));
+   await page.getByLabel("Image or saved artwork", { exact: true }).setInputFiles({ name: "invalid-pixels.png", mimeType: "image/png", buffer: Buffer.from(broken) });
+@@ -205,5 +206,6 @@ test("artwork source field stays above its footer with keyboard focus at 390px a
+   await page.getByLabel("Image or saved artwork", { exact: true }).setInputFiles("apps/web/public/art/first-deal.webp");
+   await expect(page.getByRole("alert")).toHaveCount(0);
+   await page.getByRole("button", { name: "Save artwork", exact: true }).click();
+-  await expect(page.getByRole("dialog")).toHaveCount(0); await expect(edit).toBeFocused(); await ready(page);
++  await expect(page.locator(".artwork-dialog")).toHaveCount(0); await expect(replace).toBeFocused();
++  await page.keyboard.press("Escape"); await expect(page.getByRole("dialog")).toHaveCount(0); await expect(edit).toBeFocused(); await ready(page);
+ });
+diff --git a/e2e/fixtures.ts b/e2e/fixtures.ts
+new file mode 100644
+index 0000000..d6cf241
+--- /dev/null
++++ b/e2e/fixtures.ts
+@@ -0,0 +1,16 @@
++import { createHash } from "node:crypto";
++import { test as base } from "@playwright/test";
++
++/** Independent visitors against one local Worker, without bypassing auth limits.
++ * Cloudflare supplies this header in production; Miniflare accepts it locally.
++ * Each test retains a stable IP, so repeated requests within a case still count.
++ */
++export const test = base.extend({
++  extraHTTPHeaders: async ({ extraHTTPHeaders }, use, testInfo) => {
++    const hash = createHash("sha256").update(`${testInfo.testId}:${testInfo.project.name}:${testInfo.repeatEachIndex}:${testInfo.retry}`).digest("hex");
++    const ip = `2001:db8:${hash.slice(0, 4)}:${hash.slice(4, 8)}:${hash.slice(8, 12)}:${hash.slice(12, 16)}:${hash.slice(16, 20)}:${hash.slice(20, 24)}`;
++    await use({ ...extraHTTPHeaders, "CF-Connecting-IP": ip });
++  },
++});
++export { expect } from "@playwright/test";
++export type { Page, Browser, BrowserContext, Locator, WebSocketRoute, TestInfo } from "@playwright/test";
+diff --git a/e2e/game-detail.e2e.ts b/e2e/game-detail.e2e.ts
+index 36cc41d..4e58d7f 100644
+--- a/e2e/game-detail.e2e.ts
++++ b/e2e/game-detail.e2e.ts
+@@ -1,4 +1,4 @@
+-import { test, expect, type Locator, type Page, type TestInfo } from "@playwright/test";
++import { test, expect, type Locator, type Page, type TestInfo } from "./fixtures";
+ import { readFile, writeFile } from "node:fs/promises";
+ import { fileURLToPath } from "node:url";
+ import { createHash } from "node:crypto";
+diff --git a/e2e/generation.e2e.ts b/e2e/generation.e2e.ts
+index 88d95f1..59ff987 100644
+--- a/e2e/generation.e2e.ts
++++ b/e2e/generation.e2e.ts
+@@ -1,4 +1,4 @@
+-import { test, expect, type Page } from "@playwright/test";
++import { test, expect, type Page } from "./fixtures";
+ import { readFile } from "node:fs/promises";
+ 
+ async function signIn(page: Page) {
+diff --git a/e2e/host-dialog.e2e.ts b/e2e/host-dialog.e2e.ts
+index 0a0d3d6..9904041 100644
+--- a/e2e/host-dialog.e2e.ts
++++ b/e2e/host-dialog.e2e.ts
+@@ -1,4 +1,4 @@
+-import { expect, test } from "@playwright/test";
++import { expect, test } from "./fixtures";
+ 
+ test("hosting keeps keyboard focus in the dialog and restores it after Escape", async ({ page }) => {
+   await page.goto("/");
+diff --git a/e2e/object-context-menu.e2e.ts b/e2e/object-context-menu.e2e.ts
+index ddec1f7..b0c2e73 100644
+--- a/e2e/object-context-menu.e2e.ts
++++ b/e2e/object-context-menu.e2e.ts
+@@ -1,4 +1,4 @@
+-import { test, expect, type Page } from "@playwright/test";
++import { test, expect, type Page } from "./fixtures";
+ 
+ async function hostCards(page: Page) {
+   await page.goto("/");
+diff --git a/e2e/rasterArt.e2e.ts b/e2e/rasterArt.e2e.ts
+index 2609d59..d58d043 100644
+--- a/e2e/rasterArt.e2e.ts
++++ b/e2e/rasterArt.e2e.ts
+@@ -1,4 +1,4 @@
+-import { test, expect, type Page, type TestInfo } from "@playwright/test";
++import { test, expect, type Page, type TestInfo } from "./fixtures";
+ import { readFile, writeFile } from "node:fs/promises";
+ import { createHash } from "node:crypto";
+ import type { ReleaseBundleDto, OwnedGameDto } from "../packages/protocol/src/http";
+@@ -295,6 +295,14 @@ test("unconfigured illustration preserves the playable rules and separate briefs
+   const bytes = await download(page, info, "missing-provider.editor.json", () => dialog.getByRole("button", { name: "Download editable draft", exact: true }).click());
+   const backup = JSON.parse(Buffer.from(bytes).toString("utf8"));
+   expect(backup.bundle).toEqual(accepted.draft); expect(backup.artworkGeneration.direction).toEqual(accepted.artDirection); expect(backup.artwork).toBeUndefined();
++  await dialog.locator('[data-art-purpose="card-back"]').getByRole("button", { name: "Replace image…", exact: true }).click();
++  const emptyEditor = page.locator(".artwork-dialog");
++  const emptyBackup = await download(page, info, "empty-image-editor.editor.json", () => emptyEditor.getByRole("button", { name: "Download draft", exact: true }).click());
++  expect(JSON.parse(Buffer.from(emptyBackup).toString("utf8"))).toEqual(backup);
++  await page.setViewportSize({ width: 390, height: 480 });
++  await expect(emptyEditor.getByRole("button", { name: "Download draft", exact: true })).toBeInViewport();
++  await capture(page, info, "empty-card-artwork-backup-short.png");
++  await page.keyboard.press("Escape"); await page.setViewportSize({ width: 1440, height: 960 });
+   await capture(page, info, "image-provider-unavailable-desktop.png");
+   await page.setViewportSize({ width: 390, height: 844 });
+   const cover = dialog.locator('[data-art-purpose="cover"]');
+diff --git a/e2e/ruleSources.e2e.ts b/e2e/ruleSources.e2e.ts
+index c737585..40ed058 100644
+--- a/e2e/ruleSources.e2e.ts
++++ b/e2e/ruleSources.e2e.ts
+@@ -1,4 +1,4 @@
+-import { test, expect, type Page, type TestInfo } from "@playwright/test";
++import { test, expect, type Page, type TestInfo } from "./fixtures";
+ import { readFile } from "node:fs/promises";
+ 
+ async function menu(page: Page, action: string) {
+diff --git a/e2e/sounds.e2e.ts b/e2e/sounds.e2e.ts
+index 4dddcd5..495d66c 100644
+--- a/e2e/sounds.e2e.ts
++++ b/e2e/sounds.e2e.ts
+@@ -1,4 +1,4 @@
+-import { test, expect, type Page, type BrowserContext, type TestInfo } from "@playwright/test";
++import { test, expect, type Page, type BrowserContext, type TestInfo } from "./fixtures";
+ import { readFile, writeFile } from "node:fs/promises";
+ import { fileURLToPath } from "node:url";
+ import { createHash } from "node:crypto";
+diff --git a/e2e/table.e2e.ts b/e2e/table.e2e.ts
+index 2d7c760..68cd78b 100644
+--- a/e2e/table.e2e.ts
++++ b/e2e/table.e2e.ts
+@@ -1,4 +1,4 @@
+-import { test, expect, type Browser, type Page, type WebSocketRoute } from "@playwright/test";
++import { test, expect, type Browser, type Page, type WebSocketRoute } from "./fixtures";
+ 
+ async function renderedTable(page: Page) {
+   await page.bringToFront();
+@@ -172,9 +172,10 @@ test("named cards remain private in hands, play visibly to the table, reveal and
+     await revealed.getByRole("menuitem", { name: "Inspect", exact: true }).click();
+     await expect(other.page.getByRole("dialog", { name: "Inspecting 7 of Diamonds", exact: true })).toBeVisible();
+     await other.page.screenshot({ path: testInfo.outputPath("played-card-revealed.png"), fullPage: true });
++    await page.bringToFront();
+     await page.reload();
+-    await expect(page.getByRole("button", { name: "Inspect Queen of Clubs", exact: true })).toBeVisible();
+     await renderedTable(page);
++    await expect(page.getByRole("button", { name: "Inspect Queen of Clubs", exact: true })).toBeVisible();
+     await page.screenshot({ path: testInfo.outputPath("card-hand-restored.png"), fullPage: true });
+     await page.getByRole("button", { name: "Inspect Queen of Clubs", exact: true }).click();
+     await expect(page.locator(".inspect-overlay__preview .playing-card canvas")).toBeVisible();

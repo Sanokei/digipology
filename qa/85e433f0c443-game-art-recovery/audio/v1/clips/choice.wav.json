@@ -1,0 +1,20 @@
+{
+  "profile": "effect",
+  "loop": false,
+  "normalization": "transient-rms",
+  "targetLufs": null,
+  "truePeakCeilingDb": -1.5,
+  "input": {
+    "duration": 0.286689,
+    "sampleRate": 44100,
+    "channels": 2
+  },
+  "output": {
+    "duration": 0.121125,
+    "sampleRate": 48000,
+    "channels": 1
+  },
+  "measured": null,
+  "sourceHash": "df55e931e6b78e5aecc015922e873a0e8bfa4e97cfb19abc64149d54afe89216",
+  "outputHash": "24cb96600ea34c437480b9e2b6fa2cc4051fab0a344560d85c952f0bbd1bb72c"
+}

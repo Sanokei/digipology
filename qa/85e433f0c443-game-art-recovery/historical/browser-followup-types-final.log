@@ -1,0 +1,1 @@
+e2e/authIsolation.e2e.ts(2,29): error TS2307: Cannot find module 'digipology-protocol/http' or its corresponding type declarations.

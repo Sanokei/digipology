@@ -1,0 +1,7 @@
+{
+  "url": "https://api.github.com/repos/Sanokei/digipology/actions/artifacts/12930241123/zip",
+  "scope": "Normal public CI artifact download; no alternate host/proxy/credentials",
+  "status": 200,
+  "bytes": 122958175,
+  "sha256": "48919c28297290cd9b8a05f1bf66eb7d0492d0b4a6d8f434ff4961e7ff4e2bfa"
+}

@@ -1,0 +1,72 @@
+{
+  "source": "85e433f0c443331208be53d3c8d4d212938d2bbf",
+  "commands": [
+    {
+      "step": "browser-fix-fetch",
+      "command": [
+        "git",
+        "fetch",
+        "origin",
+        "main"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 0.57
+    },
+    {
+      "step": "browser-fix-main",
+      "command": [
+        "git",
+        "switch",
+        "main"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 0.02
+    },
+    {
+      "step": "browser-fix-sync",
+      "command": [
+        "git",
+        "merge",
+        "--ff-only",
+        "origin/main"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 0.0
+    },
+    {
+      "step": "browser-fix-integrate",
+      "command": [
+        "git",
+        "merge",
+        "--ff-only",
+        "fix/game-artwork-recovery-ci"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 0.02
+    },
+    {
+      "step": "browser-fix-push",
+      "command": [
+        "git",
+        "push",
+        "origin",
+        "main",
+        "fix/game-artwork-recovery-ci"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 1.56
+    },
+    {
+      "step": "browser-fix-ref-verification",
+      "command": [
+        "git",
+        "ls-remote",
+        "origin",
+        "refs/heads/main",
+        "refs/heads/fix/game-artwork-recovery-ci"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 0.51
+    }
+  ]
+}

@@ -1,0 +1,1436 @@
+bun test v1.4.4 (38afee6c8)
+
+scripts/product-loop.test.ts:
+(pass) the loop selects unfinished work in priority order and stops when its queue is complete [0.24ms]
+(pass) ambiguous or malformed backlog entries cannot enter unattended execution [0.12ms]
+
+scripts/benchmarks/merlin-catalogs.test.ts:
+(pass) quoted multiline CSV, BOM, CRLF and trailing empty cells are analyzed without modifying source text [0.20ms]
+(pass) declared/listed conflicts and zero-copy definitions remain distinct instead of correcting the source [0.41ms]
+(pass) a missing or changed pinned catalog fails before a request packet can be accepted [1.86ms]
+
+scripts/media/audio.test.ts:
+(pass) FFmpeg masters a real clip with measured loudness, 48kHz output and peak headroom [1158.52ms]
+(pass) effect edge trimming preserves separated attacks and their interior pause, and rejects silence [999.23ms]
+(pass) short sound effects use measured transient normalization rather than invalid LUFS [584.83ms]
+
+scripts/media/assets.test.ts:
+(pass) online model discovery retains provenance and filters by all search terms [1.70ms]
+(pass) audio discovery rejects unusable URLs and incompatible license records [0.76ms]
+(pass) provider errors remain errors instead of a fake empty search [0.83ms]
+(pass) an asset redirect cannot turn a supported provider into a request to a local service [0.38ms]
+(pass) model admission rejects truncated GLB and external resources [0.63ms]
+
+apps/web/src/releaseValidation.test.ts:
+(pass) browser release pre-validation > accepts the same valid integrity chain used by the Worker [12.99ms]
+(pass) browser release pre-validation > blocks malformed JSON and aggregates hash failures [5.26ms]
+
+apps/worker/migrations/migrations.test.ts:
+(pass) D1 migrations > 0002 applies after 0001 and preserves existing built-in rows [11.59ms]
+(pass) D1 migrations > 0003 applies after 0001 and 0002, preserves rows, and seeds metric homes [3.80ms]
+(pass) D1 migrations > 0004 adds per-user UTC-day DeepSeek usage after the existing migrations [4.55ms]
+(pass) D1 migrations > 0007 adds per-user UTC-day AI request counts [4.80ms]
+(pass) D1 migrations > 0005 conservatively excludes existing rooms and allows explicit new lobbies [4.45ms]
+(pass) D1 migrations > 0006 adds saved tables and nullable room ownership/provenance [5.92ms]
+(pass) D1 migrations > 0006 applies as part of a fresh migration chain [4.57ms]
+
+apps/worker/src/ai-model-settings.test.ts:
+(pass) AI settings require an explicitly chosen model and keep bounded independent generation/repair budgets [0.26ms]
+(pass) invalid AI profile or budgets stay unconfigured rather than silently selecting a provider or request size [0.21ms]
+
+apps/worker/src/room-liveness.test.ts:
+(pass) room alarm multiplexing > refreshes connected rooms on the coarse heartbeat cadence [0.07ms]
+(pass) room alarm multiplexing > keeps the empty-room TTL and expires only when due [0.03ms]
+(pass) room alarm multiplexing > selects the earliest canonical timer but pauses it for an empty room [0.04ms]
+(pass) room alarm multiplexing > defers a due timer once when an action was just sequenced, then fires it [0.08ms]
+(pass) room alarm multiplexing > skips a timer when its cancel report lands during the grace window [0.01ms]
+
+apps/worker/src/auth.test.ts:
+(pass) magic-link token lifecycle > creates hash-only storage and consumes exactly once [2.35ms]
+(pass) magic-link token lifecycle > rejects expiry at TTL plus one second [0.99ms]
+(pass) magic-link token lifecycle > rejects a wrong token without consuming the valid link [0.80ms]
+(pass) session authentication middleware > returns anonymous when the cookie is absent [0.29ms]
+(pass) session authentication middleware > accepts a valid session and rolls its expiry [1.26ms]
+(pass) session authentication middleware > rejects expired and revoked sessions [1.78ms]
+(pass) session authentication middleware > rejects a wrong session token [0.44ms]
+
+apps/worker/src/room-resume-replay.test.ts:
+(pass) scripted multi-binding seat recovery, repeat save=%s, replays identically [195.37ms]
+(pass) scripted multi-binding seat recovery, repeat save=%s, replays identically [168.55ms]
+(pass) repeat resume can map every remaining escrowed identity in its first action [74.77ms]
+(pass) stopped turns remain stopped across partial claims and repeat saves [89.59ms]
+(pass) pending resume additive golden hashes [67.87ms]
+(pass) fresh players seated during the pause join after the preserved saved turn order [85.65ms]
+
+apps/worker/src/builtin-covers.test.ts:
+(pass) built-in covers are actual portrait raster illustrations within the upload budget [9.04ms]
+
+apps/worker/src/cookies.test.ts:
+(pass) session cookies > parses named cookies without confusing prefixes [0.10ms]
+(pass) session cookies > serializes the exact security attributes [0.13ms]
+(pass) session cookies > rolls expiry exactly thirty days from use [0.02ms]
+
+apps/worker/src/room-core.test.ts:
+(pass) RoomCore sequencing > plans deterministic saved-table resume cleanup and timers [1.16ms]
+(pass) RoomCore sequencing > resume startup sequences one atomic roster transition before rearmed timers [3.46ms]
+(pass) RoomCore sequencing > resume maps saved seats in code-unit order regardless of insertion order [0.48ms]
+(pass) RoomCore sequencing > allocates 1000 monotonically increasing sequences and retains 500 [17.48ms]
+(pass) RoomCore sequencing > interleaved duplicates return their original mapping [0.19ms]
+(pass) RoomCore sequencing > truncates exactly when the 501st action is added [9.70ms]
+(pass) RoomCore sequencing > computes resume results at every window edge [7.08ms]
+(pass) RoomCore sequencing > continues without reuse or gap after rebuilding from storage state [0.26ms]
+(pass) RoomCore sequencing > stamps actor from the authenticated player and treats payload as opaque [0.08ms]
+(pass) RoomCore sequencing > sequences a system game start first and deduplicates it after rebuild [0.10ms]
+(pass) RoomCore sequencing > deduplicates system.timer_fire across room-core reconstruction [0.08ms]
+(pass) RoomCore sequencing > timer_fire dedup keys stay bounded when a callback re-arms its own timer [10.47ms]
+(pass) RoomCore sequencing > bootstraps the persisted room snapshot before system.game_start [2.50ms]
+(pass) RoomCore sequencing > keeps checkpoint cadence inside retention and converges after more than 500 actions [229.48ms]
+(pass) RoomCore sequencing > uses the initial snapshot below retention and checkpoint recovery after stale resync [47.51ms]
+(pass) RoomCore sequencing > detects when a checkpoint base no longer connects to the retained tail [3.54ms]
+(pass) RoomCore sequencing > fails loudly when an over-window bootstrap checkpoint is missing or malformed [2.90ms]
+(pass) scripted checkpoint attestations > confirms two matching healthy players and ignores duplicate attestations [0.42ms]
+(pass) scripted checkpoint attestations > lets the sole healthy player self-confirm [0.03ms]
+(pass) scripted checkpoint attestations > marks a divergent sequence conflicted and never confirms it [0.07ms]
+(pass) scripted checkpoint attestations > applies solo grace after a second bootstrapped player leaves [0.07ms]
+(pass) scripted checkpoint attestations > validates attested hash, release, cadence, and retained-window sequence [6.48ms]
+(pass) scripted checkpoint attestations > selects initial, then attested, then full-log fallback for scripted rooms [3.99ms]
+
+apps/worker/src/rate-limiter.test.ts:
+(pass) fixed-window rate limiter > allows through the threshold and rejects the next request [0.34ms]
+(pass) fixed-window rate limiter > resets at the next window [0.08ms]
+(pass) fixed-window rate limiter > keeps email and IP keys independent [0.07ms]
+(pass) fixed-window rate limiter > D1 writes prune expired counters opportunistically [0.28ms]
+
+apps/worker/src/play-count.test.ts:
+(pass) play-count dedupe > counts first bootstrap, distinct players, and the same player in a distinct room [0.13ms]
+(pass) play-count dedupe > takes each pending increment at most once [0.02ms]
+
+apps/worker/src/release-validation.test.ts:
+(pass) uploaded release validation > accepts a built-in-derived fixture and normalizes immutable server IDs [6.96ms]
+(pass) uploaded release validation > reports every failed integrity stage instead of stopping at the first [2.92ms]
+(pass) uploaded release validation > names shape failures for unknown fields [0.42ms]
+
+apps/worker/src/cover-image.test.ts:
+(pass) cover image validation > accepts complete 2:3 PNG and rejects header-only JPEG/WebP [17.54ms]
+(pass) cover image validation > rejects wrong magic, truncation, dimensions, ratio, and Content-Type spoofing [80.09ms]
+(pass) cover image validation > pins the binary route body budget [0.04ms]
+
+apps/worker/src/index.resume.test.ts:
+(pass) uploaded games start with the current seated roster even when someone joins during release loading [68.56ms]
+(pass) live presence covers joins, hello, host migration and reconnect without reaching legacy sockets or advancing the log [13.88ms]
+(pass) legacy missing host backfill survives reconnect and cannot be stolen by a later join [14.59ms]
+(pass) legacy null host backfill survives reconnect and cannot be stolen by a later join [4.53ms]
+(pass) staggered joins preserve saved seat allocation: {"seatIds":["seat_2"]} [9.82ms]
+(pass) staggered joins preserve saved seat allocation: {"seatIds":["seat_2","seat_3","seat_4","seat_5","seat_6","seat_7","seat_8","seat_9","seat_10","seat_11","seat_12","seat_13"]} [48.39ms]
+(pass) host-first resume restores score, turn and prompt; repeat save=%s [163.87ms]
+(pass) host-first resume restores score, turn and prompt; repeat save=%s [207.69ms]
+(pass) unreturned seats survive disconnect and overdue alarms; replacement claim restarts timers [16.04ms]
+
+apps/worker/src/dice-dash-v3.test.ts:
+(pass) the live Dice Dash release plays to a winner with deterministic scores and alternating turns [147.23ms]
+(pass) an out-of-turn roll rolls back the die, score, and RNG [33.42ms]
+
+apps/worker/src/ai-game-refine.test.ts:
+(pass) extractRefinement > extracts a files patch, tolerating markdown fences [0.39ms]
+(pass) extractRefinement > rejects unknown keys and empty payloads [0.40ms]
+(pass) validateRefinement > accepts a well-formed patch [0.19ms]
+(pass) validateRefinement > rejects bad file paths and shapes [0.05ms]
+(pass) validateRefinement > accepts the {key, value} settings shorthand and object scriptStateJson [0.08ms]
+(pass) validateRefinement > rejects malformed entities/settings/scriptStateJson [0.09ms]
+(pass) applyGamePatch > splices new Lua into the draft and re-hashes [4.40ms]
+(pass) applyGamePatch > returns null when the patched draft is structurally invalid [1.92ms]
+(pass) buildGameRefinementRequest > uses a bounded repair budget without Qwen-specific defaults [2.29ms]
+(pass) refineGameDraft > fixes a banned global through one refinement round [398.94ms]
+(pass) refineGameDraft > keeps the original draft when the model cannot fix anything [12.47ms]
+
+apps/worker/src/random.test.ts:
+(pass) random identifiers > generates guest names from four unambiguous join-code characters [0.13ms]
+(pass) random identifiers > join codes use eight characters from a 32-symbol alphabet (40 bits) [1.12ms]
+(pass) random identifiers > normalizes casing, ASCII whitespace, and an optional hyphen [0.22ms]
+(pass) random identifiers > rejects ambiguous and Unicode lookalike characters [0.26ms]
+(pass) random identifiers > session tokens contain 256 random bits [0.11ms]
+
+apps/worker/src/quality-client.test.ts:
+(pass) the HTTP harness playtests a real release and detects broken generated Lua [2410.41ms]
+(pass) the HTTP harness reports a seat-owned card callback after actual join and seating [549.98ms]
+(pass) the harness requires authentication before accepting remote playtests [2.58ms]
+
+apps/worker/src/first-deal-v2.test.ts:
+(pass) First Deal v2 authors a complete named deck without assigning identities to v1 [6.79ms]
+(pass) named draws, private hands, visible center play, and reveal replay to a frozen result [43.43ms]
+(pass) hand rendering keeps a custom game's authored labels instead of guessing from definition IDs [22.31ms]
+
+apps/worker/src/ai-games.test.ts:
+(pass) AI game authoring schema and assembly > an explicitly blank model endpoint remains unconfigured [0.14ms]
+(pass) AI game authoring schema and assembly > a key never invents an endpoint or model and invalid settings do not enable generation [0.29ms]
+(pass) AI game authoring schema and assembly > Qwen prompting and smaller local budgets require an explicit profile [1.05ms]
+(pass) AI game authoring schema and assembly > complete source documents remain user data with server-computed hashes [0.75ms]
+(pass) AI game authoring schema and assembly > a real demo game's authorable fields satisfy the forced tool JSON schema [0.66ms]
+(pass) AI game authoring schema and assembly > computes every integrity field and passes the existing eight-check validator [3.04ms]
+(pass) AI game authoring schema and assembly > text edits preserve immutable presentation bytes while omitting them from model context [9.59ms]
+(pass) AI game authoring schema and assembly > turns unregistered components and action references into typed checks [6.34ms]
+(pass) AI game route matrices > create: requires a session before checking AI configuration [7.03ms]
+(pass) AI game route matrices > create: keyless is a calm 503 [8.25ms]
+(pass) AI game route matrices > create: rejects the cap boundary before the model [7.33ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 1ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 0 issue(s) (0 errors)
+refine: done after 0 round(s), accepted=true
+(pass) AI game route matrices > create: returns a validated draft without persisting it [1198.53ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 1ms: invalid (1 violations)
+ai-game: attempt 2/3 started (timeout 180000ms)
+ai-game: attempt 2 finished in 0ms: invalid (1 violations)
+ai-game: attempt 3/3 started (timeout 180000ms)
+ai-game: attempt 3 finished in 0ms: invalid (1 violations)
+(pass) AI game route matrices > create: three invalid drafts return 502 and typed feedback [38.29ms]
+(pass) AI game route matrices > edit: requires a session before checking AI configuration [0.11ms]
+(pass) AI game route matrices > edit: keyless is a calm 503 [7.58ms]
+(pass) AI game route matrices > edit: rejects the cap boundary before the model [7.31ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 0 issue(s) (0 errors)
+refine: done after 0 round(s), accepted=true
+(pass) AI game route matrices > edit: returns a validated draft without persisting it [1344.64ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: invalid (1 violations)
+ai-game: attempt 2/3 started (timeout 180000ms)
+ai-game: attempt 2 finished in 0ms: invalid (1 violations)
+ai-game: attempt 3/3 started (timeout 180000ms)
+ai-game: attempt 3 finished in 0ms: invalid (1 violations)
+(pass) AI game route matrices > edit: three invalid drafts return 502 and typed feedback [36.40ms]
+(pass) AI game route matrices > edit rejects a signed-in non-owner before keyless/model checks [10.02ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 0 issue(s) (0 errors)
+refine: done after 0 round(s), accepted=true
+(pass) AI game route matrices > sends a provider-neutral raw-JSON request with a complete-game output budget [1384.40ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 1ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 1 issue(s) (1 errors)
+  - [error] rules_missing: Include runtime/rules.md with a readable player guide of at least 40 characters: the objective, setup, turn choices and victory conditions. Players open it thro
+refine: round 1/2 quality check started
+refine: round 1 refinement attempt 1/1 started
+refine: round 1 quality: 0 issue(s) (0 errors)
+refine: round 1 attempt 1 finished in 1ms: accepted
+refine: done after 1 round(s), accepted=true
+(pass) AI game budgets > OpenAI creation and real rules repair use their own token and timeout budgets [2333.41ms]
+(pass) AI game budgets > invalid configured budgets return a recoverable configuration error before usage or provider calls [6.53ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 1 issue(s) (1 errors)
+  - [error] rules_missing: Include runtime/rules.md with a readable player guide of at least 40 characters: the objective, setup, turn choices and victory conditions. Players open it thro
+refine: round 1/2 quality check started
+refine: round 1 refinement attempt 1/1 started
+refine: round 1 quality: 0 issue(s) (0 errors)
+refine: round 1 attempt 1 finished in 0ms: accepted
+refine: done after 1 round(s), accepted=true
+(pass) AI game budgets > repairs a missing player rulebook as an ordinary release file before accepting a draft [1766.66ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 2 issue(s) (2 errors)
+  - [error] lua_banned_global: scripts/game.lua: uses math.random which is REMOVED from the Digipology sandbox (it is nil at runtime). Use random:int(min, max), random:float(), or random:choi
+  - [error] lua_runtime_error: Lua on_roll in scripts/game.lua failed at runtime (line 2): [string "sandbox"]:452: attempt to call a nil value (field 'random') Use random:int(min, max), rando
+refine: round 1/2 quality check started
+refine: round 1 refinement attempt 1/1 started
+refine: round 1 quality: 0 issue(s) (0 errors)
+refine: round 1 attempt 1 finished in 0ms: accepted
+refine: done after 1 round(s), accepted=true
+(pass) AI game budgets > repairs a structurally valid broken game before accepting it and meters the repair [1398.71ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 1ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 1 issue(s) (1 errors)
+  - [error] lua_runtime_error: Lua on_roll in scripts/game.lua failed at runtime (line 2): [string "sandbox"]:452: transport fixture needs repair. The triggering action was rejected, so this 
+refine: round 1/2 quality check started
+refine: round 1 refinement attempt 1/1 started
+refine: round 1 quality: 0 issue(s) (0 errors)
+refine: round 1 attempt 1 finished in 0ms: accepted
+refine: done after 1 round(s), accepted=true
+(pass) AI game budgets > full rule sources over the old body limit reach generation and repair without becoming release files [2010.82ms]
+(pass) AI game budgets > over-budget documents and transport bodies fail before calling the model [38.75ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 1ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 1 issue(s) (1 errors)
+  - [error] lua_runtime_error: Lua on_roll in scripts/game.lua failed at runtime (line 2): [string "sandbox"]:452: broken rules. The triggering action was rejected, so this breaks the game fl
+refine: round 1/2 quality check started
+refine: round 1 refinement attempt 1/1 started
+refine: round 1 attempt 1 finished in 0ms: rejected (1 violations)
+refine: round 2/2 quality check started
+refine: round 2 refinement attempt 1/1 started
+refine: round 2 attempt 1 finished in 0ms: rejected (1 violations)
+refine: done after 2 round(s), accepted=false
+(pass) AI game budgets > does not return a broken game when bounded repairs fail [518.46ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 1ms: unusable
+ai-game: attempt 2/3 started (timeout 180000ms)
+ai-game: attempt 2 finished in 0ms: unusable
+ai-game: attempt 3/3 started (timeout 180000ms)
+ai-game: attempt 3 finished in 0ms: unusable
+(pass) AI game budgets > records a request before failed extraction and accumulates all attempts [8.06ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 1ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 0 issue(s) (0 errors)
+refine: done after 0 round(s), accepted=true
+(pass) AI game budgets > allows just under the cap and then records the completed call [1011.99ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: invalid (1 violations)
+ai-game: attempt 2/3 started (timeout 180000ms)
+ai-game: attempt 2 finished in 0ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 0 issue(s) (0 errors)
+refine: done after 0 round(s), accepted=true
+(pass) AI game budgets > feeds a typed violation to attempt two and meters both calls [1075.41ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 1ms: unusable
+ai-game: attempt 2/3 started (timeout 180000ms)
+ai-game: attempt 2 finished in 0ms: unusable
+ai-game: attempt 3/3 started (timeout 180000ms)
+ai-game: attempt 3 finished in 0ms: unusable
+(pass) AI game budgets > rechecks the cap between validator-loop attempts [10.78ms]
+(pass) cover generation route matrix > requires authentication and rejects a signed-in non-owner [9.64ms]
+(pass) cover generation route matrix > returns the identical four-candidate shape for keyless and capped requests [20.38ms]
+(pass) cover generation route matrix > forces the cover tool and returns four normalized AI candidates [10.51ms]
+(pass) cover generation route matrix > replaces invalid emitted specs positionally and still returns four AI candidates [10.90ms]
+(pass) cover generation route matrix > records usage before parsing and degrades malformed model output procedurally [9.78ms]
+
+apps/worker/src/quickplay.test.ts:
+(pass) quick-play matchmaking > chooses most-filled first while skipping full and stale rooms [0.16ms]
+(pass) quick-play matchmaking > excludes residual rooms and preserves most-filled-first among lobby rooms [0.04ms]
+(pass) quick-play matchmaking > accepts the exact one-seat-left and heartbeat freshness edges [0.03ms]
+(pass) quick-play matchmaking > reduces claim and DO outcomes into bounded pure decisions [0.04ms]
+(pass) quick-play matchmaking > falls through to create when every selected room is residual [0.34ms]
+(pass) quick-play matchmaking > retries after the DO rejects a stale joinability race [0.16ms]
+(pass) quick-play matchmaking > absorbs lost claims and DO full/ended races before creating [0.17ms]
+(pass) quick-play matchmaking > lets only one concurrent caller claim the final seat [0.19ms]
+
+apps/worker/src/catalog.test.ts:
+(pass) built-in game catalog > lists all three demo games and resolves their slugs and immutable release IDs [0.19ms]
+(pass) built-in game catalog > serves the golden-fixture initial snapshot in every bundle [36.14ms]
+(pass) built-in game catalog > builds a valid room snapshot from the live roster and deterministic seats [4.92ms]
+(pass) built-in game catalog > builds Zone Runner hands, zones, snap slots, and script bindings for a live roster [1.88ms]
+(pass) built-in game catalog > keeps old releases resolvable while new Dice Dash rooms pin playable v3 [0.14ms]
+(pass) built-in game catalog > keeps Zone Runner v1 resolvable while new rooms pin the 20-second v2 [0.04ms]
+(pass) built-in game catalog > projects exact API summary shapes [0.17ms]
+
+apps/worker/src/ai-game-quality.test.ts:
+(pass) checkDraftQuality > a correct dice game passes with no issues [272.67ms]
+(pass) checkDraftQuality > flags math.random as a banned global [16.14ms]
+(pass) checkDraftQuality > flags invented random_int/randint globals with the correct API [12.48ms]
+(pass) checkDraftQuality > flags Lua syntax errors with the file [16.03ms]
+(pass) checkDraftQuality > flags scripts that no entity binds [9.89ms]
+(pass) checkDraftQuality > flags a script component pointing at a missing file [14.93ms]
+(pass) checkDraftQuality > warns when a callback can never fire on its bound entity [10.76ms]
+(pass) checkDraftQuality > shared setup and die bindings do not produce a false never-fires repair warning [969.66ms]
+(pass) checkDraftQuality > flags settings keys the draft does not define [19.78ms]
+(pass) checkDraftQuality > flags scene:get on unknown entity IDs [10.56ms]
+(pass) checkDraftQuality > captures Lua runtime errors from the playtest [115.79ms]
+(pass) checkDraftQuality > a placeholder draft is flagged as logic-less, unwired, and winless [187.99ms]
+(pass) checkDraftQuality > a draft with one real script does not flag the other empty file as an error [16.13ms]
+(pass) checkDraftQuality > does not flag commented-out banned globals [10.97ms]
+(pass) critiqueInstructionFollowing > converts model-reported mismatches into error issues [2.95ms]
+(pass) critiqueInstructionFollowing > an empty model verdict means no issues, and transport failure is silent [4.41ms]
+
+apps/worker/src/platform.test.ts:
+(pass) catalog routes > serve demo-game summaries, details, and the immutable release bundle [0.63ms]
+(pass) catalog routes > interleaves public uploaded games and streams uploaded bundles with immutable headers [0.63ms]
+(pass) same-origin custom-header CSRF check > requires the custom header [0.02ms]
+(pass) same-origin custom-header CSRF check > accepts a matching origin and rejects a cross origin [0.07ms]
+(pass) same-origin custom-header CSRF check > allows non-browser clients with the custom header and no Origin [0.05ms]
+(pass) canonical room timer metadata > authenticates register and cancel reports through the Room DO [0.36ms]
+(pass) scripted checkpoint attestation route > forwards a size-bounded authenticated attestation to the Room DO [0.37ms]
+(pass) scripted checkpoint attestation route > maps unauthenticated, divergent, conflicted, rejected, rate-limited, and oversized reports [0.37ms]
+(pass) upload body cap > uses a 1 MiB route-specific limit without changing existing API bodies [0.31ms]
+(pass) upload body cap > rejects cover bodies above 512 KiB before buffering them [0.22ms]
+(pass) quick play route > joins a fresh room as an auto-named guest and returns its join code [0.86ms]
+(pass) quick play route > creates a public system-owned quickplay room when no candidate survives [0.67ms]
+(pass) release publish ordering > does not insert a release or move its pointer when R2 fails [0.14ms]
+(pass) uploaded game authorization > requires authentication on every uploaded-game mutation and My Games [0.21ms]
+(pass) uploaded game authorization > rejects a signed-in non-owner and keeps built-ins immutable [5.82ms]
+(pass) uploaded game authorization > enforces cover ownership and serves a valid versioned raster round-trip [79.74ms]
+(pass) uploaded game authorization > legacy cover reads survive rollout and migration pins the existing current object [16.72ms]
+(pass) uploaded game authorization > serves real illustrated raster covers with immutable versioned caching [1.56ms]
+(pass) saved tables routes > rejects empty and missing save tokens as unauthorized before persistence [4.13ms]
+(pass) saved tables routes > checks the exact uploaded bundle before allocating a resumed room [68.06ms]
+(pass) saved tables routes > require authentication for save, list, delete, and resume [0.29ms]
+(pass) saved tables routes > maps save token, host, availability, and freshness failures [5.45ms]
+(pass) saved tables routes > rejects tampered and oversized snapshots without persistence [3.93ms]
+(pass) saved tables routes > enforces the per-minute rate limit and active-save cap [8.80ms]
+(pass) saved tables routes > persists a verified snapshot and pinned metadata on success [5.00ms]
+(pass) saved tables routes > persists requires_scripts for a scripted save [4.01ms]
+(pass) saved tables routes > lists only the owner's active saves newest first with resolved and fallback titles [3.89ms]
+(pass) saved tables routes > soft-deletes only an owner's save and removes its R2 object [4.25ms]
+(pass) saved tables routes > does not leak foreign saves and resumes available saves into a new indexed room [14.98ms]
+(pass) saved tables routes > resumes scripted saves through the same pinned-room allocation path [7.40ms]
+(pass) end table route > requires a host token and reports an already-ended table [3.36ms]
+
+apps/worker/src/ai-game-simulation.test.ts:
+(pass) bounded strategy action probes > finds a broken button in a game with no dice and retains a reproducible trigger [127.96ms]
+(pass) bounded strategy action probes > uses the prompted player even out of turn and samples a failing alternate choice [109.70ms]
+(pass) bounded strategy action probes > exercises max-player setup and the real join then seat lifecycle after a host starts alone [165.94ms]
+(pass) bounded strategy action probes > fires a scheduled callback without a wall-clock wait and bounds repeated timers [394.19ms]
+(pass) bounded strategy action probes > draws to the acting player's actual hand and calls the bound container callback [146.07ms]
+(pass) bounded strategy action probes > seat-owned and directly owned hands use only their actual actor, including after late seating [678.09ms]
+(pass) bounded strategy action probes > a generated seat-owned card failure enters repair before acceptance [439.44ms]
+(pass) bounded strategy action probes > a changing unbound die does not count as rule progress, and guard denial is not a Lua error [192.34ms]
+(pass) bounded strategy action probes > reports are deterministic, authored state is unchanged, and recorded actions replay to the same hash [247.28ms]
+(pass) bounded strategy action probes > minimum rosters are never silently clamped to four players [159.40ms]
+(pass) bounded strategy action probes > number and confirmation probes use valid alternate responses [182.82ms]
+(pass) bounded strategy action probes > a no-dice runtime failure enters real repair; unresolved failure cannot be accepted [341.48ms]
+(pass) bounded strategy action probes > large choice surfaces report bounded coverage and invalid execution bounds are rejected [342.08ms]
+
+apps/worker/src/draft-artwork.test.ts:
+(pass) real raster bytes retain hashes/originals and completed replies reuse the same game/revision [247.70ms]
+(pass) concurrent identical local requests share one provider operation and neither consumes a response body twice [15.09ms]
+(pass) missing account-selected image model, invalid bytes and storage failures never invent ready artwork [15.95ms]
+(pass) cached corruption remains explicit and a new revision preserves prior originals [37.68ms]
+(pass) authentication, strict input and daily budget are enforced before image inference [3.42ms]
+(pass) game-authored direction is separate from images and review binds only successful actual checks [10.11ms]
+(pass) artwork provenance is validated instead of silently disappearing in backups or image information [0.31ms]
+
+apps/worker/src/message-handler.test.ts:
+(pass) protocol message handler > feeds committed hello and Appendix D.4 action fixtures through the handler [3.86ms]
+(pass) protocol message handler > rejects malformed JSON, wrong versions, oversized frames, and bad sessions [0.49ms]
+(pass) protocol message handler > returns duplicate ordered action only to its requester [0.37ms]
+(pass) protocol message handler > sends bootstrap before its ordered catch-up stream [0.50ms]
+(pass) protocol message handler > records a play only after every bootstrap frame is sent [0.33ms]
+(pass) protocol message handler > sends bootstrap_unavailable before closing with the terminal bootstrap code [0.30ms]
+(pass) protocol message handler > sends room_ended and closes cleanly for legacy and subsequent hellos [0.61ms]
+
+packages/demo-games/src/catalog.test.ts:
+(pass) built-in catalog > exports immutable releases and points new games at playable current versions [0.22ms]
+(pass) built-in catalog > has no runtime dependencies and only the allowed workspace dev dependencies [0.02ms]
+(pass) release integrity > builtin_first_deal_1 validates and matches every committed hash [1.05ms]
+(pass) release integrity > builtin_first_deal_2 validates and matches every committed hash [1.27ms]
+(pass) release integrity > builtin_dice_dash_1 validates and matches every committed hash [0.14ms]
+(pass) release integrity > builtin_dice_dash_2 validates and matches every committed hash [0.11ms]
+(pass) release integrity > builtin_dice_dash_3 validates and matches every committed hash [0.39ms]
+(pass) release integrity > builtin_zone_runner_1 validates and matches every committed hash [0.22ms]
+(pass) release integrity > builtin_zone_runner_2 validates and matches every committed hash [0.18ms]
+(pass) merged action and Lua surfaces > every golden action type is in the real kernel registry [0.22ms]
+(pass) merged action and Lua surfaces > all committed Lua sources load in the real hostile-input sandbox [89.52ms]
+
+packages/demo-games/src/replay.test.ts:
+(pass) committed golden replays > builtin_first_deal_1 replays twice to its pinned hash [386.11ms]
+(pass) committed golden replays > builtin_first_deal_1 reconstructs in a fresh VM at midpoint [195.83ms]
+(pass) committed golden replays > builtin_dice_dash_1 replays twice to its pinned hash [137.00ms]
+(pass) committed golden replays > builtin_dice_dash_1 reconstructs in a fresh VM at midpoint [96.10ms]
+(pass) committed golden replays > builtin_dice_dash_2 replays twice to its pinned hash [40.30ms]
+(pass) committed golden replays > builtin_dice_dash_2 reconstructs in a fresh VM at midpoint [29.30ms]
+(pass) committed golden replays > builtin_zone_runner_1 replays twice to its pinned hash [172.43ms]
+(pass) committed golden replays > builtin_zone_runner_1 reconstructs in a fresh VM at midpoint [98.55ms]
+(pass) committed golden replays > builtin_zone_runner_2 replays twice to its pinned hash [167.65ms]
+(pass) committed golden replays > builtin_zone_runner_2 reconstructs in a fresh VM at midpoint [101.01ms]
+(pass) game contracts > fixture snapshots match the release-derived initial states [11.07ms]
+(pass) game contracts > First Deal on_start deterministically deals five cards to every occupied seat [69.58ms]
+(pass) game contracts > Dice Dash reaches the same winner and scores on every seeded playthrough [153.75ms]
+(pass) game contracts > Dice Dash v2 rolls through Lua and covers canonical lifecycle actions [18.28ms]
+(pass) game contracts > Zone Runner composes zones, snaps, prompts, timers, turns, and scores into a winner [77.59ms]
+(pass) game contracts > Zone Runner v2 preserves the golden game flow with a human turn limit [81.95ms]
+(pass) game contracts > Zone Runner save and resume survives turn timers and reaches the pinned winner [277.92ms]
+(pass) game contracts > Zone Runner seats a guest who joins after the live room started into the rotation [44.92ms]
+
+packages/lua/src/luaApiManifest.test.ts:
+(pass) generated Lua API manifest > tracks sampled docs headings and every required surface [1.15ms]
+
+packages/lua/src/creator-runtime.test.ts:
+(pass) resume reconciles stdlib before the hook, preserves current turn and scores, and cycles only live players [27.02ms]
+(pass) missing resume hook reconciles a removed current player with active=%s [16.11ms]
+(pass) missing resume hook reconciles a removed current player with active=%s [20.87ms]
+(pass) ordinary callbacks cannot trigger roster reconciliation through similarly named context fields [12.20ms]
+(pass) creator code cannot reject a reserved seat claim after the room assigns it [15.39ms]
+
+packages/lua/src/index.test.ts:
+(pass) value bridge > extracts nested arrays, objects, null and unicode [7.79ms]
+(pass) value bridge > calls only explicitly injected host functions [11.72ms]
+(pass) value bridge > rejects mixed, sparse, cyclic, function and nonfinite results [16.96ms]
+(pass) value bridge > extracts a 1e6-element array within budget [2263.61ms]
+(pass) value bridge > treats 1.0 keys as Lua integer keys and empty tables as objects [18.84ms]
+(pass) value bridge > does not traverse polluted prototypes or accessors [18.33ms]
+(pass) sandbox hardening > removes filesystem, module, debug, coroutine and browser capabilities [8.77ms]
+(pass) sandbox hardening > provides deterministic time and removes random [13.22ms]
+(pass) sandbox hardening > locks the string metatable and cannot recover original globals [7.36ms]
+(pass) sandbox hardening > a recursive global sweep finds no Wasmoon or browser bridge [13.61ms]
+(pass) sandbox hardening > rejects bytecode because dynamic loading is absent [12.73ms]
+(pass) sandbox hardening > restricts collectgarbage and masks address-bearing tostring values [9.18ms]
+(pass) instruction budget > interrupts an infinite loop and remains safely closeable [14.05ms]
+(pass) instruction budget > pcall cannot swallow the budget signal [7.44ms]
+(pass) instruction budget > bounds recursion and string concatenation [16.03ms]
+(pass) instruction budget > a script using about half its budget completes [9.33ms]
+(pass) instruction budget > resets accounting between runs [14.62ms]
+(pass) instruction budget > interrupts an infinite recursion hidden behind pcall [10.14ms]
+(pass) memory budget > does not classify user memory or allocation errors as allocator failures [14.87ms]
+(pass) memory budget > keeps user memory and allocation errors catchable by pcall and xpcall [7.53ms]
+(pass) memory budget > controls a string.rep bomb [12.07ms]
+(pass) memory budget > controls table growth and memory errors inside pcall [13.77ms]
+(pass) diagnostics and determinism > reports syntax and runtime lines [16.26ms]
+(pass) diagnostics and determinism > fresh sandboxes produce identical values [19.58ms]
+
+packages/protocol/src/sound-bundle.test.ts:
+(pass) actual mastered source clips have exact hashes, measurable signal, complete containers and quiet edges [14.84ms]
+(pass) tampering, truncation, silent PCM, clipping and abrupt edges cannot be admitted by updating metadata [11.90ms]
+(pass) uncredited, unsafe, duplicate, over-budget or inconsistent bundles preserve admission boundaries [57.77ms]
+
+packages/protocol/src/http.test.ts:
+(pass) keeps checkpoint cadence below the shared action retention window [0.02ms]
+(pass) HTTP v1 request validators > validates saved-table DTOs and requests [1.41ms]
+(pass) HTTP v1 request validators > validates magic-link request bodies [0.14ms]
+(pass) HTTP v1 request validators > validates profile names and rejects missing, wrong, empty, oversized, and extra fields [0.06ms]
+(pass) HTTP v1 request validators > validates room creation bodies [0.09ms]
+(pass) HTTP v1 request validators > validates join bodies against the v1 code field [0.41ms]
+(pass) HTTP v1 request validators > validates quick-play requests with exact keys and bounded names [0.13ms]
+(pass) HTTP v1 request validators > validates extended game summaries including metrics and cover signal [0.22ms]
+(pass) HTTP v1 request validators > validates upload DTOs with caps, slugs, player limits, and exact keys [0.45ms]
+(pass) HTTP v1 request validators > validates exact bounded AI prompt and edit instruction bodies [0.05ms]
+(pass) HTTP v1 request validators > aggregates release integrity failures [1.02ms]
+(pass) HTTP v1 request validators > pins Lua stdlib v1 additively and defaults legacy bundles [1.01ms]
+
+packages/protocol/src/rulebook.test.ts:
+(pass) authored release rules take precedence without changing their integrity artifact [0.24ms]
+(pass) legacy published guides are specific to supported releases and explain their actual mechanics [0.24ms]
+(pass) empty, oversized and control-character rulebooks are not presented as readable guides [0.13ms]
+
+packages/protocol/src/ai-rule-sources.test.ts:
+(pass) complete source text and public provenance survive both request forms without trimming [0.54ms]
+(pass) the source budget counts combined UTF-8 bytes and permits the full Merlin-sized rulebook [2.30ms]
+(pass) binary, damaged, duplicate, credential-bearing and unknown source data cannot pass as a valid set [0.31ms]
+
+packages/protocol/src/index.test.ts:
+(pass) presence rejects duplicate, oversized and malformed rosters and canonical fields [0.74ms]
+(pass) message round trips > round-trips client hello [0.05ms]
+(pass) message round trips > round-trips client action_request [0.03ms]
+(pass) message round trips > round-trips client ping [0.05ms]
+(pass) message round trips > round-trips server room_presence [0.03ms]
+(pass) message round trips > round-trips server bootstrap [0.02ms]
+(pass) message round trips > round-trips server resume [0.07ms]
+(pass) message round trips > round-trips server resync_required
+(pass) message round trips > round-trips server protocol_error
+(pass) message round trips > round-trips server protocol_error
+(pass) message round trips > round-trips server room_ended
+(pass) message round trips > round-trips server ordered_action [0.02ms]
+(pass) message round trips > round-trips server pong
+(pass) committed fixtures > parses and deep-compares hello.json [0.25ms]
+(pass) committed fixtures > parses and deep-compares hello-reconnect.json [0.29ms]
+(pass) committed fixtures > parses and deep-compares appendix-d4-action-request.json [0.15ms]
+(pass) committed fixtures > parses and deep-compares ping.json [0.17ms]
+(pass) committed fixtures > parses and deep-compares ping-with-time.json [0.23ms]
+(pass) committed fixtures > parses and deep-compares bootstrap.json [0.15ms]
+(pass) committed fixtures > parses and deep-compares bootstrap-with-snapshot.json [0.27ms]
+(pass) committed fixtures > parses and deep-compares resume.json [0.22ms]
+(pass) committed fixtures > parses and deep-compares resync-required.json [0.27ms]
+(pass) committed fixtures > parses and deep-compares protocol-error.json [0.22ms]
+(pass) committed fixtures > parses and deep-compares room-ended.json [0.29ms]
+(pass) committed fixtures > parses and deep-compares appendix-d4-ordered-action.json [0.20ms]
+(pass) committed fixtures > parses and deep-compares ordered-action-system.json [0.24ms]
+(pass) committed fixtures > parses and deep-compares pong.json [0.17ms]
+(pass) committed fixtures > parses and deep-compares pong-with-time.json [0.24ms]
+(pass) error classification > classifies unsupported version in {"type":"ping","protocolVersion":0} [0.07ms]
+(pass) error classification > classifies unsupported version in {"type":"ping","protocolVersion":2}
+(pass) error classification > classifies unsupported version in {"type":"ping","protocolVersion":"1"}
+(pass) error classification > classifies unsupported version in {"type":"ping"}
+(pass) error classification > classifies an unknown type [0.02ms]
+(pass) error classification > classifies garbage JSON [0.04ms]
+(pass) error classification > rejects non-object root [] [0.01ms]
+(pass) error classification > rejects non-object root null
+(pass) error classification > rejects non-object root "hello" [0.01ms]
+(pass) error classification > rejects non-object root 42
+(pass) error classification > an empty object reports its missing protocol version first [0.01ms]
+(pass) required fields and strict objects > rejects a wrongly typed hello discriminator [0.03ms]
+(pass) required fields and strict objects > rejects a wrongly typed hello protocol version [0.01ms]
+(pass) required fields and strict objects > rejects invalid hello field at $.sessionToken [0.03ms]
+(pass) required fields and strict objects > rejects invalid hello field at $.sessionToken
+(pass) required fields and strict objects > rejects invalid hello field at $.lastSequence
+(pass) required fields and strict objects > rejects invalid hello field at $.lastSequence
+(pass) required fields and strict objects > rejects invalid action_request field at $.requestId [0.02ms]
+(pass) required fields and strict objects > rejects invalid action_request field at $.requestId
+(pass) required fields and strict objects > rejects invalid action_request field at $.predictedAtSequence [0.01ms]
+(pass) required fields and strict objects > rejects invalid action_request field at $.predictedAtSequence
+(pass) required fields and strict objects > rejects invalid action_request field at $.action [0.02ms]
+(pass) required fields and strict objects > rejects invalid action_request field at $.action
+(pass) required fields and strict objects > rejects invalid action_request field at $.action.type [0.03ms]
+(pass) required fields and strict objects > rejects invalid action_request field at $.action.payload [0.01ms]
+(pass) required fields and strict objects > rejects wrongly typed action_request envelope fields [0.03ms]
+(pass) required fields and strict objects > accepts every JSON payload shape [0.17ms]
+(pass) required fields and strict objects > rejects actor echoed by a client [0.04ms]
+(pass) required fields and strict objects > rejects extra fields in nested protocol objects [0.14ms]
+(pass) adversarial JSON > validates a payload nested 1000 levels without recursion [0.61ms]
+(pass) adversarial JSON > rejects duplicate keys, including escaped-equivalent keys [0.09ms]
+(pass) adversarial JSON > preserves __proto__ as inert payload data [0.06ms]
+(pass) UTF-8 size limits > default ping limit accepts exactly 256 bytes and rejects 257 [0.03ms]
+(pass) UTF-8 size limits > an override accepts exactly its limit and rejects limit plus one [0.03ms]
+(pass) UTF-8 size limits > rejects oversized input before calling JSON.parse [0.04ms]
+(pass) UTF-8 size limits > counts multibyte UTF-8 rather than UTF-16 code units [0.02ms]
+(pass) UTF-8 size limits > rejects invalid maxBytes as a programmer error [0.04ms]
+(pass) resume payload DTO validates shape while leaving membership and authorization to the kernel [0.16ms]
+(pass) seat claim shape is strict; authorization remains canonical [0.17ms]
+
+packages/protocol/src/raster.test.ts:
+(pass) PNG admission checks data, terminal chunks, CRC and static format [0.60ms]
+(pass) WebP extended headers and JPEG dimensions alone are not image data [0.47ms]
+
+packages/covers/src/covers.test.ts:
+(pass) normalizeCoverSpec > rejects short hex [0.02ms]
+(pass) normalizeCoverSpec > rejects named color
+(pass) normalizeCoverSpec > rejects non-hex color
+(pass) normalizeCoverSpec > rejects unknown layout
+(pass) normalizeCoverSpec > rejects unknown motif
+(pass) normalizeCoverSpec > rejects unknown treatment
+(pass) normalizeCoverSpec > rejects one color
+(pass) normalizeCoverSpec > rejects five colors
+(pass) normalizeCoverSpec > rejects non-finite seed
+(pass) normalizeCoverSpec > rejects infinite seed
+(pass) normalizeCoverSpec > rejects extra field
+(pass) normalizeCoverSpec > accepts palette boundaries, normalizes uppercase, and floors/absolves the seed [0.08ms]
+(pass) renderCoverSvg > matches the golden digest and is byte-identical across repeated renders [0.17ms]
+(pass) renderCoverSvg > is safe by construction across the grammar and hostile plain text [1.75ms]
+(pass) seededSpec > is stable, distinct across a corpus, and varies structural choices [1.72ms]
+
+packages/canonical-json/src/index.test.ts:
+(pass) golden determinism fixtures > nested objects, empty containers, and ordering [0.33ms]
+(pass) golden determinism fixtures > deep nesting [0.09ms]
+(pass) golden determinism fixtures > ECMAScript number formatting zoo [0.12ms]
+(pass) golden determinism fixtures > unicode, controls, escapes, and lone surrogates [0.38ms]
+(pass) canonicalStringify > sorts object keys independently of insertion order [0.11ms]
+(pass) canonicalStringify > orders keys by UTF-16 code units [0.07ms]
+(pass) canonicalStringify > uses the fixed string escaping policy [0.06ms]
+(pass) canonicalStringify > formats the required number cases with Number::toString [0.10ms]
+(pass) canonicalStringify > allows repeated acyclic references [0.02ms]
+(pass) canonicalBytes > encodes astral-plane strings as UTF-8 without a platform encoder [0.03ms]
+(pass) rejections and paths > reports non-finite numbers [0.17ms]
+(pass) rejections and paths > reports undefined and functions [0.05ms]
+(pass) rejections and paths > reports cycles at the edge that closes the cycle [0.03ms]
+(pass) rejections and paths > reports symbol keys as non-string keys [0.04ms]
+(pass) rejections and paths > reports every unsupported value category [0.14ms]
+(pass) rejections and paths > rejects non-data shapes instead of silently discarding or invoking [0.14ms]
+(pass) sha256 > matches the FIPS vector for 0 bytes [0.10ms]
+(pass) sha256 > matches the FIPS vector for 3 bytes [0.03ms]
+(pass) sha256 > matches the FIPS vector for 56 bytes [0.05ms]
+(pass) sha256 > matches the FIPS vector for 112 bytes [0.05ms]
+(pass) sha256 > matches an independently calculated vector larger than one MiB [156.39ms]
+(pass) hashValue > returns a prefixed lowercase SHA-256 digest [0.71ms]
+(pass) hashValue > normalizes negative zero before hashing [0.07ms]
+(pass) generated canonical-compatible values > round-trip to normalized values and reach a fixed point [11.16ms]
+
+packages/ai/src/transport.test.ts:
+(pass) makeModelFetch > rejects credentialed URLs, non-loopback HTTP, unsupported URL fields and protocols [0.50ms]
+(pass) makeModelFetch > profiles stay explicit, do not mutate callers, and Qwen suppression follows retry feedback [0.30ms]
+(pass) makeModelFetch > actual loopback HTTP receives the OpenAI profile without unsupported defaults [26.79ms]
+(pass) makeModelFetch > redirect handling does not forward credentials and extraBody cannot override core request fields [0.74ms]
+(pass) makeModelFetch > a real redirect fails before its target receives a credentialed request [3.76ms]
+(pass) makeModelFetch > requires an explicit endpoint even when a credential exists [0.12ms]
+(pass) makeModelFetch > posts the OpenAI-compatible request with authorization [0.25ms]
+(pass) makeModelFetch > merges extraBody into the top-level POST body and strips the key [0.15ms]
+(pass) makeModelFetch > omits the authorization header when keyless [0.10ms]
+(pass) makeModelFetch > uses loopback only when explicitly selected [0.09ms]
+(pass) makeModelFetch > aborts at timeout and resolves null [1.41ms]
+(pass) makeModelFetch > resolves null for a non-2xx response [0.10ms]
+(pass) makeModelFetch > resolves null for unparseable response JSON [0.07ms]
+(pass) makeModelFetch > resolves null when fetch throws [0.06ms]
+
+packages/ai/src/extract.test.ts:
+(pass) stripMarkdownFences > unwraps a fenced json block [0.03ms]
+(pass) stripMarkdownFences > unwraps a bare fence block [0.01ms]
+(pass) stripMarkdownFences > removes stray fence lines around prose [0.01ms]
+(pass) stripMarkdownFences > leaves unfenced text untouched
+(pass) stripModelArtifacts > removes real fullwidth-bar DSML tags [0.15ms]
+(pass) salvageTruncatedJson > closes a mid-string cut [0.04ms]
+(pass) salvageTruncatedJson > drops a mid-key cut and keeps the intact prefix [0.36ms]
+(pass) salvageTruncatedJson > closes nested arrays and objects [0.03ms]
+(pass) salvageTruncatedJson > repairs a trailing comma [0.01ms]
+(pass) salvageTruncatedJson > drops a value cut after a trailing colon [0.01ms]
+(pass) salvageTruncatedJson > returns null after at most 64 pathological chop attempts [0.78ms]
+(pass) extractToolPayload ladder > rung 1 parses each call verbatim and does not strip valid string data [0.17ms]
+(pass) extractToolPayload ladder > rung 2 joins split arguments and strips interleaved DSML leaks [0.03ms]
+(pass) extractToolPayload ladder > rung 3 salvages joined, cleaned truncation [0.03ms]
+(pass) extractToolPayload ladder > rung 4 uses the first balanced content object and repeats salvage [0.05ms]
+(pass) extractToolPayload ladder > rung 4 extracts a fenced payload without any tool calls [0.02ms]
+(pass) extractToolPayload ladder > rung 4 extracts whole unfenced content verbatim [0.01ms]
+(pass) extractToolPayload ladder > rung 4 salvages a truncated fenced payload [0.02ms]
+(pass) extractToolPayload ladder > rung 5 returns null when every source is unusable [0.02ms]
+(pass) extractToolPayload ladder > every parsed candidate passes through normalize [0.03ms]
+
+packages/ai/src/request.test.ts:
+(pass) request builders > schema property helpers emit the expected JSON Schema fragments [0.03ms]
+(pass) request builders > buildRequest creates and pins a strict function tool [0.12ms]
+(pass) request builders > buildRequest carries extraBody through only when provided [0.24ms]
+(pass) request builders > buildRequest without a tool omits tools and tool_choice for the raw-JSON path [0.06ms]
+
+packages/ai/src/pricing.test.ts:
+(pass) request counting > responseRequests returns 0 for null [0.02ms]
+(pass) request counting > responseRequests returns 0 for undefined
+(pass) request counting > responseRequests returns 1 for an empty object
+(pass) request counting > responseRequests returns 1 when choices are present [0.01ms]
+(pass) dayKey > formats a fixed date as YYYY-MM-DD [0.03ms]
+(pass) dayKey > returns a 10-char YYYY-MM-DD string [0.18ms]
+
+packages/ai/src/refine.test.ts:
+(pass) runIterativeRefinement > returns the initial value untouched when it already passes [0.65ms]
+(pass) runIterativeRefinement > refines once and accepts when the error count drops to zero [0.41ms]
+(pass) runIterativeRefinement > runs all rounds and returns the best value when nothing improves [0.28ms]
+(pass) runIterativeRefinement > respects maxRounds when every round improves but never clears [0.35ms]
+(pass) runIterativeRefinement > returns null when generation itself fails [0.14ms]
+(pass) runIterativeRefinement > treats an unappliable patch as rejected and retries [0.16ms]
+(pass) runIterativeRefinement > recovers in a later round after a patch that makes things worse [0.40ms]
+(pass) runIterativeRefinement > re-emits generation progress events [0.11ms]
+
+packages/ai/src/loop.test.ts:
+(pass) runStructuredTask > accepts a first-try valid value with exact telemetry [0.19ms]
+(pass) runStructuredTask > feeds a rejected payload and typed violations into attempt 2 [0.18ms]
+(pass) runStructuredTask > falls back after the default three attempts with last violations [0.09ms]
+(pass) runStructuredTask > an unparseable middle attempt resets feedback [0.10ms]
+(pass) runStructuredTask > transport null and thrown failures are unusable attempts [0.10ms]
+(pass) runStructuredTask > the default timeout bounds synchronous generation to three minutes [0.16ms]
+(pass) runStructuredTask > onProgress reports attempt lifecycle with outcomes [0.24ms]
+(pass) runStructuredTask > onProgress marks a rejected payload as invalid with its violations [0.11ms]
+(pass) runStructuredTask > feedback turns stay tool-free when the request carries no tools [0.12ms]
+
+packages/prng/src/index.test.ts:
+(pass) sfc32-v1 reference contract > regenerates the committed 100-draw vectors [0.42ms]
+(pass) sfc32-v1 reference contract > regenerates the committed 52-card shuffle fixtures [0.22ms]
+(pass) sfc32-v1 reference contract > identical string and numeric seeds produce identical streams [0.41ms]
+(pass) sfc32-v1 reference contract > rejects non-integer and non-finite numeric seeds [0.06ms]
+(pass) state snapshots > has canonical bytes and hashes stable across save/restore [0.56ms]
+(pass) state snapshots > resumes the second half of a 1000-draw stream exactly [0.54ms]
+(pass) state snapshots > returns detached snapshot objects [0.05ms]
+(pass) state snapshots > accepts every uint32 endpoint in state [0.02ms]
+(pass) state snapshots > rejects tampered state 0 [0.09ms]
+(pass) state snapshots > rejects tampered state 1
+(pass) state snapshots > rejects tampered state 2
+(pass) state snapshots > rejects tampered state 3
+(pass) state snapshots > rejects tampered state 4
+(pass) state snapshots > rejects tampered state 5
+(pass) state snapshots > rejects tampered state 6
+(pass) state snapshots > rejects tampered state 7
+(pass) state snapshots > rejects tampered state 8
+(pass) state snapshots > rejects tampered state 9 [0.11ms]
+(pass) bounded helpers > int is inclusive at both ends [1.91ms]
+(pass) bounded helpers > int rejects invalid bounds [0.21ms]
+(pass) bounded helpers > int(0, 2^32 - 2) rejects the upper uint32 without hanging [0.03ms]
+(pass) bounded helpers > int(0, 2) has a sane distribution over 100k samples [12.83ms]
+(pass) bounded helpers > float stays in [0, 1) over 100k samples [47.16ms]
+(pass) bounded helpers > choice returns members and rejects an empty array [0.91ms]
+(pass) bounded helpers > shuffle returns a permutation without mutating its input [0.16ms]
+
+packages/kernel/src/tabletop.test.ts:
+(pass) Appendix B registry and hand visibility > registers every completed tabletop component and dependency [0.05ms]
+(pass) Appendix B registry and hand visibility > interprets owner player and owner seat visibility [1.12ms]
+(pass) zone semantic membership > drop enters and scripted movement leaves zones in zone-ID order [6.09ms]
+(pass) zone semantic membership > batch recomputation orders entity IDs within each zone [0.66ms]
+(pass) zone semantic membership > destroy inside a zone emits leave while a transient transform alone does not recompute [1.78ms]
+(pass) snap resolution and drop precedence > filters then chooses nearest and stable snap-point ID on an exact tie [2.53ms]
+(pass) snap resolution and drop precedence > enforces explicit snap capacity and tag compatibility [3.29ms]
+(pass) snap resolution and drop precedence > snap wins over an exact-position stack target and radius filtering falls through [3.18ms]
+(pass) stack actions > create, add, remove-top, merge, and dissolve preserve canonical order [4.25ms]
+(pass) stack actions > stack add rejects an entity already in a container without partial mutation [1.42ms]
+(pass) container, button, text, and locking actions > container.move transfers atomically and capacity failure is byte-identical [1.45ms]
+(pass) container, button, text, and locking actions > button validation invokes an injectable read-only can_press guard [1.45ms]
+(pass) container, button, text, and locking actions > text.set enforces the explicit 4096-byte UTF-8 limit [3.11ms]
+(pass) container, button, text, and locking actions > script locking blocks ordinary grab and player locking is permission gated [1.24ms]
+(pass) container, button, text, and locking actions > all new registered actions reject malformed exact-key payloads atomically [5.66ms]
+(pass) container, button, text, and locking actions > new action streams replay deterministically [3.98ms]
+
+packages/kernel/src/session-roster.test.ts:
+(pass) new-session roster preserves authored state, hand metadata and canonical order without mutating its source [0.77ms]
+(pass) roster seeding rejects collisions and cannot rewrite a running game's membership [0.30ms]
+
+packages/kernel/src/script-transaction.test.ts:
+(pass) kernel-owned script transactions > resume hook failure rolls back roster, opaque script state, and RNG while consuming sequence one [1.33ms]
+(pass) kernel-owned script transactions > dispatches three subscribers in stable ScriptBindingId order [1.30ms]
+(pass) kernel-owned script transactions > callback failure discards prior commands and reports complete diagnostics [1.32ms]
+(pass) kernel-owned script transactions > subcommand validation failure rolls back earlier FIFO work [1.13ms]
+(pass) kernel-owned script transactions > guards cannot queue mutations and a deny reason reaches rejection [0.69ms]
+(pass) canonical prompt and timer actions > registers creator lifecycle actions in the default registry [0.07ms]
+(pass) canonical prompt and timer actions > validates prompt target/schema and prevents a second response [1.21ms]
+(pass) canonical prompt and timer actions > timer fire is exactly once and cancellation prevents firing [1.36ms]
+
+packages/kernel/src/scripted-snapshot.test.ts:
+(pass) snapshotRequiresScripts > returns true when any entity has a script binding [0.27ms]
+(pass) snapshotRequiresScripts > returns false without a script binding [0.15ms]
+
+packages/kernel/src/resume-claim.test.ts:
+(pass) sparse pending seat survives snapshot and atomic claim restores identity, prompt and ownership [1.80ms]
+(pass) claims reject wrong identity/seat, occupied identity, player/script authorization and duplicates atomically [3.25ms]
+(pass) save/resume again while a seat is pending preserves its claim [1.53ms]
+(pass) claim callback failure rolls back escrow, roster, prompts, RNG and commands [1.65ms]
+(pass) pending gameplay and timer delivery stay paused indefinitely without consuming gameplay [1.73ms]
+(pass) pending identity, prompts and ownership are validated and hash-covered [2.16ms]
+(pass) historical partial resume frames keep legacy removal semantics without the opt-in [1.16ms]
+(pass) creator commands cannot synthesize a system claim and roll back the enclosing action [1.30ms]
+(pass) escrow-aware resume rejects seat identity swaps and reuse without altering legacy actions [1.42ms]
+
+packages/kernel/src/actions.test.ts:
+(pass) die.roll > validates entity, component, exact payload, and held-by-other conflicts [2.79ms]
+(pass) die.roll > uses explicit faces or the legacy standard_d6 fallback and advances RNG [1.21ms]
+(pass) die.roll > same RNG state and ordered stream produce identical faces and hashes [9.16ms]
+(pass) die.roll > die is implemented without changing legacy serialized component shape [0.22ms]
+(pass) player and seat lifecycle > resume atomically replaces the saved roster at sequence one [4.02ms]
+(pass) player and seat lifecycle > resume rejects non-system, repeated, duplicate, and unknown mappings [4.91ms]
+(pass) player and seat lifecycle > join and seat assignment add canonical records and emit derived events [1.11ms]
+(pass) player and seat lifecycle > voluntary departure releases held entities, clears seats, then removes player [1.84ms]
+(pass) player and seat lifecycle > system lifecycle actions reject player actors and invalid records [2.47ms]
+
+packages/kernel/src/kernel.test.ts:
+(pass) ordered transactions > same snapshot and actions produce the same hash [3.84ms]
+(pass) ordered transactions > snapshot/load preserves and verifies the hash [1.37ms]
+(pass) ordered transactions > applyOrdered does not mutate frozen input [1.30ms]
+(pass) ordered transactions > wrong sequence is a hard caller error [0.43ms]
+(pass) ordered transactions > null action rejects without throwing and advances only sequence [0.87ms]
+(pass) ordered transactions > action without a payload key rejects without throwing [0.58ms]
+(pass) ordered transactions > source validation is independent and rejection advances sequence [0.58ms]
+(pass) ordered transactions > an apply mutation followed by throw is fully atomic [1.12ms]
+(pass) ordered transactions > a misbehaving validator cannot mutate the input or committed draft [0.74ms]
+(pass) ordered transactions > rollback replay converges with uninterrupted execution [5.29ms]
+(pass) ordered transactions > duplicate registration throws [0.12ms]
+(pass) tabletop invariants > insufficient draw leaves gameplay hash unchanged except sequence [1.59ms]
+(pass) tabletop invariants > container exclusivity cannot be bypassed by a custom action [3.77ms]
+(pass) tabletop invariants > ordered conflicting grabs are stable and first actor wins [4.86ms]
+(pass) tabletop invariants > invalid transforms reject and drop quantization is idempotent [2.56ms]
+(pass) tabletop invariants > invalid canonical transform cannot enter state [0.46ms]
+(pass) tabletop invariants > counter operations clamp at both bounds [1.17ms]
+(pass) RNG and deterministic IDs > RNG replay is identical [1.38ms]
+(pass) RNG and deterministic IDs > spawn IDs replay identically and destroyed IDs are not reused [1.62ms]
+(pass) RNG and deterministic IDs > seeded property-style valid streams replay to identical hashes [234.38ms]
+
+packages/kernel/src/replay.test.ts:
+(pass) replay-card-deal-v1 golden contract > replays 52 cards and 44 actions to the committed hash [368.48ms]
+(pass) replay-card-deal-v1 golden contract > emits the committed renderer event sequence [207.18ms]
+(pass) scripted-zone-v1 golden contract > double replay and midpoint snapshot reconstruction reach the pinned hash [67.80ms]
+(pass) scripted-zone-v1 golden contract > pins the derived event sequence and snap tie-break [21.45ms]
+
+packages/kernel/scripts/check-forbidden.test.ts:
+(pass) kernel source contains no forbidden APIs [1.95ms]
+
+apps/site/src/lib/docs-sync.test.ts:
+(pass) repository documentation sync > resolves ./sibling.md to /docs/guide/sibling/ [0.55ms]
+(pass) repository documentation sync > resolves ../other//page.md to /docs/other/page/ [0.03ms]
+(pass) repository documentation sync > resolves sibling.md to /docs/guide/sibling/ [0.02ms]
+(pass) repository documentation sync > resolves sibling.md#details to /docs/guide/sibling/#details [0.01ms]
+(pass) repository documentation sync > resolves ../releasing.md#release to https://github.com/Sanokei/digipology/blob/main/docs/releasing.md#release
+(pass) repository documentation sync > resolves unpublished.md to https://github.com/Sanokei/digipology/blob/main/docs/guide/unpublished.md [0.01ms]
+(pass) repository documentation sync > resolves https://example.com/sibling.md#details to https://example.com/sibling.md#details
+(pass) repository documentation sync > resolves //example.com/sibling.md to //example.com/sibling.md
+(pass) repository documentation sync > resolves mailto:editor@example.com to mailto:editor@example.com
+(pass) repository documentation sync > resolves /docs/sibling.md to /docs/sibling.md
+(pass) repository documentation sync > resolves #details to #details
+(pass) repository documentation sync > resolves ?view=sibling.md to ?view=sibling.md
+(pass) repository documentation sync > resolves image.png to image.png
+(pass) repository documentation sync > injects validated metadata, removes the duplicate H1, and rewrites links [0.16ms]
+(pass) repository documentation sync > rejects an invalid-frontmatter fixture with a clear error [0.43ms]
+(pass) repository documentation sync > rejects missing frontmatter [0.03ms]
+(pass) repository documentation sync > publishes new root docs while explicitly excluding internal material [0.09ms]
+(pass) repository documentation sync > discovers a new source file without wiring and omits excluded trees [0.73ms]
+
+apps/site/src/lib/docs.test.ts:
+(pass) documentation navigation > keeps featured pages in narrative order and appends future docs [0.25ms]
+(pass) documentation navigation > provides neighboring pages without mutating its input [0.19ms]
+(pass) documentation navigation > rejects a missing active page [0.11ms]
+(pass) documentation navigation > creates canonical trailing-slash paths [0.03ms]
+(pass) documentation navigation > contains no retired Lua preview entry [0.05ms]
+
+apps/web/src/pages/ruleSources.test.ts:
+(pass) file intake preserves BOM, line endings, Unicode and exact independently measured hashes [1.03ms]
+(pass) a bad second file or oversized/duplicate source does not replace the already accepted set [0.26ms]
+(pass) spreadsheet CSV is source data, and an omitted reference list keeps the old wire contract [0.08ms]
+
+apps/web/src/pages/EditorRoute.test.ts:
+(pass) editor route requires both desktop width and a fine pointer [0.10ms]
+
+apps/web/src/pages/tableContextModel.test.ts:
+(pass) builds the complete component capability matrix with exact payloads [0.33ms]
+(pass) applies bounds, sandbox, hand, enabled, and held gates [0.21ms]
+(pass) primary actions follow die, deck, button, flip, then inspect precedence [0.08ms]
+(pass) dice labels use definitions and disambiguate duplicates without raw ids [0.13ms]
+(pass) presentation indicators include every remotely held and locked entity [0.14ms]
+
+apps/web/src/pages/creatorModel.test.ts:
+(pass) My Games actions > toggles only between public and unlisted [0.03ms]
+(pass) My Games actions > Host pins the latest immutable release into the saved room session [0.03ms]
+(pass) AI creator panel state > moves idle to busy to report/prefilled [0.13ms]
+(pass) AI creator panel state > maps unconfigured, capped, and generation failures to calm explicit states [0.03ms]
+(pass) AI creator panel state > intercepts guests at the action site while keeping the action available [0.03ms]
+
+apps/web/src/pages/generatedDraft.test.ts:
+(pass) only accepted output becomes an ordinary editable, saved browser draft [5.78ms]
+(pass) the authored tagline and bounded quality review survive the ordinary draft round trip [3.37ms]
+(pass) complete generation sources survive editable backups while release exports keep their exact gameplay payload [7.97ms]
+(pass) publication retry reuses the authored version after room failure [3.34ms]
+(pass) publication retry reuses the authored version after lost publication reply [2.48ms]
+(pass) a publication key is stable for retries and changes when the authored content changes [2.48ms]
+(pass) artwork upload retries a lost reply without opening a table early or duplicating publication [3.34ms]
+
+apps/web/src/pages/loginModel.test.ts:
+(pass) successful login request transitions to check-email [0.03ms]
+
+apps/web/src/pages/tableHandModel.test.ts:
+(pass) local hand follows the player's seat hand container in canonical order [0.23ms]
+(pass) local label sorting is stable and leaves canonical order untouched [0.28ms]
+(pass) playing a tray card builds a grab/drop burst at the projected table point [0.06ms]
+
+apps/web/src/pages/TablePage.test.tsx:
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/workspace/digipology/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:816:11)
+    at div
+    at header
+    at TableTopBar (/workspace/digipology/apps/web/src/components/TableTopBar.tsx:5:65)
+    at Router (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1210:9)
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+(pass) 375px table chrome exposes compact controls and the thumb hand tray [8.40ms]
+(pass) empty hand remains visible but does not intercept the table [0.49ms]
+(pass) only exposes the local player's open canonical prompts [0.09ms]
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/workspace/digipology/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:816:11)
+    at div
+    at div
+    at ConnectionOverlay (/workspace/digipology/apps/web/src/components/ConnectionOverlay.tsx:6:7)
+    at Router (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1210:9)
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/workspace/digipology/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:816:11)
+    at div
+    at div
+    at ConnectionOverlay (/workspace/digipology/apps/web/src/components/ConnectionOverlay.tsx:6:7)
+    at Router (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1210:9)
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+(pass) connection overlays distinguish passthrough recovery, errors, synchronization, and ended rooms [1.51ms]
+(pass) first-use hints render for a new device and disappear after all gestures are remembered [0.56ms]
+(pass) inspect renders a definition face without exposing a hidden card [0.86ms]
+(pass) dice controls use player-language definition labels and disambiguate duplicates [0.33ms]
+(pass) passthrough overlays and motion affordances have safe CSS [0.29ms]
+(pass) renderer diagnostics expose the mounted adapter, fallback, and tier [0.33ms]
+
+apps/web/src/pages/draftReview.test.ts:
+(pass) review suggestions stay tied to the authored version and react to actual rule edits [0.97ms]
+(pass) clean and older drafts have no review interruption [0.41ms]
+(pass) malformed optional review metadata does not make a valid saved game unreadable [3.54ms]
+(pass) unfamiliar diagnostics become a player-facing action without exposing code details [0.53ms]
+
+apps/web/src/pages/coverPickerModel.test.ts:
+(pass) cover picker state > moves through loading and receives four candidates [0.11ms]
+(pass) cover picker state > regenerate replaces the previous candidate set [0.07ms]
+(pass) pick rasterizes on a 336 x 504 canvas and uploads only a PNG blob [0.39ms]
+
+apps/web/src/pages/CreatePage.test.tsx:
+(pass) create form renders client and server validation reports as escaped readable text [0.32ms]
+
+apps/web/src/pages/quickPlayModel.test.ts:
+(pass) quickPlayReducer > moves idle to pending to success with navigation and session intents [0.10ms]
+(pass) quickPlayReducer > makes duplicate activation while pending a no-op [0.01ms]
+(pass) quickPlayReducer > exposes an error toast intent and can recover to idle [0.02ms]
+
+apps/web/src/pages/joinModel.test.ts:
+(pass) join recovery states > keeps not_found distinct [0.05ms]
+(pass) join recovery states > keeps full distinct
+(pass) join recovery states > keeps ended distinct
+(pass) join recovery states > maps unknown failures to retry
+
+apps/web/src/pages/SavesPage.test.tsx:
+(pass) saved-table relative labels are stable [0.06ms]
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/workspace/digipology/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:816:11)
+    at div
+    at TableMenuContent (/workspace/digipology/apps/web/src/components/TableMenu.tsx:12:10)
+    at Router (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1210:9)
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/workspace/digipology/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:816:11)
+    at div
+    at TableMenuContent (/workspace/digipology/apps/web/src/components/TableMenu.tsx:12:10)
+    at Router (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1210:9)
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/workspace/digipology/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:816:11)
+    at div
+    at TableMenuContent (/workspace/digipology/apps/web/src/components/TableMenu.tsx:12:10)
+    at Router (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1210:9)
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+(pass) table menu exposes host actions additively [1.35ms]
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/workspace/digipology/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:816:11)
+    at div
+    at TableMenuContent (/workspace/digipology/apps/web/src/components/TableMenu.tsx:12:10)
+    at Router (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1210:9)
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/workspace/digipology/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:816:11)
+    at div
+    at TableMenuContent (/workspace/digipology/apps/web/src/components/TableMenu.tsx:12:10)
+    at Router (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1210:9)
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+(pass) table menu explains scripted resume before saving [0.72ms]
+(pass) saved tables page renders a populated account list [0.52ms]
+(pass) saved tables page renders the empty state [0.14ms]
+(pass) saved tables page disables legacy blocked saves and explains why [0.26ms]
+(pass) saved tables page renders a signed-out sign-in prompt [0.14ms]
+(pass) initial saved-table fetch shows loading instead of an empty account [2.04ms]
+(pass) Retry repeats failed resume for the same saved table [3.91ms]
+(pass) Retry repeats failed delete for the same saved table [3.51ms]
+(pass) Retry after a list failure reloads the list [2.38ms]
+
+apps/web/src/components/RulebookDialog.test.tsx:
+(pass) the player rulebook renders headings, actions and victory lists as readable content [0.20ms]
+(pass) authored markup stays inert text and a missing guide is explicit [0.66ms]
+
+apps/web/src/components/PlayingCardFace.test.tsx:
+(pass) card markings use the explicit named deck and preserve custom and archived identities [0.05ms]
+
+apps/web/src/components/capsuleModel.test.ts:
+(pass) hover intent > fires at exactly 350 ms [0.13ms]
+(pass) hover intent > cancels on leave and never fires afterward [0.03ms]
+(pass) hover intent > re-enter restarts the full delay [0.03ms]
+(pass) capsule keyboard action > maps Enter to quick play without hijacking other keys [0.05ms]
+
+apps/web/src/components/HostDialog.test.ts:
+(pass) anonymous public hosting is gated while private hosting is available [0.04ms]
+
+apps/web/src/net/roomClient.test.ts:
+(pass) RoomClient > opts into live presence and applies it without restarting the handshake or ordered state [7.15ms]
+(pass) RoomClient > loads the release, sends hello, and submits unpredicted actions [10.75ms]
+(pass) RoomClient > never skips an ordered sequence gap [11.36ms]
+(pass) RoomClient > predicts grab immediately, leaves die.roll unpredicted, and does not send a local rejection [13.10ms]
+(pass) RoomClient > drops an in-flight prediction as soon as its socket dies, before reconnect hello [11.21ms]
+(pass) RoomClient > runs release Lua for ordered live actions and reports canonical timer metadata [37.38ms]
+(pass) RoomClient > keeps the ordered stream connected when timer metadata is rejected [30.91ms]
+(pass) RoomClient > attests scripted cadence snapshots from confirmed state and treats failures as best-effort [59.26ms]
+(pass) RoomClient > does not attest an unscripted room at checkpoint cadence [6.43ms]
+(pass) RoomClient > attests only the highest eligible cadence after a scripted bootstrap burst [811.86ms]
+(pass) RoomClient > keeps conflicted reports quiet while diagnosing divergent and rejected reports [125.62ms]
+(pass) RoomClient > shows bootstrap_unavailable as terminal and start retries with a full hello [25.84ms]
+(pass) RoomClient > reports synchronization for a bootstrap after the first handshake [5.80ms]
+(pass) RoomClient > reports synchronization progress for resume batches longer than 50 actions [15.50ms]
+(pass) RoomClient > stops after eight reconnect attempts with a recoverable player-language error [0.16ms]
+(pass) RoomClient > a fresh client starts after stop without opening duplicate sockets [0.08ms]
+(pass) RoomClient > resets reconnect backoff after a successful handshake [6.90ms]
+
+apps/web/src/editor/OpenDraftDialog.test.tsx:
+(pass) OpenDraftDialog > renders draft titles and ids in the supplied recent-first order [0.72ms]
+(pass) OpenDraftDialog > Enter opens the selected draft and Escape dismisses without choosing one [0.07ms]
+(pass) OpenDraftDialog > arrow keys wrap keyboard selection [0.01ms]
+
+apps/web/src/editor/publish.test.ts:
+(pass) desktop review saves the latest real edited draft and keeps artwork/review outside the release [67.41ms]
+(pass) a failed editor save prevents handoff while the full editable backup stays available [55.92ms]
+
+apps/web/src/editor/ai.test.ts:
+(pass) AI edit summaries and undo > computes entity, script-line, and settings deltas for mixed edits [5.08ms]
+(pass) AI edit summaries and undo > apply creates one frame, undo is byte-equal, and cancel is a no-op [1.74ms]
+(pass) AI edit summaries and undo > keyless and capped states do not disable manual commands [0.95ms]
+
+apps/web/src/editor/layout.test.ts:
+(pass) restores persisted layout and drops unknown panels [0.30ms]
+(pass) falls back to the declarative default for corrupt layouts [0.04ms]
+
+apps/web/src/editor/NewDraftDialog.test.tsx:
+(pass) New Draft picker > renders all four executable choices as an accessible modal listbox [0.68ms]
+(pass) New Draft picker > supports arrows, Home/End, Enter, Space, and Escape [0.08ms]
+
+apps/web/src/audio/cues.test.ts:
+(pass) action events produce bounded cues without sounding for unrelated game updates [0.42ms]
+(pass) dice fallback sound has audible energy, headroom, and a quiet release [8.23ms]
+(pass) card fallback sound has audible energy, headroom, and a quiet release [4.42ms]
+(pass) shuffle fallback sound has audible energy, headroom, and a quiet release [4.01ms]
+(pass) place fallback sound has audible energy, headroom, and a quiet release [1.86ms]
+(pass) choice fallback sound has audible energy, headroom, and a quiet release [7.00ms]
+(pass) victory fallback sound has audible energy, headroom, and a quiet release [42.61ms]
+
+apps/web/src/audio/TableAudio.test.ts:
+(pass) the first confirmed cue waits for its user-gesture resume and uses the imported buffer [17.71ms]
+(pass) mute, a seat-change stop and hidden state cancel pending activation cues [64.23ms]
+
+apps/web/src/audio/privacy.test.ts:
+(pass) private owner-by-seat draws and flips sound only for that seat, never another listener [0.36ms]
+(pass) nested private membership, cyclic containers and unknown visibility fail closed [0.32ms]
+(pass) prompt creation only notifies its actual recipient; missing context or targets produce no cue [0.18ms]
+(pass) public events remain audible; a transfer touching an unrevealed destination is suppressed [0.19ms]
+(pass) a public piece cannot reveal a private snap destination through a placement sound [0.11ms]
+
+apps/web/src/state/kernelStore.test.ts:
+(pass) updates transient roster and host metadata without touching confirmed state or pending predictions [0.50ms]
+(pass) replaces a live back without losing a private hand prediction or its later confirmation [1.83ms]
+(pass) KernelStore > records a stale system timer fire without presenting it as an error [0.75ms]
+(pass) KernelStore > still presents an ordinary kernel rejection as an error [1.82ms]
+(pass) KernelStore > does not activate the creator runtime for immutable legacy Lua without script bindings [0.46ms]
+(pass) KernelStore > applies ordered actions strictly in order [0.69ms]
+(pass) KernelStore > replays resume actions from lastSequence [1.01ms]
+(pass) KernelStore > replaces state on resync [0.68ms]
+(pass) KernelStore > confirms matching request IDs and handles room end [0.61ms]
+(pass) KernelStore > confirms the ledger head without replacing a hash-equal displayed state [1.87ms]
+(pass) KernelStore > shows a predicted drop immediately and confirms the grab/drop chain without a re-snap [2.92ms]
+(pass) KernelStore > removes a hand card from the displayed container when its predicted drop lands [3.75ms]
+(pass) KernelStore > reconciles an own confirmation that arrives out of prediction order [2.63ms]
+(pass) KernelStore > drops an invalid grab while replaying a still-valid flip in order [3.61ms]
+(pass) KernelStore > rejects a locally invalid prediction without tracking it [1.60ms]
+(pass) KernelStore > clears predictions on snapshot replacement and room end [1.79ms]
+(pass) KernelStore > drops lost pending predictions and surfaces a visible rollback as a correction [1.30ms]
+(pass) KernelStore > revalidates predictions while applying a resume stream [1.74ms]
+(pass) KernelStore > simulates the mandatory Alice/Bob conflicting-grab timeline at sequences 501/502 [5.21ms]
+(pass) KernelStore > keeps confirmed hashes equal to clean replay across seeded randomized interleavings [565.74ms]
+
+apps/web/src/api/quickplayAdapter.test.ts:
+(pass) #43 game summary adapter > degrades absent and invalid metrics from older server payloads [0.12ms]
+(pass) #43 game summary adapter > builds the versioned, encoded portrait-cover URL only when a cover exists [0.09ms]
+
+apps/web/src/api/client.test.ts:
+(pass) API client > uses actual WebP MIME and safely encodes Unicode artwork credits [0.29ms]
+(pass) API client > uses the ADR route shapes, cookies, JSON, and CSRF header [0.21ms]
+(pass) API client > does not add CSRF to GET and URL-encodes route parameters [0.12ms]
+(pass) API client > maps structured and network errors to typed results [0.92ms]
+(pass) API client > covers every remaining route [0.99ms]
+
+apps/web/src/utils/devProxyOrigin.test.ts:
+(pass) Vite forwards a same-origin browser request with the Worker's origin [0.29ms]
+(pass) cross-origin, missing and malformed Origins cannot gain same-origin status [0.04ms]
+
+apps/web/src/utils/compactCount.test.ts:
+(pass) formatCompactCount > pins compact boundaries and rounding [0.21ms]
+(pass) formatCompactCount > degrades invalid and negative values to zero [0.01ms]
+
+apps/web/src/utils/coverPlaceholder.test.ts:
+(pass) coverPlaceholder > is deterministic for the same slug [0.06ms]
+(pass) coverPlaceholder > diverges for distinct slugs [0.01ms]
+
+apps/web/src/utils/deviceIdentity.test.ts:
+(pass) guest device identity persistence > uses the stable account id for signed-in users [0.03ms]
+(pass) guest device identity persistence > re-seeds the cookie from localStorage [0.13ms]
+(pass) guest device identity persistence > re-seeds localStorage from the surviving cookie [0.03ms]
+(pass) guest device identity persistence > generates once and writes both stores when neither exists [0.03ms]
+
+apps/web/src/utils/inviteUrl.test.ts:
+(pass) copied invites remain on production, local and custom preview hosts [0.08ms]
+(pass) malformed invite codes and non-web origins do not become copyable links [0.04ms]
+
+apps/web/src/utils/joinCode.test.ts:
+(pass) normalizeJoinCode > normalizes   abcd-efgh
+ [0.02ms]
+(pass) normalizeJoinCode > normalizes abcd efgh
+(pass) normalizeJoinCode > normalizes a-b-c-d-e-f-g-h
+(pass) normalizeJoinCode > normalizes ABCDEFGH
+(pass) normalizeJoinCode > normalizes https://play.digipology.com/join/abcd-efgh [0.01ms]
+(pass) normalizeJoinCode > normalizes https://play.digipology.com/join/ABCD%20EFGH?from=email
+
+apps/web/src/artwork/rasterSignal.test.ts:
+(pass) fully transparent output is rejected even when its hidden RGB values differ [0.20ms]
+(pass) uniform opaque and barely visible rasters are rejected as blank admission results [0.07ms]
+(pass) visible color structure can be admitted without claiming it is good artwork [0.02ms]
+
+apps/web/src/artwork/review.test.ts:
+(pass) only actual successful current-version checks rebind the review and retain playtest warnings [0.14ms]
+(pass) a reply for an earlier manifest cannot mark edited rules or artwork reviewed [0.03ms]
+(pass) an empty, failing or incomplete check response cannot clear an earlier stale review [0.12ms]
+(pass) quality errors keep a matching-hash draft unreviewed [0.02ms]
+
+apps/web/src/artwork/model.test.ts:
+(pass) legacy manually selected cover and distinct back remain selected when generation metadata is added [3.26ms]
+(pass) a prior image does not count as a finished replacement or stand in for missing selected bytes [0.82ms]
+(pass) artwork completion checks its exact manifest without launching checks on every unrelated rule edit [2.48ms]
+
+apps/web/src/scene/touchGestures.test.ts:
+(pass) TouchGestureMachine single-touch arbitration > keeps movement at the slop boundary as a tap and starts drag just beyond it [0.48ms]
+(pass) TouchGestureMachine single-touch arbitration > does not turn a one-finger move on empty table into camera movement [0.05ms]
+(pass) TouchGestureMachine single-touch arbitration > distinguishes a delayed tap from a double tap within the window [0.05ms]
+(pass) TouchGestureMachine single-touch arbitration > flushes a prior tap when the next tap targets another entity [0.03ms]
+(pass) TouchGestureMachine long press > fires at 450 ms and only once [0.05ms]
+(pass) TouchGestureMachine long press > is cancelled by movement beyond slop [0.02ms]
+(pass) TouchGestureMachine long press > is cancelled by a second finger [0.06ms]
+(pass) TouchGestureMachine long press > does not fire after an up before the threshold [0.06ms]
+(pass) TouchGestureMachine multi-touch arbitration > cancels an active object drag when the second finger arrives [0.04ms]
+(pass) TouchGestureMachine multi-touch arbitration > classifies changing separation as pinch and parallel motion as pan [0.18ms]
+(pass) TouchGestureMachine cancellation cleanup > cleans up idle, dragging, pending-tap, and multi-touch states [0.15ms]
+(pass) TouchGestureMachine cancellation cleanup > treats lost-capture abort equivalently from the public abort path [0.06ms]
+(pass) TouchGestureMachine cancellation cleanup > ignores non-touch pointer input [0.02ms]
+
+apps/web/src/scene/pieceArtwork.test.ts:
+(pass) a face-down surface contains no authored identity, label or color on either side [0.32ms]
+(pass) standard faces require both the explicitly authored identity and the matching label [0.06ms]
+(pass) a rendered standard die shows the actual result on top and physically consistent opposite faces [0.22ms]
+(pass) custom dice preserve their authored result rather than acquiring invented pips [0.08ms]
+(pass) an empty deck is a thin empty placeholder and never displays fictional paper layers [0.12ms]
+(pass) the face-list changes the renderer signature even when the current die value is unchanged [0.07ms]
+(pass) raster artwork paints the correct number of card suits and die pips [3.14ms]
+(pass) spatial counters paint their actual value on the chip and retain the entity hit target [0.37ms]
+(pass) a power-of-two resized WebGL texture retains the full card layout instead of clustering pips at the top [0.07ms]
+(pass) all artwork variants can be painted with browser Canvas2D operations [12.91ms]
+
+apps/web/src/scene/sceneInteraction.test.ts:
+(pass) async adapter picking preserves gesture thresholds > resolves the target before starting the long-press clock [0.31ms]
+(pass) async adapter picking preserves gesture thresholds > uses an async-picked entity for drag without changing the move threshold [0.14ms]
+(pass) async adapter picking preserves gesture thresholds > ignores cancellation after a completed tap so double-tap remains pending [0.14ms]
+(pass) async adapter picking preserves gesture thresholds > cancels an active dragging pointer [0.13ms]
+(pass) hover picker > coalesces rapid requests to the latest point and ignores results after disposal [0.22ms]
+(pass) right-click picking produces a context request without choosing a primary action [0.12ms]
+
+apps/web/src/scene/cardPhysical.test.ts:
+(pass) thin stock rests on felt while preserving canonical drops and authored elevated pieces [0.07ms]
+
+apps/web/src/scene/piecePresentation.test.ts:
+(pass) semantic tabletop objects get distinct silhouettes and restrained materials [0.08ms]
+(pass) seat-owned counters and runners share a stable palette [0.05ms]
+(pass) signatures include presentation-changing snap occupancy [0.03ms]
+(pass) live status belongs in the readable HUD rather than a cropped projected duplicate [0.02ms]
+
+apps/web/src/scene/dragBehavior.test.ts:
+(pass) intersectRayWithHorizontalPlaneToRef > finds the expected point on a table-parallel plane [0.06ms]
+(pass) intersectRayWithHorizontalPlaneToRef > rejects a ray parallel to the plane [0.02ms]
+(pass) intersectRayWithHorizontalPlaneToRef > rejects an intersection behind the ray origin [0.01ms]
+
+apps/web/src/scene/cardStock.test.ts:
+(pass) printed corner masks coincide with the actual stock top contour for a card and a deck [1.31ms]
+(pass) deck walls stay vertical instead of shading as one inflated bevel across the pile [0.25ms]
+(pass) paper strips stop before the stock corners and outside the short bevel [0.02ms]
+
+apps/web/src/scene/tableCameraFraming.test.ts:
+(pass) narrow initial framing includes the actual deck and played card at readable scale [0.20ms]
+(pass) a broad board and dice with physical score tokens fit on a phone [0.12ms]
+(pass) desktop/tablet framing remains familiar and empty/loading frames are finite [0.03ms]
+(pass) manual pan/zoom/drag ownership survives scene updates and viewport resize until Reset [0.09ms]
+(pass) logical counters, private hand containers and hidden status cannot pull camera bounds [0.11ms]
+(pass) authored rotation and scale are included in world bounds without changing the entity [0.05ms]
+
+apps/web/src/scene/sceneAdapter.contract.webgl.test.ts:
+BJS - [19:48:48]: Babylon.js v7.54.3 - Null engine
+(pass) WebGL keeps the table graph while adapting costly effects for ANGLE (Google, Vulkan SwiftShader Device (Subzero)) [21.20ms]
+BJS - [19:48:48]: Babylon.js v7.54.3 - Null engine
+(pass) WebGL keeps the table graph while adapting costly effects for llvmpipe (LLVM 15.0, 256 bits) [5.74ms]
+BJS - [19:48:48]: Babylon.js v7.54.3 - Null engine
+(pass) WebGL keeps the table graph while adapting costly effects for AMD Radeon RX 6800 [6.94ms]
+BJS - [19:48:48]: Babylon.js v7.54.3 - Null engine
+(pass) SceneAdapter contract (webgl) > omits logical counters without transforms and retains authored spatial score tokens [16.42ms]
+BJS - [19:48:48]: Babylon.js v7.54.3 - Null engine
+(pass) SceneAdapter contract (webgl) > retains a person's pan and zoom across state updates and resize until camera reset [7.31ms]
+BJS - [19:48:48]: Babylon.js v7.54.3 - Null engine
+(pass) SceneAdapter contract (webgl) > syncs create/update/recreate/remove and resolves pick hit/miss [11.82ms]
+BJS - [19:48:48]: Babylon.js v7.54.3 - Null engine
+(pass) SceneAdapter contract (webgl) > routes touch drag through canonical grab/drop payloads [5.45ms]
+BJS - [19:48:48]: Babylon.js v7.54.3 - Null engine
+(pass) SceneAdapter contract (webgl) > does not expose or start dragging without an action sender [4.00ms]
+BJS - [19:48:48]: Babylon.js v7.54.3 - Null engine
+(pass) SceneAdapter contract (webgl) > does not expose remotely held or locked pieces as grabbable [5.39ms]
+BJS - [19:48:48]: Babylon.js v7.54.3 - Null engine
+(pass) SceneAdapter contract (webgl) > projects canvas points to the table plane and rejects off-canvas points [1.90ms]
+BJS - [19:48:48]: Babylon.js v7.54.3 - Null engine
+(pass) SceneAdapter contract (webgl) > hides contained pieces and hands while rendering a pickable deck pile count [3.77ms]
+BJS - [19:48:48]: Babylon.js v7.54.3 - Null engine
+(pass) SceneAdapter contract (webgl) > applies the adapter's documented hover/selected/held highlight affordances [3.73ms]
+BJS - [19:48:48]: Babylon.js v7.54.3 - Null engine
+(pass) SceneAdapter contract (webgl) > keeps held and locked highlights on multiple pieces [4.67ms]
+BJS - [19:48:48]: Babylon.js v7.54.3 - Null engine
+(pass) SceneAdapter contract (webgl) > eases corrections to the target over 180 ms [3.55ms]
+BJS - [19:48:48]: Babylon.js v7.54.3 - Null engine
+(pass) SceneAdapter contract (webgl) > keeps camera ownership shared, cancels a paused drag, and disposes cleanly [3.82ms]
+
+apps/web/src/scene/cardBackImages.test.ts:
+(pass) a created game cannot inherit a demo cover by name or start a fake loading request [0.13ms]
+(pass) shared image loading retries a failed asset and drops late callbacks after its final consumer leaves [0.42ms]
+
+apps/web/src/scene/dragActions.test.ts:
+(pass) shared desktop and touch drag callbacks preserve grab/drop payloads [0.09ms]
+(pass) shared drag callbacks suppress canonical actions while paused [0.02ms]
+(pass) a held rotation override is included in the canonical drop [0.05ms]
+
+apps/web/src/scene/desktopControls.test.ts:
+(pass) Tabletop Simulator-style desktop controls > an async LMB pick claims the current pointer position and drops on release [0.17ms]
+(pass) Tabletop Simulator-style desktop controls > RMB drag orbits while a stationary RMB click requests context [0.04ms]
+(pass) Tabletop Simulator-style desktop controls > MMB pans and cancel rolls an active object gesture back [0.06ms]
+
+apps/web/src/scene/cardArtworkCanvas.test.ts:
+(pass) game back images retain the whole source and aspect ratio inside portrait or landscape windows [0.09ms]
+(pass) concealed bitmap backs use the stock mask without app-added tiny titles, counts or monograms [0.35ms]
+(pass) every nonempty pile and loose card share the exact full image window [0.33ms]
+
+apps/web/src/scene/pieceGeometry.test.ts:
+(pass) rounded geometry follows the installed Babylon builder winding while keeping outward normals [0.62ms]
+(pass) rounded dice retain dimensions, smooth outward normals and a closed visible silhouette [2.27ms]
+(pass) thin cards and full decks retain rounded paper corners without inverted faces [4.38ms]
+
+apps/web/src/scene/sceneAdapter.contract.test.ts:
+(pass) SceneAdapter contract (lite) > omits logical counters without transforms and retains authored spatial score tokens [3.76ms]
+(pass) SceneAdapter contract (lite) > retains a person's pan and zoom across state updates and resize until camera reset [1.53ms]
+(pass) SceneAdapter contract (lite) > syncs create/update/recreate/remove and resolves pick hit/miss [3.29ms]
+(pass) SceneAdapter contract (lite) > routes touch drag through canonical grab/drop payloads [1.27ms]
+(pass) SceneAdapter contract (lite) > does not expose or start dragging without an action sender [0.62ms]
+(pass) SceneAdapter contract (lite) > does not expose remotely held or locked pieces as grabbable [0.55ms]
+(pass) SceneAdapter contract (lite) > projects canvas points to the table plane and rejects off-canvas points [0.12ms]
+(pass) SceneAdapter contract (lite) > hides contained pieces and hands while rendering a pickable deck pile count [0.46ms]
+(pass) SceneAdapter contract (lite) > applies the adapter's documented hover/selected/held highlight affordances [0.57ms]
+(pass) SceneAdapter contract (lite) > keeps held and locked highlights on multiple pieces [0.78ms]
+(pass) SceneAdapter contract (lite) > eases corrections to the target over 180 ms [0.72ms]
+(pass) SceneAdapter contract (lite) > keeps camera ownership shared, cancels a paused drag, and disposes cleanly [0.61ms]
+(pass) real Lite SceneAdapter contract through a thin engine mock > keeps card, pip and painted score faces on their physical pieces while the camera orbits [1.46ms]
+(pass) real Lite SceneAdapter contract through a thin engine mock > creates, updates, recreates, removes, and picks real adapter pieces [2.28ms]
+(pass) real Lite SceneAdapter contract through a thin engine mock > eases new pieces into place and gives drops a short landing pulse [0.65ms]
+(pass) real Lite SceneAdapter contract through a thin engine mock > routes touch drag through the real adapter with canonical grab/drop payloads [0.73ms]
+(pass) real Lite SceneAdapter contract through a thin engine mock > does not expose grabbability or begin a drag without sendAction [0.50ms]
+(pass) real Lite SceneAdapter contract through a thin engine mock > updates emissive highlights and restores black when cleared [0.63ms]
+(pass) real Lite SceneAdapter contract through a thin engine mock > eases corrections to the target over 180 ms [0.79ms]
+(pass) real Lite SceneAdapter contract through a thin engine mock > disposes controls, picker, engine, scene, and adapter pieces [0.58ms]
+
+apps/web/src/scene/rendererPolicy.test.ts:
+(pass) device pixel ratio is normalized and clamped to two [0.04ms]
+(pass) renderer override parsing accepts only supported adapter names [0.05ms]
+(pass) renderer adapter selection covers WebGPU availability and overrides [0.06ms]
+
+apps/web/src/scene/mountSceneAdapter.test.ts:
+(pass) a Lite mount failure disposes the failed adapter and mounts WebGL [0.61ms]
+(pass) a WebGL mount failure is surfaced without attempting another adapter [0.11ms]
+(pass) a stalled GPU acquisition falls back and cleans up resources that arrive late [5.32ms]
+(pass) a stalled fallback renderer is disposed and surfaced instead of leaving an endless loading state [5.33ms]
+
+apps/web/src/scene/liteContactShadow.test.ts:
+(pass) a yawed shadow remains flat on the table in Lite's quaternion order [0.09ms]
+
+apps/web/src/scene/interactionMath.test.ts:
+(pass) held-object quarter turns compose into a stable half turn [0.09ms]
+(pass) held-object flip rotates 180 degrees around its local X axis [0.02ms]
+
+apps/web/src/scene/rendererTier.test.ts:
+(pass) renderer tier: unknown desktop profile [0.12ms]
+(pass) renderer tier: typical desktop
+(pass) renderer tier: memory-constrained desktop
+(pass) renderer tier: CPU-constrained desktop
+(pass) renderer tier: budget Android phone
+(pass) renderer tier: mobile UA fallback
+(pass) renderer tier: recent Android phone
+(pass) renderer tier: older iOS Safari without deviceMemory
+(pass) renderer tier: newer iOS Safari without deviceMemory
+(pass) renderer tier: invalid hints
+
+apps/web/src/editor/scripting/formatter.test.ts:
+(pass) StyLua format-on-save > is stable and idempotent [13.38ms]
+(pass) StyLua format-on-save > leaves invalid Lua untouched and reports the failure [0.74ms]
+
+apps/web/src/editor/scripting/completion.test.ts:
+(pass) manifest-driven Lua completion > only exposes entries supplied by a synthetic manifest [0.14ms]
+(pass) manifest-driven Lua completion > the extension source contains no copied real API entries [0.06ms]
+
+apps/web/src/editor/state/cardBack.test.ts:
+(pass) a game-specific raster back survives release/backup round trips and undo without changing rules, cover or canonical state [177.70ms]
+(pass) combined budget failure preserves a valid draft before replacing its back [34.23ms]
+
+apps/web/src/editor/state/EditorStore.test.ts:
+(pass) EditorStore > applies commands, undoes, redoes, and keeps snapshots stable between changes [1.13ms]
+(pass) EditorStore > caps deep-clone history and clears redo after a new command [21.85ms]
+(pass) EditorStore > background artwork status preserves the user's Undo and only reviews its checked manifest [1.45ms]
+(pass) EditorStore > coalesces begin, preview mutations, and commit into one history frame [1.08ms]
+(pass) EditorStore > autosaves once 2.5 seconds after the last change [1.21ms]
+
+apps/web/src/editor/state/bundle.test.ts:
+(pass) editor bundle adaptation > round-trips a fixture through normalization with canonical equality [2.37ms]
+(pass) editor bundle adaptation > adds required components and blocks removal while depended upon [0.63ms]
+(pass) editor bundle adaptation > stores only explicit position, rotation, and scale transform fields [0.39ms]
+
+apps/web/src/editor/state/persistence.test.ts:
+(pass) editor draft persistence > returns a calm empty index for corrupt JSON [0.03ms]
+(pass) editor draft persistence > returns a calm empty index for wrong top-level shape
+(pass) editor draft persistence > returns a calm empty index for version missing [0.04ms]
+(pass) editor draft persistence > skips one bad index entry among good entries [0.14ms]
+(pass) editor draft persistence > saves and reloads byte-equivalent canonical drafts [1.12ms]
+Skipped invalid local editor draft. TypeError: This is not a supported editor draft.
+      at normalizeEditorDraft (/workspace/digipology/apps/web/src/editor/state/bundle.ts:340:15)
+      at deserializeEditorDraft (/workspace/digipology/apps/web/src/editor/state/persistence.ts:61:16)
+      at <anonymous> (/workspace/digipology/apps/web/src/editor/state/persistence.test.ts:47:12)
+
+(pass) editor draft persistence > rejects corrupt or versionless per-draft blobs [0.12ms]
+
+apps/web/src/editor/state/artwork.test.ts:
+(pass) draft backups retain artwork and credits outside the unchanged playable bundle [4.50ms]
+(pass) damaged bytes or mismatched dimensions become recoverable unavailable artwork with credits [0.37ms]
+
+apps/web/src/editor/state/sounds.test.ts:
+(pass) pinning a presentation sound file changes release integrity but preserves rules, canonical state, artwork and review in normal backup/export [65.76ms]
+(pass) combined release budget rejection leaves a previously valid game and backup unchanged [43.07ms]
+
+apps/web/src/editor/state/bundle-templates.test.ts:
+(pass) executable editor templates > Blank Table preserves the existing empty draft byte-for-byte [2.49ms]
+(pass) executable editor templates > Card Game validates, boots, deals, and draws another card [81.26ms]
+(pass) executable editor templates > Dice Game validates, boots, and a roll changes its score counter [50.94ms]
+(pass) executable editor templates > Zone Game validates, boots, snaps a drop, and scores its zone entry [43.04ms]
+(pass) executable editor templates > template seeds have pinned canonical hashes [2.48ms]
+(pass) executable editor templates > semantic capacity edits keep the Card Game deal flow playable without Lua changes [50.30ms]
+(pass) executable editor templates > template seeds use the ordinary autosave, history, export, and publish paths [14.69ms]
+
+apps/web/src/editor/state/scripts.test.ts:
+(pass) project script documents > create, edit, rename, and delete are undoable bundle commands [2.47ms]
+(pass) project script documents > committing an unchanged script name creates no history frame [0.88ms]
+
+apps/web/src/editor/playtest/creator-runtime.test.ts:
+(pass) creator API adapter > every mutating proxy member maps to a registered script action [0.09ms]
+(pass) creator API adapter > orders container, zone, and player proxy collections deterministically [25.57ms]
+(pass) creator API adapter > budget, memory, and RNG-consuming failures all roll back atomically [66.89ms]
+(pass) creator API adapter > enforces read-only guard state and proxy capabilities [32.55ms]
+(pass) creator API adapter > Card.is_face_up follows canonical flippable state, not the authored card default [30.92ms]
+(pass) creator API adapter > prompt, timer reconstruction, turns, and scores double-replay identically [146.66ms]
+(pass) creator API adapter > resume remaps stdlib turns and scores before the game hook [45.07ms]
+
+apps/web/src/editor/playtest/runtime.test.ts:
+(pass) in-tab playtest runtime > a generated draft starts with all requested seats and accepts each actual actor through victory [49.90ms]
+(pass) in-tab playtest runtime > allows every post-tabletop player action registered by the kernel [0.08ms]
+(pass) in-tab playtest runtime > Stop discards all runtime mutations without touching draft or history [31.68ms]
+(pass) in-tab playtest runtime > drives prompts and named timers through canonical actions [34.37ms]
+
+apps/web/src/editor/playtest/PlaytestController.test.ts:
+(pass) stopping during asynchronous setup prevents a late runtime from reopening the playtest [70.00ms]
+
+apps/web/src/editor/panels/common/PanelComponents.test.ts:
+(pass) CommitTextInput completion > completes an unchanged edit without committing and commits a changed edit once [0.07ms]
+(pass) CommitTextInput completion > a no-op entity rename creates no history frame [0.60ms]
+(pass) an arrow-key burst produces one undoable history frame [1.32ms]
+
+apps/web/src/editor/panels/common/useTreeKeyboard.test.ts:
+(pass) tree keyboard navigation supports arrows, Home, End, and typeahead [0.18ms]
+
+apps/web/src/editor/panels/inspector/InspectorPanel.test.ts:
+(pass) die side editing > growing preserves custom faces and extends with positional integer defaults [0.04ms]
+(pass) die side editing > shrinking truncates without rewriting the surviving custom faces [0.01ms]
+(pass) die side editing > default dice retain the existing 1 through N semantics [0.13ms]
+
+ 940 pass
+ 0 fail
+ 227133 expect() calls
+Ran 940 tests across 137 files. [38.85s]

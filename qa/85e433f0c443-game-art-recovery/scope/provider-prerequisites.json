@@ -1,0 +1,39 @@
+{
+  "time": "2026-10-29T20:11:24.175338+00:00",
+  "cloudDraftRevision": 17,
+  "declaredSecretRequirements": 0,
+  "declaredRuntimeRequirements": 0,
+  "auditScope": "Presence flags only; no credential values read into receipts or printed. Existing process and ignored Worker development binding names were checked.",
+  "bindings": {
+    "AI_API_KEY": {
+      "processPresent": false,
+      "workerDevelopmentBindingPresent": false
+    },
+    "AI_BASE_URL": {
+      "processPresent": false,
+      "workerDevelopmentBindingPresent": false
+    },
+    "AI_MODEL": {
+      "processPresent": false,
+      "workerDevelopmentBindingPresent": false
+    },
+    "AI_IMAGE_BASE_URL": {
+      "processPresent": false,
+      "workerDevelopmentBindingPresent": false
+    },
+    "AI_IMAGE_MODEL": {
+      "processPresent": false,
+      "workerDevelopmentBindingPresent": false
+    }
+  },
+  "normalApp": {
+    "textEndpoint": "503 ai_unconfigured after eight real source documents",
+    "imageEndpoint": "503 artwork_unconfigured after a host-authored access check"
+  },
+  "scheduledLoop": {
+    "run": 40931504883,
+    "state": "failed at credential prerequisite",
+    "requiredRepositoryActionsSecret": "OPENAI_API_KEY"
+  },
+  "newSecretProviderPurchaseOrWorkflowDispatch": false
+}

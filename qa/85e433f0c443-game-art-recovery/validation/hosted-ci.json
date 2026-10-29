@@ -1,0 +1,136 @@
+{
+  "checkedAt": "2026-10-29T20:52:07.792733+00:00",
+  "source": "85e433f0c443331208be53d3c8d4d212938d2bbf",
+  "run": 40950946771,
+  "status": "completed",
+  "conclusion": "success",
+  "url": "https://github.com/Sanokei/digipology/actions/runs/40950946771",
+  "jobs": [
+    {
+      "id": 123718590777,
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-29T20:39:17Z",
+          "completed_at": "2026-10-29T20:39:18Z"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-29T20:39:18Z",
+          "completed_at": "2026-10-29T20:39:21Z"
+        },
+        {
+          "name": "Preserve frozen replay fixtures",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-29T20:39:21Z",
+          "completed_at": "2026-10-29T20:39:21Z"
+        },
+        {
+          "name": "Run oven-sh/setup-bun@v2",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-29T20:39:21Z",
+          "completed_at": "2026-10-29T20:39:23Z"
+        },
+        {
+          "name": "Run bun install --frozen-lockfile",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-29T20:39:23Z",
+          "completed_at": "2026-10-29T20:39:25Z"
+        },
+        {
+          "name": "Prepare audio processing",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-29T20:39:25Z",
+          "completed_at": "2026-10-29T20:39:42Z"
+        },
+        {
+          "name": "Run bun run typecheck",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-29T20:39:42Z",
+          "completed_at": "2026-10-29T20:39:59Z"
+        },
+        {
+          "name": "Run bun test",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-29T20:39:59Z",
+          "completed_at": "2026-10-29T20:40:21Z"
+        },
+        {
+          "name": "Build site and check docs links",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-29T20:40:21Z",
+          "completed_at": "2026-10-29T20:40:23Z"
+        },
+        {
+          "name": "Build the playable app",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-29T20:40:23Z",
+          "completed_at": "2026-10-29T20:40:36Z"
+        },
+        {
+          "name": "Verify isolated renderer bundles",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-29T20:40:36Z",
+          "completed_at": "2026-10-29T20:40:36Z"
+        },
+        {
+          "name": "Install browser",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-29T20:40:36Z",
+          "completed_at": "2026-10-29T20:40:46Z"
+        },
+        {
+          "name": "Play full games in the browser",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-29T20:40:46Z",
+          "completed_at": "2026-10-29T20:51:11Z"
+        },
+        {
+          "name": "Save browser evidence",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-29T20:51:11Z",
+          "completed_at": "2026-10-29T20:51:14Z"
+        },
+        {
+          "name": "Post Run oven-sh/setup-bun@v2",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-29T20:51:14Z",
+          "completed_at": "2026-10-29T20:51:14Z"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-29T20:51:14Z",
+          "completed_at": "2026-10-29T20:51:14Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-29T20:51:14Z",
+          "completed_at": "2026-10-29T20:51:14Z"
+        }
+      ]
+    }
+  ]
+}

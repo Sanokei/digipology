@@ -1,0 +1,63 @@
+bun test v1.4.4 (38afee6c8)
+
+apps/web/src/pages/TablePage.test.tsx:
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/workspace/digipology/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:816:11)
+    at div
+    at header
+    at TableTopBar (/workspace/digipology/apps/web/src/components/TableTopBar.tsx:5:65)
+    at Router (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1210:9)
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+(pass) 375px table chrome exposes compact controls and the thumb hand tray [8.19ms]
+(pass) empty hand remains visible but does not intercept the table [0.69ms]
+(pass) only exposes the local player's open canonical prompts [0.19ms]
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/workspace/digipology/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:816:11)
+    at div
+    at div
+    at ConnectionOverlay (/workspace/digipology/apps/web/src/components/ConnectionOverlay.tsx:6:7)
+    at Router (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1210:9)
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/workspace/digipology/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:816:11)
+    at div
+    at div
+    at ConnectionOverlay (/workspace/digipology/apps/web/src/components/ConnectionOverlay.tsx:6:7)
+    at Router (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1210:9)
+    at MemoryRouter (/workspace/digipology/node_modules/react-router/dist/umd/react-router.development.js:1102:9)
+(pass) connection overlays distinguish passthrough recovery, errors, synchronization, and ended rooms [2.25ms]
+(pass) first-use hints render for a new device and disappear after all gestures are remembered [0.63ms]
+(pass) inspect renders a definition face without exposing a hidden card [1.29ms]
+(pass) dice controls use player-language definition labels and disambiguate duplicates [0.75ms]
+(pass) passthrough overlays and motion affordances have safe CSS [0.39ms]
+(pass) renderer diagnostics expose the mounted adapter, fallback, and tier [0.31ms]
+
+apps/web/src/components/PlayingCardFace.test.tsx:
+(pass) card markings use the explicit named deck and preserve custom and archived identities [0.12ms]
+
+apps/web/src/scene/pieceArtwork.test.ts:
+(pass) a face-down surface contains no authored identity, label or color on either side [0.39ms]
+(pass) standard faces require both the explicitly authored identity and the matching label [0.05ms]
+(pass) a rendered standard die shows the actual result on top and physically consistent opposite faces [0.22ms]
+(pass) custom dice preserve their authored result rather than acquiring invented pips [0.56ms]
+(pass) an empty deck is a thin empty placeholder and never displays fictional paper layers [0.10ms]
+(pass) the face-list changes the renderer signature even when the current die value is unchanged [0.07ms]
+(pass) raster artwork paints the correct number of card suits and die pips [3.83ms]
+(pass) spatial counters paint their actual value on the chip and retain the entity hit target [0.28ms]
+(pass) a power-of-two resized WebGL texture retains the full card layout instead of clustering pips at the top [0.06ms]
+(pass) all artwork variants can be painted with browser Canvas2D operations [16.38ms]
+
+ 20 pass
+ 0 fail
+ 931 expect() calls
+Ran 20 tests across 3 files. [123.00ms]
