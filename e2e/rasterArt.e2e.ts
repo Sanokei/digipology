@@ -295,6 +295,14 @@ test("unconfigured illustration preserves the playable rules and separate briefs
   const bytes = await download(page, info, "missing-provider.editor.json", () => dialog.getByRole("button", { name: "Download editable draft", exact: true }).click());
   const backup = JSON.parse(Buffer.from(bytes).toString("utf8"));
   expect(backup.bundle).toEqual(accepted.draft); expect(backup.artworkGeneration.direction).toEqual(accepted.artDirection); expect(backup.artwork).toBeUndefined();
+  await dialog.locator('[data-art-purpose="card-back"]').getByRole("button", { name: "Replace image…", exact: true }).click();
+  const emptyEditor = page.locator(".artwork-dialog");
+  const emptyBackup = await download(page, info, "empty-image-editor.editor.json", () => emptyEditor.getByRole("button", { name: "Download draft", exact: true }).click());
+  expect(JSON.parse(Buffer.from(emptyBackup).toString("utf8"))).toEqual(backup);
+  await page.setViewportSize({ width: 390, height: 480 });
+  await expect(emptyEditor.getByRole("button", { name: "Download draft", exact: true })).toBeInViewport();
+  await capture(page, info, "empty-card-artwork-backup-short.png");
+  await page.keyboard.press("Escape"); await page.setViewportSize({ width: 1440, height: 960 });
   await capture(page, info, "image-provider-unavailable-desktop.png");
   await page.setViewportSize({ width: 390, height: 844 });
   const cover = dialog.locator('[data-art-purpose="cover"]');

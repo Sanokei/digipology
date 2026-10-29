@@ -171,10 +171,10 @@ test("damaged saved artwork stays visible as a repair task and never silently pu
     const key = Object.keys(localStorage).find((key) => key.startsWith("dgp.editor.draft."))!;
     const draft = JSON.parse(localStorage.getItem(key)!); draft.artworkGeneration.jobs.cover.status = "running"; draft.artwork = { status: "ready", dataUrl: "data:image/png;base64,broken", info: { formatVersion: 1 } }; localStorage.setItem(key, JSON.stringify(draft));
   });
-  let automaticRepairs = 0;
-  page.on("request", (request) => { if (new URL(request.url()).pathname === "/api/ai/artwork") automaticRepairs++; });
+  let imageRequests = 0;
+  page.on("request", (request) => { if (new URL(request.url()).pathname === "/api/ai/artwork") imageRequests++; });
   await page.reload(); await ready(page);
-  await expect(page.getByRole("button", { name: "Publish & invite", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Publish draft & invite", exact: true })).toBeDisabled();
   await replaceCover(page);
   await expect(page.locator(".artwork-dialog").getByRole("alert")).toContainText("Replace it, or remove it");
   await page.setViewportSize({ width: 390, height: 844 });
@@ -184,5 +184,12 @@ test("damaged saved artwork stays visible as a repair task and never silently pu
   await closeArt(page);
   await expect(page.getByRole("button", { name: "Publish draft & invite", exact: true })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Review playtest", exact: true })).toBeVisible();
-  expect(automaticRepairs).toBe(0);
+  expect(imageRequests).toBe(0);
+  await page.getByRole("button", { name: "Edit artwork", exact: true }).click();
+  await page.locator('.game-art-asset[data-art-purpose="cover"]').getByRole("button", { name: "Retry cover", exact: true }).click();
+  await expect(page.locator('.game-art-asset[data-art-purpose="cover"] .game-art-asset__state')).toHaveText("Ready");
+  await closeArt(page);
+  await expect(page.getByRole("button", { name: "Publish & invite", exact: true })).toBeEnabled();
+  expect(imageRequests).toBe(1); // Only the deliberate repair requests an image.
+  await page.screenshot({ path: testInfo.outputPath("artwork-explicit-repair-recovered-390.png"), fullPage: true });
 });

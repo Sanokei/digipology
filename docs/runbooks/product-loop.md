@@ -86,6 +86,20 @@ Turn observations into specific backlog criteria and regression tests where
 possible. Live generation, external asset import, generated raster covers and
 human fun evaluations remain separate evidence requirements; the demo
 playthroughs do not establish one-shot greatness.
+
+The artwork editor opens the game's art direction and separate cover/card-back
+panels. Use **Replace image…** inside the intended panel for a local image,
+credits or a saved artwork package. A damaged saved cover requires an explicit
+retry, replacement or removal; automatic pending jobs must not overwrite it on
+reload. A failed browser save keeps the edited image in the tab and offers an
+editable backup. Artwork changes do not restart the running playtest.
+
+Browser cases simulate separate visitors with stable per-test documentation-range
+IP addresses in the existing local Worker's `CF-Connecting-IP` header. Production
+limits are unchanged. A dedicated browser case still expects the eleventh
+magic-link request from one IP to fail with 429. This avoids unrelated tests
+consuming one shared visitor's allowance.
+
 ## Observed scheduled execution
 
 The [2026-10-29 scheduled run](https://github.com/Sanokei/digipology/actions/runs/40931504883)

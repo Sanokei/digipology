@@ -150,7 +150,7 @@ export function GameArtworkDialog({ draft, controller, canGenerate, onSignIn, on
     </dialog>
     {manual ? <ArtworkDialog title={draft.title} purpose={manual} allowRemove={manual === "cover"} {...(manualImage ? { artwork: manualImage } : {})} onClose={() => setManual(null)}
       onDownloadDraft={(next) => {
-        if (next?.status === "unavailable") { onDownloadDraft(); return; }
+        if (!next || next.status === "unavailable") { onDownloadDraft(); return; }
         const backup = withManualArtwork(controller.currentDraft(), manual, next);
         downloadBlob(new Blob([serializeEditorDraft(backup)], { type: "application/json" }), "game-draft.editor.json");
       }} onSave={async (next) => {
