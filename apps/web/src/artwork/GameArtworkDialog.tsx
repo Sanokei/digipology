@@ -124,10 +124,10 @@ export function GameArtworkDialog({ draft, controller, canGenerate, onSignIn, on
           <button type="button" disabled={!canGenerate || busy} onClick={() => void controller.createDirection()}>{controller.activity === "direction" ? "Choosing a direction…" : direction ? "Rethink direction" : "Create art direction"}</button>
           {controller.directionMessage ? <p role="alert">{controller.directionMessage}</p> : null}
           <details><summary>Edit the direction & image briefs</summary><form onSubmit={(event) => { event.preventDefault(); void saveDirection(); }}>
-            <label>Visual style<textarea rows={2} maxLength={1000} disabled={busy} value={edited.style} onChange={(event) => { setEdited({ ...edited, style: event.currentTarget.value }); setDirty(true); }} /></label>
-            <label>Cover brief<textarea rows={4} maxLength={2000} disabled={busy} value={edited.coverPrompt} onChange={(event) => { setEdited({ ...edited, coverPrompt: event.currentTarget.value }); setDirty(true); }} /></label>
+            <label>Visual style<textarea aria-label="Visual style" rows={2} maxLength={1000} disabled={busy} value={edited.style} onChange={(event) => { setEdited({ ...edited, style: event.currentTarget.value }); setDirty(true); }} /></label>
+            <label>Cover brief<textarea aria-label="Cover brief" rows={4} maxLength={2000} disabled={busy} value={edited.coverPrompt} onChange={(event) => { setEdited({ ...edited, coverPrompt: event.currentTarget.value }); setDirty(true); }} /></label>
             {scope.needsBack ? <>
-              <label>Card-back brief<textarea rows={4} maxLength={2000} disabled={busy} value={edited.cardBackPrompt} onChange={(event) => { setEdited({ ...edited, cardBackPrompt: event.currentTarget.value }); setDirty(true); }} /></label>
+              <label>Card-back brief<textarea aria-label="Card-back brief" rows={4} maxLength={2000} disabled={busy} value={edited.cardBackPrompt} onChange={(event) => { setEdited({ ...edited, cardBackPrompt: event.currentTarget.value }); setDirty(true); }} /></label>
               <small>A deliberate symmetric motif, clear at card size. Keep card identities, tiny lettering and cover scenes out of the back.</small>
             </> : null}
             {directionError ? <p role="alert">{directionError}</p> : null}
