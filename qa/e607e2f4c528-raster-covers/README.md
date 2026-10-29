@@ -84,3 +84,5 @@ path above is complete.
 
 Earlier creation/review/recovery pack, unchanged:
 [baa8f65180733f4bd1c7623dbbee143a4d904828](https://github.com/Sanokei/digipology/tree/baa8f65180733f4bd1c7623dbbee143a4d904828/qa/194dbac-creator-handoff).
+
+The two-case follow-up report has 2 expected, 0 unexpected and no reporter errors, while its tool wait returned 1. A separate fresh critical-alert check captured the child process exit code **0** and one passing in-viewport recovery scenario: [command receipt](visible-alert-command.json). The exact anomalous tool result and preceding Wrangler failure remain in the private receipt; no remote CI success is inferred.

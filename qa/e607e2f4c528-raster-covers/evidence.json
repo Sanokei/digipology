@@ -32,7 +32,21 @@
     "sitePages": 17,
     "internalLinks": true,
     "isolatedRendererChunks": true,
-    "frozenReplayGuardBase": "194dbac54647c4474d3ab11934843cbf30356fd0"
+    "frozenReplayGuardBase": "194dbac54647c4474d3ab11934843cbf30356fd0",
+    "visibleAlertCommand": {
+      "command": "E2E_SKIP_BUILD=1 bun run test:e2e e2e/artwork.e2e.ts --grep \"damaged saved artwork\" --max-failures=1",
+      "exitCode": 0,
+      "playwrightStats": {
+        "startTime": "2026-10-29T11:45:56.300Z",
+        "duration": 20564.706000000002,
+        "expected": 1,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "errors": []
+    },
+    "twoCaseToolWaitNote": "The two-case Playwright report contains 2 expected, 0 unexpected and no errors; its tool wait reported exit 1. The separate critical in-viewport alert check captured the child process return code 0. Exact private logs are preserved; no command-success claim is inferred from test counts alone."
   },
   "draftMetadata": {
     "title": "Dice Dash",
@@ -284,6 +298,12 @@
       ],
       "sourceRef": "e453fd466d60268ad357da6eaf72754a6be91479",
       "status": "before the final visible-alert fix; source-pinned failed visual review"
+    },
+    {
+      "path": "visible-alert-command.json",
+      "sha256": "8ec2ae31a9ef70dbbf2a06381815ea70c508194043beb5d043c0a80f66e3a4b8",
+      "bytes": 337,
+      "sourceRef": "e607e2f4c5286a0635552bf4463c1075535dec24"
     }
   ]
 }

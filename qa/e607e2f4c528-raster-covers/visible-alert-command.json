@@ -1,0 +1,13 @@
+{
+  "command": "E2E_SKIP_BUILD=1 bun run test:e2e e2e/artwork.e2e.ts --grep \"damaged saved artwork\" --max-failures=1",
+  "exitCode": 0,
+  "playwrightStats": {
+    "startTime": "2026-10-29T11:45:56.300Z",
+    "duration": 20564.706000000002,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "errors": []
+}
