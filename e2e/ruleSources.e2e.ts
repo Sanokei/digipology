@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 
 async function menu(page: Page, action: string) {
   await page.locator(".editor-menu-dropdown > summary").filter({ hasText: /^File$/ }).click();
-  await page.locator(".editor-menu-dropdown[open]").getByRole("button", { name: action, exact: true }).click();
+  await page.locator(".editor-menu-dropdown[open]").getByRole("button", { name: action }).click();
 }
 async function download(page: Page, info: TestInfo, name: string, action: string) {
   const pending = page.waitForEvent("download"); await menu(page, action);
