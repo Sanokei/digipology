@@ -37,6 +37,7 @@ test("source transport with a fixture provider preserves private input through p
   expect(release).toEqual(accepted.draft); expect(JSON.stringify(release)).not.toContain("Transport fixture.csv");
   const title = page.locator(".editor-details-bar").getByLabel("Title", { exact: true });
   await title.fill("Edited fixture game"); await title.press("Tab");
+  await expect(page.locator(".editor-save-status")).toHaveText("saved");
   await page.reload(); await expect(title).toHaveValue("Edited fixture game");
   expect(await download(page, info, "edited-source.request.json", "Download generation request")).toEqual(request);
   const edited = await download(page, info, "edited-source.editor.json", "Download editable draft");
