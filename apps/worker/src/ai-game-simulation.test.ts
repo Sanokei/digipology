@@ -6,16 +6,17 @@ import { refineGameDraft } from "./ai-game-refine";
 import { simulateDraftReport } from "./ai-game-simulation";
 
 const component = (type: string, data: unknown) => ({ type, dataJson: JSON.stringify(data) });
-function draftFor(lua: string, options: { min?: number; max?: number; cards?: boolean; die?: boolean; buttons?: number } = {}) {
+function draftFor(lua: string, options: { min?: number; max?: number; cards?: boolean; die?: boolean; buttons?: number; handOwner?: string } = {}) {
   const binding = component("script", { scriptId: "scripts/rules.lua", bindingId: "rules", props: {} });
   const transform = component("transform", { position: { x: 0, y: 0, z: 0 }, rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: { x: 1, y: 1, z: 1 } });
   const entities = [{ id: "choose", components: [component("button", { enabled: true, label: "Choose" }), binding] }];
+  const handOwner = options.handOwner ?? "seat_1";
   for (let index = 1; index < (options.buttons ?? 1); index += 1) entities.push({ id: `choose_${index}`, components: [component("button", { enabled: true, label: `Choice ${index}` })] });
   if (options.die) entities.push({ id: "die", components: [transform, component("die", { faces: [1, 2, 3, 4, 5, 6] })] });
   if (options.cards) entities.push(
     { id: "deck", components: [component("container", { items: ["card"], capacity: null, ordering: "canonical", visibility: "public" }), component("deck", { enabled: true })] },
     { id: "card", components: [transform, component("card", { definitionId: "card", faceUp: false })] },
-    { id: "hand", components: [component("container", { items: [], capacity: null, ordering: "canonical", visibility: "owner:sim_player_1" }), component("hand", { owner: "sim_player_1", canonicalOrder: true }), { ...binding, dataJson: JSON.stringify({ scriptId: "scripts/rules.lua", bindingId: "hand", props: { role: "hand" } }) }] },
+    { id: "hand", components: [component("container", { items: [], capacity: null, ordering: "canonical", visibility: `owner:${handOwner}` }), component("hand", { owner: handOwner, canonicalOrder: true }), { ...binding, dataJson: JSON.stringify({ scriptId: "scripts/rules.lua", bindingId: "hand", props: { role: "hand" } }) }] },
   );
   const result = assembleAiGameDraft({ title: "Simulation fixture", tagline: "Deterministic test only", interactionMode: "scripted", minPlayers: options.min ?? 2, maxPlayers: options.max ?? options.min ?? 2,
     files: [{ path: "scripts/rules.lua", content: lua }], settings: [], entities, scriptStateJson: "{}", rngSeed: [1, 2, 3, 4], definitions: [{ id: "card", label: "Test card", color: "#ffffff" }], refs: [] });
@@ -82,6 +83,36 @@ function on_container_add(ctx) error("draw branch broken") end`, { cards: true }
     const draw = report.sessions[0]!.trace.find((t) => t.ordered.action.type === "deck.draw_to_container");
     expect(draw?.ordered).toMatchObject({ actor: { playerId: "sim_player_1" }, action: { payload: { target: "hand", count: 1 } } });
     expect(report.issues.some((issue) => issue.message.includes("draw branch broken"))).toBe(true);
+  });
+
+  test("seat-owned and directly owned hands use only their actual actor, including after late seating", async () => {
+    for (const owner of ["seat_1", "seat_2", "sim_player_1"]) {
+      const report = await simulateDraftReport(draftFor('function on_press() end\nfunction on_container_add() error("owned hand callback") end', { cards: true, handOwner: owner }), 8);
+      const expected = owner === "seat_2" ? "sim_player_2" : "sim_player_1";
+      for (const session of report.sessions) {
+        const draws = session.trace.filter((entry) => entry.ordered.action.type === "deck.draw_to_container");
+        expect(draws).toHaveLength(1);
+        expect(draws[0]!.ordered.actor).toEqual({ type: "player", playerId: expected });
+        expect(draws[0]!.accepted).toBe(false);
+      }
+      expect(report.issues.some((issue) => issue.message.includes("owned hand callback"))).toBe(true);
+    }
+    const unclaimed = await simulateDraftReport(draftFor('function on_press() end', { cards: true, handOwner: "seat_3" }), 8);
+    expect(unclaimed.sessions.every((session) => session.trace.every((entry) => entry.ordered.action.type !== "deck.draw_to_container"))).toBe(true);
+  });
+
+  test("a generated seat-owned card failure enters repair before acceptance", async () => {
+    const draft = draftFor('function on_press() end\nfunction on_container_add() error("broken draw") end', { cards: true, handOwner: "seat_2" });
+    let calls = 0;
+    const result = await refineGameDraft({ draft, userPrompt: "A two-player card game", maxRounds: 1, refinementAttempts: 1, simulateRolls: 2,
+      fetch: async (request) => {
+        calls += 1;
+        expect(request.messages.at(-1)?.content).toContain("deck.draw_to_container");
+        return { choices: [{ message: { content: JSON.stringify({ files: [{ path: "scripts/rules.lua", content: 'function on_press() end\nfunction on_container_add() state.winner_id = players:list()[1].id end' }] }) } }] };
+      } });
+    expect(calls).toBe(1);
+    expect(result.accepted).toBe(true);
+    expect(result.issues).toEqual([]);
   });
 
   test("a changing unbound die does not count as rule progress, and guard denial is not a Lua error", async () => {

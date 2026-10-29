@@ -32,7 +32,13 @@ try {
   if (process.env.E2E_SKIP_BUILD !== "1") await run(["bun", "run", "--cwd", "apps/web", "build"]);
   const wrangler = join(root, "node_modules/.bin/wrangler");
   await run([wrangler, "d1", "migrations", "apply", "digipology", "--local", "--config", configPath, "--persist-to", join(temporary, "state")]);
-  const server = Bun.spawn([wrangler, "dev", "--local", "--config", configPath, "--port", "8797", "--ip", "127.0.0.1", "--inspector-port", "9239", "--persist-to", join(temporary, "state")], { cwd: root, env, stdout: "inherit", stderr: "inherit" });
+  // Tests use a fixed build. An esbuild source watcher can rebuild mid-scenario
+  // or deadlock after unrelated workspace writes; dev hot reload belongs in dev.
+  const workerBuild = join(temporary, "worker-build");
+  await run([wrangler, "deploy", "--dry-run", "--outdir", workerBuild, "--config", configPath]);
+  await writeFile(configPath, JSON.stringify({ ...config, main: join(workerBuild, "index.js") }));
+  console.log("E2E Worker compiled locally once; serving without source rebundling.");
+  const server = Bun.spawn([wrangler, "dev", "--no-bundle", "--local", "--config", configPath, "--port", "8797", "--ip", "127.0.0.1", "--inspector-port", "9239", "--persist-to", join(temporary, "state")], { cwd: root, env, stdout: "inherit", stderr: "inherit" });
   const stop = () => server.kill("SIGTERM");
   process.on("SIGTERM", stop);
   process.on("SIGINT", stop);

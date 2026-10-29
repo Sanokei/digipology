@@ -80,7 +80,8 @@ runs with first and last choices, in a fresh Lua runtime and the release's own
 RNG seed. Prompt responses use the actual prompted player, including prompts
 outside the current turn; number responses obey the kernel's exact step grid.
 
-Exploration includes dice, enabled buttons, drawing cards to the actor's hand,
+Exploration includes dice, enabled buttons, drawing cards to the actor's hand
+(owned directly by player ID or through their currently assigned seat),
 choice/number/confirmation prompts, and scheduled callbacks. Guards can reject
 an attempted action without becoming script errors. A changing die face alone
 does not establish rule progress. Runtime failures include the scenario,

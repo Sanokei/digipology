@@ -105,7 +105,10 @@ function* candidates(state: CanonicalGameState, last: boolean): Generator<Candid
       if (!c.deck?.enabled || !c.container?.items.length) continue;
       for (const handId of ids) {
         const hand = state.entities[handId]!.components;
-        if (handId !== id && hand.hand?.owner === playerId && hand.container &&
+        const owner = hand.hand?.owner;
+        const ownsHand = typeof owner === "string" &&
+          (owner === playerId || state.seats[owner]?.playerId === playerId);
+        if (handId !== id && ownsHand && hand.container &&
           (hand.container.capacity === null || hand.container.items.length < hand.container.capacity)) {
           yield { actor, action: { type: "deck.draw_to_container", payload: { deckId: id, target: handId, count: 1 } } };
         }
