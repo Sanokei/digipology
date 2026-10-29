@@ -8,42 +8,52 @@ import type { SceneAdapter } from "./sceneAdapter";
 
 export type SceneAdapterLoader = (renderer: RendererAdapterKind) => Promise<SceneAdapter>;
 
-/** The deadline includes lazy imports and the first rendered frame. */
-async function initializeWithin(load: SceneAdapterLoader, renderer: RendererAdapterKind, canvas: HTMLCanvasElement, tier: RendererTier, timeoutMs: number): Promise<SceneAdapter> {
-  let expired = false;
+export type SceneCanvasSource = HTMLCanvasElement | (() => HTMLCanvasElement);
+
+/** Includes lazy import, GPU/scene assets and the first frame. The canvas factory gives
+ * each attempt its own surface; a late device only touches its retired canvas. */
+async function initializeWithin(load: SceneAdapterLoader, renderer: RendererAdapterKind, source: SceneCanvasSource, tier: RendererTier, timeoutMs: number, owner?: AbortSignal): Promise<SceneAdapter> {
+  const lifetime = new AbortController();
   let adapter: SceneAdapter | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let disposed = false;
+  const disposeCurrent = () => { if (adapter && !disposed) { disposed = true; adapter.dispose(); } };
+  let rejectCancelled!: (reason: Error) => void;
+  const cancelled = new Promise<never>((_resolve, reject) => { rejectCancelled = reject; });
+  const cancel = (reason: Error) => { lifetime.abort(); disposeCurrent(); rejectCancelled(reason); };
+  const ownerLeft = () => cancel(new Error("Table renderer initialization was cancelled"));
+  owner?.addEventListener("abort", ownerLeft, { once: true });
   const initialization = (async () => {
+    if (owner?.aborted) { ownerLeft(); throw new Error("Table renderer initialization was cancelled"); }
+    const canvas = typeof source === "function" ? source() : source;
     const loaded = await load(renderer); adapter = loaded;
-    if (expired) { loaded.dispose(); throw new Error("Table renderer initialization timed out"); }
-    try { await loaded.mount(canvas, { tier }); }
-    finally { if (expired) loaded.dispose(); }
-    return loaded;
+    try {
+      if (lifetime.signal.aborted) throw new Error("Table renderer initialization was cancelled");
+      await loaded.mount(canvas, { tier, signal: lifetime.signal });
+      if (lifetime.signal.aborted) throw new Error("Table renderer initialization was cancelled");
+      return loaded;
+    } finally { if (lifetime.signal.aborted) loaded.dispose(); }
   })();
   try {
-    return await Promise.race([initialization, new Promise<never>((_resolve, reject) => {
-      timer = setTimeout(() => { expired = true; reject(new Error("Table renderer initialization timed out")); }, timeoutMs);
-    })]);
-  } catch (error) {
-    adapter?.dispose();
-    // Imports/device acquisition cannot be aborted. Dispose late resources
-    // without allowing them to mount over the current fallback renderer.
-    throw error;
-  } finally { clearTimeout(timer); }
+    timer = setTimeout(() => cancel(new Error("Table renderer initialization timed out")), timeoutMs);
+    return await Promise.race([initialization, cancelled]);
+  } catch (error) { lifetime.abort(); disposeCurrent(); throw error; }
+  finally { clearTimeout(timer); owner?.removeEventListener("abort", ownerLeft); }
 }
 
 export async function mountSceneAdapter(
   selection: RendererAdapterSelection,
   load: SceneAdapterLoader,
-  canvas: HTMLCanvasElement,
+  canvas: SceneCanvasSource,
   tier: RendererTier,
   onLiteFallback: (fallback: RendererFallback, error: unknown) => void,
   mountTimeoutMs = 8_000,
+  owner?: AbortSignal,
 ): Promise<SceneAdapter> {
-  try { return await initializeWithin(load, selection.renderer, canvas, tier, mountTimeoutMs); }
+  try { return await initializeWithin(load, selection.renderer, canvas, tier, mountTimeoutMs, owner); }
   catch (error) {
-    if (selection.renderer !== "lite") throw error;
+    if (owner?.aborted || selection.renderer !== "lite") throw error;
     onLiteFallback({ from: "lite", to: "webgl", error: error instanceof Error ? error.message : String(error) }, error);
-    return initializeWithin(load, "webgl", canvas, tier, mountTimeoutMs);
+    return initializeWithin(load, "webgl", canvas, tier, mountTimeoutMs, owner);
   }
 }

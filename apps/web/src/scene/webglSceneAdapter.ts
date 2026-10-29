@@ -526,6 +526,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
   const adapter: SceneAdapter = {
     handlesDesktopDrag: false,
     async mount(nextCanvas: HTMLCanvasElement, options: SceneAdapterMountOptions): Promise<void> {
+      if (options.signal?.aborted) throw new Error("Table renderer initialization was cancelled");
       canvas = nextCanvas;
       const highQuality = options.tier === "default";
       engine = dependencies.createEngine?.(

@@ -567,6 +567,8 @@ button.action-card { width: 100%; border-right: 0; border-left: 0; text-align: l
 
 @keyframes route-pulse { to { opacity: .28; transform: scale(.72); } }
 
+.table-scene__surface { position:absolute; inset:0; }
+
 .table-scene__canvas {
   display: block;
   width: 100%;

@@ -167,7 +167,11 @@ function mesh(shape: "box" | "cylinder" | "plane" | "torus"): FakeMesh {
   };
 }
 
+let engineGate: Promise<void> | null = null;
+let registrationGate: Promise<void> | null = null;
+
 function resetFakeState(): void {
+  engineGate = null; registrationGate = null;
   fakeState.engine = null;
   fakeState.scene = null;
   fakeState.picker = null;
@@ -221,6 +225,7 @@ class FakeCanvas {
 
 mock.module("@babylonjs/lite", () => ({
   createEngine: async (canvas: HTMLCanvasElement): Promise<FakeEngine> => {
+    await engineGate;
     const engine = { canvas, started: false, stopped: false, resized: false, disposed: false };
     fakeState.engine = engine;
     return engine;
@@ -337,6 +342,7 @@ mock.module("@babylonjs/lite", () => ({
   },
   registerScene: async (scene: FakeScene): Promise<void> => {
     scene.registered = true;
+    await registrationGate;
   },
   startEngine: async (engine: FakeEngine): Promise<void> => {
     engine.started = true;
@@ -736,4 +742,26 @@ describe("real Lite SceneAdapter contract through a thin engine mock", () => {
     expect(canvas.listenerCount("touchend")).toBe(0);
     expect(canvas.listenerCount("touchcancel")).toBe(0);
   });
+});
+
+
+test("a disposed Lite mount destroys a late GPU device before creating its scene or starting a frame", async () => {
+  let release!: () => void;
+  engineGate = new Promise<void>((resolve) => { release = resolve; });
+  const adapter = createLiteSceneAdapter({}), owner = new AbortController();
+  const mounting = adapter.mount(new FakeCanvas() as unknown as HTMLCanvasElement, { tier: "low", signal: owner.signal });
+  owner.abort(); adapter.dispose(); release(); await expect(mounting).rejects.toThrow("cancelled");
+  expect(fakeState.engine?.disposed).toBe(true); expect(fakeState.engine?.started).toBe(false); expect(fakeState.scene).toBe(null); expect(fakeState.picker).toBe(null);
+});
+
+test("a late Lite shader registration cannot restart a disposed scene or leave its GPU resources alive", async () => {
+  let release!: () => void;
+  registrationGate = new Promise<void>((resolve) => { release = resolve; });
+  const adapter = createLiteSceneAdapter({}), owner = new AbortController();
+  const mounting = adapter.mount(new FakeCanvas() as unknown as HTMLCanvasElement, { tier: "low", signal: owner.signal });
+  // Let the real adapter finish engine acquisition and begin its actual scene.
+  for (let i = 0; i < 5; i++) await Promise.resolve();
+  expect(fakeState.scene?.registered).toBe(true);
+  owner.abort(); adapter.dispose(); release(); await expect(mounting).rejects.toThrow("cancelled");
+  expect(fakeState.scene?.disposed).toBe(true); expect(fakeState.engine?.disposed).toBe(true); expect(fakeState.engine?.started).toBe(false); expect(fakeState.picker?.disposed).toBe(true);
 });

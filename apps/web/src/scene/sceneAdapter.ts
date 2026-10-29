@@ -5,6 +5,7 @@ export type HighlightKind = "hover" | "selected" | "held" | "locked";
 
 export interface SceneAdapterMountOptions {
   tier: RendererTier;
+  signal?: AbortSignal;
 }
 
 export interface SceneAdapter {

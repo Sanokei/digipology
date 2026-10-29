@@ -58,7 +58,8 @@ export function TableScene({
   rendererStatus = null,
   rendererOverrideActive = false,
 }: TableSceneProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const surfaceRef = useRef<HTMLDivElement>(null);
+  const [rendererAttempt, setRendererAttempt] = useState(0);
   const view = useKernelStore(store);
   const cardDesigns = useMemo(() => readCardDesigns(view.cardDesignsBundle), [view.cardDesignsBundle]);
   const cardBack = useMemo(() => cardBackForGame(view.gameTitle, view.cardBackBundle, view.state?.releaseId), [view.gameTitle, view.cardBackBundle, view.state?.releaseId]);
@@ -70,7 +71,7 @@ export function TableScene({
   const signalHint = (gesture: TableHintGesture) => setHintEvent((previous) => ({ gesture, nonce: (previous?.nonce ?? 0) + 1 }));
 
   const renderState = useBabylonScene(
-    canvasRef,
+    surfaceRef,
     store,
     client,
     scenePaused,
@@ -81,6 +82,8 @@ export function TableScene({
     signalHint,
     onProjectorChange,
     onRendererStatus,
+    readOnly ? "Read-only 3D draft preview" : "Live synchronized 3D tabletop",
+    rendererAttempt,
   );
 
   const state = view.displayedState;
@@ -140,10 +143,10 @@ export function TableScene({
 
   const artworkStatus = cardDesigns?.families.length ? <CardDesignStatus designs={cardDesigns} /> : Object.values(state?.entities ?? {}).some((entity) => entity.components.card || entity.components.deck) ? <CardBackStatus definition={cardBack} /> : null;
   return <main className={`table-scene${className ? ` ${className}` : ""}`}>
-    <canvas ref={canvasRef} className="table-scene__canvas" aria-label={readOnly ? "Read-only 3D draft preview" : "Live synchronized 3D tabletop"} aria-busy={renderState === "loading"} data-render-state={renderState} role="img" tabIndex={0} onContextMenu={(event) => event.preventDefault()} />
+    <div ref={surfaceRef} className="table-scene__surface" />
     {renderState === "ready" ? null : <div className="table-render-status" role={renderState === "failed" ? "alert" : "status"}>
       {renderState === "loading" ? <><span className="loading-spinner" /><p>Preparing your table…</p></>
-        : <><p>The table view could not load.</p><button type="button" onClick={() => window.location.reload()}>Reload table view</button><p>You can retry without starting a new room.</p></>}
+        : <><p>The table view could not load.</p><button type="button" onClick={() => setRendererAttempt((attempt) => attempt + 1)}>Reload table view</button><p>You can retry without starting a new room.</p></>}
     </div>}
     {topBar === undefined ? null : <div className="table-scene__topbar">{topBar}</div>}
     {readOnly

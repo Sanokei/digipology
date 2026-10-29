@@ -119,3 +119,26 @@ test("a stalled lazy import falls back within the same renderer budget and its l
 test("a stalled fallback import rejects instead of leaving the table in perpetual loading", async () => {
   await expect(mountSceneAdapter({ renderer: "lite", requestedLiteFallback: false, reason: "webgpu" }, async () => new Promise<SceneAdapter>(() => {}), {} as HTMLCanvasElement, "default", () => {}, 5)).rejects.toThrow("initialization timed out");
 });
+
+
+test("leaving during a lazy import cancels without creating a fallback or mounting the late adapter", async () => {
+  const owner = new AbortController(), disposed: string[] = [], loaded: string[] = [];
+  let release!: (adapter: SceneAdapter) => void, mounts = 0;
+  const pending = new Promise<SceneAdapter>((resolve) => { release = resolve; });
+  const mounting = mountSceneAdapter({ renderer: "lite", requestedLiteFallback: false, reason: "webgpu" }, async (renderer) => { loaded.push(renderer); return pending; }, {} as HTMLCanvasElement, "low", () => {}, 100, owner.signal);
+  owner.abort(); await expect(mounting).rejects.toThrow("cancelled");
+  const late = adapterThat(async () => { mounts++; }, disposed, "late"); release(late);
+  await Promise.resolve(); await Promise.resolve();
+  expect(loaded).toEqual(["lite"]); expect(mounts).toBe(0); expect(disposed).toContain("late");
+});
+
+test("a timed-out initialization is aborted and isolated from the fallback canvas even if its GPU work finishes late", async () => {
+  const canvases = [{} as HTMLCanvasElement, {} as HTMLCanvasElement], disposed: string[] = [];
+  let release!: () => void, lateSignal: AbortSignal | undefined, usedCanvas: HTMLCanvasElement | undefined, index = 0;
+  const pending = new Promise<void>((resolve) => { release = resolve; });
+  const late = { ...adapterThat(async () => {}, disposed, "late"), mount: async (canvas: HTMLCanvasElement, options: { signal?: AbortSignal }) => { usedCanvas = canvas; lateSignal = options.signal; await pending; } };
+  const fallback = adapterThat(async () => {}, disposed, "fallback");
+  expect(await mountSceneAdapter({ renderer: "lite", requestedLiteFallback: false, reason: "webgpu" }, async (kind) => kind === "lite" ? late : fallback, () => canvases[index++]!, "default", () => {}, 5)).toBe(fallback);
+  expect(usedCanvas).toBe(canvases[0]); expect(index).toBe(2); expect(lateSignal?.aborted).toBe(true);
+  release(); await pending; await Promise.resolve(); expect(disposed.filter((name) => name === "late").length).toBeGreaterThanOrEqual(2); expect(disposed).not.toContain("fallback");
+});

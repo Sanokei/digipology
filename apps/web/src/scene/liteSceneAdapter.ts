@@ -362,6 +362,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
   let detachCameraLimits: (() => void) | null = null;
   let paused = false;
   let rendering = false;
+  let mountGeneration = 0;
   let pickPending = false;
   let currentView: KernelStoreSnapshot | null = null;
   let lastDisplayedState: KernelStoreSnapshot["displayedState"] = null;
@@ -649,13 +650,19 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
   const adapter: SceneAdapter = {
     handlesDesktopDrag: false,
     async mount(nextCanvas: HTMLCanvasElement, options: SceneAdapterMountOptions): Promise<void> {
+      const generation = ++mountGeneration;
+      const current = () => generation === mountGeneration && !options.signal?.aborted;
+      if (!current()) throw new Error("Table renderer initialization was cancelled");
       canvas = nextCanvas;
-      engine = await createEngine(canvas, {
+      const createdEngine = await createEngine(canvas, {
         maxDevicePixelRatio: 2,
         msaaSamples: options.tier === "default" ? 4 : 1,
         srgb: true,
       });
-      scene = createSceneContext(engine);
+      if (!current()) { disposeEngine(createdEngine); throw new Error("Table renderer initialization was cancelled"); }
+      engine = createdEngine;
+      const createdScene = createSceneContext(engine);
+      scene = createdScene;
       scene.clearColor = { r: 0.018, g: 0.027, b: 0.024, a: 1 };
       cameraGraph = createArcRotateCamera(-1.46, 0.82, 13.2, { x: 0, y: 0, z: 0 });
       cameraGraph.panningSensibility = 175;
@@ -741,11 +748,21 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
           updateContactShadow(piece);
         }
       });
-      await registerScene(scene);
-      await startEngine(engine);
-      rendering = true;
+      try {
+        await registerScene(createdScene);
+        if (!current()) throw new Error("Table renderer initialization was cancelled");
+        await startEngine(createdEngine);
+        if (!current()) throw new Error("Table renderer initialization was cancelled");
+        rendering = true;
+      } finally {
+        // A non-cancellable shader/asset registration may have created resources
+        // after the first disposal. Retire those exact objects again, never a
+        // newer adapter's engine, canvas or scene.
+        if (!current()) { disposeScene(createdScene); disposeEngine(createdEngine); }
+      }
     },
     dispose(): void {
+      mountGeneration++;
       detachCameraLimits?.();
       detachCameraLimits = null;
       if (picker !== null) disposePicker(picker);

@@ -10,6 +10,8 @@ import {
   type RendererFallback,
   type RendererStatus,
 } from "./rendererPolicy";
+import { firstSceneFrames } from "./firstSceneFrames";
+import { loadSceneAdapter } from "./loadSceneAdapter";
 import { mountSceneAdapter } from "./mountSceneAdapter";
 import { DesktopControlMachine, type DesktopControlDecision } from "./desktopControls";
 import { createHoverPicker, handleTouchPointerInput, pickContextRequest } from "./sceneInteraction";
@@ -28,20 +30,9 @@ export interface TableContextRequest {
 export interface TableHoverRequest extends TableContextRequest {}
 export type TableRenderState = "loading" | "ready" | "failed";
 
-async function loadAdapter(
-  renderer: RendererAdapterKind,
-  dependencies: SceneAdapterDependencies,
-): Promise<SceneAdapter> {
-  if (renderer === "lite") {
-    const { createLiteSceneAdapter } = await import("./liteSceneAdapter");
-    return createLiteSceneAdapter(dependencies);
-  }
-  const { createWebglSceneAdapter } = await import("./webglSceneAdapter");
-  return createWebglSceneAdapter(dependencies);
-}
 
 export function useBabylonScene(
-  canvasRef: RefObject<HTMLCanvasElement>,
+  surfaceRef: RefObject<HTMLDivElement>,
   store: KernelStore,
   client: TableActionSender | null,
   interactionsPaused: boolean,
@@ -52,6 +43,8 @@ export function useBabylonScene(
   onHintGesture?: (gesture: TableHintGesture) => void,
   onProjectorChange?: (projector: ((clientX: number, clientY: number) => { x: number; y: number; z: number } | null) | null) => void,
   onRendererStatus?: (status: RendererStatus) => void,
+  canvasLabel = "Live synchronized 3D tabletop",
+  rendererAttempt = 0,
 ): TableRenderState {
   const [renderState, setRenderState] = useState<TableRenderState>("loading");
   const pausedRef = useRef(interactionsPaused);
@@ -77,14 +70,29 @@ export function useBabylonScene(
   }, [interactionsPaused]);
 
   useEffect(() => {
-    const currentCanvas = canvasRef.current;
-    if (currentCanvas === null) return;
-    const canvas: HTMLCanvasElement = currentCanvas;
+    const surface = surfaceRef.current;
+    if (surface === null) return;
+    let canvas!: HTMLCanvasElement;
+    const lifetime = new AbortController();
     let effectDisposed = false;
     let cleanupMounted: (() => void) | null = null;
-    let pendingAdapter: SceneAdapter | null = null;
-    let readyFrame: number | null = null;
     setRenderState("loading");
+    const publishState = (state: TableRenderState) => {
+      if (effectDisposed || lifetime.signal.aborted) return;
+      canvas.dataset.renderState = state;
+      canvas.setAttribute("aria-busy", String(state === "loading"));
+      setRenderState(state);
+    };
+    const nextCanvas = () => {
+      if (effectDisposed || lifetime.signal.aborted) throw new Error("This table view has left.");
+      canvas = surface.ownerDocument.createElement("canvas");
+      canvas.className = "table-scene__canvas";
+      canvas.setAttribute("role", "img"); canvas.setAttribute("aria-label", canvasLabel);
+      canvas.tabIndex = 0; canvas.oncontextmenu = (event) => event.preventDefault();
+      surface.replaceChildren(canvas);
+      publishState("loading");
+      return canvas;
+    };
 
     const mount = async (): Promise<void> => {
       const deviceNavigator = navigator as Navigator & {
@@ -103,6 +111,7 @@ export function useBabylonScene(
       );
       let fallback: RendererFallback | null = null;
       const publishRendererStatus = (mounted: RendererAdapterKind | null): void => {
+        if (effectDisposed || lifetime.signal.aborted) return;
         rendererStatusRef.current?.({
           requested: selection.renderer,
           mounted,
@@ -121,23 +130,30 @@ export function useBabylonScene(
       const adapter = await mountSceneAdapter(
         selection,
         async (renderer) => {
-          const loaded = await loadAdapter(renderer, dependencies);
-          pendingAdapter = loaded;
-          return loaded;
+          const adapter = await loadSceneAdapter(renderer, dependencies);
+          const initialize = adapter.mount.bind(adapter);
+          adapter.mount = async (nextCanvas, options) => {
+            await initialize(nextCanvas, options);
+            if (options.signal?.aborted) throw new Error("Table renderer initialization was cancelled");
+            adapter.syncEntities(store.getSnapshot());
+            adapter.setRenderLoop(document.visibilityState !== "hidden");
+            await firstSceneFrames(options.signal);
+          };
+          return adapter;
         },
-        canvas,
+        nextCanvas,
         tier,
         (nextFallback, error) => {
           fallback = nextFallback;
           publishRendererStatus(null);
           console.info("Babylon-Lite could not start; using the WebGL renderer instead.", error);
         },
+        8_000, lifetime.signal,
       );
       if (effectDisposed) {
         adapter.dispose();
         return;
       }
-      pendingAdapter = null;
       adapterRef.current = adapter;
       projectorChangeRef.current?.((clientX, clientY) => {
         const rect = canvas.getBoundingClientRect();
@@ -479,17 +495,9 @@ export function useBabylonScene(
       };
       document.addEventListener("visibilitychange", syncRenderLoop);
       syncRenderLoop();
-      // Start the render loop before announcing readiness. Two browser frames
-      // let the first scene draw reach the canvas rather than exposing a blank
-      // image as a completed table, especially after a reload or lazy import.
-      readyFrame = requestAnimationFrame(() => {
-        readyFrame = requestAnimationFrame(() => {
-          readyFrame = null;
-          if (effectDisposed) return;
-          publishRendererStatus(fallback === null ? selection.renderer : "webgl");
-          setRenderState("ready");
-        });
-      });
+      publishRendererStatus(fallback === null ? selection.renderer : "webgl");
+      publishState("ready");
+      if (rendererAttempt > 0) canvas.focus({ preventScroll: true });
       const resize = new ResizeObserver(() => adapter.resize());
       resize.observe(canvas);
 
@@ -521,20 +529,18 @@ export function useBabylonScene(
     };
 
     void mount().catch((error: unknown) => {
-      pendingAdapter?.dispose();
-      pendingAdapter = null;
+      if (effectDisposed || lifetime.signal.aborted) return;
       console.error("Unable to start a table renderer.", error);
-      if (!effectDisposed) setRenderState("failed");
+      publishState("failed");
     });
 
     return () => {
       effectDisposed = true;
-      if (readyFrame !== null) cancelAnimationFrame(readyFrame);
+      lifetime.abort();
       cleanupMounted?.();
       cleanupMounted = null;
-      pendingAdapter?.dispose();
-      pendingAdapter = null;
+      canvas?.remove();
     };
-  }, [canvasRef, client, playerId, store]);
+  }, [surfaceRef, client, playerId, store, canvasLabel, rendererAttempt]);
   return renderState;
 }

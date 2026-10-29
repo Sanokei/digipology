@@ -17,7 +17,7 @@
 .draft-play-rules > span:first-child { display:none; }
 .draft-play-bar__actions > a { display:grid; place-items:center; }
 .draft-play-bar .table-audio summary { min-height:40px; }
-.draft-play-scene > .table-scene__canvas { position:absolute; top:var(--draft-surface-top,180px); height:max(1px,calc(100% - var(--draft-surface-top,180px) - var(--draft-surface-bottom,80px))); }
+.draft-play-scene > .table-scene__surface { position:absolute; top:var(--draft-surface-top,180px); height:max(1px,calc(100% - var(--draft-surface-top,180px) - var(--draft-surface-bottom,80px))); }
 .draft-play-scene .game-progress--compact { position:static; display:flex; flex-wrap:wrap; align-items:center; gap:5px 10px; width:100%; padding:8px 12px; pointer-events:auto; border-radius:11px; }
 .draft-play-scene .game-progress--compact .game-progress__eyebrow { margin:0; font-size:.6rem; }
 .draft-play-scene .game-progress--compact .game-progress__status { flex:1 1 180px; min-width:0; max-height:4.5em; overflow:auto; font-size:.8rem; line-height:1.5; }

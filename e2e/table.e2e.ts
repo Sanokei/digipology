@@ -289,4 +289,73 @@ test("a failed table view offers recovery and reload preserves the existing priv
   expect(page.url()).toBe(roomUrl);
   await expect(page.getByRole("button", { name: cardName!, exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("table-view-recovered.png"), fullPage: true });
+  await page.getByRole("link", { name: "Leave table", exact: true }).click();
+  await page.goBack(); await renderedTable(page);
+  await expect(page.getByRole("button", { name: cardName!, exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("recovered-module-on-return.png"), fullPage: false });
+});
+
+test("cold renderer imports time out without losing a guest hand, retry in place, and stay retired after leaving", async ({ page, browser }, info) => {
+  test.setTimeout(120_000);
+  const invite = await host(page, "first-deal");
+  const context = await browser.newContext({ baseURL: "http://127.0.0.1:8797", viewport: { width: 390, height: 480 } });
+  const other = await context.newPage();
+  const adapterImport = /\/assets\/(?:lite|webgl)SceneAdapter-[^/]+\.js$/;
+  let release!: () => void;
+  let held = new Promise<void>((resolve) => { release = resolve; });
+  let imports = 0;
+  await other.route(adapterImport, async (route) => {
+    const response = await route.fetch(); imports++;
+    const wait = held; await wait;
+    await route.fulfill({ response });
+  });
+  const sockets: string[] = [];
+  other.on("websocket", (socket) => sockets.push(socket.url()));
+  try {
+    await other.goto(invite); await other.getByLabel("Display name", { exact: true }).fill("Delayed viewer");
+    await other.getByRole("button", { name: "Join table", exact: true }).click();
+    await other.bringToFront();
+    const scene = other.getByRole("img", { name: "Live synchronized 3D tabletop", exact: true });
+    await expect(scene).toHaveAttribute("data-render-state", "loading");
+    await expect(other.getByRole("button", { name: "Draw card", exact: true })).toBeEnabled();
+    await other.getByRole("button", { name: "Draw card", exact: true }).click();
+    const card = other.locator(".hand-card"); await expect(card).toHaveCount(1);
+    const name = (await card.getAttribute("aria-label"))!, room = other.url(), origin = await other.evaluate(() => performance.timeOrigin);
+    // The real production budget is8s per renderer, including the two actual
+    // delayed imports. This assertion allows both normal attempts to expire.
+    await expect(other.locator(".table-render-status[role=alert]")).toBeVisible({ timeout: 21_000 });
+    await expect.poll(() => imports).toBeGreaterThan(0);
+    const retry = other.getByRole("button", { name: "Reload table view", exact: true });
+    await expect(retry).toBeInViewport(); await retry.focus();
+    await expect.poll(() => retry.evaluate((button) => { const r = button.getBoundingClientRect(); return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) === button; })).toBe(true);
+    await other.screenshot({ path: info.outputPath("guest-cold-error-short.png"), fullPage: false });
+    await other.evaluate(() => { (window as any).__retiredTableCanvas = document.querySelector(".table-scene__canvas"); });
+    const connections = sockets.length;
+    await other.keyboard.press("Enter");
+    await expect.poll(() => other.evaluate(() => document.querySelector(".table-scene__canvas") !== (window as any).__retiredTableCanvas)).toBe(true);
+    release(); await renderedTable(other);
+    await expect(scene).toBeFocused();
+    expect(other.url()).toBe(room); expect(await other.evaluate(() => performance.timeOrigin)).toBe(origin);
+    expect(sockets.length).toBe(connections); await expect(other.getByRole("button", { name, exact: true })).toBeVisible();
+    expect(await other.evaluate(() => (window as any).__retiredTableCanvas.isConnected)).toBe(false);
+    await expect(other.locator(".table-scene__surface > canvas")).toHaveCount(1);
+    await expect(page.locator(".hand-card")).toHaveCount(0);
+    await other.screenshot({ path: info.outputPath("guest-cold-retry-recovered-short.png"), fullPage: false });
+    // A fresh document has a cold module instance. Leave through the real SPA
+    // link while its import is held, then deliver the genuine late module.
+    held = new Promise<void>((resolve) => { release = resolve; });
+    const priorImports = imports;
+    await other.reload(); await expect.poll(() => imports).toBeGreaterThan(priorImports);
+    await other.evaluate(() => { (window as any).__departedTableCanvas = document.querySelector(".table-scene__canvas"); });
+    await other.getByRole("link", { name: "Leave table", exact: true }).click(); await expect(other).toHaveURL("/");
+    const moduleReply = other.waitForResponse((response) => adapterImport.test(new URL(response.url()).pathname));
+    release(); await moduleReply;
+    await other.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    expect(await other.evaluate(() => (window as any).__departedTableCanvas.isConnected)).toBe(false);
+    await expect(other.locator(".table-scene__surface, .table-scene__canvas, .table-render-status")).toHaveCount(0);
+    await other.screenshot({ path: info.outputPath("guest-left-before-late-import-short.png"), fullPage: false });
+    await other.unroute(adapterImport); await other.goto(room); await renderedTable(other);
+    await expect(other.getByRole("button", { name, exact: true })).toBeVisible();
+    await other.screenshot({ path: info.outputPath("guest-room-hand-recovered-short.png"), fullPage: false });
+  } finally { release(); await context.close(); }
 });
