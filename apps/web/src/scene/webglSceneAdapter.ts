@@ -10,6 +10,7 @@ import { CreateCylinder } from "@babylonjs/core/Meshes/Builders/cylinderBuilder"
 import { CreatePlane } from "@babylonjs/core/Meshes/Builders/planeBuilder";
 import { CreateTorus } from "@babylonjs/core/Meshes/Builders/torusBuilder";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
+import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData";
 import { Scene } from "@babylonjs/core/scene";
 import type { EntityRecord, TransformComponent } from "digipology-kernel";
 
@@ -37,7 +38,9 @@ import {
   buildLighting,
   buildTableSurface,
 } from "./table";
-import { piecePresentation, piecePresentationSignature } from "./piecePresentation";
+import { piecePresentation, piecePresentationSignature, pieceSurfaceLayout } from "./piecePresentation";
+import { artworkSize, drawPieceArtwork, type PieceArtwork } from "./pieceArtwork";
+import { roundedBoxGeometry, roundedCardGeometry, type PieceGeometry } from "./pieceGeometry";
 
 type PieceDragBounds = Parameters<typeof attachDragBehavior>[0]["bounds"];
 
@@ -51,6 +54,8 @@ interface PieceGraph {
   cancelCorrection?: () => void;
   lastCorrectionId?: number;
   label?: DynamicTexture;
+  surfaces?: DynamicTexture[];
+  shadow?: { mesh: Mesh; texture: DynamicTexture };
   cancelMotion?: () => void;
 }
 
@@ -84,8 +89,84 @@ function material(
   result.specularColor = Color3.FromHexString(appearance.specular);
   result.emissiveColor = Color3.FromHexString(appearance.emissive);
   result.alpha = appearance.alpha;
-  result.roughness = 0.8;
+  result.roughness = appearance.kind === "die" ? 0.34 : 0.78;
+  result.specularPower = appearance.kind === "die" ? 78 : 28;
   return result;
+}
+
+function roundedMesh(name: string, geometry: PieceGeometry, scene: Scene): Mesh {
+  const mesh = new Mesh(name, scene);
+  const data = new VertexData();
+  data.positions = geometry.positions; data.normals = geometry.normals;
+  data.indices = geometry.indices; data.uvs = geometry.uvs;
+  data.applyToMesh(mesh);
+  return mesh;
+}
+
+function artworkTexture(
+  scene: Scene, name: string, artwork: PieceArtwork,
+  createTexture?: WebglSceneAdapterDependencies["createLabelTexture"],
+): DynamicTexture {
+  const [width, height] = artworkSize(artwork);
+  const texture = createTexture?.(name, scene)
+    ?? new DynamicTexture(name, { width, height }, scene, true);
+  texture.hasAlpha = true;
+  if (typeof texture.getContext === "function") {
+    const size = texture.getSize();
+    drawPieceArtwork(texture.getContext() as unknown as CanvasRenderingContext2D, size.width, size.height, artwork);
+    texture.update(true);
+  } else {
+    // The injected NullEngine texture seam intentionally has no browser canvas.
+    texture.drawText(artwork.kind === "custom-card" ? artwork.label : "", null, 150, "bold 54px Manrope", "#203b35", "#fff9eb", true, true);
+  }
+  return texture;
+}
+
+function addPieceSurfaces(
+  scene: Scene, parent: Mesh, entity: EntityRecord, appearance: ReturnType<typeof piecePresentation>,
+  definition: Parameters<typeof piecePresentation>[1], createTexture?: WebglSceneAdapterDependencies["createLabelTexture"],
+): DynamicTexture[] {
+  const textures: DynamicTexture[] = [];
+  for (const surface of pieceSurfaceLayout(entity, appearance, definition)) {
+    const name = `${parent.name}-surface-${surface.name}`;
+    const texture = artworkTexture(scene, name, surface.artwork, createTexture);
+    textures.push(texture);
+    const mat = new StandardMaterial(`${name}-material`, scene);
+    mat.diffuseTexture = texture; mat.useAlphaFromDiffuseTexture = true;
+    mat.diffuseColor = Color3.White(); mat.ambientColor = new Color3(0.15, 0.15, 0.15);
+    mat.emissiveColor = new Color3(0.035, 0.035, 0.035);
+    mat.specularColor = Color3.FromHexString(appearance.kind === "die" ? "#82765d" : "#393327");
+    mat.specularPower = appearance.kind === "die" ? 76 : 24;
+    mat.roughness = appearance.kind === "die" ? 0.34 : 0.85;
+    mat.backFaceCulling = true;
+    const plane = CreatePlane(name, { width: surface.width, height: surface.height }, scene);
+    plane.parent = parent; plane.position.set(...surface.position); plane.rotation.set(...surface.rotation);
+    plane.material = mat; plane.isPickable = false; plane.receiveShadows = true;
+  }
+  return textures;
+}
+
+function addContactShadow(
+  scene: Scene, parent: Mesh, appearance: ReturnType<typeof piecePresentation>,
+  createTexture?: WebglSceneAdapterDependencies["createLabelTexture"],
+): NonNullable<PieceGraph["shadow"]> {
+  const name = `${parent.name}-contact-shadow`;
+  const texture = artworkTexture(scene, name, { kind: "contact-shadow" }, createTexture);
+  const mat = new StandardMaterial(`${name}-material`, scene);
+  mat.diffuseColor = Color3.Black(); mat.emissiveColor = Color3.Black(); mat.disableLighting = true;
+  mat.diffuseTexture = texture; mat.useAlphaFromDiffuseTexture = true; mat.alpha = 0.48;
+  const mesh = CreatePlane(name, { width: appearance.width * 1.55, height: appearance.depth * 1.55 }, scene);
+  mesh.rotation.x = Math.PI / 2; mesh.isPickable = false; mesh.material = mat;
+  return { mesh, texture };
+}
+
+function updateContactShadow(piece: PieceGraph): void {
+  if (piece.shadow === undefined) return;
+  const shadow = piece.shadow.mesh; const source = piece.mesh;
+  shadow.position.set(source.position.x, TABLE_SURFACE_Y + 0.004, source.position.z);
+  shadow.scaling.set(Math.abs(source.scaling.x), Math.abs(source.scaling.z), 1);
+  const q = source.rotationQuaternion;
+  if (q !== null) shadow.rotation.y = Math.atan2(2 * (q.w * q.y + q.x * q.z), 1 - 2 * (q.x * q.x + q.y * q.y));
 }
 
 function labelPlane(
@@ -137,7 +218,7 @@ function transformTarget(transform: TransformComponent | undefined, restingY: nu
   return transform === undefined
     ? { position: new Vector3(0, restingY, 0), scaling: Vector3.One(), rotation: Quaternion.Identity() }
     : {
-        position: new Vector3(transform.position.x, transform.position.y, transform.position.z),
+        position: new Vector3(transform.position.x, Math.max(transform.position.y, restingY), transform.position.z),
         scaling: new Vector3(transform.scale.x, transform.scale.y, transform.scale.z),
         rotation: new Quaternion(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
       };
@@ -257,7 +338,10 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
     return result;
   }
 
-  const render = () => scene?.render();
+  const render = () => {
+    for (const piece of pieces.values()) updateContactShadow(piece);
+    scene?.render();
+  };
 
   function requireMounted() {
     if (canvas === null || engine === null || scene === null || cameraGraph === null) {
@@ -270,9 +354,12 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
     piece.drag?.dispose();
     piece.cancelCorrection?.();
     piece.label?.dispose();
+    piece.shadow?.mesh.dispose(false, true);
+    piece.shadow?.texture.dispose();
     piece.cancelMotion?.();
     presentationHighlight?.removeMesh(piece.mesh);
     piece.mesh.dispose(false, true);
+    for (const texture of piece.surfaces ?? []) texture.dispose();
   }
 
   function attachPieceDrag(piece: PieceGraph, entityId: string, bounds: PieceDragBounds): void {
@@ -323,12 +410,14 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       return null;
     }
     const definitionId = components.card?.definitionId ?? components.die?.definitionId;
-    const appearance = piecePresentation(
-      entity,
-      definitionId === undefined ? undefined : currentView?.definitions[definitionId],
-    );
+    const definition = definitionId === undefined ? undefined : currentView?.definitions[definitionId];
+    const appearance = piecePresentation(entity, definition);
     const restingY = TABLE_SURFACE_Y + appearance.height / 2;
-    const mesh = appearance.shape === "ring"
+    const mesh = appearance.kind === "die"
+      ? roundedMesh(`entity-${entity.id}`, roundedBoxGeometry(appearance.width, appearance.height, appearance.depth, 0.105), mounted.scene)
+      : appearance.kind === "card" || appearance.kind === "deck"
+      ? roundedMesh(`entity-${entity.id}`, roundedCardGeometry(appearance.width, appearance.height, appearance.depth), mounted.scene)
+      : appearance.shape === "ring"
       ? CreateTorus(`entity-${entity.id}`, {
           diameter: appearance.width,
           thickness: appearance.height,
@@ -355,7 +444,12 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       signature: piecePresentationSignature(entity),
       transformSignature: transformSignature(components.transform, restingY),
       restingY,
-      ...(appearance.label
+      ...(appearance.kind !== "token"
+        ? {
+            surfaces: addPieceSurfaces(mounted.scene, mesh, entity, appearance, definition, dependencies.createLabelTexture),
+            shadow: addContactShadow(mounted.scene, mesh, appearance, dependencies.createLabelTexture),
+          }
+        : appearance.label
         ? {
             label: labelPlane(
               mounted.scene,

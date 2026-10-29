@@ -103,6 +103,8 @@ const fakeState: {
   createdToruses: FakeMesh[];
   createdPlanes: FakeMesh[];
   markedMaterials: FakeMaterial[];
+  releasedTextures: object[];
+  createdTextures: object[];
   controlAttachListenerCounts: number[];
   controlDetachCount: number;
 } = {
@@ -115,6 +117,8 @@ const fakeState: {
   createdToruses: [],
   createdPlanes: [],
   markedMaterials: [],
+  releasedTextures: [],
+  createdTextures: [],
   controlAttachListenerCounts: [],
   controlDetachCount: 0,
 };
@@ -191,6 +195,8 @@ function resetFakeState(): void {
   fakeState.createdToruses = [];
   fakeState.createdPlanes = [];
   fakeState.markedMaterials = [];
+  fakeState.releasedTextures = [];
+  fakeState.createdTextures = [];
   fakeState.controlAttachListenerCounts = [];
   fakeState.controlDetachCount = 0;
 }
@@ -283,6 +289,11 @@ mock.module("@babylonjs/lite", () => ({
     fakeState.createdBoxes.push(result);
     return result;
   },
+  createMeshFromData: (): FakeMesh => {
+    const result = mesh("box");
+    fakeState.createdBoxes.push(result);
+    return result;
+  },
   createCylinder: (): FakeMesh => {
     const result = mesh("cylinder");
     fakeState.createdCylinders.push(result);
@@ -299,7 +310,10 @@ mock.module("@babylonjs/lite", () => ({
     return result;
   },
   createStandardMaterial: (): FakeMaterial => ({}),
-  createDynamicTexture: (): object => ({}),
+  createDynamicTexture: (): object => {
+    const texture = {}; fakeState.createdTextures.push(texture); return texture;
+  },
+  releaseTexture: (texture: object): boolean => { fakeState.releasedTextures.push(texture); return true; },
   updateDynamicTexture: (): void => undefined,
   createGpuPicker: (): FakePicker => {
     const picker = { disposed: false };
@@ -548,8 +562,8 @@ describe("real Lite SceneAdapter contract through a thin engine mock", () => {
     const dieLabel = labelFor("die-1");
     const counterLabel = labelFor("counter-1");
     const counterPiece = pieceMesh("counter-1");
-    expect(cardLabel.position.y).toBeCloseTo(0.051);
-    expect(dieLabel.position.y).toBeCloseTo(0.366);
+    expect(cardLabel.position.y).toBeCloseTo(0.047, 3);
+    expect(dieLabel.position.y).toBeCloseTo(0.402, 3);
     expect(cardLabel.rotation.x).toBe(Math.PI / 2);
     expect(dieLabel.rotation.x).toBe(Math.PI / 2);
     expect(counterLabel.position.y).toBe(0.48);
@@ -601,9 +615,13 @@ describe("real Lite SceneAdapter contract through a thin engine mock", () => {
     const initialCard = pieceMesh("card-1");
     const initialDie = pieceMesh("die-1");
     const initialCounter = pieceMesh("counter-1");
-    for (const piece of [initialCard, initialDie, initialCounter]) {
-      const label = fakeState.createdPlanes.find((candidate) => candidate.parent === piece);
-      expect(label?.name).toBe(`${piece.name}-label-plane`);
+    for (const [piece, expectedName, count] of [
+      [initialCard, "surface-face", 2], [initialDie, "surface-pip-0", 6], [initialCounter, "label-plane", 1],
+    ] as const) {
+      const surfaces = fakeState.createdPlanes.filter((candidate) => candidate.parent === piece);
+      expect(surfaces[0]?.name).toBe(`${piece.name}-${expectedName}`);
+      expect(surfaces).toHaveLength(count);
+      expect(surfaces.every((surface) => !surface.pickable)).toBe(true);
     }
 
     adapter.syncEntities(snapshot({ "card-1": card(3), "die-1": die(), "counter-1": counter() }));
@@ -614,6 +632,7 @@ describe("real Lite SceneAdapter contract through a thin engine mock", () => {
     const flippedCard = pieceMesh("card-1");
     expect(flippedCard).not.toBe(initialCard);
     expect(fakeState.scene?.removed).toContain(initialCard);
+    expect(fakeState.releasedTextures).toHaveLength(3); // face, reverse, contact shadow
 
     fakeState.pickMesh = flippedCard;
     expect(await adapter.pick(12, 18)).toBe("card-1");
@@ -761,6 +780,8 @@ describe("real Lite SceneAdapter contract through a thin engine mock", () => {
     expect(engine?.disposed).toBeTrue();
     expect(scene?.disposed).toBeTrue();
     expect(picker?.disposed).toBeTrue();
+    expect(new Set(fakeState.releasedTextures)).toEqual(new Set(fakeState.createdTextures));
+    expect(fakeState.releasedTextures).toHaveLength(fakeState.createdTextures.length);
     expect(adapter.isGrabbable("card-1")).toBeFalse();
     expect(canvas.listenerCount("touchstart")).toBe(0);
     expect(canvas.listenerCount("touchmove")).toBe(0);

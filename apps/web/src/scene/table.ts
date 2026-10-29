@@ -5,6 +5,7 @@ import { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator"
 // Registers shadow render targets with Scene; ShadowGenerator construction otherwise throws.
 import "@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
+import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
 import { Color3 } from "@babylonjs/core/Maths/math.color";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { CreateBox } from "@babylonjs/core/Meshes/Builders/boxBuilder";
@@ -12,6 +13,7 @@ import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import type { Scene } from "@babylonjs/core/scene";
 
 import { TABLE_DEPTH, TABLE_SURFACE_Y, TABLE_WIDTH } from "./tableDimensions";
+import { createArtworkCanvas } from "./pieceArtwork";
 
 export { GRABBABLE_SIZE, TABLE_DEPTH, TABLE_SURFACE_Y, TABLE_WIDTH } from "./tableDimensions";
 
@@ -20,6 +22,18 @@ export interface LightingGraph {
 }
 
 export function buildTableSurface(scene: Scene): Mesh {
+  const textures = new Map<"felt" | "wood", DynamicTexture>();
+  const textureFor = (kind: "felt" | "wood") => {
+    const existing = textures.get(kind);
+    if (existing !== undefined) return existing;
+    // NullEngine and server-side contract tests do not provide a 2D canvas.
+    if (typeof document === "undefined") return undefined;
+    const canvas = createArtworkCanvas({ kind });
+    if (canvas.getContext("2d") === null) return undefined;
+    const texture = new DynamicTexture(`table-${kind}-texture`, canvas, scene, true);
+    texture.update(true); textures.set(kind, texture);
+    return texture;
+  };
   const makeMaterial = (name: string, diffuse: string, specular = "#120d0a") => {
     const result = new StandardMaterial(name, scene);
     result.diffuseColor = Color3.FromHexString(diffuse);
@@ -34,10 +48,19 @@ export function buildTableSurface(scene: Scene): Mesh {
     height: number,
     y: number,
     color: string,
+    artwork?: "felt" | "wood",
   ) => {
     const mesh = CreateBox(name, { width, depth, height }, scene);
     mesh.position.y = y;
     mesh.material = makeMaterial(`${name}-material`, color);
+    if (artwork !== undefined) {
+      const texture = textureFor(artwork);
+      if (texture !== undefined) {
+        const mat = mesh.material as StandardMaterial;
+        mat.diffuseTexture = texture; mat.diffuseColor = Color3.White();
+        mat.ambientColor = new Color3(0.12, 0.12, 0.12);
+      }
+    }
     mesh.receiveShadows = true;
     mesh.isPickable = false;
     return mesh;
@@ -59,14 +82,20 @@ export function buildTableSurface(scene: Scene): Mesh {
     scene,
   );
   table.position.y = TABLE_SURFACE_Y - 0.06;
-  table.material = makeMaterial("table-felt-material", "#123529", "#06110d");
+  const felt = makeMaterial("table-felt-material", "#235b4c", "#06110d");
+  const feltTexture = textureFor("felt");
+  if (feltTexture !== undefined) {
+    felt.diffuseTexture = feltTexture; felt.diffuseColor = Color3.White();
+    felt.ambientColor = new Color3(0.12, 0.12, 0.12);
+  }
+  table.material = felt;
   table.receiveShadows = true;
   table.isPickable = false;
 
-  const north = addBox("table-rail-north", TABLE_WIDTH + 0.7, 0.3, 0.28, TABLE_SURFACE_Y + 0.02, "#33231b");
-  const south = addBox("table-rail-south", TABLE_WIDTH + 0.7, 0.3, 0.28, TABLE_SURFACE_Y + 0.02, "#33231b");
-  const west = addBox("table-rail-west", 0.3, TABLE_DEPTH + 0.1, 0.28, TABLE_SURFACE_Y + 0.02, "#2b1d17");
-  const east = addBox("table-rail-east", 0.3, TABLE_DEPTH + 0.1, 0.28, TABLE_SURFACE_Y + 0.02, "#2b1d17");
+  const north = addBox("table-rail-north", TABLE_WIDTH + 0.7, 0.3, 0.28, TABLE_SURFACE_Y + 0.02, "#513526", "wood");
+  const south = addBox("table-rail-south", TABLE_WIDTH + 0.7, 0.3, 0.28, TABLE_SURFACE_Y + 0.02, "#513526", "wood");
+  const west = addBox("table-rail-west", 0.3, TABLE_DEPTH + 0.1, 0.28, TABLE_SURFACE_Y + 0.02, "#513526", "wood");
+  const east = addBox("table-rail-east", 0.3, TABLE_DEPTH + 0.1, 0.28, TABLE_SURFACE_Y + 0.02, "#513526", "wood");
   north.position.z = -TABLE_DEPTH / 2 - 0.14;
   south.position.z = TABLE_DEPTH / 2 + 0.14;
   west.position.x = -TABLE_WIDTH / 2 - 0.14;
@@ -77,9 +106,9 @@ export function buildTableSurface(scene: Scene): Mesh {
 
 export function buildLighting(scene: Scene, shadowsEnabled = true): LightingGraph {
   const ambient = new HemisphericLight("ambient-light", new Vector3(0, 1, 0), scene);
-  ambient.diffuse = Color3.FromHexString("#c7ddd1");
-  ambient.groundColor = Color3.FromHexString("#090d0b");
-  ambient.intensity = 0.44;
+  ambient.diffuse = Color3.FromHexString("#f0edd9");
+  ambient.groundColor = Color3.FromHexString("#34473a");
+  ambient.intensity = 0.72;
 
   const key = new DirectionalLight(
     "key-light",
@@ -88,7 +117,7 @@ export function buildLighting(scene: Scene, shadowsEnabled = true): LightingGrap
   );
   key.position.set(5, 9, -5);
   key.diffuse = Color3.FromHexString("#fff1d7");
-  key.intensity = 0.95;
+  key.intensity = 0.82;
 
   const shadows = shadowsEnabled ? new ShadowGenerator(1024, key) : null;
   if (shadows !== null) {

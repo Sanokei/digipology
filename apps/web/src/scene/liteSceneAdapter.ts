@@ -8,6 +8,7 @@ import {
   createEngine,
   createGpuPicker,
   createHemisphericLight,
+  createMeshFromData,
   createPlane,
   createSceneContext,
   createStandardMaterial,
@@ -19,6 +20,7 @@ import {
   onBeforeRender,
   pickAsync,
   registerScene,
+  releaseTexture,
   removeFromScene,
   resizeEngine,
   setCameraLimits,
@@ -48,7 +50,9 @@ import type {
   SceneAdapterMountOptions,
 } from "./sceneAdapter";
 import { TABLE_DEPTH, TABLE_SURFACE_Y, TABLE_WIDTH } from "./tableDimensions";
-import { piecePresentation, piecePresentationSignature } from "./piecePresentation";
+import { piecePresentation, piecePresentationSignature, pieceSurfaceLayout } from "./piecePresentation";
+import { artworkSize, createArtworkCanvas, type PieceArtwork } from "./pieceArtwork";
+import { roundedBoxGeometry, roundedCardGeometry } from "./pieceGeometry";
 
 interface DragBounds {
   minX: number;
@@ -79,6 +83,9 @@ interface PieceGraph {
   labelMesh?: Mesh;
   labelTexture?: DynamicTexture2D;
   labelBillboard?: boolean;
+  surfaceMeshes?: Mesh[];
+  surfaceTextures?: DynamicTexture2D[];
+  shadowMesh?: Mesh;
   lastCorrectionId?: number;
   correction?: CorrectionAnimation;
   spawn?: {
@@ -132,7 +139,7 @@ function transformTarget(
   return transform === undefined
     ? { position: [0, restingY, 0], scaling: [1, 1, 1], rotation: [0, 0, 0, 1] }
     : {
-        position: [transform.position.x, transform.position.y, transform.position.z],
+        position: [transform.position.x, Math.max(transform.position.y, restingY), transform.position.z],
         scaling: [transform.scale.x, transform.scale.y, transform.scale.z],
         rotation: [transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w],
       };
@@ -367,6 +374,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
   };
   let localHeld: string | null = null;
   const pieces = new Map<string, PieceGraph>();
+  const staticTextures: DynamicTexture2D[] = [];
 
   function requireMounted() {
     if (canvas === null || engine === null || scene === null || cameraGraph === null) {
@@ -391,7 +399,17 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
 
   function destroyPiece(piece: PieceGraph): void {
     if (scene === null) return;
-    if (piece.labelMesh !== undefined) removeFromScene(scene, piece.labelMesh);
+    const meshes = [...piece.surfaceMeshes ?? []];
+    if (piece.labelMesh !== undefined) meshes.push(piece.labelMesh);
+    if (piece.shadowMesh !== undefined) meshes.push(piece.shadowMesh);
+    for (const mesh of meshes) {
+      removeFromScene(scene, mesh);
+    }
+    const textures = [...piece.surfaceTextures ?? []];
+    if (piece.labelTexture !== undefined) textures.push(piece.labelTexture);
+    // The creator owns one texture reference. Material/render-task references
+    // retire through removeFromScene after submitted GPU work has completed.
+    for (const texture of textures) releaseTexture(texture);
     removeFromScene(scene, piece.mesh);
   }
 
@@ -401,8 +419,51 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
     result.specularColor = hexColor(appearance.specular, "#271d10");
     result.emissiveColor = hexColor(appearance.emissive, "#000000");
     result.alpha = appearance.alpha;
-    result.specularPower = 28;
+    result.specularPower = appearance.kind === "die" ? 78 : 28;
     return result;
+  }
+
+  function makeArtworkTexture(artwork: PieceArtwork): DynamicTexture2D {
+    const mounted = requireMounted();
+    const [width, height] = artworkSize(artwork);
+    const texture = createDynamicTexture(mounted.engine, width, height, { srgb: true, mipMaps: true });
+    updateDynamicTexture(mounted.engine, texture, createArtworkCanvas(artwork));
+    return texture;
+  }
+
+  function addPieceSurfaces(parent: Mesh, entity: EntityRecord, appearance: ReturnType<typeof piecePresentation>, definition: Parameters<typeof piecePresentation>[1]): {
+    surfaceMeshes: Mesh[]; surfaceTextures: DynamicTexture2D[]; shadowMesh: Mesh;
+  } {
+    const mounted = requireMounted(); const surfaceMeshes: Mesh[] = []; const surfaceTextures: DynamicTexture2D[] = [];
+    for (const surface of pieceSurfaceLayout(entity, appearance, definition)) {
+      const texture = makeArtworkTexture(surface.artwork); surfaceTextures.push(texture);
+      const mat = createStandardMaterial(); mat.diffuseTexture = texture; mat.diffuseColor = [1, 1, 1];
+      mat.ambientColor = [0.15, 0.15, 0.15]; mat.emissiveColor = [0.035, 0.035, 0.035];
+      mat.specularColor = hexColor(appearance.kind === "die" ? "#82765d" : "#393327", "#393327");
+      mat.specularPower = appearance.kind === "die" ? 76 : 24; mat.alphaCutOff = 0.04; mat.backFaceCulling = true;
+      const plane = createPlane(mounted.engine, { width: surface.width, height: surface.height });
+      plane.name = `${parent.name}-surface-${surface.name}`; plane.pickable = false; plane.receiveShadows = true;
+      plane.material = mat; setParent(plane, parent); plane.position.set(...surface.position);
+      [plane.rotation.x, plane.rotation.y, plane.rotation.z] = surface.rotation;
+      addToScene(mounted.scene, plane); surfaceMeshes.push(plane);
+    }
+    const shadowTexture = makeArtworkTexture({ kind: "contact-shadow" }); surfaceTextures.push(shadowTexture);
+    const shadowMaterial = createStandardMaterial(); shadowMaterial.diffuseColor = [0, 0, 0];
+    shadowMaterial.diffuseTexture = shadowTexture; shadowMaterial.opacityTexture = shadowTexture;
+    shadowMaterial.alpha = 0.48; shadowMaterial.disableLighting = true;
+    const shadowMesh = createPlane(mounted.engine, { width: appearance.width * 1.55, height: appearance.depth * 1.55 });
+    shadowMesh.name = `${parent.name}-contact-shadow`; shadowMesh.rotation.x = Math.PI / 2;
+    shadowMesh.material = shadowMaterial; shadowMesh.pickable = false; addToScene(mounted.scene, shadowMesh);
+    return { surfaceMeshes, surfaceTextures, shadowMesh };
+  }
+
+  function updateContactShadow(piece: PieceGraph): void {
+    if (piece.shadowMesh === undefined) return;
+    const shadow = piece.shadowMesh; const source = piece.mesh;
+    shadow.position.set(source.position.x, TABLE_SURFACE_Y + 0.004, source.position.z);
+    shadow.scaling.set(Math.abs(source.scaling.x), Math.abs(source.scaling.z), 1);
+    const q = source.rotationQuaternion;
+    shadow.rotation.y = Math.atan2(2 * (q.w * q.y + q.x * q.z), 1 - 2 * (q.x * q.x + q.y * q.y));
   }
 
   function addLabel(parent: Mesh, appearance: ReturnType<typeof piecePresentation>): {
@@ -445,12 +506,16 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       return null;
     }
     const definitionId = components.card?.definitionId ?? components.die?.definitionId;
-    const appearance = piecePresentation(
-      entity,
-      definitionId === undefined ? undefined : currentView?.definitions[definitionId],
-    );
+    const definition = definitionId === undefined ? undefined : currentView?.definitions[definitionId];
+    const appearance = piecePresentation(entity, definition);
     const restingY = TABLE_SURFACE_Y + appearance.height / 2;
-    const mesh = appearance.shape === "ring"
+    const geometry = appearance.kind === "die"
+      ? roundedBoxGeometry(appearance.width, appearance.height, appearance.depth, 0.105)
+      : appearance.kind === "card" || appearance.kind === "deck"
+      ? roundedCardGeometry(appearance.width, appearance.height, appearance.depth) : null;
+    const mesh = geometry !== null
+      ? createMeshFromData(mounted.engine, `entity-${entity.id}`, geometry.positions, geometry.normals, geometry.indices, geometry.uvs)
+      : appearance.shape === "ring"
       ? createTorus(mounted.engine, {
           diameter: appearance.width,
           thickness: appearance.height,
@@ -499,7 +564,9 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
         restingY,
       };
     }
-    if (appearance.label !== "") {
+    if (appearance.kind !== "token") {
+      Object.assign(graph, addPieceSurfaces(mesh, entity, appearance, definition));
+    } else if (appearance.label !== "") {
       Object.assign(graph, addLabel(mesh, appearance));
       graph.labelBillboard = appearance.billboardLabel;
       orientBillboardLabel(graph, cameraGraph);
@@ -571,11 +638,20 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
 
       const mountedEngine = engine;
       const mountedScene = scene;
-      const addStaticBox = (name: string, width: number, depth: number, height: number, y: number, color: string) => {
+      const surfaceTextures = new Map<string, DynamicTexture2D>();
+      const addStaticBox = (name: string, width: number, depth: number, height: number, y: number, color: string, artwork?: PieceArtwork) => {
         const staticMaterial = createStandardMaterial();
         staticMaterial.diffuseColor = hexColor(color, color);
         staticMaterial.specularColor = hexColor("#120d0a", "#120d0a");
         staticMaterial.specularPower = 20;
+        if (artwork !== undefined) {
+          let texture = surfaceTextures.get(artwork.kind);
+          if (texture === undefined) {
+            texture = makeArtworkTexture(artwork); staticTextures.push(texture); surfaceTextures.set(artwork.kind, texture);
+          }
+          staticMaterial.diffuseTexture = texture; staticMaterial.diffuseColor = [1, 1, 1];
+          staticMaterial.ambientColor = [0.12, 0.12, 0.12];
+        }
         const mesh = createBox(mountedEngine, { width, depth, height });
         mesh.name = name;
         mesh.position.y = y;
@@ -586,21 +662,21 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       };
       addStaticBox("floor", 40, 40, 0.08, -0.82, "#090d0c");
       addStaticBox("table-base", TABLE_WIDTH + 0.62, TABLE_DEPTH + 0.62, 0.34, TABLE_SURFACE_Y - 0.29, "#17110f");
-      addStaticBox("table-surface", TABLE_WIDTH, TABLE_DEPTH, 0.12, TABLE_SURFACE_Y - 0.06, "#123529");
-      const railNorth = addStaticBox("table-rail-north", TABLE_WIDTH + 0.7, 0.3, 0.28, TABLE_SURFACE_Y + 0.02, "#33231b");
-      const railSouth = addStaticBox("table-rail-south", TABLE_WIDTH + 0.7, 0.3, 0.28, TABLE_SURFACE_Y + 0.02, "#33231b");
-      const railWest = addStaticBox("table-rail-west", 0.3, TABLE_DEPTH + 0.1, 0.28, TABLE_SURFACE_Y + 0.02, "#2b1d17");
-      const railEast = addStaticBox("table-rail-east", 0.3, TABLE_DEPTH + 0.1, 0.28, TABLE_SURFACE_Y + 0.02, "#2b1d17");
+      addStaticBox("table-surface", TABLE_WIDTH, TABLE_DEPTH, 0.12, TABLE_SURFACE_Y - 0.06, "#235b4c", { kind: "felt" });
+      const railNorth = addStaticBox("table-rail-north", TABLE_WIDTH + 0.7, 0.3, 0.28, TABLE_SURFACE_Y + 0.02, "#513526", { kind: "wood" });
+      const railSouth = addStaticBox("table-rail-south", TABLE_WIDTH + 0.7, 0.3, 0.28, TABLE_SURFACE_Y + 0.02, "#513526", { kind: "wood" });
+      const railWest = addStaticBox("table-rail-west", 0.3, TABLE_DEPTH + 0.1, 0.28, TABLE_SURFACE_Y + 0.02, "#513526", { kind: "wood" });
+      const railEast = addStaticBox("table-rail-east", 0.3, TABLE_DEPTH + 0.1, 0.28, TABLE_SURFACE_Y + 0.02, "#513526", { kind: "wood" });
       railNorth.position.z = -TABLE_DEPTH / 2 - 0.14;
       railSouth.position.z = TABLE_DEPTH / 2 + 0.14;
       railWest.position.x = -TABLE_WIDTH / 2 - 0.14;
       railEast.position.x = TABLE_WIDTH / 2 + 0.14;
 
-      const ambient = createHemisphericLight([0, 1, 0], 0.44);
-      ambient.diffuseColor = hexColor("#c7ddd1", "#c7ddd1");
-      ambient.groundColor = hexColor("#090d0b", "#090d0b");
+      const ambient = createHemisphericLight([0, 1, 0], 0.72);
+      ambient.diffuseColor = hexColor("#f0edd9", "#f0edd9");
+      ambient.groundColor = hexColor("#34473a", "#34473a");
       addToScene(scene, ambient);
-      const key = createDirectionalLight([-0.55, -1, 0.4], 0.95);
+      const key = createDirectionalLight([-0.55, -1, 0.4], 0.82);
       key.position.set(5, 9, -5);
       key.diffuse = hexColor("#fff1d7", "#fff1d7");
       addToScene(scene, key);
@@ -620,6 +696,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
           updateSpawnAndLanding(piece, deltaMs);
           updateCorrection(piece, deltaMs);
           orientBillboardLabel(piece, cameraGraph);
+          updateContactShadow(piece);
         }
       });
       await registerScene(scene);
@@ -635,6 +712,8 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       rendering = false;
       for (const piece of pieces.values()) destroyPiece(piece);
       pieces.clear();
+      for (const texture of staticTextures) releaseTexture(texture);
+      staticTextures.length = 0;
       if (scene !== null) disposeScene(scene);
       if (engine !== null) disposeEngine(engine);
       activeDrag = null;
