@@ -12,6 +12,7 @@ import {
   AI_GAME_TOOL,
   assembleAiGameDraft,
   authoringFromBundle,
+  buildAiRequest,
   resolveModelFetch,
 } from "./ai-games";
 import { COVER_GENERATION_TOOL } from "./cover-generation";
@@ -30,6 +31,20 @@ afterEach(() => {
 describe("AI game authoring schema and assembly", () => {
   test("an explicitly blank model endpoint remains unconfigured", () => {
     expect(resolveModelFetch({ AI_BASE_URL: "" } as Env, undefined)).toBeNull();
+  });
+  test("a key never invents an endpoint or model and invalid settings do not enable generation", () => {
+    expect(resolveModelFetch({ AI_API_KEY: "test-only", AI_MODEL: "model" } as unknown as Env, undefined)).toBeNull();
+    expect(resolveModelFetch({ AI_API_KEY: "test-only", AI_BASE_URL: "https://model.example/v1" } as unknown as Env, undefined)).toBeNull();
+    expect(resolveModelFetch({ AI_MODEL: "model", AI_BASE_URL: "http://127.0.0.1:8081/v1" } as unknown as Env, undefined)).not.toBeNull();
+    expect(resolveModelFetch({ AI_MODEL: "model", AI_PROVIDER_PROFILE: "openai", AI_BASE_URL: "https://api.openai.com/v1" } as unknown as Env, undefined)).toBeNull();
+    expect(resolveModelFetch({ AI_PROVIDER_PROFILE: "unknown" } as unknown as Env, { modelFetch: async () => ({}) })).toBeNull();
+  });
+  test("Qwen prompting and smaller local budgets require an explicit profile", () => {
+    const request = buildAiRequest({ AI_MODEL: "chosen-local-model", AI_PROVIDER_PROFILE: "qwen-local", AI_MAX_OUTPUT_TOKENS: "3000" } as unknown as Env, "create", "Build a dice game", null);
+    expect(request.model).toBe("chosen-local-model");
+    expect(request.max_tokens).toBe(3_000);
+    expect(request.messages.at(-1)?.content).toEndWith(" /no_think");
+    expect(request.extraBody).toEqual({ enable_thinking: false });
   });
   test("a real demo game's authorable fields satisfy the forced tool JSON schema", () => {
     const bundle = builtinCatalog.getRelease("builtin_dice_dash_2")!.bundle;
@@ -151,7 +166,7 @@ describe("AI game route matrices", () => {
     expect(await response.json()).toMatchObject({ error: { code: "forbidden" } });
   });
 
-  test("sends a tool-free raw-JSON request with /no_think and a 3000-token budget", async () => {
+  test("sends a provider-neutral raw-JSON request with a complete-game output budget", async () => {
     const fixture = await routeFixture();
     let captured: ModelRequest | null = null;
     const response = await requestRoute("create", fixture.env, fixture.cookie, async (payload) => {
@@ -161,14 +176,12 @@ describe("AI game route matrices", () => {
     expect(response.status).toBe(200);
     const request = captured! as ModelRequest;
     expect(request.model).toBe("qwen3-0.6b");
-    // Raw-JSON path: no tools on the wire. llama-server rejects object-form
-    // tool_choice and Qwen3-0.6B never emits tool_calls, so sending the schema
-    // would only waste prompt tokens.
+    // Raw JSON stays usable on compatible endpoints without forced tools.
     expect(request.tools).toBeUndefined();
     expect(request.tool_choice).toBeUndefined();
-    expect(request.max_tokens).toBe(3000);
+    expect(request.max_tokens).toBe(24_000);
     expect(request.temperature).toBe(0.35);
-    expect(request.extraBody).toEqual({ enable_thinking: false });
+    expect(request.extraBody).toBeUndefined();
     const system = request.messages[0]?.content ?? "";
     expect(system).toContain("OUTPUT FORMAT");
     expect(system).toContain("No markdown fences");
@@ -177,12 +190,47 @@ describe("AI game route matrices", () => {
     expect(system).toContain("snap-point (requires transform)");
     expect(system).toContain("math.random and math.randomseed are removed");
     const user = request.messages.at(-1)?.content ?? "";
-    expect(user.endsWith(" /no_think")).toBe(true);
+    expect(user).not.toContain("/no_think");
     expect(JSON.stringify(request)).not.toContain("response_format");
   });
 });
 
 describe("AI game budgets", () => {
+  test("OpenAI creation and real rules repair use their own token and timeout budgets", async () => {
+    const fixture = await routeFixture();
+    const env = { ...fixture.env, AI_MODEL: "account-model", AI_PROVIDER_PROFILE: "openai" } as unknown as Env;
+    const valid = playableAuthoring();
+    const ruleFile = (valid.files as Array<{ path: string; content: string }>).find((file) => file.path === "runtime/rules.md")!;
+    const initial = structuredClone(valid);
+    initial.files = (initial.files as Array<{ path: string; content: string }>).filter((file) => file.path !== "runtime/rules.md");
+    const requests: Array<{ payload: ModelRequest; timeout: number }> = [];
+    const response = await requestRoute("create", env, fixture.cookie, async (payload, timeout) => {
+      requests.push({ payload, timeout });
+      return requests.length === 1 ? modelResponse(initial) : modelResponse({ files: [ruleFile] });
+    });
+    expect(response.status).toBe(200);
+    expect(requests).toHaveLength(2);
+    expect(requests.map((entry) => entry.timeout)).toEqual([180_000, 120_000]);
+    expect(requests.map((entry) => entry.payload.max_completion_tokens)).toEqual([24_000, 8_000]);
+    for (const { payload } of requests) {
+      expect(payload.model).toBe("account-model");
+      expect(payload.response_format).toEqual({ type: "json_object" });
+      expect(payload.temperature).toBeUndefined();
+      expect(payload.max_tokens).toBeUndefined();
+      expect(payload.extraBody).toBeUndefined();
+      expect(payload.messages.at(-1)?.content).not.toContain("/no_think");
+    }
+  });
+
+  test("invalid configured budgets return a recoverable configuration error before usage or provider calls", async () => {
+    const fixture = await routeFixture();
+    let calls = 0;
+    const env = { ...fixture.env, AI_MAX_OUTPUT_TOKENS: "999999" } as unknown as Env;
+    const response = await requestRoute("create", env, fixture.cookie, async () => { calls += 1; return validModelResponse(); });
+    expect(response.status).toBe(503);
+    expect(calls).toBe(0);
+    expect(await response.json()).toMatchObject({ error: { code: "ai_unconfigured" } });
+  });
   test("repairs a missing player rulebook as an ordinary release file before accepting a draft", async () => {
     const fixture = await routeFixture();
     const valid = playableAuthoring();

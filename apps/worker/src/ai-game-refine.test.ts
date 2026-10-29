@@ -156,20 +156,20 @@ describe("applyGamePatch", () => {
 });
 
 describe("buildGameRefinementRequest", () => {
-  test("keeps the request small and suppresses thinking at the user-message end", () => {
+  test("uses a bounded repair budget without Qwen-specific defaults", () => {
     const draft = buildDraft(BROKEN_LUA);
     const request = buildGameRefinementRequest(
       draft,
       [{ code: "lua_banned_global", message: "uses math.random", severity: "error" }],
       "make a dice game",
     );
-    expect(request.max_tokens).toBe(1500);
+    expect(request.max_tokens).toBe(8_000);
     const user = request.messages[request.messages.length - 1]!;
     expect(user.role).toBe("user");
-    expect(user.content.endsWith("/no_think")).toBe(true);
+    expect(user.content).not.toContain("/no_think");
     expect(user.content).toContain("lua_banned_global");
     expect(user.content).toContain("scripts/game.lua");
-    expect(request.extraBody).toEqual({ enable_thinking: false });
+    expect(request.extraBody).toBeUndefined();
   });
 });
 

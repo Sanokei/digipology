@@ -3,6 +3,7 @@ import {
   DEFAULT_MODEL_ID,
   extractToolPayload,
   type ModelFetch,
+  type ModelProfile,
   type QualityIssue,
 } from "digipology-ai";
 import { createSandbox } from "digipology-lua";
@@ -45,6 +46,8 @@ export interface DraftQualityOptions {
   fetch?: ModelFetch | null;
   userPrompt?: string;
   instructionTimeoutMs?: number;
+  model?: string;
+  profile?: ModelProfile;
 }
 
 export async function checkDraftQuality(
@@ -71,6 +74,8 @@ export async function checkDraftQuality(
       fetch: options.fetch,
       userPrompt: options.userPrompt,
       draft,
+      ...(options.model === undefined ? {} : { model: options.model }),
+      ...(options.profile === undefined ? {} : { profile: options.profile }),
       ...(options.instructionTimeoutMs === undefined
         ? {}
         : { timeoutMs: options.instructionTimeoutMs }),
@@ -582,6 +587,8 @@ async function checkLuaSyntax(
 
 export interface InstructionCritiqueInput {
   fetch: ModelFetch;
+  model?: string;
+  profile?: ModelProfile;
   userPrompt: string;
   draft: ReleaseBundleDto;
   maxTokens?: number;
@@ -620,7 +627,8 @@ export async function critiqueInstructionFollowing(
   input: InstructionCritiqueInput,
 ): Promise<QualityIssue[]> {
   const request = buildRequest({
-    model: DEFAULT_MODEL_ID,
+    model: input.model ?? DEFAULT_MODEL_ID,
+    profile: input.profile ?? "openai-compatible",
     messages: [
       {
         role: "system",
@@ -635,16 +643,15 @@ export async function critiqueInstructionFollowing(
         role: "user",
         content:
           `USER REQUEST:\n${input.userPrompt}\n\nDRAFT SUMMARY:\n${draftSummary(input.draft)}\n\n` +
-          "List the mismatches as a JSON array. /no_think",
+          "List the mismatches as a JSON array.",
       },
     ],
     maxTokens: input.maxTokens ?? 400,
     temperature: 0.1,
-    extraBody: { enable_thinking: false },
   });
   let response: unknown;
   try {
-    response = await input.fetch(request, input.timeoutMs ?? 300_000);
+    response = await input.fetch(request, input.timeoutMs ?? 60_000);
   } catch {
     return [];
   }

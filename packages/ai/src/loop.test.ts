@@ -194,14 +194,14 @@ describe("runStructuredTask", () => {
     });
   });
 
-  test("the default timeout fits local 0.6B-class generation (30 minutes)", async () => {
+  test("the default timeout bounds synchronous generation to three minutes", async () => {
     const timeouts: number[] = [];
     const fetch: ModelFetch = async (_request, timeoutMs) => {
       timeouts.push(timeoutMs);
       return { id: 1, valid: true };
     };
     await runStructuredTask({ fetch, request: baseRequest, extract, validate });
-    expect(timeouts).toEqual([1_800_000]);
+    expect(timeouts).toEqual([180_000]);
   });
 
   test("onProgress reports attempt lifecycle with outcomes", async () => {

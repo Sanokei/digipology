@@ -94,12 +94,8 @@ export interface IterativeRefinementResult<T> {
 
 const DEFAULT_MAX_ROUNDS = 3;
 const DEFAULT_REFINEMENT_ATTEMPTS = 2;
-/**
- * Refinement outputs are small (a patch, not a full draft), so the default is
- * much shorter than runStructuredTask's generation default while still sized
- * for a few-tokens/sec local model.
- */
-const DEFAULT_REFINEMENT_TIMEOUT_MS = 900_000;
+/** Bounded synchronous repair; the application configures its own budget. */
+const DEFAULT_REFINEMENT_TIMEOUT_MS = 120_000;
 
 function boundedInt(value: number | undefined, fallback: number): number {
   if (value === undefined || !Number.isFinite(value)) return fallback;

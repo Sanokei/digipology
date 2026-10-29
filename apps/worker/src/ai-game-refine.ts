@@ -4,6 +4,7 @@ import {
   extractToolPayload,
   runIterativeRefinement,
   type ModelFetch,
+  type ModelProfile,
   type QualityIssue,
   type RefinementEvent,
   type Violation,
@@ -51,6 +52,8 @@ const PATCH_KEYS = ["files", "entities", "settings", "scriptStateJson"] as const
 export interface RefineGameDraftInput {
   fetch: ModelFetch;
   model?: string;
+  profile?: ModelProfile;
+  maxTokens?: number;
   qualityCheck?: (draft: ReleaseBundleDto) => Promise<QualityIssue[]>;
   /** The structurally valid draft to improve. */
   draft: ReleaseBundleDto;
@@ -58,7 +61,7 @@ export interface RefineGameDraftInput {
   userPrompt: string;
   maxRounds?: number;
   refinementAttempts?: number;
-  /** Per-attempt timeout for refinement model calls. Default 15 min. */
+  /** Per-attempt timeout for refinement model calls. Default 120 seconds. */
   timeoutMs?: number;
   simulateRolls?: number;
   instructionBudget?: number;
@@ -95,6 +98,8 @@ export async function refineGameDraft(
     ...(input.checkInstructions === true
       ? {
           fetch: input.fetch,
+          ...(input.model === undefined ? {} : { model: input.model }),
+          ...(input.profile === undefined ? {} : { profile: input.profile }),
           userPrompt: input.userPrompt,
           ...(input.instructionTimeoutMs === undefined
             ? {}
@@ -127,13 +132,16 @@ export async function refineGameDraft(
     }),
     // Pass all issues: errors must be fixed, warnings are secondary guidance.
     buildRefinementRequest: (draft, issues) =>
-      buildGameRefinementRequest(draft, issues, input.userPrompt, input.model),
+      buildGameRefinementRequest(draft, issues, input.userPrompt, input.model, {
+        ...(input.profile === undefined ? {} : { profile: input.profile }),
+        ...(input.maxTokens === undefined ? {} : { maxTokens: input.maxTokens }),
+      }),
     extractRefinement,
     validateRefinement,
     applyRefinement: applyGamePatch,
     ...(input.maxRounds === undefined ? {} : { maxRounds: input.maxRounds }),
     ...(input.refinementAttempts === undefined ? {} : { refinementAttempts: input.refinementAttempts }),
-    ...(input.timeoutMs === undefined ? {} : { timeoutMs: input.timeoutMs }),
+    timeoutMs: input.timeoutMs ?? 120_000,
     ...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
   });
   return {
@@ -248,6 +256,7 @@ export function buildGameRefinementRequest(
   issues: QualityIssue[],
   userPrompt: string,
   model = DEFAULT_MODEL_ID,
+  options: { profile?: ModelProfile; maxTokens?: number } = {},
 ): ReturnType<typeof buildRequest> {
   const files = draft.files
     .filter((file) => file.path.endsWith(".lua") || file.path === "runtime/rules.md" || file.path === "runtime/rules.txt")
@@ -302,7 +311,7 @@ export function buildGameRefinementRequest(
     "ISSUES TO FIX (resolve every one):",
     issueList,
     "",
-    "Emit the patch JSON now. /no_think",
+    "Emit the patch JSON now.",
   ].join("\n");
   return buildRequest({
     model,
@@ -310,10 +319,10 @@ export function buildGameRefinementRequest(
       { role: "system", content: system },
       { role: "user", content: user },
     ],
-    maxTokens: 1500,
+    maxTokens: options.maxTokens ?? 8_000,
+    profile: options.profile ?? "openai-compatible",
+    jsonObject: true,
     temperature: 0.3,
-    // Qwen3 hybrid thinking burns the token budget on reasoning instead of the patch.
-    extraBody: { enable_thinking: false },
   });
 }
 

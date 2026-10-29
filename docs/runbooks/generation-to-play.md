@@ -38,11 +38,12 @@ application provider credential.
    combining cards, dice, resources, player choices and victory. Record failures
    and actual action histories; do not replace this with a built-in game.
 
-The audit also found machine-specific model defaults, a 3,000-token budget,
-provider-specific prompting and a long synchronous generation request. These
-remain explicit follow-up integration gaps until individually corrected and
-verified. Media admission/mastering already has CLI harnesses; orchestration
-and editor review still need integration with actual provider access.
+The initial audit also found machine-specific model defaults, a 3,000-token
+budget and provider-specific prompting. The explicit profiles and separate
+generation/repair budgets are now described in [provider setup](ai-provider.md).
+Creation still needs background jobs and durable progress/recovery. Media
+admission/mastering has CLI harnesses; orchestration and editor review still
+need integration with actual provider access.
 
 ## Implemented private play path
 

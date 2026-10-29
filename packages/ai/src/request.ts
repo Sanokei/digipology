@@ -24,12 +24,38 @@ export interface ModelRequest {
   tools?: ModelTool[];
   tool_choice?: { type: "function"; function: { name: string } };
   max_tokens?: number;
+  max_completion_tokens?: number;
+  response_format?: { type: "json_object" };
   temperature?: number;
   /**
    * Provider-neutral extra fields merged into the top-level JSON request body
    * by the transport; the transport itself stays provider-agnostic.
    */
   extraBody?: Record<string, unknown>;
+}
+
+export type ModelProfile = "openai-compatible" | "openai" | "qwen-local";
+
+/** Explicit wire compatibility; a profile never selects an endpoint or model. */
+export function applyModelProfile(request: ModelRequest, profile: ModelProfile): ModelRequest {
+  if (profile === "qwen-local") {
+    const messages = request.messages.map((message) => ({ ...message }));
+    const last = messages.at(-1);
+    if (last?.role === "user" && !last.content.trimEnd().endsWith("/no_think")) last.content = `${last.content.trimEnd()} /no_think`;
+    return { ...request, messages, extraBody: { ...request.extraBody, enable_thinking: false } };
+  }
+  if (profile === "openai") {
+    const { max_tokens, temperature: _temperature, extraBody, ...rest } = request;
+    const extras = { ...extraBody };
+    delete extras.enable_thinking;
+    delete extras.max_tokens;
+    delete extras.temperature;
+    return { ...rest,
+      ...(rest.max_completion_tokens === undefined && max_tokens !== undefined ? { max_completion_tokens: max_tokens } : {}),
+      ...(Object.keys(extras).length ? { extraBody: extras } : {}),
+    };
+  }
+  return { ...request };
 }
 
 export const STR = (description: string) => ({ type: "string", description }) as const;
@@ -53,6 +79,9 @@ export interface BuildRequestOptions {
   maxTokens?: number;
   temperature?: number;
   extraBody?: Record<string, unknown>;
+  profile?: ModelProfile;
+  /** OpenAI JSON mode is opt-in and requires an object, never an array. */
+  jsonObject?: boolean;
 }
 
 /**
@@ -89,5 +118,6 @@ export function buildRequest(options: BuildRequestOptions): ModelRequest {
   if (options.maxTokens !== undefined) request.max_tokens = options.maxTokens;
   if (options.temperature !== undefined) request.temperature = options.temperature;
   if (options.extraBody !== undefined) request.extraBody = options.extraBody;
-  return request;
+  if (options.profile === "openai" && options.jsonObject === true && !request.tools) request.response_format = { type: "json_object" };
+  return applyModelProfile(request, options.profile ?? "openai-compatible");
 }

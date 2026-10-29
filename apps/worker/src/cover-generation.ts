@@ -1,5 +1,4 @@
 import {
-  DEFAULT_MODEL_ID,
   NUM,
   STR,
   buildRequest,
@@ -19,13 +18,14 @@ import {
 import type { AuthenticatedSession } from "./auth";
 import type { D1Repositories } from "./d1-repositories";
 import {
-  configuredString,
   createMeteredModelFetch,
   dailyCap,
   resolveModelFetch,
   usageAtOrAboveCap,
   type AiGameDependencies,
 } from "./ai-games";
+
+import { readAiModelSettings } from "./ai-model-settings";
 
 const COVER_TOOL_NAME = "emit_cover_specs";
 
@@ -121,8 +121,10 @@ export async function handleCoverGeneration(input: CoverGenerationInput): Promis
 }
 
 function buildCoverRequest(env: Env, title: string, tagline: string) {
+  const model = readAiModelSettings(env)!;
   return buildRequest({
-    model: configuredString(env, "AI_MODEL", DEFAULT_MODEL_ID),
+    model: model.model,
+    profile: model.profile,
     messages: [
       {
         role: "system",
@@ -146,8 +148,6 @@ function buildCoverRequest(env: Env, title: string, tagline: string) {
     },
     maxTokens: 2_000,
     temperature: 0.8,
-    // Qwen3 hybrid thinking burns the token budget on reasoning instead of the forced tool call.
-    extraBody: { enable_thinking: false },
   });
 }
 

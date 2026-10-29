@@ -46,13 +46,8 @@ export interface RunStructuredTaskOptions<T> {
 }
 
 const DEFAULT_MAX_ATTEMPTS = 3;
-/**
- * Local 0.6B-class generation runs at a few tokens/sec; a multi-thousand-token
- * draft needs tens of minutes per attempt. 30s could not complete any real
- * structured task (see e2e-qa/REPORT.md F1). Callers doing large generations
- * should still pass an explicit timeoutMs sized to their token budget.
- */
-const DEFAULT_TIMEOUT_MS = 1_800_000;
+/** Bounded synchronous generation; callers can select a shorter deadline. */
+const DEFAULT_TIMEOUT_MS = 180_000;
 
 function attemptLimit(value: number | undefined): number {
   if (value === undefined || !Number.isFinite(value)) return DEFAULT_MAX_ATTEMPTS;

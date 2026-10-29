@@ -3,7 +3,6 @@ export { authoringFromBundle } from "./ai-game-authoring";
 import { canonicalStringify, hashValue, sha256 } from "digipology-canonical-json";
 import {
   BOOL,
-  DEFAULT_MODEL_ID,
   NUM,
   STR,
   buildRequest,
@@ -51,27 +50,13 @@ import { validateUploadedBundle } from "./release-validation";
 import { refineGameDraft, logRefinementProgress } from "./ai-game-refine";
 import { resolveQualityCheck, type DraftQualityCheck } from "./quality-client";
 import { readRulebook } from "digipology-protocol";
+import { readAiModelSettings } from "./ai-model-settings";
 
 const AI_RATE_LIMIT = 20;
 const AI_RATE_WINDOW_MS = 60 * 60 * 1000;
 const AI_BODY_LIMIT = 64 * 1024;
 const AI_TOOL_NAME = "emit_game_bundle_draft";
 const DRAFT_RNG_ALGORITHM = "sfc32-v1";
-/**
- * Token budget + timeout sizing (measured 2026-10-16 against :8081,
- * Qwen3-0.6B-Q4_0, 8k context):
- * - prompt ≈ 1,865 tokens (system ≈ 1,827 incl. reference bundle + user ≈ 38;
- *   the 812-token tool schema is gone on the raw-JSON path).
- * - attempt 1 ≈ 4,865 total; attempt 2 (feedback echoes the rejected payload)
- *   ≈ 8,165; attempt 3 prompt ≈ 8,165 — the tail of a third attempt can exceed
- *   8k, so the critical format rules are repeated at the END of the prompt
- *   where eviction hits last. 4,000 max tokens would overflow attempt 2
- *   already, hence 3,000.
- * - generation measured at 4–10 tok/s; sized conservatively at 2 tok/s so
- *   3,000 tokens ≈ 25 min per attempt.
- */
-const AI_MAX_TOKENS = 3_000;
-const AI_TIMEOUT_MS = 2_400_000;
 const ACTION_REFERENCE = /\b(?:system|entity|deck|die|counter)\.[a-z][a-z0-9_]*\b/g;
 const RELEASE_PATH = /^(?:runtime|scripts)\/[a-z0-9][a-z0-9._/-]{0,127}$/;
 
@@ -203,6 +188,7 @@ export async function handleAiGameRequest(input: AiGameRouteInput): Promise<Resp
   if (modelFetch === null) {
     return jsonError(503, "ai_unconfigured", "AI creation isn't set up on this server yet");
   }
+  const modelSettings = readAiModelSettings(input.env)!;
   const qualityCheck = input.dependencies?.qualityCheck ?? resolveQualityCheck(input.env);
   if (qualityCheck === null) return jsonError(503, "ai_unconfigured", "AI game playtesting isn't set up on this server yet");
 
@@ -269,7 +255,7 @@ export async function handleAiGameRequest(input: AiGameRouteInput): Promise<Resp
     fetch: metered.fetch,
     request,
     maxAttempts: 3,
-    timeoutMs: AI_TIMEOUT_MS,
+    timeoutMs: modelSettings.generationTimeoutMs,
     onProgress: logAiProgress,
     extract: (response) => extractToolPayload(response, asRecord),
     validate: (authoring) => {
@@ -284,7 +270,10 @@ export async function handleAiGameRequest(input: AiGameRouteInput): Promise<Resp
       fetch: metered.fetch,
       draft: lastAssembly.draft,
       userPrompt: prompt,
-      model: configuredString(input.env, "AI_MODEL", DEFAULT_MODEL_ID),
+      model: modelSettings.model,
+      profile: modelSettings.profile,
+      maxTokens: modelSettings.repairTokens,
+      timeoutMs: modelSettings.repairTimeoutMs,
       maxRounds: 2,
       refinementAttempts: 1,
       simulateRolls: 24,
@@ -342,11 +331,7 @@ export function buildAiRequest(
     const requires = componentRegistry[type]?.requires ?? [];
     return `${type}${requires.length === 0 ? "" : ` (requires ${requires.join(", ")})`}`;
   }).join(", ");
-  // The model cannot call tools on this backend (llama-server + Qwen3-0.6B
-  // never emits tool_calls), so the draft MUST come back as raw JSON in the
-  // message content. The format rules open AND close the system prompt, and
-  // the field list is derived from AI_GAME_TOOL so prompt and schema cannot
-  // drift apart.
+  // Raw JSON uses the same authoring schema across explicitly selected providers.
   const system = [
     "OUTPUT FORMAT — THIS IS THE MOST IMPORTANT INSTRUCTION:",
     "Your entire message content must be ONE raw JSON object matching the schema below.",
@@ -379,20 +364,16 @@ export function buildAiRequest(
     "",
     "FINAL REMINDER: emit ONE raw JSON object as your entire message content. No prose, no markdown fences, no explanation. Start with { and end with }.",
   ].join("\n");
-  // /no_think MUST stay at the end of the user message: the enable_thinking API
-  // flag is ignored by llama-server, and the suffix only works here (verified
-  // 2026-10-16: 0 reasoning chars with the suffix vs 1211 without).
-  const noThink = " /no_think";
+  const model = readAiModelSettings(env);
+  if (model === null) throw new TypeError("Invalid AI provider settings");
   const user = mode === "create"
-    ? `Create a complete playable game draft from this description:\n${prompt}${noThink}`
-    : `Edit the current game according to this instruction and emit the complete replacement draft:\n${prompt}${current}${noThink}`;
+    ? `Create a complete playable game draft from this description:\n${prompt}`
+    : `Edit the current game according to this instruction and emit the complete replacement draft:\n${prompt}${current}`;
   return buildRequest({
-    model: configuredString(env, "AI_MODEL", DEFAULT_MODEL_ID),
+    model: model.model, profile: model.profile, jsonObject: true,
     messages: [{ role: "system", content: system }, { role: "user", content: user }],
-    maxTokens: AI_MAX_TOKENS,
+    maxTokens: model.generationTokens,
     temperature: 0.35,
-    // Qwen3 hybrid thinking burns the token budget on reasoning instead of the draft.
-    extraBody: { enable_thinking: false },
   });
 }
 
@@ -765,13 +746,18 @@ async function ownedGameForEdit(
 }
 
 export function resolveModelFetch(env: Env, dependencies: AiGameDependencies | undefined): ModelFetch | null {
+  const settings = readAiModelSettings(env);
+  if (settings === null) return null;
   if (dependencies !== undefined && Object.prototype.hasOwnProperty.call(dependencies, "modelFetch")) {
     return dependencies.modelFetch ?? null;
   }
+  if (!settings.model) return null;
   const apiKey = configuredString(env, "AI_API_KEY", "") || undefined;
+  if (settings.profile === "openai" && !apiKey) return null;
   const configuredBase = Reflect.get(env, "AI_BASE_URL");
   const baseUrl = typeof configuredBase === "string" ? configuredBase : undefined;
   return makeModelFetch({
+    profile: settings.profile,
     ...(apiKey === undefined ? {} : { apiKey }),
     ...(baseUrl === undefined ? {} : { baseUrl }),
   });
