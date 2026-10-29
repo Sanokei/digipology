@@ -24,6 +24,7 @@ export function ObjectContextMenu({
 }) {
   const menuRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const pressedButtonRef = useRef<HTMLButtonElement | null>(null);
   const estimatedHeight = Math.min(64 + actions.length * 44, 520);
   useEffect(() => {
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -52,6 +53,7 @@ export function ObjectContextMenu({
           left: `clamp(calc(8px + env(safe-area-inset-left)), ${x}px, calc(100vw - 192px - env(safe-area-inset-right)))`,
           top: `clamp(calc(8px + env(safe-area-inset-top)), ${y}px, calc(100dvh - ${estimatedHeight}px - 8px - env(safe-area-inset-bottom)))`,
         }}
+        onPointerDownCapture={() => { pressedButtonRef.current = null; }}
         onPointerDown={(event) => event.stopPropagation()}
         onKeyDown={(event) => {
           if (event.key === "Escape") { event.preventDefault(); onDismiss(); }
@@ -69,7 +71,22 @@ export function ObjectContextMenu({
             type="button"
             role="menuitem"
             disabled={action.disabled}
-            onClick={() => { action.run(); onDismiss(); }}
+            onPointerDown={(event) => {
+              if (event.button === 0) pressedButtonRef.current = event.currentTarget;
+            }}
+            onPointerCancel={() => { pressedButtonRef.current = null; }}
+            onPointerLeave={(event) => {
+              if (event.buttons !== 0) pressedButtonRef.current = null;
+            }}
+            onClick={(event) => {
+              const pressed = pressedButtonRef.current === event.currentTarget;
+              pressedButtonRef.current = null;
+              // A long press can insert this button under the finger before its
+              // compatibility click. Only a new press may activate a pointer click.
+              if (event.detail > 0 && !pressed) return;
+              action.run();
+              onDismiss();
+            }}
           >
             {action.label}
           </button>
