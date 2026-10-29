@@ -52,6 +52,8 @@ import {
   SESSION_COOKIE_NAME,
 } from "./cookies";
 import { decryptDevelopmentToken, encryptDevelopmentToken, sha256Hex } from "./crypto";
+import { COVER_CREDITS_HEADER, normalizeArtworkCredits, type RasterArtworkInfo } from "digipology-protocol";
+import { coverByteHash, readStoredCover, storedCoverInfo, storeCover } from "./cover-storage";
 import { D1Repositories, type GameMetrics, type UploadedGameRecord } from "./d1-repositories";
 import { CloudflareEmailSender, DevelopmentEmailSender, type EmailSender } from "./email";
 import { FixedWindowRateLimiter } from "./rate-limiter";
@@ -381,6 +383,7 @@ export async function handlePlatformRequest(
   }
 
   const coverMatch = /^\/api\/games\/([^/]+)\/cover$/.exec(url.pathname);
+  const coverInfoMatch = /^\/api\/games\/([^/]+)\/cover-info$/.exec(url.pathname);
   const coverGenerateMatch = /^\/api\/games\/([^/]+)\/covers\/generate$/.exec(url.pathname);
   if (request.method === "POST" && coverGenerateMatch?.[1] !== undefined) {
     const slug = decodePathSegment(coverGenerateMatch[1]);
@@ -428,17 +431,34 @@ export async function handlePlatformRequest(
     if (!validation.ok) return jsonError(422, validation.code, validation.message);
     const bucket = releaseBucket(env);
     if (bucket === null) return jsonError(503, "cover_storage_unavailable", "Cover storage is unavailable");
-    await bucket.put(coverObjectKey(game.id), body.bytes, {
-      httpMetadata: { contentType: validation.contentType },
-    });
-    const updated = await env.DB.prepare(
-      `UPDATE games SET cover_version = COALESCE(cover_version, 0) + 1, updated_at = ?
-       WHERE id = ? AND owner_user_id = ? AND builtin = 0
-       RETURNING cover_version`,
-    ).bind(now, game.id, session.user.id).first<{ cover_version: number }>();
-    if (updated === null) return jsonError(403, "forbidden", "Only the game owner can upload a cover");
-    const response: CoverUploadResponse = { coverVersion: updated.cover_version };
-    return jsonResponse(response, 200, sessionCookieHeaders(session));
+    let credits;
+    try {
+      const raw = request.headers.get(COVER_CREDITS_HEADER);
+      if (raw && raw.length > 8192) return jsonError(422, "invalid_cover_credits", "Artwork credits are too long");
+      credits = normalizeArtworkCredits(raw ? JSON.parse(decodeURIComponent(raw)) : undefined);
+    } catch { credits = null; }
+    if (!credits) return jsonError(422, "invalid_cover_credits", "Use short artwork credits and a public HTTPS source page");
+    const info: RasterArtworkInfo = { formatVersion: 1, contentType: validation.contentType, width: validation.width, height: validation.height, sha256: coverByteHash(body.bytes), credits };
+    try {
+      const coverVersion = await storeCover(env.DB, bucket, game.id, session.user.id, body.bytes, info, now);
+      const response: CoverUploadResponse = { coverVersion };
+      return jsonResponse(response, 200, sessionCookieHeaders(session));
+    } catch { return jsonError(503, "cover_storage_unavailable", "Artwork could not be saved. Your previous cover is preserved; retry the upload."); }
+  }
+
+  if (request.method === "GET" && coverInfoMatch?.[1] !== undefined) {
+    const slug = decodePathSegment(coverInfoMatch[1]);
+    if (slug === null) return jsonError(404, "not_found", "Artwork not found");
+    const builtin = getBuiltinCover(slug);
+    if (builtin) return jsonResponse({ coverVersion: builtin.version, artwork: null });
+    const game = await repositories.getUploadedGame(slug);
+    if (!game || game.coverVersion === null) return jsonError(404, "not_found", "Artwork not found");
+    const version = requestedCoverVersion(url, game.coverVersion);
+    if (version === null) return jsonError(404, "not_found", "Artwork version not found");
+    const stored = await readStoredCover(env.DB, game.id, version, game.coverVersion);
+    if (!stored) return jsonError(404, "not_found", "Artwork version not found");
+    try { return jsonResponse({ coverVersion: version, artwork: storedCoverInfo(stored) }); }
+    catch { return jsonError(503, "cover_storage_unavailable", "Artwork information is unavailable. Retry loading it."); }
   }
 
   if (coverMatch?.[1] !== undefined && request.method === "GET") {
@@ -461,12 +481,16 @@ export async function handlePlatformRequest(
     if (game === null || game.coverVersion === null) return jsonError(404, "not_found", "Cover not found");
     const bucket = releaseBucket(env);
     if (bucket === null) return jsonError(503, "cover_storage_unavailable", "Cover storage is unavailable");
-    const object = await bucket.get(coverObjectKey(game.id));
+    const version = requestedCoverVersion(url, game.coverVersion);
+    if (version === null) return jsonError(404, "not_found", "Artwork version not found");
+    const stored = await readStoredCover(env.DB, game.id, version, game.coverVersion);
+    if (!stored) return jsonError(404, "not_found", "Artwork version not found");
+    const object = await bucket.get(stored.asset_key);
     if (object === null) return jsonError(404, "not_found", "Cover not found");
     const headers = coverResponseHeaders(
       url,
       object.httpMetadata?.contentType ?? "application/octet-stream",
-      game.coverVersion,
+      version,
     );
     headers.set("ETag", object.httpEtag);
     return new Response(object.body, { headers });
@@ -1268,8 +1292,11 @@ function releaseObjectKey(releaseId: string): string {
   return `releases/${releaseId}.json`;
 }
 
-function coverObjectKey(gameId: string): string {
-  return `covers/${gameId}`;
+function requestedCoverVersion(url: URL, current: number): number | null {
+  const raw = url.searchParams.get("v");
+  if (raw === null) return current;
+  const value = /^[1-9]\d*$/.test(raw) ? Number(raw) : NaN;
+  return Number.isSafeInteger(value) && value <= current ? value : null;
 }
 
 function coverResponseHeaders(url: URL, contentType: string, version: number): Headers {

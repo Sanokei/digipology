@@ -1,4 +1,6 @@
 export const PROTOCOL_VERSION = 1 as const;
+export * from "./raster";
+export * from "./artwork";
 
 export type Actor =
   | { type: "player"; playerId: string }

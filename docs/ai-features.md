@@ -9,13 +9,14 @@ Digipology can turn a written game idea into a reviewable release draft, propose
 
 ## Create a game from a prompt
 
-On the create page, describe the game you want and choose **Create draft with AI**. The server asks its configured model for a structured draft, assembles the canonical snapshot and integrity fields, and runs the normal bundle validation. A successful result fills the standard upload form, where you can inspect the title, player range, JSON, and validation report before publishing.
+On the create page, describe the game you want and choose **Create & play**. The server asks its configured model for a structured draft, assembles the canonical snapshot and integrity fields, and runs bundle and playability checks. Accepted output opens a saved private playtest. Try each seat, open **How to play**, and follow the suggestions under **Review playtest** before choosing **Publish & invite**.
 
 AI creation requires an account. Publishing the generated draft is a separate action and uses the same validated upload path as a manually authored bundle.
 
 Before accepting a generated draft, the server sends it to the playtest
-harness. The harness checks Lua, bindings, references and a simulated dice
-playthrough. Broken drafts receive up to two bounded repair rounds through the
+harness. The harness checks Lua, bindings, references and bounded simulations of
+available buttons, prompts, dice, card draws, timers and player arrivals.
+Broken drafts receive up to two bounded repair rounds through the
 configured model, with those calls included in the request cap. The response
 includes the playability result and any remaining warnings. If playtesting is
 unavailable or errors remain, the server does not present the draft as accepted.
@@ -37,9 +38,24 @@ The desktop editor's **AI Assist** panel has separate prompt boxes for creating 
 
 For an unpublished local draft, the editor sends the current bundle as context for a new draft request. For a published game that you own, the server loads its latest release before generating the replacement draft. Continue with the [creator guide](./creator-guide.md) to playtest and publish reviewed changes.
 
-## Generate cover options
+## Add cover artwork
 
-In **My games**, an owner can ask for four cover options. When model assistance succeeds, the model selects constrained cover specifications and Digipology's own renderer produces the SVG previews. Pick one to rasterize it in the browser and upload it as the game's cover.
+In a private playtest, choose **Artwork** to open a local PNG, JPEG or WebP.
+The preview shows a portrait crop; transparent areas use a cream background.
+Add an artist credit, usage note and public source page, then **Save artwork**.
+Saving an image keeps your current playthrough intact. **Download draft** makes
+a portable backup containing the game, artwork, credits and review notes; reopen
+it through **Upload an existing game** on the create page.
+
+**Publish & invite** saves the image and its credits before opening your table.
+If that save fails, retry from the visible notice. Your published game is reused.
+You can also use **Upload image** under **My games** to replace a published cover.
+The game's detail page shows its credits and offers **Save image** or
+**Save with credits**. The latter file can be reopened in the Artwork dialog.
+
+## Shape patterns
+
+In **My games → Shape patterns**, an owner can ask for four geometric alternatives. When model assistance succeeds, the model selects constrained cover specifications and Digipology's own renderer produces the SVG previews. Pick one to rasterize it in the browser and upload it as the game's cover. These patterns are separate from uploaded illustrations.
 
 Cover creation remains available without the model: if AI is not configured, the daily AI budget has been reached, or model output cannot be used, the server returns four deterministic procedural options and the picker labels them as generated with the deterministic cover system.
 

@@ -1,0 +1,36 @@
+.artwork-dialog { width:min(760px,calc(100vw - 28px)); max-height:calc(100dvh - 28px); padding:0; overflow:auto; border:1px solid #d6dbca; border-radius:22px; background:#faf7ee; color:#243d35; box-shadow:0 28px 100px #0006; }
+.artwork-dialog::backdrop { background:#061715b8; backdrop-filter:blur(7px); }
+.artwork-dialog[open] { display:flex; flex-direction:column; }
+.artwork-dialog form { display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+.artwork-dialog__body { min-height:0; overflow:auto; }
+.artwork-dialog header { flex-shrink:0; }
+.artwork-dialog header { display:flex; justify-content:space-between; gap:18px; padding:24px; border-bottom:1px solid #dfe1d3; }
+.artwork-dialog h2 { margin:0; font-size:1.35rem; overflow-wrap:anywhere; }
+.artwork-dialog header p { margin:0 0 6px; color:#6c7c64; font-size:.65rem; letter-spacing:.15em; text-transform:uppercase; }
+.artwork-dialog header button { flex-shrink:0; width:36px; height:36px; padding:0; font-size:1.3rem; }
+.artwork-dialog button { min-height:38px; padding:8px 14px; border:1px solid #708273; border-radius:9px; background:#edf0e5; color:#243d35; cursor:pointer; font-size:.78rem; }
+.artwork-dialog button[type=submit] { background:#234b39; color:#fff2d5; }
+.artwork-dialog button:disabled { opacity:.5; cursor:wait; }
+.artwork-editor { display:grid; grid-template-columns:190px minmax(0,1fr); gap:24px; padding:24px; }
+.artwork-preview { min-width:0; }
+.artwork-preview img { display:block; width:100%; aspect-ratio:2/3; object-fit:contain; background:#e9eadf; border-radius:12px; box-shadow:0 8px 24px #142d3220; }
+.artwork-preview > p { display:grid; place-items:center; padding:20px; margin:0; aspect-ratio:2/3; border:1px dashed #a5b09b; border-radius:12px; color:#71806b; text-align:center; }
+.artwork-preview small { display:block; margin-top:10px; color:#63735b; font-size:.7rem; }
+.artwork-fields { min-width:0; display:flex; flex-direction:column; gap:13px; }
+.artwork-fields label { display:flex; flex-direction:column; gap:6px; color:#344c3b; font-size:.75rem; }
+.artwork-fields input { width:100%; min-width:0; box-sizing:border-box; padding:9px; border:1px solid #b9c5ad; border-radius:7px; color:#243d35; background:#fffdf5; font-size:.8rem; }
+.artwork-fields p { margin:0; color:#68765f; line-height:1.5; font-size:.73rem; }
+.artwork-dialog footer { flex-shrink:0; display:flex; flex-wrap:wrap; gap:9px; padding:14px 24px 24px; background:#faf7ee; }
+.artwork-status,.artwork-error { margin:0 24px 18px; font-size:.82rem; line-height:1.6; }
+.artwork-error { color:#963b27; }
+.draft-artwork-thumb { display:block; width:34px; height:51px; border-radius:5px; object-fit:cover; }
+.draft-play-bar .draft-artwork-button { display:flex; align-items:center; gap:8px; }
+.artwork-credit { font-size:.8rem; line-height:1.6; color:var(--muted); }
+.artwork-credit a { margin-left:8px; }
+.artwork-credit span { display:block; }
+.artwork-downloads { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
+.artwork-downloads button { padding:8px 12px; border:1px solid #889781; border-radius:8px; background:#edf0e5; color:#243d35; cursor:pointer; }
+.game-detail__artwork { min-width:0; }
+.game-detail__artwork .game-detail__cover { min-height:0; max-height:none; aspect-ratio:2/3; }
+.game-detail__artwork > p,.game-detail__artwork > .artwork-downloads,.game-detail__artwork > button { margin:16px 20px; }
+@media(max-width:600px) { .artwork-dialog header { padding:18px; } .artwork-editor { grid-template-columns:1fr; gap:18px; padding:18px; } .artwork-preview { width:150px; margin:auto; } .artwork-dialog footer { padding:0 18px 18px; } .artwork-status,.artwork-error { margin:0 18px 18px; } }

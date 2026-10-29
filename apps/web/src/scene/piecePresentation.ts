@@ -136,6 +136,9 @@ export function piecePresentation(
     };
   }
   if (components.text !== undefined) {
+    // The live status is rendered in the readable, responsive GameProgressPanel.
+    // A second projected copy becomes tiny or clipped on narrow tables.
+    if (entity.id === "status") return { ...base, alpha: 0 };
     return {
       ...base,
       width: 2.5,

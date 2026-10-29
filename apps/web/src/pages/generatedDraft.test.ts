@@ -5,6 +5,8 @@ import { loadEditorDraft } from "../editor/state/persistence";
 import { compileDraftForPlaytest } from "../editor/playtest/runtime";
 import type { AiGameDraftResponse } from "digipology-protocol/http";
 import { generatedPublicationSlug, publishDraftAndHost, saveGeneratedDraft } from "./generatedDraft";
+import { artworkDataUrl, artworkHash } from "../editor/state/artwork";
+import { rasterPng } from "../../../../packages/protocol/src/raster.fixture";
 
 function storage() {
   const items = new Map<string, string>();
@@ -66,4 +68,33 @@ test("a publication key is stable for retries and changes when the authored cont
   expect(generatedPublicationSlug(draft)).toBe(generatedPublicationSlug(structuredClone(draft)));
   expect(generatedPublicationSlug(draft)).not.toBe(generatedPublicationSlug({ ...draft, title: "New idea" }));
   expect(generatedPublicationSlug(draft)).toMatch(/^[a-z0-9-]{3,48}$/);
+});
+
+test("artwork upload retries a lost reply without opening a table early or duplicating publication", async () => {
+  const draft = saveGeneratedDraft(storage(), response(), "A dice game", "cover-version");
+  const bytes = rasterPng(4, 6);
+  draft.artwork = { status: "ready", dataUrl: artworkDataUrl(bytes, "image/png"), info: { formatVersion: 1, contentType: "image/png", width: 4, height: 6, sha256: artworkHash(bytes), credits: { artist: "Créateur", license: "Original", sourceUrl: "https://example.com/art" } } };
+  let created = false, uploads = 0, rooms = 0;
+  const game = { slug: generatedPublicationSlug(draft), title: draft.title, latestReleaseId: "release", coverVersion: null as number | null };
+  const client = createApiClient(async (path, init) => {
+    if (path === "/api/games/mine") return Response.json({ games: created ? [game] : [] });
+    if (path === "/api/games") { created = true; return Response.json({ game }); }
+    if (String(path).includes("cover-info")) return Response.json({ coverVersion: 1, artwork: draft.artwork?.status === "ready" ? draft.artwork.info : null });
+    if (String(path).endsWith("/cover")) {
+      uploads++; game.coverVersion = 1;
+      expect(new Headers(init?.headers).get("Content-Type")).toBe("image/png");
+      expect(JSON.parse(decodeURIComponent(new Headers(init?.headers).get("X-Digipology-Cover-Credits")!)).artist).toBe("Créateur");
+      throw new Error("reply lost after committed artwork");
+    }
+    if (path === "/api/rooms") { rooms++; return Response.json({ roomId: "room", joinCode: "ABCD-EFGH" }); }
+    throw new Error(`Unexpected ${path}`);
+  });
+  const verify = async () => undefined; // Codec decoding is exercised by the browser suite.
+  expect(await publishDraftAndHost(client, draft, "https://example.com", verify)).toMatchObject({ ok: false, error: { message: expect.stringContaining("artwork could not be saved") } });
+  expect(rooms).toBe(0);
+  expect((await publishDraftAndHost(client, draft, "https://example.com", verify)).ok).toBe(true);
+  expect(uploads).toBe(1); expect(rooms).toBe(1);
+  draft.artwork = { status: "unavailable" };
+  expect(await publishDraftAndHost(client, draft, "https://example.com", verify)).toMatchObject({ ok: false, error: { code: "invalid_artwork" } });
+  expect(rooms).toBe(1);
 });

@@ -46,7 +46,15 @@ test("fixture model goes through real repair into an unpublished playable draft,
     await expect(progress.getByRole("status")).not.toHaveText(status);
   }
   await expect(progress.getByRole("status")).toContainText("wins Dice Dash!");
+  await ready(page);
+  await expect(page.locator(".table-render-status")).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("fixture-private-draft-winner.png"), fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await ready(page);
+  await expect(progress.getByRole("status")).toBeInViewport();
+  await expect(page.getByRole("combobox", { name: "Sort", exact: true })).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath("fixture-private-draft-winner-mobile.png"), fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 960 });
   await page.reload();
   await ready(page);
   await expect(progress.locator("li strong")).toHaveText(["0", "0"]);
@@ -55,10 +63,11 @@ test("fixture model goes through real repair into an unpublished playable draft,
   await page.keyboard.press("Escape");
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false);
-  const toolbar = await page.locator(".draft-play-bar").boundingBox();
-  const panel = await progress.boundingBox();
-  if (!toolbar || !panel) throw new Error("Missing mobile playtest layout");
-  expect(panel.y).toBeGreaterThan(toolbar.y + toolbar.height);
+  await expect.poll(async () => {
+    const toolbar = await page.locator(".draft-play-bar").boundingBox();
+    const panel = await progress.boundingBox();
+    return toolbar && panel ? panel.y - toolbar.y - toolbar.height : -1;
+  }).toBeGreaterThan(0);
   await page.screenshot({ path: testInfo.outputPath("fixture-private-draft-mobile.png"), fullPage: true });
   await page.setViewportSize({ width: 1440, height: 960 });
   await page.getByRole("button", { name: "Publish & invite", exact: true }).click();
@@ -85,6 +94,7 @@ test("fixture model goes through real repair into an unpublished playable draft,
       await expect(panels[1]!.locator("li strong")).toHaveText(await panels[0]!.locator("li strong").allTextContents());
     }
     await expect(panels[0]!.getByRole("status")).toContainText("wins Dice Dash!");
+    await ready(page);
     const published = await (await page.request.get("/api/games/mine")).json() as { games: Array<{ tagline: string }> };
     expect(published.games[0]?.tagline).toBe(accepted.tagline);
     await page.screenshot({ path: testInfo.outputPath("fixture-published-multiplayer-winner.png"), fullPage: true });
@@ -178,10 +188,11 @@ test("fixture review warnings, authored identity and saved-file recovery survive
   await expect(page.locator(".draft-play-bar__tagline")).toHaveText("A longer dice race for a test playthrough.");
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false);
-  const bar = await page.locator(".draft-play-bar").boundingBox();
-  const progress = await page.getByRole("complementary", { name: "Game progress", exact: true }).boundingBox();
-  if (!bar || !progress) throw new Error("Missing mobile review layout");
-  expect(progress.y).toBeGreaterThan(bar.y + bar.height);
+  await expect.poll(async () => {
+    const bar = await page.locator(".draft-play-bar").boundingBox();
+    const progress = await page.getByRole("complementary", { name: "Game progress", exact: true }).boundingBox();
+    return bar && progress ? progress.y - bar.y - bar.height : -1;
+  }).toBeGreaterThan(0);
   await review.click();
   await expect(dialog).toContainText("Play through to a winner");
   await page.screenshot({ path: testInfo.outputPath("fixture-playtest-review-mobile.png"), fullPage: true });

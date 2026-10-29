@@ -15,7 +15,7 @@
 .draft-play-bar__seats > span { margin-left:auto; color:#b4c2ac; font-size:.67rem; }
 .table-scene:has(.draft-play-bar) .game-progress { top:var(--draft-toolbar-bottom,152px); }
 .draft-play-warning,.draft-play-notice { position:absolute; z-index:6; top:154px; right:18px; max-width:min(390px,calc(100% - 36px)); margin:0; padding:12px 15px; border:1px solid #c6914b77; border-radius:10px; color:#ffe3b3; background:#26382a; font-size:.78rem; }
-.draft-play-notice button { display:block; margin-top:10px; }
+.draft-play-notice button { display:block; min-height:40px; margin-top:10px; padding:9px 14px; border:1px solid #e6bc70; border-radius:7px; color:#182b22; background:#f3d9a8; cursor:pointer; font-size:.8rem; font-weight:600; }
 .draft-action-buttons { position:absolute; right:18px; top:210px; display:flex; flex-direction:column; gap:8px; max-width:200px; }
 .draft-action-buttons button { min-height:40px; padding:9px 14px; border:1px solid #8eaa8b55; border-radius:8px; color:#f5efdc; background:#214737; cursor:pointer; }
 @media(max-width:768px) { .draft-play-bar { gap:9px; padding:10px; margin:6px; } .draft-play-bar__title { flex-basis:100%; } .draft-play-bar__title strong,.draft-play-bar__tagline { max-width:280px; } .draft-play-bar__actions { gap:6px; } .draft-play-bar__seats { gap:8px; } .draft-play-bar__seats > span { display:none; } .draft-play-warning,.draft-play-notice { top:var(--draft-toolbar-bottom,220px); right:10px; } .draft-action-buttons { top:360px; right:10px; } }

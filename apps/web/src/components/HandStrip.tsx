@@ -73,11 +73,11 @@ export function HandStrip({
     <>
       <section className={`hand-strip${items.length === 0 ? " hand-strip--empty" : ""}`} aria-label="Your hand">
         <div className="hand-strip__heading"><span>Hand</span><em aria-label={`${items.length} cards`}>{items.length}</em></div>
-        <label className="hand-strip__sort">Sort<select value={sortMode} onChange={(event) => {
+        {items.length > 1 ? <label className="hand-strip__sort">Sort<select value={sortMode} onChange={(event) => {
           const next = event.currentTarget.value === "label" ? "label" : "none";
           setSortMode(next);
           try { sessionStorage.setItem(storageKey(roomId), next); } catch { /* Storage may be unavailable. */ }
-        }}><option value="none">None</option><option value="label">By label</option></select></label>
+        }}><option value="none">None</option><option value="label">By label</option></select></label> : null}
         {items.length === 0
           ? <span className="hand-strip__empty">Your hand is empty</span>
           : <div className="hand-strip__cards">{displayedItems.map((item) => (

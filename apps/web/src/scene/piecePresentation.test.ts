@@ -37,3 +37,9 @@ test("signatures include presentation-changing snap occupancy", () => {
   expect(piecePresentationSignature(open)).toBe("snap:0");
   expect(piecePresentationSignature(filled)).toBe("snap:1");
 });
+
+test("live status belongs in the readable HUD rather than a cropped projected duplicate", () => {
+  const status = entity("status", { text: { value: "Player 1 wins Dice Dash!" } });
+  expect(piecePresentation(status)).toMatchObject({ label: "", alpha: 0 });
+  expect(status.components.text?.value).toBe("Player 1 wins Dice Dash!");
+});

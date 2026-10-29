@@ -1,6 +1,7 @@
 import type { EntityComponents, EntityRecord } from "digipology-kernel";
 import type { ReleaseBundleDto } from "digipology-protocol/http";
 import type { GenerationReview } from "./generationReview";
+import type { DraftArtwork } from "digipology-protocol";
 
 export interface EditorDraft {
   editorVersion: 1;
@@ -14,6 +15,7 @@ export interface EditorDraft {
   updatedAt: string;
   bundle: ReleaseBundleDto;
   generationReview?: GenerationReview;
+  artwork?: DraftArtwork;
 }
 
 export interface DraftIndexEntry {

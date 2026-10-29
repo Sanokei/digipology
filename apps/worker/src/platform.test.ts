@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
+import { rasterPng as minimalPng } from "../../../packages/protocol/src/raster.fixture";
 import { getBuiltinRelease } from "digipology-demo-games";
 import type { GameSnapshotDto } from "digipology-protocol/http";
 import { prepareUploadedBundle } from "./release-validation";
@@ -388,13 +389,15 @@ describe("uploaded game authorization", () => {
     ), nonOwner.env)).status).toBe(403);
 
     const owner = await authenticatedTestEnv("user_owner");
-    let stored: Uint8Array | null = null;
+    const stored = new Map<string, Uint8Array>();
     let puts = 0;
+    let failPut = false;
     const bucket = {
-      async put(_key: string, value: Uint8Array) { puts += 1; stored = value; return {}; },
-      async get() {
-        return stored === null ? null : {
-          body: new Response(stored.buffer as ArrayBuffer).body,
+      async put(key: string, value: Uint8Array) { if (failPut) throw new Error("R2 fixture unavailable"); puts += 1; if (!stored.has(key)) stored.set(key, value.slice()); return {}; },
+      async get(key: string) {
+        const value = stored.get(key);
+        return value === undefined ? null : {
+          body: new Response(value.buffer as ArrayBuffer).body,
           httpMetadata: { contentType: "image/png" },
           httpEtag: '"cover-etag"',
         };
@@ -431,6 +434,41 @@ describe("uploaded game authorization", () => {
     expect(served.headers.get("Cache-Control")).toBe("public, max-age=31536000, immutable");
     expect(served.headers.get("X-Content-Type-Options")).toBe("nosniff");
     expect(Array.from(new Uint8Array(await served.arrayBuffer()))).toEqual(Array.from(minimalPng(336, 504)));
+    const credits = { artist: "Créateur", license: "Original test artwork", sourceUrl: "https://example.com/artwork" };
+    const replace = () => handlePlatformRequest(new Request("https://play.digipology.com/api/games/community/cover", {
+      method: "POST", headers: { "X-Digipology-CSRF": "1", Cookie: owner.cookie, "Content-Type": "image/png", "X-Digipology-Cover-Credits": encodeURIComponent(JSON.stringify(credits)) },
+      body: minimalPng(336, 504, [160, 80, 40, 255]).buffer as ArrayBuffer,
+    }), owner.env);
+    // Database failure rolls back the pointer/history, even after immutable bytes were staged.
+    owner.db.exec("CREATE TRIGGER fail_cover BEFORE INSERT ON game_covers BEGIN SELECT RAISE(ABORT, 'fixture DB failure'); END");
+    expect((await replace()).status).toBe(503);
+    expect(owner.db.query("SELECT cover_version FROM games WHERE slug = 'community'").get()).toEqual({ cover_version: 1 });
+    owner.db.exec("DROP TRIGGER fail_cover");
+    failPut = true;
+    expect((await replace()).status).toBe(503);
+    failPut = false;
+    expect(await (await replace()).json<{ coverVersion: number }>()).toEqual({ coverVersion: 2 });
+    // A lost reply and identical retry do not create another artwork version.
+    expect(await (await replace()).json<{ coverVersion: number }>()).toEqual({ coverVersion: 2 });
+    expect(owner.db.query("SELECT COUNT(*) AS count FROM game_covers").get()).toEqual({ count: 2 });
+    const old = await handlePlatformRequest(new Request("https://play.digipology.com/api/games/community/cover?v=1"), owner.env);
+    expect(Array.from(new Uint8Array(await old.arrayBuffer()))).toEqual(Array.from(minimalPng(336, 504)));
+    const info = await handlePlatformRequest(new Request("https://play.digipology.com/api/games/community/cover-info?v=2"), owner.env);
+    expect(await info.json()).toMatchObject({ coverVersion: 2, artwork: { contentType: "image/png", width: 336, height: 504, credits } });
+    expect((await handlePlatformRequest(new Request("https://play.digipology.com/api/games/community/cover?v=999"), owner.env)).status).toBe(404);
+  });
+
+  test("legacy cover reads survive rollout and migration pins the existing current object", async () => {
+    const owner = await authenticatedTestEnv("user_owner");
+    owner.db.exec("DROP TABLE game_covers; UPDATE games SET cover_version = 4 WHERE slug = 'community'");
+    const bytes = minimalPng(336, 504);
+    owner.env.RELEASES = { async get(key: string) { return key === "covers/game_community" ? { body: new Response(new Uint8Array(bytes).buffer).body, httpMetadata: { contentType: "image/png" }, httpEtag: '"legacy"' } : null; } } as unknown as R2Bucket;
+    const request = (version: number) => handlePlatformRequest(new Request(`https://play.digipology.com/api/games/community/cover?v=${version}`), owner.env);
+    expect((await request(4)).status).toBe(200);
+    expect((await request(3)).status).toBe(404); // Never invent overwritten historical bytes.
+    owner.db.exec(await Bun.file(new URL("../migrations/0008_cover_artwork_versions.sql", import.meta.url)).text());
+    expect(owner.db.query("SELECT version, asset_key, info_json FROM game_covers").get()).toEqual({ version: 4, asset_key: "covers/game_community", info_json: null });
+    expect(Array.from(new Uint8Array(await (await request(4)).arrayBuffer()))).toEqual(Array.from(bytes));
   });
 
   test("serves real illustrated raster covers with immutable versioned caching", async () => {
@@ -855,11 +893,13 @@ function sqliteD1(db: Database): D1Database {
       return new SqliteD1Statement(db, sql);
     },
     async batch(statements: D1PreparedStatement[]) {
-      const results = [];
-      for (const statement of statements) {
-        results.push(await (statement as unknown as SqliteD1Statement).run());
-      }
-      return results;
+      db.exec("BEGIN");
+      try {
+        const results = [];
+        for (const statement of statements) results.push(await (statement as unknown as SqliteD1Statement).run());
+        db.exec("COMMIT");
+        return results;
+      } catch (error) { db.exec("ROLLBACK"); throw error; }
     },
   } as unknown as D1Database;
 }
@@ -1117,66 +1157,14 @@ function quickPlayDb(
   } as unknown as D1Database;
 }
 
-function minimalPng(width: number, height: number): Uint8Array {
-  const bytes = new Uint8Array(33);
-  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
-  new DataView(bytes.buffer).setUint32(16, width);
-  new DataView(bytes.buffer).setUint32(20, height);
-  return bytes;
-}
-
-async function authenticatedTestEnv(userId: string): Promise<{ env: Env; cookie: string }> {
-  let record: SessionRecord | null = null;
-  let storedCoverVersion: number | null = null;
-  const repository: SessionRepository = {
-    insertSession(value) { record = value; return Promise.resolve(); },
-    findSessions() { return Promise.resolve([]); },
-    refreshSession() { return Promise.resolve(true); },
-    revokeSession() { return Promise.resolve(true); },
-  };
-  const secret = "test-session-secret-that-is-at-least-32-bytes";
-  const created = await createSession(repository, { id: userId, name: "Other", email: "other@example.com" }, secret, Date.now());
-  const session = record! as SessionRecord;
-  const db = {
-    prepare(sql: string) {
-      return {
-        bind(...values: unknown[]) {
-          return {
-            async all() {
-              if (sql.includes("FROM sessions s")) return { results: [{
-                id: session.id, token_selector: session.tokenSelector, token_hash: session.tokenHash,
-                created_at: session.createdAt, last_used_at: session.lastUsedAt, expires_at: session.expiresAt,
-                revoked_at: null, user_id: session.user.id, user_name: session.user.name, user_email: session.user.email,
-              }] };
-              return { results: [] };
-            },
-            async first() {
-              if (sql.includes("UPDATE sessions SET last_used_at")) return { id: session.id };
-              if (sql.includes("FROM games g") && values[0] === "community") return {
-                id: "game_community", slug: "community", title: "Community", tagline: "",
-                min_players: 2, max_players: 4, owner_user_id: "user_owner", owner_name: "Owner",
-                visibility: "public", latest_release_id: "release_community",
-                total_plays: 0, cover_version: storedCoverVersion,
-              };
-              if (sql.includes("UPDATE games SET cover_version") && userId === "user_owner") {
-                storedCoverVersion = 1;
-                return { cover_version: storedCoverVersion };
-              }
-              return null;
-            },
-          };
-        },
-      };
-    },
-    async batch() {
-      return [
-        { success: true, meta: { changes: 0 }, results: [] },
-        { success: true, meta: { changes: 1 }, results: [{ count: 1 }] },
-      ];
-    },
-  } as unknown as D1Database;
-  return {
-    env: { DB: db, SESSION_SECRET: secret } as unknown as Env,
-    cookie: `dgp_session=${created.token}`,
-  };
+async function authenticatedTestEnv(userId: string): Promise<{ env: Env; cookie: string; db: Database }> {
+  const db = new Database(":memory:");
+  for (const file of (await Array.fromAsync(new Bun.Glob("*.sql").scan(new URL("../migrations/", import.meta.url).pathname))).sort()) {
+    db.exec(await Bun.file(new URL(`../migrations/${file}`, import.meta.url)).text());
+  }
+  const cookie = await addTestSession(db, userId, Date.now());
+  if (userId !== "user_owner") addTestUser(db, "user_owner");
+  db.query(`INSERT INTO games(id, slug, title, tagline, min_players, max_players, builtin, latest_release_id, created_at, updated_at, owner_user_id)
+    VALUES ('game_community', 'community', 'Community', '', 2, 4, 0, 'release_community', 0, 0, 'user_owner')`).run();
+  return { env: { DB: sqliteD1(db), SESSION_SECRET: TEST_SESSION_SECRET } as unknown as Env, cookie, db };
 }

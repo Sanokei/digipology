@@ -3,6 +3,15 @@ import { describe, expect, it } from "bun:test";
 import { createApiClient, CSRF_HEADER } from "./client";
 
 describe("API client", () => {
+  it("uses actual WebP MIME and safely encodes Unicode artwork credits", async () => {
+    const client = createApiClient(async (_path, init) => {
+      const headers = new Headers(init?.headers);
+      expect(headers.get("Content-Type")).toBe("image/webp");
+      expect(JSON.parse(decodeURIComponent(headers.get("X-Digipology-Cover-Credits")!))).toEqual({ artist: "Créateur", license: "Original", sourceUrl: "https://example.com/art" });
+      return Response.json({ coverVersion: 1 });
+    });
+    expect((await client.uploadCover("game", new Blob(["fixture"], { type: "image/webp" }), { artist: "Créateur", license: "Original", sourceUrl: "https://example.com/art" })).ok).toBe(true);
+  });
   it("uses the ADR route shapes, cookies, JSON, and CSRF header", async () => {
     const calls: Array<[RequestInfo | URL, RequestInit | undefined]> = [];
     const client = createApiClient(async (input, init) => {

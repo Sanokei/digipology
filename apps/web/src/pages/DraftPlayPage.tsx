@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { loadEditorDraft } from "../editor/state/persistence";
+import { loadEditorDraft, saveEditorDraft, serializeEditorDraft } from "../editor/state/persistence";
+import { downloadBlob, verifyArtwork } from "../editor/state/artwork";
+import type { DraftArtwork } from "digipology-protocol";
+import { ArtworkDialog } from "../components/ArtworkDialog";
 import { PlaytestController, usePlaytestSnapshot } from "../editor/playtest/PlaytestController";
 import { useKernelStore } from "../state/useKernelStore";
 import { TableScene } from "../scene/TableScene";
@@ -28,6 +31,9 @@ export function DraftPlayPage() {
   const [players, setPlayers] = useState(draft?.minPlayers ?? 2);
   const [rules, setRules] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [artworkOpen, setArtworkOpen] = useState(false);
+  const [artwork, setArtwork] = useState<DraftArtwork | undefined>(draft?.artwork);
+  const [artworkStatus, setArtworkStatus] = useState<"checking" | "ready" | "failed">("checking");
   const [publishing, setPublishing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [projector, setProjector] = useState<((x: number, y: number) => { x: number; y: number; z: number } | null) | undefined>();
@@ -36,6 +42,15 @@ export function DraftPlayPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const bar = useRef<HTMLElement>(null);
+  useEffect(() => { setArtwork(draft?.artwork); }, [draftId]);
+  useEffect(() => {
+    let active = true;
+    if (!artwork) { setArtworkStatus("ready"); return; }
+    if (artwork.status === "unavailable") { setArtworkStatus("failed"); return; }
+    setArtworkStatus("checking");
+    void verifyArtwork(artwork).then(() => { if (active) setArtworkStatus("ready"); }, () => { if (active) setArtworkStatus("failed"); });
+    return () => { active = false; };
+  }, [artwork]);
   useEffect(() => {
     const header = bar.current;
     const root = header?.closest<HTMLElement>(".table-scene");
@@ -57,12 +72,17 @@ export function DraftPlayPage() {
   const handId = localHandId(view.state, runtime.playerId);
   const hand = localHandItems(view.displayedState, runtime.playerId, view.definitions);
   const entities = Object.values(view.state?.entities ?? {});
+  const withArtwork = (next: DraftArtwork | undefined) => {
+    const updated = { ...draft, updatedAt: new Date().toISOString() };
+    if (next) updated.artwork = next; else delete updated.artwork;
+    return updated;
+  };
   const restart = () => { controller.stop(); void controller.start(draft, { playerCount: players }); };
   async function publish() {
     if (!draft) return;
     if (!user) { navigate("/login", { state: { backgroundLocation: location } }); return; }
     setPublishing(true); setNotice(null);
-    const result = await publishDraftAndHost(api, draft, window.location.origin);
+    const result = await publishDraftAndHost(api, withArtwork(artwork), window.location.origin);
     setPublishing(false);
     if (!result.ok) { setNotice(result.error.message); return; }
     try { saveRoomSession(result.value); navigate(`/table/${encodeURIComponent(result.value.roomId)}`); }
@@ -73,11 +93,15 @@ export function DraftPlayPage() {
     onProjectorChange={(next) => setProjector(next === null ? undefined : () => next)}
     topBar={<header className="draft-play-bar" ref={bar}>
       <div className="draft-play-bar__title"><Link to="/create" aria-label="Back to creation">←</Link><div><small>Draft saved here · reopening resets the playtest</small><strong>{draft.title}</strong>{draft.tagline ? <span className="draft-play-bar__tagline" title={draft.tagline}>{draft.tagline}</span> : null}</div></div>
-      <div className="draft-play-bar__actions"><button type="button" onClick={() => setRules(true)}>How to play</button>{review ? <button type="button" className="draft-play-review-button" aria-label="Review playtest" onClick={() => setReviewOpen(true)}>{review.stale ? "Review your changes" : `Review playtest · ${review.suggestions.length}`}</button> : null}<AudioControls {...audio} /><Link to={`/edit/${encodeURIComponent(draft.id)}`}>Edit</Link><button type="button" disabled={publishing} onClick={() => void publish()}>{publishing ? "Opening table…" : "Publish & invite"}</button></div>
+      <div className="draft-play-bar__actions"><button type="button" onClick={() => setRules(true)}>How to play</button>{review ? <button type="button" className="draft-play-review-button" aria-label="Review playtest" onClick={() => setReviewOpen(true)}>{review.stale ? "Review your changes" : `Review playtest · ${review.suggestions.length}`}</button> : null}<button type="button" className="draft-artwork-button" aria-label="Edit artwork" onClick={() => setArtworkOpen(true)}>{artwork?.status === "ready" && artworkStatus === "ready" ? <img className="draft-artwork-thumb" src={artwork.dataUrl} alt={`${draft.title} cover`} /> : null}{artworkStatus === "failed" ? "Artwork needs attention" : "Artwork"}</button><AudioControls {...audio} /><Link to={`/edit/${encodeURIComponent(draft.id)}`}>Edit</Link><button type="button" disabled={publishing || artworkStatus !== "ready"} onClick={() => void publish()}>{publishing ? "Opening table…" : "Publish & invite"}</button></div>
       <div className="draft-play-bar__seats"><label>Play as<select aria-label="Play as" value={runtime.playerId} disabled={paused} onChange={(event) => controller.selectPlayer(event.currentTarget.value)}>{view.players.map((player) => <option value={player.playerId} key={player.playerId}>{player.displayName}</option>)}</select></label>
         <label>Players<select aria-label="Playtest player count" value={players} onChange={(event) => setPlayers(Number(event.currentTarget.value))}>{Array.from({ length: draft.maxPlayers - draft.minPlayers + 1 }, (_, index) => draft.minPlayers + index).map((count) => <option key={count}>{count}</option>)}</select></label><button type="button" disabled={runtime.status === "starting"} onClick={restart}>Restart playtest</button><button type="button" disabled={paused} onClick={() => controller.tick()}>Advance time</button><span>Try each seat here. Publish an unlisted game to invite friends.</span></div>
     </header>}
     panels={<>
+      {artworkOpen ? <ArtworkDialog title={draft.title} {...(artwork ? { artwork } : {})} onClose={() => setArtworkOpen(false)} onSave={async (next) => {
+        try { saveEditorDraft(localStorage, withArtwork(next)); setArtwork(next); }
+        catch { throw new Error("Artwork could not be saved in this browser. Download the draft, or free storage and retry."); }
+      }} onDownloadDraft={(next) => downloadBlob(new Blob([serializeEditorDraft(withArtwork(next))], { type: "application/json" }), "game-draft.editor.json")} /> : null}
       {rules ? <RulebookDialog title={draft.title} rulebook={view.rulebook} onClose={() => setRules(false)} /> : null}
       {reviewOpen && review ? <ReadingDialog heading="Try these at the table" eyebrow={review.stale ? "Your draft changed" : "Playtest review"} closeLabel="Close playtest review" bodyLabel="Suggested playtests" onClose={() => setReviewOpen(false)}>
         <p>{review.stale ? "The rules or setup changed after the automated playtest. Give your changes a fresh playthrough." : "Some checks still need a playthrough. Try these before you invite friends."}</p>

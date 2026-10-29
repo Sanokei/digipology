@@ -1,6 +1,9 @@
-import { useReducer } from "react";
+import { useReducer, useState } from "react";
 import type { OwnedGameDto } from "digipology-protocol/http";
 import { api } from "../api/client";
+import { ArtworkDialog } from "../components/ArtworkDialog";
+import { artworkBlob } from "../editor/state/artwork";
+import { Link } from "react-router-dom";
 import {
   initialCoverPickerState,
   rasterizeAndUpload,
@@ -16,6 +19,7 @@ export function CoverPicker({
   onUploaded(): void;
 }) {
   const [state, dispatch] = useReducer(reduceCoverPicker, initialCoverPickerState);
+  const [artworkOpen, setArtworkOpen] = useState(false);
 
   async function generate() {
     dispatch({ type: "requested" });
@@ -46,10 +50,16 @@ export function CoverPicker({
   return <section className="cover-picker" aria-label={`Cover options for ${game.title}`}>
     <div className="cover-picker__header">
       <div><strong>Cover art</strong><small>{game.coverVersion === null ? "No cover uploaded" : `Cover version ${game.coverVersion}`}</small></div>
-      <button className="secondary-button" type="button" disabled={busy} onClick={() => void generate()}>
-        {state.candidates.length === 0 ? "Generate covers" : "Regenerate"}
-      </button>
+      <button className="secondary-button" type="button" disabled={busy} onClick={() => setArtworkOpen(true)}>Upload image</button>
     </div>
+    {game.coverVersion !== null ? <Link to={`/games/${encodeURIComponent(game.slug)}`}>View artwork & credits</Link> : null}
+    {artworkOpen ? <ArtworkDialog title={game.title} onClose={() => setArtworkOpen(false)} onSave={async (artwork) => {
+      if (artwork?.status !== "ready") throw new Error("Choose an image first.");
+      const result = await api.uploadCover(game.slug, artworkBlob(artwork), artwork.info.credits);
+      if (!result.ok) throw new Error(result.error.message);
+      onUploaded();
+    }} /> : null}
+    <details><summary>Shape patterns</summary><p>Simple geometric alternatives for your cover.</p><button className="secondary-button" type="button" disabled={busy} onClick={() => void generate()}>{state.candidates.length === 0 ? "Show patterns" : "Refresh patterns"}</button>
     {state.message === null ? null : <p className="cover-picker__status" role="status">{state.message}</p>}
     {state.candidates.length === 0 ? null : <div className="cover-picker__grid" aria-busy={busy}>
       {state.candidates.map((candidate, index) => <button
@@ -63,6 +73,7 @@ export function CoverPicker({
         <span>{state.uploadingIndex === index ? "Uploading…" : "Pick this cover"}</span>
       </button>)}
     </div>}
+    </details>
   </section>;
 }
 

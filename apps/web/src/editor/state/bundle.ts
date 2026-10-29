@@ -14,6 +14,7 @@ import { prevalidateRelease } from "../../releaseValidation";
 import type { EditorDraft } from "./types";
 import { createScript, updateScript } from "./scripts";
 import { normalizeGenerationReview } from "./generationReview";
+import { normalizeDraftArtwork } from "./artwork";
 
 export type EditorTemplateId = "blank" | "card" | "dice" | "zone";
 
@@ -352,6 +353,7 @@ export function normalizeEditorDraft(value: unknown): EditorDraft {
   }
   const strings = value as Record<(typeof requiredStrings)[number], string> & Record<string, unknown>;
   const generationReview = normalizeGenerationReview(value.generationReview);
+  const artwork = normalizeDraftArtwork(value.artwork);
   return structuredClone({
     editorVersion: 1,
     id: strings.id,
@@ -364,6 +366,7 @@ export function normalizeEditorDraft(value: unknown): EditorDraft {
     updatedAt: strings.updatedAt,
     bundle,
     ...(generationReview ? { generationReview } : {}),
+    ...(artwork ? { artwork } : {}),
   } satisfies EditorDraft);
 }
 

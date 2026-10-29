@@ -49,7 +49,8 @@ export interface ApiClient {
   createAiGame(prompt: string): Promise<ApiResult<AiGameDraftResponse>>;
   editAiGame(slug: string, instruction: string): Promise<ApiResult<AiGameDraftResponse>>;
   generateCovers(slug: string): Promise<ApiResult<GenerateCoversResponse>>;
-  uploadCover(slug: string, png: Blob): Promise<ApiResult<CoverUploadResponse>>;
+  uploadCover(slug: string, image: Blob, credits?: import("digipology-protocol").ArtworkCredits): Promise<ApiResult<CoverUploadResponse>>;
+  getCoverInfo(slug: string, version: number): Promise<ApiResult<import("digipology-protocol").CoverInfoResponse>>;
   updateGameVisibility(slug: string, visibility: "public" | "unlisted"): Promise<ApiResult<UpdateGameResponse>>;
   createRoom(input: CreateRoomRequest): Promise<ApiResult<CreateRoomResponse>>;
   joinRoom(input: JoinRoomRequest): Promise<ApiResult<JoinRoomResponse>>;
@@ -142,11 +143,12 @@ export function createApiClient(fetcher: Fetcher = fetch): ApiClient {
     createAiGame: (prompt) => post("/api/ai/games", { prompt }),
     editAiGame: (slug, instruction) => post(`/api/ai/games/${encodeURIComponent(slug)}/edit`, { instruction }),
     generateCovers: (slug) => post(`/api/games/${encodeURIComponent(slug)}/covers/generate`),
-    uploadCover: (slug, png) => request(`/api/games/${encodeURIComponent(slug)}/cover`, {
+    uploadCover: (slug, image, credits) => request(`/api/games/${encodeURIComponent(slug)}/cover`, {
       method: "POST",
-      headers: { "Content-Type": "image/png" },
-      body: png,
+      headers: { "Content-Type": image.type || "application/octet-stream", ...(credits ? { "X-Digipology-Cover-Credits": encodeURIComponent(JSON.stringify(credits)) } : {}) },
+      body: image,
     }),
+    getCoverInfo: (slug, version) => request(`/api/games/${encodeURIComponent(slug)}/cover-info?v=${version}`),
     updateGameVisibility: (slug, visibility) => request(`/api/games/${encodeURIComponent(slug)}`, {
       method: "PATCH", body: JSON.stringify({ visibility }),
     }),

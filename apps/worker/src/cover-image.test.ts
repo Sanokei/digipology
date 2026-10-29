@@ -1,13 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { COVER_BODY_LIMIT, validateCoverImage } from "./cover-image";
 
-function png(width: number, height: number): Uint8Array {
-  const bytes = new Uint8Array(33);
-  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
-  new DataView(bytes.buffer).setUint32(16, width);
-  new DataView(bytes.buffer).setUint32(20, height);
-  return bytes;
-}
+import { rasterPng as png } from "../../../packages/protocol/src/raster.fixture";
 
 function jpeg(width: number, height: number): Uint8Array {
   return Uint8Array.from([0xff, 0xd8, 0xff, 0xc0, 0, 7, 8, height >>> 8, height & 255, width >>> 8, width & 255]);
@@ -25,17 +19,17 @@ function webp(width: number, height: number): Uint8Array {
 }
 
 describe("cover image validation", () => {
-  test("accepts complete 2:3 PNG, JPEG, and WebP headers", () => {
+  test("accepts complete 2:3 PNG and rejects header-only JPEG/WebP", () => {
     expect(validateCoverImage(png(336, 504), "image/png")).toMatchObject({ ok: true, contentType: "image/png" });
-    expect(validateCoverImage(jpeg(336, 504), "image/jpeg")).toMatchObject({ ok: true, contentType: "image/jpeg" });
-    expect(validateCoverImage(webp(336, 504), "image/webp")).toMatchObject({ ok: true, contentType: "image/webp" });
+    expect(validateCoverImage(jpeg(336, 504), "image/jpeg")).toMatchObject({ ok: false });
+    expect(validateCoverImage(webp(336, 504), "image/webp")).toMatchObject({ ok: false });
   });
 
   test("rejects wrong magic, truncation, dimensions, ratio, and Content-Type spoofing", () => {
     for (const [bytes, type] of [
       [new Uint8Array([1, 2, 3]), "image/png"],
       [png(336, 504).subarray(0, 20), "image/png"],
-      [png(4097, 6146), "image/png"],
+      [png(4098, 3), "image/png"],
       [png(336, 500), "image/png"],
       [png(336, 504), "image/jpeg"],
     ] as const) expect(validateCoverImage(bytes, type).ok).toBe(false);
