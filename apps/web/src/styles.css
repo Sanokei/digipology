@@ -430,8 +430,10 @@ button.action-card { width: 100%; border-right: 0; border-left: 0; text-align: l
 .creator-panel, .game-detail { padding: clamp(26px, 4vw, 48px); border: 1px solid var(--line); background: rgba(13,24,20,.82); }
 .ai-creator-panel { grid-column: 1 / -1; background: linear-gradient(135deg, rgba(213,255,118,.08), rgba(13,24,20,.9) 42%); }
 .ai-creator-panel .stack-form { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
-.ai-creator-panel .stack-form label, .ai-creator-panel .stack-form textarea { grid-column: 1; }
-.ai-creator-panel .stack-form button { grid-column: 2; grid-row: 2; min-height: 50px; }
+.ai-creator-panel .stack-form > label, .ai-creator-panel .stack-form > textarea { grid-column: 1; }
+.ai-creator-panel .stack-form > button[type="submit"] { grid-column: 2; grid-row: 2; min-height: 50px; }
+.ai-creator-panel .stack-form > fieldset, .ai-creator-panel .stack-form > .form-notice, .ai-creator-panel .stack-form > button[type="button"] { grid-column: 1 / -1; }
+.creator-page :is(input, textarea, button, summary) { scroll-margin-top: 90px; }
 .ai-state-unconfigured { border-left-color: var(--muted); background: rgba(255,255,255,.035); }
 .ai-state-capped, .ai-state-failed { border-left-color: #ffbc7a; }
 .ai-edit-form { margin: 20px 0 12px; padding: 16px; border: 1px solid var(--line); background: rgba(255,255,255,.018); }
@@ -805,7 +807,7 @@ button.action-card { width: 100%; border-right: 0; border-left: 0; text-align: l
   .game-detail__cover { min-height: 360px; max-height: 480px; }
   .cover-picker__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ai-creator-panel .stack-form { grid-template-columns: 1fr; }
-  .ai-creator-panel .stack-form button { grid-column: 1; grid-row: auto; }
+  .ai-creator-panel .stack-form > button[type="submit"] { grid-column: 1; grid-row: auto; }
   .home-main {
     grid-template-columns: 1fr;
     gap: 54px;
