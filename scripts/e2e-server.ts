@@ -1,9 +1,10 @@
-import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 import { randomBytes } from "node:crypto";
 import { startQualityServer } from "./quality-server";
 import { startGenerationFixture } from "./e2e-generation-fixture";
+import { captureServerResources, readWranglerFailure } from "./e2e-server-diagnostics";
 
 const root = resolve(import.meta.dir, "..");
 const temporary = await mkdtemp(join(tmpdir(), "digipology-e2e-"));
@@ -41,11 +42,46 @@ try {
   await run([wrangler, "deploy", "--dry-run", "--outdir", workerBuild, "--config", configPath]);
   await writeFile(configPath, JSON.stringify({ ...config, main: join(workerBuild, "index.js") }));
   console.log("E2E Worker compiled locally once; serving without source rebundling.");
-  const server = Bun.spawn([wrangler, "dev", "--no-bundle", "--local", "--config", configPath, "--port", "8797", "--ip", "127.0.0.1", "--inspector-port", "9239", "--persist-to", join(temporary, "state")], { cwd: root, env, stdout: "inherit", stderr: "inherit" });
-  const stop = () => server.kill("SIGTERM");
-  process.on("SIGTERM", stop);
-  process.on("SIGINT", stop);
-  const exitCode = await server.exited;
-  console.log(`Isolated E2E Worker exited: code=${exitCode}, signal=${server.signalCode ?? "none"}`);
-  process.exitCode = exitCode;
+  // Wrangler logs Error.message at info level but Error.stack only to its debug
+  // file. Keep that file private and temporary; project only safe crash fields.
+  const logPath = join(temporary, "wrangler-dev.log");
+  const server = Bun.spawn([wrangler, "dev", "--no-bundle", "--local", "--config", configPath, "--port", "8797", "--ip", "127.0.0.1", "--inspector-port", "9239", "--persist-to", join(temporary, "state")], { cwd: root, env: { ...env, WRANGLER_LOG_PATH: logPath, WRANGLER_WRITE_LOGS: "true", WRANGLER_LOG: "info", WRANGLER_LOG_SANITIZE: "true" }, stdout: "inherit", stderr: "inherit" });
+  let stopping: "SIGTERM" | "SIGINT" | null = null;
+  const stopTerm = () => { stopping = "SIGTERM"; server.kill("SIGTERM"); };
+  const stopInt = () => { stopping = "SIGINT"; server.kill("SIGTERM"); };
+  process.on("SIGTERM", stopTerm);
+  process.on("SIGINT", stopInt);
+  const firstResources = await captureServerResources(server.pid);
+  const samples = [firstResources];
+  let pendingSample: Promise<void> | undefined;
+  const sampling = setInterval(() => {
+    if (pendingSample) return;
+    pendingSample = captureServerResources(server.pid).then((sample) => {
+      samples.push(sample); if (samples.length > 3) samples.shift();
+    }).catch(() => { /* A diagnostic probe must not terminate the server. */ }).finally(() => { pendingSample = undefined; });
+  }, 5000);
+  sampling.unref();
+  try {
+    const exitCode = await server.exited;
+    clearInterval(sampling);
+    console.log(`Isolated E2E Worker exited: code=${exitCode}, signal=${server.signalCode ?? "none"}`);
+    if (!stopping) {
+      await pendingSample;
+      const diagnostic = {
+        schemaVersion: 1, event: "unexpected-e2e-worker-exit", pid: server.pid, exitCode, signal: server.signalCode ?? null,
+        log: await readWranglerFailure(logPath), firstResources, recentResources: samples, finalResources: await captureServerResources(server.pid),
+      };
+      // This allowlisted JSON is safe for the existing browser artifact. Neither
+      // the raw log, configuration, .dev.vars nor rule content is copied there.
+      console.error(`Isolated E2E Worker failure diagnostic: ${JSON.stringify(diagnostic)}`);
+      try {
+        await mkdir(join(root, "test-results"), { recursive: true });
+        await writeFile(join(root, "test-results/e2e-server-diagnostics.json"), JSON.stringify(diagnostic, null, 2), { mode: 0o600 });
+      } catch { console.error("The sanitized E2E Worker diagnostic could not be saved; the safe record is printed above."); }
+    }
+    process.exitCode = exitCode;
+  } finally {
+    clearInterval(sampling);
+    process.off("SIGTERM", stopTerm); process.off("SIGINT", stopInt);
+  }
 } finally { await quality.stop(true); await modelFixture?.stop(true); await rm(temporary, { recursive: true, force: true }); }
