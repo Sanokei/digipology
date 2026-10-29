@@ -69,3 +69,39 @@ Bun Lua quality service. The fixture deliberately emits a runtime error, then a
 repair patch. This exercises the actual creation API and repair meter before
 private play, explicit publication and a second client's complete game. It is
 not a live provider or evidence of original strategy-game generation.
+
+## Bounded choice and lifecycle probes
+
+The quality service now tests the real minimum and maximum rosters, plus a host
+starting alone followed by normal player-joined and seat-assigned actions. It
+does not silently reduce an eight-player minimum to four players. Each setup
+runs with first and last choices, in a fresh Lua runtime and the release's own
+RNG seed. Prompt responses use the actual prompted player, including prompts
+outside the current turn; number responses obey the kernel's exact step grid.
+
+Exploration includes dice, enabled buttons, drawing cards to the actor's hand,
+choice/number/confirmation prompts, and scheduled callbacks. Guards can reject
+an attempted action without becoming script errors. A changing die face alone
+does not establish rule progress. Runtime failures include the scenario,
+sequence and triggering action in the issue sent to the repair loop.
+
+`POST /check` retains the existing `issues` response and also returns a versioned
+`simulation` report: manifest hash, setup and choice policy, initial state hash,
+ordered actions, rejections, events, per-action state hashes and stopping reason.
+The report can be replayed from the corresponding seeded release; a regression
+replays recorded actions and checks every hash. Response caching is disabled.
+Normal hosted quality-service authentication is still required.
+
+The existing `simulateRolls` setting is retained as an exploration budget:
+four action attempts per unit, capped at 96 gameplay attempts per session.
+Lifecycle setup is separate and bounded by the supported 64-player limit.
+Up to six sessions run, with at most 256 candidate player actions considered in
+one step; a candidate limit produces an explicit coverage warning. Timers use
+virtual deterministic time rather than waiting for real-time delays.
+
+These probes sample the two ends of a choice list, not every branch or strategy.
+They do not explore drag/zone placement, arbitrary resource trades, multiple RNG
+seeds, balance, pacing or fun. Unobserved wins and stalled/limited exploration
+remain warnings requiring review; runtime and lifecycle errors prevent draft
+acceptance until repaired. Original live strategy prompts and human playtests
+remain necessary acceptance work.

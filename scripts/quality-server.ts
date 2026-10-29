@@ -1,4 +1,4 @@
-import { checkDraftQuality } from "../apps/worker/src/ai-game-quality";
+import { checkDraftQuality, type DraftSimulationReport } from "../apps/worker/src/ai-game-quality";
 import { validateUploadedBundle } from "../apps/worker/src/release-validation";
 import type { ReleaseBundleDto } from "digipology-protocol/http";
 
@@ -25,8 +25,9 @@ export function startQualityServer(options: { port?: number; hostname?: string; 
       } catch { return Response.json({ error: "Invalid request" }, { status: 400 }); }
       running += 1;
       try {
-        const issues = await checkDraftQuality(draft, { simulateRolls: 24, instructionBudget: 100_000, requireRules });
-        return Response.json({ issues }, { headers: { "Cache-Control": "no-store" } });
+        let simulation: DraftSimulationReport | undefined;
+        const issues = await checkDraftQuality(draft, { simulateRolls: 24, instructionBudget: 100_000, requireRules, onSimulation: (report) => { simulation = report; } });
+        return Response.json({ issues, simulation }, { headers: { "Cache-Control": "no-store" } });
       } catch {
         return Response.json({ error: "The game could not be playtested" }, { status: 422 });
       } finally { running -= 1; }

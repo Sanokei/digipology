@@ -1,4 +1,3 @@
-import { canonicalStringify } from "digipology-canonical-json";
 import {
   buildRequest,
   DEFAULT_MODEL_ID,
@@ -6,19 +5,9 @@ import {
   type ModelFetch,
   type QualityIssue,
 } from "digipology-ai";
-import {
-  applyOrderedWithScripts,
-  seedInitialRoster,
-  loadSnapshot,
-  type CanonicalGameState,
-  type GameSnapshot,
-  type OrderedActionInput,
-} from "digipology-kernel";
-import {
-  createCreatorScriptRuntime,
-  createSandbox,
-  scriptsFromReleaseFiles,
-} from "digipology-lua";
+import { createSandbox } from "digipology-lua";
+import { simulateDraftReport, type DraftSimulationReport } from "./ai-game-simulation";
+export { simulateDraft, simulateDraftReport, type DraftSimulationReport } from "./ai-game-simulation";
 import type { ReleaseBundleDto } from "digipology-protocol/http";
 import { authoredRules } from "digipology-protocol";
 
@@ -41,8 +30,10 @@ import { authoredRules } from "digipology-protocol";
 export interface DraftQualityOptions {
   /** Creation requires a player-facing guide; archived release checks can opt out. */
   requireRules?: boolean;
-  /** Simulated die rolls in the playtest. Default 12. 0 disables simulation. */
+  /** Legacy exploration budget: up to four actions per roll, capped at 96 per session. Default 12; 0 disables. */
   simulateRolls?: number;
+  /** Optional bounded, reproducible action histories for developer review. */
+  onSimulation?: (report: DraftSimulationReport) => void;
   /** Instruction budget for each sandboxed Lua execution. Default 100_000. */
   instructionBudget?: number;
   /**
@@ -70,7 +61,11 @@ export async function checkDraftQuality(
   issues.push(...checkLuaCrossReferences(draft));
   issues.push(...await checkLuaSyntax(draft, options.instructionBudget));
   const rolls = options.simulateRolls ?? 12;
-  if (rolls > 0) issues.push(...await simulateDraft(draft, rolls, options.instructionBudget));
+  if (rolls > 0) {
+    const simulation = await simulateDraftReport(draft, Math.max(1, Math.min(96, Math.trunc(rolls) * 4)), options.instructionBudget);
+    issues.push(...simulation.issues);
+    options.onSimulation?.(simulation);
+  }
   if (options.fetch && options.userPrompt) {
     issues.push(...await critiqueInstructionFollowing({
       fetch: options.fetch,
@@ -579,196 +574,6 @@ async function checkLuaSyntax(
     sandbox.close();
   }
   return issues;
-}
-
-// ---------------------------------------------------------------------------
-// Dynamic simulation: actually play the draft through kernel + Lua runtime
-// ---------------------------------------------------------------------------
-
-export interface DraftSimulation {
-  issues: QualityIssue[];
-  rollsApplied: number;
-  progressObserved: boolean;
-  winObserved: boolean;
-}
-
-function progressFingerprint(state: CanonicalGameState): string {
-  const counters: Record<string, unknown> = {};
-  const texts: Record<string, unknown> = {};
-  for (const [id, entity] of Object.entries(state.entities)) {
-    const components = entity.components as Record<string, { value?: unknown; default?: unknown } | undefined>;
-    const counter = components.counter;
-    if (counter !== undefined && counter.value !== undefined) counters[id] = counter.value;
-    const text = components.text;
-    if (text !== undefined && text.value !== undefined) texts[id] = text.value;
-    const die = components.die;
-    if (die !== undefined && die.value !== undefined) counters[`die:${id}`] = die.value;
-  }
-  return canonicalStringify({ counters, texts, scriptState: state.scriptState });
-}
-
-function winnerDeclared(state: CanonicalGameState): boolean {
-  for (const [id, entity] of Object.entries(state.entities)) {
-    if (!/winner/i.test(id)) continue;
-    const components = entity.components as Record<string, { value?: unknown; default?: unknown } | undefined>;
-    const counter = components.counter;
-    if (counter !== undefined && counter.value !== counter.default) return true;
-    const text = components.text;
-    if (text !== undefined && text.value !== "") return true;
-  }
-  const scriptState = state.scriptState;
-  if (typeof scriptState === "object" && scriptState !== null && !Array.isArray(scriptState)) {
-    const winner = (scriptState as Record<string, unknown>).winner_id ?? (scriptState as Record<string, unknown>).winner;
-    if (winner !== undefined && winner !== null && winner !== 0 && winner !== "" && winner !== false) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function scriptErrorIssues(events: Array<{ type: string; data?: unknown }>): QualityIssue[] {
-  const issues: QualityIssue[] = [];
-  const seen = new Set<string>();
-  for (const event of events) {
-    if (event.type !== "script.error") continue;
-    const data = (event.data ?? {}) as {
-      script?: unknown; binding?: unknown; function?: unknown;
-      line?: unknown; message?: unknown; kind?: unknown;
-    };
-    const key = `${data.script}|${data.function}|${data.message}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    let message = String(data.message ?? "unknown error");
-    // Point the model at the right API when it invents a random global.
-    if (/nil value/i.test(message) && /random/i.test(message)) {
-      message += " Did you mean random:int(min, max)? The sandbox has no math.random, random(), random_int(), or randint() — only random:int, random:float, and random:choice.";
-    }
-    issues.push({
-      code: "lua_runtime_error",
-      message:
-        `Lua ${String(data.function ?? "?")} in ${String(data.script ?? "?")} failed at runtime` +
-        (typeof data.line === "number" ? ` (line ${data.line})` : "") +
-        `: ${message}. ` +
-        "The triggering action was rejected, so this breaks the game flow.",
-      severity: "error",
-    });
-  }
-  return issues;
-}
-
-function nextAction(
-  sequence: number,
-  actionId: string,
-  type: string,
-  actor: OrderedActionInput["actor"],
-  payload: Record<string, unknown>,
-): OrderedActionInput {
-  return {
-    sequence,
-    actionId,
-    actor,
-    action: { type, payload: payload as never },
-  };
-}
-
-/**
- * Join simulated players, then roll every die and watch what happens:
- * script errors, state progress, and whether a win is ever declared.
- * Deterministic: kernel RNG comes from the draft's own seed.
- */
-export async function simulateDraft(
-  draft: ReleaseBundleDto,
-  rolls = 12,
-  instructionBudget = 100_000,
-): Promise<QualityIssue[]> {
-  const scripts = scriptsFromReleaseFiles(draft.files);
-  if (Object.keys(scripts).length === 0) return [];
-  const issues: QualityIssue[] = [];
-  const runtime = await createCreatorScriptRuntime({ scripts, instructionBudget, memoryBudgetBytes: 512 * 1024, refs: draft.refs ?? {}, definitions: draft.definitions ?? {} });
-  try {
-    const initial = loadSnapshot(draft.initialSnapshot as unknown as GameSnapshot);
-    const roster = [];
-
-    const playerCount = Math.min(Math.max(draft.minPlayers, 1), 4);
-    const playerIds: string[] = [];
-    const allEvents: Array<{ type: string; data?: unknown }> = [];
-    for (let index = 1; index <= playerCount; index += 1) {
-      const playerId = `sim_player_${index}`;
-      playerIds.push(playerId);
-      roster.push({ playerId, name: `Player ${index}`, seatId: `seat_${index}` });
-    }
-    // Live rooms place their initial roster in the sequence-zero snapshot,
-    // then run game_start once. Joining first would make game_start invalid.
-    let state = seedInitialRoster(initial, roster);
-    const started = await applyOrderedWithScripts(state, nextAction(1, "sim-start", "system.game_start", { type: "system" }, {}), { runtime });
-    state = started.state;
-    let sequence = state.sequence;
-    allEvents.push(...started.events);
-
-    const dice = Object.entries(state.entities)
-      .filter(([, entity]) =>
-        (entity.components as Record<string, unknown>).die !== undefined)
-      .map(([id]) => id);
-    if (dice.length === 0) return scriptErrorIssues(allEvents);
-
-    let progressObserved = false;
-    let winObserved = winnerDeclared(state);
-    let before = progressFingerprint(state);
-    let rollsApplied = 0;
-    for (let round = 1; round <= rolls; round += 1) {
-      for (const dieId of dice) {
-        sequence += 1;
-        const script = typeof state.scriptState === "object" && state.scriptState !== null && !Array.isArray(state.scriptState) ? state.scriptState : {};
-        const stdlib = typeof script.__stdlib === "object" && script.__stdlib !== null && !Array.isArray(script.__stdlib) ? script.__stdlib : {};
-        const turns = typeof stdlib.turns === "object" && stdlib.turns !== null && !Array.isArray(stdlib.turns) ? stdlib.turns : {};
-        const current = turns.active === true && Array.isArray(turns.order) && typeof turns.index === "number" ? turns.order[turns.index - 1] : null;
-        const actor = {
-          type: "player",
-          playerId: typeof current === "string" ? current : playerIds[(round - 1) % playerIds.length]!,
-        } as const;
-        const result = await applyOrderedWithScripts(
-          state,
-          nextAction(sequence, `sim-roll-${round}-${dieId}`, "die.roll", actor, { entityId: dieId }),
-          { runtime },
-        );
-        allEvents.push(...result.events);
-        state = result.state;
-        rollsApplied += 1;
-        const after = progressFingerprint(state);
-        if (after !== before) progressObserved = true;
-        before = after;
-        if (!winObserved && winnerDeclared(state)) winObserved = true;
-        if (winObserved) break;
-      }
-      if (winObserved) break;
-    }
-    // Dedup across the whole session: one broken callback failing every roll
-    // is one issue, not N.
-    issues.push(...scriptErrorIssues(allEvents));
-
-    if (rollsApplied > 0 && !progressObserved && !issues.some((issue) => issue.severity === "error")) {
-      issues.push({
-        code: "game_no_progress",
-        message:
-          `${rollsApplied} simulated die roll(s) changed nothing observable (no counter, text, ` +
-          "die value, or script state moved). The game does not react to its own actions.",
-        severity: "warning",
-      });
-    }
-    const targetSetting = Object.keys(state.settings).find((key) => /target|goal|win|score/i.test(key));
-    if (targetSetting !== undefined && !winObserved && rollsApplied > 0) {
-      issues.push({
-        code: "game_win_unobserved",
-        message:
-          `The draft has a target-like setting ("${targetSetting}") but no winner was declared ` +
-          `during ${rollsApplied} simulated roll(s). The win condition may be unreachable or unimplemented.`,
-        severity: "warning",
-      });
-    }
-    return issues;
-  } finally {
-    runtime.close();
-  }
 }
 
 // ---------------------------------------------------------------------------

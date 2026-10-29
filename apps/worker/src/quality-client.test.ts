@@ -4,6 +4,7 @@ import { resolveQualityCheck } from "./quality-client";
 import { builtinCatalog } from "./catalog";
 import { assembleAiGameDraft, authoringFromBundle } from "./ai-games";
 import { readRulebook } from "digipology-protocol";
+import type { DraftSimulationReport } from "./ai-game-quality";
 
 test("the HTTP harness playtests a real release and detects broken generated Lua", async () => {
   const server = startQualityServer({ port: 0 });
@@ -13,7 +14,16 @@ test("the HTTP harness playtests a real release and detects broken generated Lua
     const authoring = authoringFromBundle(bundle);
     const files = authoring.files as Array<{ path: string; content: string }>;
     files.push({ path: "runtime/rules.md", content: readRulebook(bundle)!.body });
-    expect((await check(assembleAiGameDraft(authoring).draft!)).filter((issue) => issue.severity === "error")).toEqual([]);
+    const accepted = assembleAiGameDraft(authoring).draft!;
+    const response = await fetch(`http://127.0.0.1:${server.port}/check`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ draft: accepted, requireRules: true }) });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    const body = await response.json() as { issues: Array<{ severity: string }>; simulation: DraftSimulationReport };
+    expect(body.issues.filter((issue) => issue.severity === "error")).toEqual([]);
+    expect(body.simulation.manifestHash).toBe(accepted.integrity.manifestHash);
+    expect(body.simulation.sessions.every((session) => session.winObserved)).toBe(true);
+    expect(body.simulation.sessions.some((session) => session.trace.some((entry) => entry.ordered.action.type === "system.seat_assign"))).toBe(true);
+    expect(body.simulation.sessions[0]!.trace.at(-1)!.stateHash).toMatch(/^sha256:[a-f0-9]{64}$/);
     expect((await check(bundle)).some((issue) => issue.code === "rules_missing")).toBe(true);
     files.find((file) => file.path.endsWith(".lua"))!.content = 'function on_roll(ctx)\n  scene:get("score_seat_1"):add(math.random(1, 6))\nend';
     const broken = assembleAiGameDraft(authoring).draft!;
