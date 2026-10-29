@@ -31,7 +31,10 @@ import { CoverPicker } from "./CoverPicker";
 import { createGeneratedDraft, DraftStorageError, saveGeneratedDraft } from "./generatedDraft";
 import { normalizeEditorDraft } from "../editor/state/bundle";
 import { saveEditorDraft, serializeEditorDraft } from "../editor/state/persistence";
-import type { AiGameDraftResponse } from "digipology-protocol/http";
+import type { AiGameDraftResponse, AiRuleSource, CreateAiGameRequest } from "digipology-protocol/http";
+import { RuleSourcePicker } from "./RuleSourcePicker";
+import { generationRequest } from "./ruleSources";
+import "./ruleSources.css";
 
 export function ValidationReport({ report }: { report: UploadValidationReportItem[] }) {
   return <ul className="validation-report" aria-label="Upload validation report">
@@ -58,6 +61,9 @@ export function CreatePage() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [aiPrompt, setAiPrompt] = useState("");
+  const [ruleSources, setRuleSources] = useState<AiRuleSource[]>([]);
+  const [readingSources, setReadingSources] = useState(false);
+  const [sourceError, setSourceError] = useState<string | null>(null);
   const [pendingPlaytest, setPendingPlaytest] = useState<AiGameDraftResponse | null>(null);
   const [playtestMessage, setPlaytestMessage] = useState<string | null>(null);
   const pendingDraftId = useRef<string | null>(null);
@@ -88,12 +94,15 @@ export function CreatePage() {
     event.preventDefault();
     const intent = aiSubmitIntent(user, aiPrompt);
     if (intent === "sign_in") { signIn(); return; }
-    if (intent === "ignore") return;
+    if (intent === "ignore" || readingSources) return;
+    let request: CreateAiGameRequest;
+    try { request = generationRequest(aiPrompt, ruleSources); setSourceError(null); }
+    catch (error) { setSourceError(error instanceof Error ? error.message : "Check your source documents."); return; }
     dispatchAi({ type: "requested" });
     setPendingPlaytest(null);
     setPlaytestMessage(null);
     pendingDraftId.current = null;
-    const result = await api.createAiGame(aiPrompt.trim());
+    const result = await api.createAiGame(request.prompt, request.references);
     if (!result.ok) {
       dispatchAi({
         type: "failed",
@@ -115,12 +124,21 @@ export function CreatePage() {
     openPlaytest(result.value);
   }
 
+  function downloadRequest() {
+    try {
+      const request = generationRequest(aiPrompt, ruleSources);
+      const url = URL.createObjectURL(new Blob([JSON.stringify(request, null, 2)], { type: "application/json" }));
+      const link = document.createElement("a"); link.href = url; link.download = "game-generation.request.json"; link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) { setSourceError(error instanceof Error ? error.message : "Check your source documents."); }
+  }
+
   function openPlaytest(response: AiGameDraftResponse) {
     setPendingPlaytest(response);
     setPlaytestMessage(null);
     try {
       pendingDraftId.current ??= crypto.randomUUID();
-      const draft = saveGeneratedDraft(localStorage, response, aiPrompt, pendingDraftId.current);
+      const draft = saveGeneratedDraft(localStorage, response, aiPrompt, pendingDraftId.current, ruleSources);
       navigate(`/playtest/${encodeURIComponent(draft.id)}`);
     } catch (error) {
       setPlaytestMessage(error instanceof DraftStorageError
@@ -132,7 +150,7 @@ export function CreatePage() {
   function downloadDraft(response: AiGameDraftResponse) {
     try {
       pendingDraftId.current ??= crypto.randomUUID();
-      const draft = createGeneratedDraft(response, aiPrompt, pendingDraftId.current);
+      const draft = createGeneratedDraft(response, aiPrompt, pendingDraftId.current, ruleSources);
       const url = URL.createObjectURL(new Blob([serializeEditorDraft(draft)], { type: "application/json" }));
       const link = document.createElement("a"); link.href = url; link.download = "game-draft.editor.json"; link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -259,9 +277,12 @@ export function CreatePage() {
         <textarea id="ai-game-prompt" rows={6} maxLength={8000} required disabled={aiState.phase === "busy"} value={aiPrompt}
           placeholder="A cooperative two-player dice game about repairing a moon base…"
           onChange={(event) => { setAiPrompt(event.currentTarget.value); setPendingPlaytest(null); if (aiState.phase !== "busy") dispatchAi({ type: "reset" }); }} />
-        <button className="primary-button" type="submit" disabled={aiState.phase === "busy"}>
-          {aiState.phase === "busy" ? "Creating and playtesting…" : aiState.phase === "failed" ? "Retry AI draft" : "Create & play"}
+        <RuleSourcePicker sources={ruleSources} disabled={aiState.phase === "busy"} onReading={setReadingSources} onChange={(sources) => { setRuleSources(sources); setPendingPlaytest(null); setSourceError(null); dispatchAi({ type: "reset" }); }} />
+        {sourceError ? <p className="form-notice" role="alert">{sourceError}</p> : null}
+        <button className="primary-button" type="submit" disabled={aiState.phase === "busy" || readingSources}>
+          {aiState.phase === "busy" ? "Creating and playtesting…" : aiState.phase === "failed" || aiState.phase === "unconfigured" ? "Retry AI draft" : "Create & play"}
         </button>
+        {ruleSources.length ? <button type="button" className="secondary-button" disabled={readingSources} onClick={downloadRequest}>Download generation request</button> : null}
       </form>
       {aiState.message === null || playtestMessage !== null ? null : <p className={`form-notice ai-state-${aiState.phase}`} role="status">{aiState.message}</p>}
       {playtestMessage ? <p className="form-notice" role="alert">{playtestMessage}</p> : null}

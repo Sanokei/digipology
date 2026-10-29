@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test";
 import { createApiClient } from "../api/client";
 import { createDiceGameEditorDraft } from "../editor/state/bundle";
-import { loadEditorDraft } from "../editor/state/persistence";
+import { loadEditorDraft, serializeEditorDraft } from "../editor/state/persistence";
+import { normalizeEditorDraft, exportBundleText } from "../editor/state/bundle";
 import { compileDraftForPlaytest } from "../editor/playtest/runtime";
 import type { AiGameDraftResponse } from "digipology-protocol/http";
 import { generatedPublicationSlug, publishDraftAndHost, saveGeneratedDraft } from "./generatedDraft";
@@ -36,6 +37,19 @@ test("the authored tagline and bounded quality review survive the ordinary draft
   expect(loadEditorDraft(store, draft.id)?.generationReview).toEqual({ manifestHash: accepted.draft.integrity.manifestHash, warnings: [{ code: "game_win_unobserved", message: "No winner in the sampled run" }] });
   expect(draft.bundle).not.toHaveProperty("generationReview");
   expect(draft.bundle).not.toHaveProperty("tagline");
+});
+
+test("complete generation sources survive editable backups while release exports keep their exact gameplay payload", () => {
+  const store = storage(), accepted = response();
+  const references = [{ name: "Rulebook.md", text: "\uFEFF# Complete rules\r\n" + "source text ".repeat(6_000) + "\nEND  \n", sourceUrl: "https://example.com/pinned/rules" }];
+  const draft = saveGeneratedDraft(store, accepted, "Use these exact rules", "sourced-draft", references);
+  expect(loadEditorDraft(store, draft.id)?.generationRequest).toEqual({ prompt: "Use these exact rules", references });
+  const restored = normalizeEditorDraft(JSON.parse(serializeEditorDraft(draft)));
+  expect(restored.generationRequest).toEqual(draft.generationRequest);
+  expect(restored.bundle).toEqual(accepted.draft);
+  expect(JSON.parse(exportBundleText(restored))).toEqual(accepted.draft);
+  expect(restored.bundle).not.toHaveProperty("generationRequest");
+  expect(() => normalizeEditorDraft({ ...draft, generationRequest: { prompt: "Rules", references: [{ name: "Broken.md", text: "\0" }] } })).toThrow("generation source");
 });
 
 test.each(["room failure", "lost publication reply"])("publication retry reuses the authored version after %s", async (failure) => {

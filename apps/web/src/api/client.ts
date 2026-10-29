@@ -1,5 +1,6 @@
 import type {
   ApiError,
+  AiRuleSource,
   ApiResult,
   AiGameDraftResponse,
   CreateGameRequest,
@@ -46,8 +47,8 @@ export interface ApiClient {
   listMyGames(): Promise<ApiResult<MyGamesResponse>>;
   createGame(input: CreateGameRequest): Promise<ApiResult<CreateGameResponse>>;
   createRelease(slug: string, bundle: ReleaseBundleDto): Promise<ApiResult<CreateReleaseResponse>>;
-  createAiGame(prompt: string): Promise<ApiResult<AiGameDraftResponse>>;
-  editAiGame(slug: string, instruction: string): Promise<ApiResult<AiGameDraftResponse>>;
+  createAiGame(prompt: string, references?: AiRuleSource[]): Promise<ApiResult<AiGameDraftResponse>>;
+  editAiGame(slug: string, instruction: string, references?: AiRuleSource[]): Promise<ApiResult<AiGameDraftResponse>>;
   generateCovers(slug: string): Promise<ApiResult<GenerateCoversResponse>>;
   uploadCover(slug: string, image: Blob, credits?: import("digipology-protocol").ArtworkCredits): Promise<ApiResult<CoverUploadResponse>>;
   getCoverInfo(slug: string, version: number): Promise<ApiResult<import("digipology-protocol").CoverInfoResponse>>;
@@ -140,8 +141,8 @@ export function createApiClient(fetcher: Fetcher = fetch): ApiClient {
     listMyGames: () => request("/api/games/mine"),
     createGame: (input) => post("/api/games", input),
     createRelease: (slug, bundle) => post(`/api/games/${encodeURIComponent(slug)}/releases`, { bundle }),
-    createAiGame: (prompt) => post("/api/ai/games", { prompt }),
-    editAiGame: (slug, instruction) => post(`/api/ai/games/${encodeURIComponent(slug)}/edit`, { instruction }),
+    createAiGame: (prompt, references) => post("/api/ai/games", { prompt, ...(references?.length ? { references } : {}) }),
+    editAiGame: (slug, instruction, references) => post(`/api/ai/games/${encodeURIComponent(slug)}/edit`, { instruction, ...(references?.length ? { references } : {}) }),
     generateCovers: (slug) => post(`/api/games/${encodeURIComponent(slug)}/covers/generate`),
     uploadCover: (slug, image, credits) => request(`/api/games/${encodeURIComponent(slug)}/cover`, {
       method: "POST",

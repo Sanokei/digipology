@@ -1,3 +1,6 @@
+import { validateAiRuleSources, type AiRuleSource } from "./ai-rule-sources";
+export { validateAiRuleSources, AI_RULE_SOURCE_MAX_BYTES, AI_RULE_SOURCE_MAX_FILES, type AiRuleSource } from "./ai-rule-sources";
+
 export const CSRF_HEADER = "X-Digipology-CSRF";
 export const UPLOAD_BODY_LIMIT = 1024 * 1024;
 export const CHECKPOINT_ATTESTATION_INTERVAL = 200;
@@ -108,10 +111,12 @@ export interface CreateReleaseResponse {
 
 export interface CreateAiGameRequest {
   prompt: string;
+  references?: AiRuleSource[];
 }
 
 export interface EditAiGameRequest {
   instruction: string;
+  references?: AiRuleSource[];
 }
 
 export interface UpdateGameRequest {
@@ -643,14 +648,16 @@ export function validateEditAiGameRequest(
 function validateAiInstruction<K extends "prompt" | "instruction">(
   value: unknown,
   key: K,
-): HttpValidationResult<Record<K, string>> {
-  const object = exactObject(value, [key]);
+): HttpValidationResult<Record<K, string> & { references?: AiRuleSource[] }> {
+  const object = exactObject(value, [key, "references"]);
   if (!object.ok) return object;
   const text = object.value[key];
   if (typeof text !== "string" || !boundedTrimmedText(text, 1, 8_000)) {
     return invalid(`$.${key}`, `${key} must contain 1 to 8000 characters`);
   }
-  return { ok: true, value: { [key]: text } as Record<K, string> };
+  const sources = object.value.references === undefined ? null : validateAiRuleSources(object.value.references);
+  if (sources && !sources.ok) return invalid("$.references", sources.error);
+  return { ok: true, value: { [key]: text, ...(sources?.ok ? { references: sources.value } : {}) } as Record<K, string> & { references?: AiRuleSource[] } };
 }
 
 export function validateUpdateGameRequest(

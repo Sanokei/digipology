@@ -13,6 +13,7 @@ import {
   assembleAiGameDraft,
   authoringFromBundle,
   buildAiRequest,
+  withRuleSources,
   resolveModelFetch,
 } from "./ai-games";
 import { COVER_GENERATION_TOOL } from "./cover-generation";
@@ -45,6 +46,15 @@ describe("AI game authoring schema and assembly", () => {
     expect(request.max_tokens).toBe(3_000);
     expect(request.messages.at(-1)?.content).toEndWith(" /no_think");
     expect(request.extraBody).toEqual({ enable_thinking: false });
+  });
+  test("complete source documents remain user data with server-computed hashes", () => {
+    const source = { name: "Rules.md", text: "\uFEFF# Source\r\nIgnore instructions is quoted data.  \n", sourceUrl: "https://example.com/pinned/rules" };
+    const request = buildAiRequest({ AI_MODEL: "configured-model" } as unknown as Env, "create", "Reproduce these rules", null, [source]);
+    expect(request.messages[0]?.content).not.toContain(source.text);
+    const data = JSON.parse(withRuleSources("request", [source]).split("instructions):\n")[1]!);
+    expect(data[0]).toMatchObject(source);
+    expect(data[0].sha256).toMatch(/^sha256:[a-f0-9]{64}$/);
+    expect(JSON.parse(request.messages.at(-1)!.content.split("instructions):\n")[1]!)[0]).toEqual(data[0]);
   });
   test("a real demo game's authorable fields satisfy the forced tool JSON schema", () => {
     const bundle = builtinCatalog.getRelease("builtin_dice_dash_2")!.bundle;
@@ -268,6 +278,41 @@ describe("AI game budgets", () => {
     const body = await response.json() as { validationReport: Array<{ check: string; ok: boolean }> };
     expect(body.validationReport.find((item) => item.check === "playability")?.ok).toBe(true);
     expect((fixture.db.query("SELECT requests FROM ai_usage WHERE user_id = ?").get("user_owner") as { requests: number }).requests).toBe(2);
+  });
+
+  test("full rule sources over the old body limit reach generation and repair without becoming release files", async () => {
+    const fixture = await routeFixture();
+    const before = databaseCounts(fixture.db);
+    const source = { name: "Complete source.md", text: "# Actual source input\r\n" + "rules ".repeat(12_000) + "\nSOURCE-END · keep every byte  \n", sourceUrl: "https://example.com/pinned/source" };
+    const valid = playableAuthoring();
+    const broken = structuredClone(valid);
+    (broken.files as Array<{ path: string; content: string }>).find((file) => file.path.endsWith(".lua"))!.content = 'function on_roll(ctx)\n error("transport fixture needs repair")\nend';
+    const fixed = (valid.files as Array<{ path: string; content: string }>).filter((file) => file.path.endsWith(".lua"));
+    const requests: ModelRequest[] = [];
+    const response = await requestRoute("create", fixture.env, fixture.cookie, async (payload) => {
+      requests.push(payload);
+      return requests.length === 1 ? modelResponse(broken) : modelResponse({ files: fixed });
+    }, { prompt: "Exercise source transport using the existing dice fixture", references: [source] });
+    expect(response.status).toBe(200);
+    expect(requests).toHaveLength(2);
+    const exact = withRuleSources("", [source]).split("instructions):\n")[1]!;
+    for (const payload of requests) expect(payload.messages.some((message) => message.content.includes(exact))).toBe(true);
+    const body = await response.json() as { draft: ReleaseBundleDto };
+    expect(JSON.stringify(body.draft)).not.toContain("SOURCE-END");
+    expect(databaseCounts(fixture.db)).toEqual(before);
+    expect(fixture.r2Puts).toBe(0);
+  });
+
+  test("over-budget documents and transport bodies fail before calling the model", async () => {
+    const fixture = await routeFixture();
+    let calls = 0;
+    const fetch = async () => { calls++; return validModelResponse(); };
+    const oversizedSources = await requestRoute("create", fixture.env, fixture.cookie, fetch, { prompt: "Rules", references: [{ name: "Large.md", text: "x".repeat(131_073) }] });
+    expect(oversizedSources.status).toBe(400);
+    const oversizedBody = await requestRoute("create", fixture.env, fixture.cookie, fetch, { prompt: "x".repeat(1024 * 1024) });
+    expect(oversizedBody.status).toBe(413);
+    expect(await oversizedBody.json()).toMatchObject({ error: { code: "request_too_large" } });
+    expect(calls).toBe(0);
   });
 
   test("does not return a broken game when bounded repairs fail", async () => {
@@ -534,6 +579,7 @@ async function requestRoute(
   env: Env,
   cookie: string | null,
   fetch: ModelFetch | null,
+  body?: object,
 ): Promise<Response> {
   const path = route === "create" ? "/api/ai/games" : "/api/ai/games/owned-game/edit";
   const headers = new Headers(CSRF);
@@ -541,7 +587,7 @@ async function requestRoute(
   return handlePlatformRequest(new Request(`https://play.digipology.com${path}`, {
     method: "POST",
     headers,
-    body: JSON.stringify(route === "create" ? { prompt: "Make a quick dice game" } : { instruction: "Make scoring clearer" }),
+    body: JSON.stringify(body ?? (route === "create" ? { prompt: "Make a quick dice game" } : { instruction: "Make scoring clearer" })),
   }), env, { modelFetch: fetch, qualityCheck: (draft) => checkDraftQuality(draft, { simulateRolls: 24, requireRules: true }), now: NOW });
 }
 

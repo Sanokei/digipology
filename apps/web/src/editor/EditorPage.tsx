@@ -39,7 +39,7 @@ function downloadBundle(store: EditorStore): void {
   anchor.download = `${draft.slug || draft.id}.json`;
   anchor.click();
   URL.revokeObjectURL(url);
-  store.log("Release bundle exported, including pinned card backs and sounds. Use Download editable draft for the cover and review notes.");
+  store.log("Release bundle exported, including pinned card backs and sounds. Use Download editable draft for the cover, review notes and generation sources.");
 }
 
 function downloadDraft(store: EditorStore): void {
@@ -163,6 +163,7 @@ export function EditorPage() {
       { kind: "action", label: "Add sound bundle…", searchTerms: ["audio clips credits mastered import"], disabled: playtestSnapshot.status !== "stopped", onSelect: () => setSoundsOpen(true) },
       { kind: "action", label: "Card backs…", searchTerms: ["deck image theme artwork credits"], disabled: playtestSnapshot.status !== "stopped", onSelect: () => setBacksOpen(true) },
       { kind: "action", label: "Download editable draft", shortcut: "Ctrl+S", searchTerms: ["save backup json artwork credits review"], onSelect: () => downloadDraft(store) },
+      ...(snapshot.draft.generationRequest ? [{ kind: "action" as const, label: "Download generation request", searchTerms: ["original rules source documents prompt"], onSelect: () => downloadBlob(new Blob([JSON.stringify(snapshot.draft.generationRequest, null, 2)], { type: "application/json" }), "game-generation.request.json") }] : []),
       { kind: "action", label: "Export release bundle", searchTerms: ["gameplay presentation card backs sounds json without cover review"], onSelect: () => downloadBundle(store) },
       { kind: "separator" },
       { kind: "action", label: "Publish…", searchTerms: ["review private play upload release"], onSelect: publish },
@@ -185,7 +186,7 @@ export function EditorPage() {
       { kind: "separator" },
       { kind: "action", label: "Reset layout", onSelect: () => layoutApi.current?.resetLayout() },
     ],
-  }), [newDraft, openDraft, playtest, playtestSnapshot.status, publish, snapshot.future.length, snapshot.past.length, snapshot.selectedEntityId, store]);
+  }), [newDraft, openDraft, playtest, playtestSnapshot.status, publish, snapshot.draft.generationRequest, snapshot.future.length, snapshot.past.length, snapshot.selectedEntityId, store]);
   return <div className="editor-shell">
     <MenuBar actions={menuActions} status={<><span className={`editor-save-status is-${snapshot.saveStatus}`}>{snapshot.saveStatus === "saved" ? <Save size={13} /> : null}{snapshot.saveStatus}</span><span>{snapshot.draft.title}</span>{playtestSnapshot.status === "playing" ? <><button type="button" className="editor-transport-button" onClick={() => playtest.tick()}><Pause size={13} />Tick {playtestSnapshot.tick}</button><button type="button" className="editor-transport-button" onClick={() => playtest.stop()}><Square size={12} />Stop</button></> : <button type="button" className="editor-transport-button" disabled={playtestSnapshot.status === "starting"} onClick={() => { void playtest.start(store.getSnapshot().draft); }}><Play size={13} />{playtestSnapshot.status === "starting" ? "Starting" : "Play"}</button>}<button ref={publishButton} type="button" className="editor-publish-button" onClick={publish}><CloudUpload size={14} />Publish</button></>} />
     <div className="editor-details-bar">

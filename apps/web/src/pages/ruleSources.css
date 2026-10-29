@@ -1,0 +1,15 @@
+.rule-sources { min-width:0; margin:4px 0 12px; padding:18px; border:1px solid var(--line); border-radius:12px; }
+.rule-sources legend { padding:0 6px; font-weight:700; }
+.rule-sources p, .rule-sources small { font-size:.78rem; line-height:1.5; }
+.rule-sources > p { margin:0 0 14px; }
+.rule-sources > label, .rule-sources li > label { display:grid; gap:6px; margin-top:10px; font-size:.8rem; }
+.rule-sources input { min-width:0; max-width:100%; width:100%; }
+.rule-sources ul { display:grid; gap:12px; margin:16px 0 0; padding:0; list-style:none; }
+.rule-sources li { min-width:0; padding-top:14px; border-top:1px solid var(--line); overflow-wrap:anywhere; }
+.rule-sources__heading { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.rule-sources__heading strong { min-width:0; font-size:.85rem; }
+.rule-sources__heading button { min-height:44px; flex-shrink:0; }
+.rule-sources details { margin:8px 0; font-size:.75rem; }
+.rule-sources summary { cursor:pointer; min-height:32px; }
+.rule-sources code { display:block; overflow-wrap:anywhere; font-size:.66rem; padding:8px 0; }
+.rule-sources [role=alert] { padding:12px; color:#8a3526; background:#ffe5d9; border-left:3px solid #b04f31; }

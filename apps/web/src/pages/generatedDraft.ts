@@ -1,11 +1,12 @@
 import { hashValue } from "digipology-canonical-json";
-import { slugifyGameTitle, type AiGameDraftResponse, type ApiResult } from "digipology-protocol/http";
+import { slugifyGameTitle, type AiGameDraftResponse, type AiRuleSource, type ApiResult } from "digipology-protocol/http";
 import type { ApiClient } from "../api/client";
 import { importBundleAsDraft } from "../editor/state/bundle";
 import { saveEditorDraft } from "../editor/state/persistence";
 import type { EditorDraft, StorageLike } from "../editor/state/types";
 import type { SavedRoomSession } from "../utils/roomSession";
 import { inviteUrlForCode } from "../utils/inviteUrl";
+import { generationRequest } from "./ruleSources";
 import { artworkBlob, verifyArtwork } from "../editor/state/artwork";
 
 export type DraftPublicationStage = "publication" | "artwork" | "table";
@@ -16,7 +17,7 @@ export class DraftStorageError extends Error {
   constructor(cause: unknown) { super("Browser storage could not save this draft", { cause }); this.name = "DraftStorageError"; }
 }
 
-export function createGeneratedDraft(response: AiGameDraftResponse, prompt: string, id: string): EditorDraft {
+export function createGeneratedDraft(response: AiGameDraftResponse, prompt: string, id: string, references: readonly AiRuleSource[] = []): EditorDraft {
   if (!response.validationReport.every((check) => check.ok) ||
     !response.validationReport.some((check) => check.check === "playability" && check.ok) ||
     response.qualityReport?.some((issue) => issue.severity === "error")) {
@@ -26,11 +27,12 @@ export function createGeneratedDraft(response: AiGameDraftResponse, prompt: stri
   draft.tagline = (response.tagline?.trim() || prompt.trim()).replaceAll(/\s+/g, " ").slice(0, 240);
   draft.generationReview = { manifestHash: draft.bundle.integrity.manifestHash,
     warnings: (response.qualityReport ?? []).filter((issue) => issue.severity === "warning").slice(0, 256).map((issue) => ({ code: issue.code.slice(0, 80), message: issue.message.slice(0, 2_000) })) };
+  if (references.length) draft.generationRequest = generationRequest(prompt, references);
   return draft;
 }
 
-export function saveGeneratedDraft(storage: StorageLike, response: AiGameDraftResponse, prompt: string, id: string): EditorDraft {
-  const draft = createGeneratedDraft(response, prompt, id);
+export function saveGeneratedDraft(storage: StorageLike, response: AiGameDraftResponse, prompt: string, id: string, references: readonly AiRuleSource[] = []): EditorDraft {
+  const draft = createGeneratedDraft(response, prompt, id, references);
   try { saveEditorDraft(storage, draft); }
   catch (error) { throw new DraftStorageError(error); }
   return draft;

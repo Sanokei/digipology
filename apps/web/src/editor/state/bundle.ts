@@ -6,6 +6,7 @@ import {
 } from "digipology-kernel";
 import {
   rawContentHash,
+  validateCreateAiGameRequest,
   releaseManifestHash,
   type ReleaseBundleDto,
 } from "digipology-protocol/http";
@@ -353,6 +354,8 @@ export function normalizeEditorDraft(value: unknown): EditorDraft {
   }
   const strings = value as Record<(typeof requiredStrings)[number], string> & Record<string, unknown>;
   const generationReview = normalizeGenerationReview(value.generationReview);
+  const generationRequest = value.generationRequest === undefined ? null : validateCreateAiGameRequest(value.generationRequest);
+  if (generationRequest && !generationRequest.ok) throw new TypeError(`Draft generation source is invalid: ${generationRequest.error.message}`);
   const artwork = normalizeDraftArtwork(value.artwork);
   return structuredClone({
     editorVersion: 1,
@@ -366,6 +369,7 @@ export function normalizeEditorDraft(value: unknown): EditorDraft {
     updatedAt: strings.updatedAt,
     bundle,
     ...(generationReview ? { generationReview } : {}),
+    ...(generationRequest?.ok ? { generationRequest: generationRequest.value } : {}),
     ...(artwork ? { artwork } : {}),
   } satisfies EditorDraft);
 }

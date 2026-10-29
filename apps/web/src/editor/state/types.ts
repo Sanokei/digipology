@@ -1,5 +1,5 @@
 import type { EntityComponents, EntityRecord } from "digipology-kernel";
-import type { ReleaseBundleDto } from "digipology-protocol/http";
+import type { CreateAiGameRequest, ReleaseBundleDto } from "digipology-protocol/http";
 import type { GenerationReview } from "./generationReview";
 import type { DraftArtwork } from "digipology-protocol";
 
@@ -15,6 +15,7 @@ export interface EditorDraft {
   updatedAt: string;
   bundle: ReleaseBundleDto;
   generationReview?: GenerationReview;
+  generationRequest?: CreateAiGameRequest;
   artwork?: DraftArtwork;
 }
 
