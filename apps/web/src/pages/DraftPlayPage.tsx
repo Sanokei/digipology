@@ -1,3 +1,6 @@
+import { useCardArtworkIssue } from "../artwork/useCardArtworkIssue";
+import { CardActions } from "../components/CardActions";
+import { CARD_DESIGNS_PATH } from "digipology-protocol";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { loadEditorDraft, saveEditorDraft, serializeEditorDraft } from "../editor/state/persistence";
@@ -41,6 +44,7 @@ function DraftPlayContent({ initialDraft }: { initialDraft: ArtworkDraft }) {
   const [rules, setRules] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [artworkOpen, setArtworkOpen] = useState(false);
+  const [artworkStatusTarget, setArtworkStatusTarget] = useState<HTMLDivElement | null>(null);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -56,6 +60,9 @@ function DraftPlayContent({ initialDraft }: { initialDraft: ArtworkDraft }) {
   const artwork = useDraftArtworkGeneration({ draft, api, enabled: user !== null,
     onDraftChange: (next) => setDraft(next), persistDraft: (next) => saveEditorDraft(localStorage, next) });
   const cardBack = draft.bundle.files.find((file) => file.path === CARD_BACK_PATH)?.content ?? null;
+  const cardDesigns = draft.bundle.files.find((file) => file.path === CARD_DESIGNS_PATH)?.content ?? null;
+  const cardArtworkIssue = useCardArtworkIssue(cardDesigns);
+  useEffect(() => { controller.projection.setCardDesignsBundle(cardDesigns); }, [controller, cardDesigns, runtime.status]);
   useEffect(() => { controller.projection.setCardBackBundle(cardBack); }, [controller, cardBack, runtime.status]);
   useEffect(() => {
     const header = top.current, bottom = dock.current;
@@ -82,7 +89,7 @@ function DraftPlayContent({ initialDraft }: { initialDraft: ArtworkDraft }) {
   const paused = runtime.status !== "playing";
   const wrongTurn = progress.winnerId !== null || (progress.currentPlayerId !== null && progress.currentPlayerId !== runtime.playerId);
   const handId = localHandId(view.state, runtime.playerId);
-  const hand = localHandItems(view.displayedState, runtime.playerId, view.definitions);
+  const hand = localHandItems(view.displayedState, runtime.playerId, view.definitions, view.cardDesignsBundle);
   const entities = Object.values(view.state?.entities ?? {});
   const restart = () => { controller.stop(); void controller.start(draft, { playerCount: players }); };
   async function publish() {
@@ -98,15 +105,17 @@ function DraftPlayContent({ initialDraft }: { initialDraft: ArtworkDraft }) {
   const warning = runtime.logs.filter((entry) => entry.level !== "info").at(-1);
   const artworkIncomplete = !!draft.artworkGeneration && !artworkJobsReady(draft);
   const artworkBusy = user !== null && (artwork.activity !== null || (!!draft.artworkGeneration?.direction && Object.values(draft.artworkGeneration.jobs).some((job) => job.status === "pending" || job.status === "running")));
-  return <TableScene className="draft-play-scene" store={controller.projection} client={controller} playerId={runtime.playerId} interactionsPaused={paused || toolsOpen}
+  return <TableScene className="draft-play-scene" artworkStatusTarget={artworkStatusTarget} store={controller.projection} client={controller} playerId={runtime.playerId} interactionsPaused={paused || toolsOpen}
     onProjectorChange={(next) => setProjector(next === null ? undefined : () => next)}
     topBar={<div className="draft-play-top" ref={top}>
       <header className="draft-play-bar">
         <div className="draft-play-bar__title"><Link to="/create" aria-label="Back to creation">←</Link><div><small>{artwork.storageMessage ? "Draft needs saving" : "Private draft · saved here"}</small><strong title={draft.title}>{draft.title}</strong>{draft.tagline ? <span className="draft-play-bar__tagline" title={draft.tagline}>{draft.tagline}</span> : null}</div></div>
-        <button type="button" className="draft-play-publish" disabled={publishing || artworkBusy || draft.artwork?.status === "unavailable"} onClick={() => void publish()}>{publishing ? "Opening table…" : artworkIncomplete ? "Publish draft & invite" : "Publish & invite"}</button>
+        <button type="button" className="draft-play-publish" disabled={publishing || artworkBusy || !!cardArtworkIssue || draft.artwork?.status === "unavailable"} onClick={() => void publish()}>{publishing ? "Opening table…" : artworkIncomplete ? "Publish draft & invite" : "Publish & invite"}</button>
         <div className="draft-play-bar__actions"><button type="button" className="draft-play-rules" aria-label="How to play" title="How to play" onClick={() => setRules(true)}><span aria-hidden="true">?</span><span className="draft-play-rules__label">How to play</span></button>{review ? <button type="button" className="draft-play-review-button" aria-label="Review playtest" title={review.stale ? "Review your changes" : `Review playtest · ${review.suggestions.length}`} onClick={() => setReviewOpen(true)}>{review.stale ? "Review your changes" : `Review playtest · ${review.suggestions.length}`}</button> : null}<button type="button" className="draft-artwork-button" aria-label="Edit artwork" title={draft.artwork?.status === "unavailable" ? "Repair artwork" : artworkIncomplete ? "Artwork pending" : "Artwork"} onClick={() => setArtworkOpen(true)}>{draft.artwork?.status === "ready" ? <img className="draft-artwork-thumb" src={draft.artwork.dataUrl} alt={`${draft.title} cover`} /> : null}<span>{draft.artwork?.status === "unavailable" ? "Repair artwork" : artwork.activity === "review" ? "Checking game…" : artwork.activity ? "Creating artwork…" : artworkIncomplete ? "Artwork pending" : "Artwork"}</span></button><AudioControls {...audio} /><Link to={`/edit/${encodeURIComponent(draft.id)}`}>Edit</Link><button ref={toolsButton} type="button" aria-label="Playtest tools" aria-expanded={toolsOpen} onClick={() => setToolsOpen(true)}>Tools</button></div>
       </header>
       <GameProgressPanel compact state={view.state} playerId={runtime.playerId} onPlayAgain={restart} continuationHint="Starts a fresh private playtest with the same game and players." />
+      <div className="draft-play-art-status" ref={setArtworkStatusTarget} />
+      {cardArtworkIssue ? <p className="draft-play-warning" role="alert">Card artwork: {cardArtworkIssue} Open Artwork to repair or remove the affected images.</p> : null}
       {notice ? <div className="draft-play-notice" role="alert">{notice}<button type="button" disabled={publishing} onClick={() => void publish()}>{retryStage === "artwork" ? "Retry artwork publication" : retryStage === "table" ? "Retry opening table" : "Retry publication"}</button></div> : null}
       {warning ? <p className="draft-play-warning" role="status">{warning.message}</p> : null}
     </div>}
@@ -135,7 +144,7 @@ function DraftPlayContent({ initialDraft }: { initialDraft: ArtworkDraft }) {
       </ReadingDialog> : null}
       <div className="table-bottom-dock" ref={dock}>
       {progress.winnerId === null ? <DiceControls dice={entities.filter((entity) => entity.components.die)} definitions={view.definitions} disabled={paused || wrongTurn} onRoll={(entityId) => controller.sendAction({ type: "die.roll", payload: { entityId } })} /> : null}
-      {progress.winnerId === null && entities.some((entity) => entity.components.deck?.enabled) ? <aside className="card-controls dice-controls" aria-label="Card actions"><span>Cards</span>{entities.filter((entity) => entity.components.deck?.enabled).map((deck) => <div key={deck.id}><button type="button" disabled={paused || !handId || !deck.components.container?.items.length} onClick={() => controller.sendAction({ type: "deck.draw_to_container", payload: { deckId: deck.id, target: handId, count: 1 } })}>Draw card</button><button type="button" disabled={paused} onClick={() => controller.sendAction({ type: "deck.shuffle", payload: { deckId: deck.id } })}>Shuffle deck</button></div>)}</aside> : null}
+      {progress.winnerId === null ? <CardActions entities={entities} handId={handId} disabled={paused} designs={view.cardDesignsBundle} onAction={(action) => controller.sendAction(action)} /> : null}
       {handId ? <HandStrip key={`${draftId}:${runtime.playerId}`} items={hand} roomId={`draft-${draftId}`} client={controller} interactionsPaused={paused} {...(projector ? { projectToTable: projector } : {})} /> : null}
       {progress.winnerId === null && entities.some((entity) => entity.components.button) ? <aside className="draft-action-buttons" aria-label="Game actions">{entities.filter((entity) => entity.components.button).map((entity) => <button type="button" key={entity.id} disabled={paused || !entity.components.button?.enabled} onClick={() => controller.sendAction({ type: "button.press", payload: { entityId: entity.id } })}>{entity.components.button?.label || "Choose"}</button>)}</aside> : null}
       </div>

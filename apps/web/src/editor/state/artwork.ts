@@ -1,3 +1,5 @@
+import { parseCardDesigns } from "digipology-protocol";
+import { sha256 } from "digipology-canonical-json";
 import {
   inspectRasterImage,
   RASTER_COVER_HEIGHT, RASTER_COVER_MAX_BYTES, RASTER_COVER_WIDTH,
@@ -20,12 +22,17 @@ export async function verifyArtwork(artwork: ReadyDraftArtwork): Promise<void> {
   finally { bitmap.close(); }
 }
 
-export async function prepareArtwork(file: File, credits: ArtworkCredits, fit: "cover" | "contain" = "cover"): Promise<ReadyDraftArtwork> {
+export async function prepareArtwork(file: File, credits: ArtworkCredits, fit: "cover" | "contain" = "cover", profile: "portrait" | "illustration" | "card-back" = "portrait"): Promise<ReadyDraftArtwork> {
   if (!file.size || file.size > SOURCE_LIMIT) throw new Error("Choose an image or saved artwork file smaller than 8 MiB.");
   if (file.name.toLowerCase().endsWith(".json") || file.type === "application/json") {
     let parsed: Record<string, unknown>;
     try { parsed = JSON.parse(await file.text()); } catch { throw new Error("This saved artwork file could not be read."); }
-    const saved = (parsed?.kind === "digipology-cover" || parsed?.kind === "digipology-card-back") && parsed.version === 1 ? normalizeDraftArtwork(parsed.artwork) : undefined;
+    let cardImage: ReadyDraftArtwork | undefined;
+    if (parsed?.kind === "digipology-card-image" && parsed.version === 1) {
+      cardImage = parseCardDesigns(JSON.stringify({ kind: "digipology-card-designs", version: 1, families: [], cards: [], decks: [], assets: [{ id: "import", purpose: parsed.purpose, artwork: parsed.artwork }] }), sha256).assets[0]!.artwork;
+      if (profile === "illustration" ? cardImage.info.width * 2 !== cardImage.info.height * 3 : cardImage.info.width * 3 !== cardImage.info.height * 2) throw new Error("Choose an image package matching this illustration or back window.");
+    }
+    const saved = cardImage ?? ((parsed?.kind === "digipology-cover" || parsed?.kind === "digipology-card-back") && parsed.version === 1 ? normalizeDraftArtwork(parsed.artwork) : undefined);
     if (saved?.status !== "ready") throw new Error("The saved artwork is incomplete. Choose the original image instead.");
     await verifyArtwork(saved);
     return saved;
@@ -39,7 +46,7 @@ export async function prepareArtwork(file: File, credits: ArtworkCredits, fit: "
   catch { throw new Error("This image could not be decoded. Choose another image."); }
   try {
     const canvas = document.createElement("canvas");
-    canvas.width = RASTER_COVER_WIDTH; canvas.height = RASTER_COVER_HEIGHT;
+    canvas.width = profile === "card-back" ? 512 : RASTER_COVER_WIDTH; canvas.height = profile === "illustration" ? 512 : profile === "card-back" ? 768 : RASTER_COVER_HEIGHT;
     const context = canvas.getContext("2d");
     if (!context) throw new Error("Image editing is unavailable in this browser.");
     context.fillStyle = ARTWORK_MATTE; context.fillRect(0, 0, canvas.width, canvas.height);
@@ -52,12 +59,12 @@ export async function prepareArtwork(file: File, credits: ArtworkCredits, fit: "
       const width = canvas.width / scale, height = canvas.height / scale;
       context.drawImage(bitmap, (bitmap.width - width) / 2, (bitmap.height - height) / 2, width, height, 0, 0, canvas.width, canvas.height);
     }
-    const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((output) => output ? resolve(output) : reject(new Error("The image could not be prepared.")), "image/webp", 0.9));
+    const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((output) => output ? resolve(output) : reject(new Error("The image could not be prepared.")), "image/webp", profile === "portrait" ? 0.9 : 0.84));
     const bytes = new Uint8Array(await blob.arrayBuffer());
     const output = inspectRasterImage(bytes);
-    if (!output || bytes.length > RASTER_COVER_MAX_BYTES) throw new Error("This image could not fit the 512 KiB cover budget. Choose a less detailed or smaller image.");
+    if (!output || bytes.length > (profile !== "portrait" ? 256 * 1024 : RASTER_COVER_MAX_BYTES)) throw new Error("This image could not fit the image budget. Choose a less detailed or smaller image.");
     const info: RasterArtworkInfo = { formatVersion: 1, ...output, sha256: artworkHash(bytes), credits };
-    return { status: "ready", info, dataUrl: artworkDataUrl(bytes, output.contentType), source: { name: file.name.slice(0, 180), width: bitmap.width, height: bitmap.height, bytes: file.size } };
+    return { status: "ready", info, dataUrl: artworkDataUrl(bytes, output.contentType), source: { name: file.name.slice(0, 180), width: bitmap.width, height: bitmap.height, bytes: file.size, sha256: artworkHash(source), recipe: `Canvas oriented decode; ${fit}; ${canvas.width}x${canvas.height}; matte ${ARTWORK_MATTE}; WebP quality ${profile === "portrait" ? "0.90" : "0.84"}.` } };
   } finally { bitmap.close(); }
 }
 

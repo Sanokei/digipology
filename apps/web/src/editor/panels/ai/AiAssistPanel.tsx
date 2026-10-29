@@ -1,3 +1,4 @@
+import { createGeneratedDraft } from "../../../pages/generatedDraft";
 import { useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { ReleaseBundleDto } from "digipology-protocol/http";
@@ -6,7 +7,6 @@ import { api } from "../../../api/client";
 import { useAuth } from "../../../auth/AuthContext";
 import { summarizeAiEdit, type AiEditSummary } from "../../ai";
 import {
-  importBundleAsDraft,
   saveEditorDraft,
   useEditorSnapshot,
   type EditorStore,
@@ -43,8 +43,7 @@ export function AiAssistPanel({ store }: { store: EditorStore }) {
     if (!result.ok) { setState(aiPanelStateForError(result.error.code)); setMessage(result.error.message); return; }
     try {
       const id = draftId();
-      const draft = importBundleAsDraft(JSON.stringify(result.value.draft), id);
-      draft.tagline = prompt.trim().slice(0, 240);
+      const draft = createGeneratedDraft(result.value, prompt.trim(), id);
       saveEditorDraft(localStorage, draft);
       navigate(`/edit/${encodeURIComponent(id)}`);
     } catch (error) {

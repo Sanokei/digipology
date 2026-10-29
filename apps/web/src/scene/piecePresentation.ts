@@ -1,3 +1,6 @@
+import type { CardDesigns } from "digipology-protocol";
+import { designedCard, entityCardBack } from "./cardDesigns";
+import type { CardBackDefinition } from "./cardBack";
 import type { EntityRecord } from "digipology-kernel";
 import { cardArtwork, dieArtworkFaces, type PieceArtwork } from "./pieceArtwork";
 import { CARD_STOCK, cardStockProfile, type CardPaperShape } from "./cardStock";
@@ -198,10 +201,10 @@ export function piecePresentation(
   return base;
 }
 
-export function piecePresentationSignature(entity: EntityRecord): string {
+export function piecePresentationSignature(entity: EntityRecord, entities?: Readonly<Record<string, EntityRecord>>): string {
   const { card, counter, container, deck, die, button, text, zone } = entity.components;
   const snap = entity.components["snap-point"];
-  if (deck !== undefined) return `deck:${deck.enabled}:${container?.items.length ?? 0}`;
+  if (deck !== undefined) return `deck:${deck.enabled}:${container?.items.length ?? 0}:${container?.items.at(-1) ?? ""}:${entities?.[container?.items.at(-1) ?? ""]?.components.card?.definitionId ?? ""}`;
   if (card !== undefined) return `card:${card.definitionId}:${cardFaceUp(entity)}`;
   if (die !== undefined) return `die:${die.definitionId}:${String(die.value)}:${JSON.stringify(die.faces ?? null)}`;
   if (counter !== undefined) return `counter:${counter.value}`;
@@ -223,19 +226,20 @@ export interface PieceSurface {
 }
 
 /** Decorative surfaces never replace the entity's pickable mesh. */
-export function pieceSurfaceLayout(entity: EntityRecord, appearance: PiecePresentation, definition?: PieceDefinition): readonly PieceSurface[] {
+export function pieceSurfaceLayout(entity: EntityRecord, appearance: PiecePresentation, definition?: PieceDefinition, presentation?: { designs: CardDesigns | null; entities: Readonly<Record<string, EntityRecord>>; back: CardBackDefinition }): readonly PieceSurface[] {
   const { width, depth, height, kind } = appearance;
   const y = height / 2 + 0.002;
   if (kind === "card" || kind === "deck") {
     const stock = cardStockProfile(width, height, depth);
     const paperY = height / 2 + CARD_STOCK.surfaceLift;
     const count = entity.components.container?.items.length ?? 0;
+    const back = presentation ? entityCardBack(presentation.designs, entity, presentation.entities, presentation.back) : undefined;
     const top: PieceArtwork = kind === "deck"
-      ? { kind: "card-back", count, enabled: entity.components.deck?.enabled ?? false }
-      : cardArtwork(entity, definition);
+      ? { kind: "card-back", count, enabled: entity.components.deck?.enabled ?? false, ...(back ? { back, gameTitle: back.title } : {}) }
+      : (() => { const artwork = cardArtwork(entity, definition, designedCard(presentation?.designs ?? null, entity.components.card?.definitionId)); return artwork.kind === "card-back" && back ? { ...artwork, back, gameTitle: back.title } : artwork; })();
     const surfaces: PieceSurface[] = [
       { name: "face", artwork: top, width: stock.faceWidth, height: stock.faceDepth, paperShape: stock.paperShape, position: [0, paperY, 0], rotation: [Math.PI / 2, 0, 0] },
-      { name: "reverse", artwork: { kind: "card-back" }, width: stock.faceWidth, height: stock.faceDepth, paperShape: stock.paperShape, position: [0, -paperY, 0], rotation: [-Math.PI / 2, 0, 0] },
+      { name: "reverse", artwork: { kind: "card-back", ...(back ? { back, gameTitle: back.title } : {}) }, width: stock.faceWidth, height: stock.faceDepth, paperShape: stock.paperShape, position: [0, -paperY, 0], rotation: [-Math.PI / 2, 0, 0] },
     ];
     if (kind === "deck" && count > 1) {
       const artwork: PieceArtwork = { kind: "paper-edge", count };

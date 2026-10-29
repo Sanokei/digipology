@@ -1,3 +1,5 @@
+import type { CardArtBrief } from "./card-designs";
+import { CARD_DESIGNS_PATH, parseCardDesigns } from "./card-designs";
 import { validateAiRuleSources, type AiRuleSource } from "./ai-rule-sources";
 export { validateAiRuleSources, AI_RULE_SOURCE_MAX_BYTES, AI_RULE_SOURCE_MAX_FILES, type AiRuleSource } from "./ai-rule-sources";
 export * from "./art-generation";
@@ -270,6 +272,7 @@ export interface ReleaseBundleDto {
 export type ReleaseBundle = ReleaseBundleDto;
 
 export type UploadValidationCheck =
+  | "card_designs"
   | "dto_shape"
   | "size"
   | "slug"
@@ -303,6 +306,7 @@ export interface AiGameDraftResponse {
   /** Authored creator metadata; not part of the immutable game snapshot. */
   tagline?: string;
   artDirection?: GameArtDirection | null;
+  cardArtBriefs?: CardArtBrief[];
   validationReport: UploadValidationReportItem[];
   telemetry: StructuredTaskTelemetryDto;
   qualityReport?: Array<{ code: string; message: string; severity: "error" | "warning" }>;
@@ -732,6 +736,12 @@ export function validateReleaseBundle(
     }
   }
   report.push(check("content_hashes", contentOk, contentDetail ?? (bundle === null ? "bundle shape is invalid" : undefined)));
+
+  const cardFile = bundle?.files.find((file) => file.path === CARD_DESIGNS_PATH);
+  if (cardFile && bundle) {
+    try { parseCardDesigns(cardFile.content, options.sha256, { definitions: bundle.definitions ?? {}, entities: (bundle.initialSnapshot.state as { entities: Record<string, { components: { deck?: unknown } }> }).entities }); report.push(check("card_designs", true)); }
+    catch (error) { report.push(check("card_designs", false, errorMessage(error))); }
+  }
 
   let manifestOk = bundle !== null;
   let manifestDetail: string | undefined;

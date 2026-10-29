@@ -1,4 +1,7 @@
-import type { ReadyDraftArtwork, ArtPurpose, ArtJobKey, GameArtDirection, ArtworkGeneration, GeneratedArtwork, ArtworkDraftReview } from "digipology-protocol";
+import { readCardDesigns } from "../scene/cardDesigns";
+import { selectedCardImage } from "../editor/state/cardDesigns";
+import { CARD_DESIGNS_PATH, parseCardDesigns, type CardArtBrief } from "digipology-protocol";
+import type { DraftArtRequest, ReadyDraftArtwork, ArtPurpose, ArtJobKey, GameArtDirection, ArtworkGeneration, GeneratedArtwork, ArtworkDraftReview } from "digipology-protocol";
 import type { ApiResult, ReleaseBundleDto } from "digipology-protocol/http";
 import type { EditorDraft } from "../editor/state/types";
 import type { CanonicalGameState } from "digipology-kernel";
@@ -10,7 +13,7 @@ export type ArtworkDraft = EditorDraft;
 export type ArtworkReviewResult = ArtworkDraftReview;
 export interface ArtworkApi {
   generateArtDirection(input: { title: string; rulebook: string }): Promise<ApiResult<GameArtDirection>>;
-  generateDraftArtwork(input: { draftId: string; title: string; purpose: ArtPurpose; direction: GameArtDirection; revision: number }): Promise<ApiResult<GeneratedArtwork>>;
+  generateDraftArtwork(input: DraftArtRequest): Promise<ApiResult<GeneratedArtwork>>;
   reviewArtworkDraft?(bundle: ReleaseBundleDto): Promise<ApiResult<ArtworkReviewResult>>;
 }
 export interface PreparedResult { original: GeneratedArtwork; artwork: ReadyDraftArtwork }
@@ -21,7 +24,10 @@ export const purposeLabel = (purpose: ArtPurpose): string => purpose === "cover"
 export function artworkScope(draft: EditorDraft) {
   const entities = Object.values((draft.bundle.initialSnapshot.state as CanonicalGameState).entities);
   const decks = entities.filter((entity) => entity.components.deck !== undefined).length;
-  return { needsBack: decks > 0 || entities.some((entity) => entity.components.card !== undefined), multipleDecks: decks > 1 };
+  const hasCards = decks > 0 || entities.some((entity) => entity.components.card !== undefined);
+  const designs = readCardDesigns(draft.bundle.files.find((f) => f.path === CARD_DESIGNS_PATH)?.content);
+  const allBound = !!designs?.families.length && entities.every((entity) => (!entity.components.card || designs.cards.some((c) => c.definitionId === entity.components.card!.definitionId)) && (!entity.components.deck || designs.decks.some((d) => d.entityId === entity.id)));
+  return { hasCards, needsBack: hasCards && !allBound, multipleDecks: decks > 1 };
 }
 
 export function initialArtworkGeneration(draft: EditorDraft): ArtworkGeneration {
@@ -39,7 +45,20 @@ export function selectedDraftImage(draft: EditorDraft, purpose: ArtPurpose): Rea
 
 /** A broken saved selection requires a deliberate repair, never an auto-overwrite. */
 export function canResumeArtwork(draft: EditorDraft, purpose: ArtPurpose): boolean {
-  return purpose !== "cover" || draft.artwork?.status !== "unavailable";
+  if (purpose === "cover") return draft.artwork?.status !== "unavailable";
+  const content = draft.bundle.files.find((f) => f.path === CARD_BACK_PATH)?.content;
+  try { if (content) readCardBackArtwork(content); return true; } catch { return false; }
+}
+
+/** A pending receipt never authorizes silently replacing damaged saved pixels. */
+export function canResumeCardArtwork(draft: EditorDraft, target: CardArtBrief): boolean {
+  const content = draft.bundle.files.find((f) => f.path === CARD_DESIGNS_PATH)?.content;
+  if (!content) return false;
+  try {
+    const raw = selectedCardImage(parseCardDesigns(content), target);
+    const safe = selectedCardImage(readCardDesigns(content), target);
+    return !raw || !!safe;
+  } catch { return false; }
 }
 
 /** Also used for an editable backup when browser storage rejects a manual edit. */
@@ -64,7 +83,9 @@ export function withManualArtwork(draft: ArtworkDraft, purpose: ArtPurpose, artw
 
 export function artworkJobsReady(draft: EditorDraft): boolean {
   const generation = draft.artworkGeneration;
-  return !!generation && ART_PURPOSES.every((purpose) => {
+  const designs = readCardDesigns(draft.bundle.files.find((f) => f.path === CARD_DESIGNS_PATH)?.content);
+  if (designs?.families.some((family) => !designs.assets.some((a) => a.id === family.backAssetId && a.purpose === "card-back"))) return false;
+  return !!generation && (generation.cardJobs ?? []).every((item) => item.job.status === "not-needed" || (item.job.status === "ready" && selectedCardImage(readCardDesigns(draft.bundle.files.find((f) => f.path === CARD_DESIGNS_PATH)?.content), item)?.info.sha256 === item.job.outputSha256)) && ART_PURPOSES.every((purpose) => {
     const job = generation.jobs[jobKey(purpose)];
     if (job.status === "not-needed") return purpose === "card-back" && !artworkScope(draft).needsBack;
     const selected = selectedDraftImage(draft, purpose);

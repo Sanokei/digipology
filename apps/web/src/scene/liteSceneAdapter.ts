@@ -1,3 +1,4 @@
+import { readCardDesigns } from "./cardDesigns";
 import {
   addToScene,
   createArcRotateCamera,
@@ -461,7 +462,8 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
     const texture = createDynamicTexture(mounted.engine, width, height, { srgb: true, mipMaps: true });
     const paint = (backImage?: HTMLImageElement) => updateDynamicTexture(mounted.engine, texture, createArtworkCanvas(artwork, { ...(paperShape ? { paperShape } : {}), ...(backImage ? { backImage } : {}) }));
     paint();
-    if (artwork.kind === "card-back" && back && typeof Image !== "undefined") artworkReleases.set(texture, watchCardBackImage(back, (state) => paint(state.image ?? undefined)));
+    const image = artwork.kind === "designed-card" ? artwork.design.illustration : artwork.kind === "card-back" ? artwork.back ?? back : undefined;
+    if (image && typeof Image !== "undefined") artworkReleases.set(texture, watchCardBackImage(image, (state) => paint(state.image ?? undefined)));
     return texture;
   }
 
@@ -469,9 +471,9 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
     surfaceMeshes: Mesh[]; surfaceTextures: DynamicTexture2D[]; shadowMesh: Mesh;
   } {
     const mounted = requireMounted(); const surfaceMeshes: Mesh[] = []; const surfaceTextures: DynamicTexture2D[] = [];
-    for (const surface of pieceSurfaceLayout(entity, appearance, definition)) {
+    for (const surface of pieceSurfaceLayout(entity, appearance, definition, { designs: readCardDesigns(currentView?.cardDesignsBundle), entities: currentView?.displayedState?.entities ?? {}, back: cardBackForGame(currentView?.gameTitle ?? null, currentView?.cardBackBundle, currentView?.state?.releaseId) })) {
       const back = cardBackForGame(currentView?.gameTitle ?? null, currentView?.cardBackBundle, currentView?.state?.releaseId);
-      const artwork = surface.artwork.kind === "card-back" ? { ...surface.artwork, gameTitle: back.title } : surface.artwork;
+      const artwork = surface.artwork;
       const texture = makeArtworkTexture(artwork, back, surface.paperShape); surfaceTextures.push(texture);
       const mat = createStandardMaterial(); mat.diffuseTexture = texture; mat.diffuseColor = [1, 1, 1];
       mat.ambientColor = [0.15, 0.15, 0.15]; mat.emissiveColor = [0.035, 0.035, 0.035];
@@ -575,7 +577,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
     const graph: PieceGraph = {
       mesh,
       material: pieceMaterial,
-      signature: piecePresentationSignature(entity),
+      signature: piecePresentationSignature(entity, currentView?.displayedState?.entities),
       transformSignature: transformSignature(components.transform, restingY),
       restingY,
       grabbable: dependencies.sendAction !== undefined
@@ -766,7 +768,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       currentView = view;
       const state = view.displayedState;
       const back = cardBackForGame(view.gameTitle, view.cardBackBundle, view.state?.releaseId);
-      const backSignature = `${back.key}:${back.title}`;
+      const backSignature = `${back.key}:${back.title}:${view.cardDesignsBundle ?? ""}`;
       const backChanged = backSignature !== lastBackSignature;
       const correctionId = view.correction?.id ?? null;
       if (state === null) return;
@@ -794,7 +796,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
         if (existing === undefined) {
           const created = makePiece(entity);
           if (created !== null) pieces.set(id, created);
-        } else if (existing.signature !== piecePresentationSignature(entity)) {
+        } else if (existing.signature !== piecePresentationSignature(entity, currentView?.displayedState?.entities)) {
           destroyPiece(existing);
           const created = makePiece(entity);
           if (created === null) pieces.delete(id);

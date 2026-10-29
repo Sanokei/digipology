@@ -136,3 +136,24 @@ test("artwork provenance is validated instead of silently disappearing in backup
   expect(normalizeArtworkGeneration({ ...generation, jobs: { ...generation.jobs, cover: { status: "ready", revision: -1 } } })).toBeNull();
   expect(normalizeArtworkGeneration({ ...generation, jobs: { ...generation.jobs, cover: { ...generation.jobs.cover, selectedAssetId: "foreign/path" } } })).toBeNull();
 });
+
+test("scoped card artwork binds cache and retained originals to actual family, purpose and brief, requesting real landscape dimensions", async () => {
+  const f = await fixture(); let calls = 0;
+  const { rasterPng } = await import("../../../packages/protocol/src/raster.fixture");
+  const context = { ...f.context, dependencies: { imageFetch: async (_url: string, init: RequestInit) => {
+    calls++; const body = JSON.parse(String(init.body));
+    expect(body.size).toBe("1536x1024"); expect(body.prompt).toContain("Subject: family Potions (potions)");
+    expect(body.prompt).toContain("no private front clues");
+    return Response.json({ data: [{ b64_json: Buffer.from(rasterPng(1536, 1024)).toString("base64") }] });
+  } } };
+  const scoped: DraftArtRequest = { ...input, purpose: "card-illustration", subject: { kind: "family", id: "potions", name: "Potions", brief: "An alembic, no private front clues" } };
+  const first = await handleDraftArtwork(request(scoped), context); expect(first.status).toBe(200);
+  const asset = await first.json() as GeneratedArtwork; expect(asset.width).toBe(1536); expect(asset.height).toBe(1024);
+  expect(await (await handleDraftArtwork(request(scoped), context)).json() as GeneratedArtwork).toEqual(asset); expect(calls).toBe(1);
+  const original = await handleArtworkOriginal(asset.assetId, false, context); expect(original.status).toBe(200); expect(coverByteHash(new Uint8Array(await original.arrayBuffer()))).toBe(asset.originalSha256);
+  expect((await handleArtworkOriginal(asset.assetId, false, { ...context, session: { ...context.session, user: { ...context.session.user, id: "other-owner" } } })).status).toBe(404);
+  expect((await handleDraftArtwork(request({ ...scoped, purpose: "cover" }), context)).status).toBe(400);
+  expect((await handleDraftArtwork(request({ ...scoped, subject: undefined }), context)).status).toBe(400);
+  const changed = await (await handleDraftArtwork(request({ ...scoped, subject: { ...scoped.subject!, brief: "Changed no private front clues" } }), context)).json() as GeneratedArtwork;
+  expect(changed.assetId).not.toBe(asset.assetId); expect(calls).toBe(2);
+});

@@ -1,3 +1,4 @@
+import { CardActions } from "../components/CardActions";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
@@ -143,7 +144,7 @@ export function TablePage() {
   const gameTitle = view.gameTitle ?? session.gameTitle;
   const inviteUrl = inviteUrlForCode(session.joinCode, window.location.origin);
   const dice = Object.values(view.state?.entities ?? {}).filter((entity) => entity.components.die !== undefined);
-  const handItems = localHandItems(view.displayedState, session.playerId, view.definitions);
+  const handItems = localHandItems(view.displayedState, session.playerId, view.definitions, view.cardDesignsBundle);
   const prompts = openPromptsForPlayer(view.state, session.playerId);
   const progress = gameProgress(view.state);
   const turnDisabled = progress.winnerId !== null || (progress.currentPlayerId !== null && progress.currentPlayerId !== session.playerId);
@@ -183,11 +184,7 @@ export function TablePage() {
       {progress.winnerId === null ? <DiceControls dice={dice} definitions={view.definitions} disabled={status.state !== "connected" || turnDisabled} onRoll={(entityId) => {
         client.sendAction({ type: "die.roll", payload: { entityId } });
       }} /> : null}
-      {decks.length === 0 || progress.winnerId !== null ? null : <aside className="dice-controls card-controls" aria-label="Card actions"><span>Cards</span>{decks.map((deck) => <div className="dice-controls__die" key={deck.id}>
-        <button type="button" disabled={status.state !== "connected" || handId === null || (deck.components.container?.items.length ?? 0) === 0} onClick={() => client.sendAction({ type: "deck.draw_to_container", payload: { deckId: deck.id, target: handId, count: 1 } })}>Draw card</button>
-        <button type="button" disabled={status.state !== "connected"} onClick={() => client.sendAction({ type: "deck.shuffle", payload: { deckId: deck.id } })}>Shuffle deck</button>
-        <output aria-label="Cards remaining">{deck.components.container?.items.length ?? 0}</output>
-      </div>)}</aside>}
+      {progress.winnerId === null ? <CardActions entities={Object.values(view.displayedState?.entities ?? {})} handId={handId} disabled={status.state !== "connected"} {...(view.cardDesignsBundle !== undefined ? { designs: view.cardDesignsBundle } : {})} onAction={(action) => client.sendAction(action)} /> : null}
 
       {hasHands ? <HandStrip key={roomId} items={handItems} roomId={roomId} client={client} interactionsPaused={status.state !== "connected"} {...(projectToTable === undefined ? {} : { projectToTable })} /> : null}
       </div>

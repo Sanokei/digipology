@@ -1,3 +1,6 @@
+import { artworkScope } from "../artwork/model";
+import { CARD_DESIGNS_PATH, parseCardDesigns } from "digipology-protocol";
+import { sha256 } from "digipology-canonical-json";
 import { hashValue } from "digipology-canonical-json";
 import { slugifyGameTitle, type AiGameDraftResponse, type AiRuleSource, type ApiResult } from "digipology-protocol/http";
 import type { ApiClient } from "../api/client";
@@ -9,7 +12,7 @@ import { inviteUrlForCode } from "../utils/inviteUrl";
 import { generationRequest } from "./ruleSources";
 import { artworkBlob, verifyArtwork } from "../editor/state/artwork";
 import type { CanonicalGameState } from "digipology-kernel";
-import { normalizeGameArtDirection } from "digipology-protocol";
+import { normalizeGameArtDirection, normalizeArtworkGeneration } from "digipology-protocol";
 
 export type DraftPublicationStage = "publication" | "artwork" | "table";
 export type DraftPublicationResult = Extract<ApiResult<SavedRoomSession>, { ok: true }>
@@ -33,10 +36,15 @@ export function createGeneratedDraft(response: AiGameDraftResponse, prompt: stri
   if (Object.prototype.hasOwnProperty.call(response, "artDirection")) {
     const direction = response.artDirection == null ? null : normalizeGameArtDirection(response.artDirection);
     if (response.artDirection != null && !direction) throw new TypeError("The returned art direction is unreadable; keep the accepted rules and retry artwork.");
-    const hasCards = Object.values((draft.bundle.initialSnapshot.state as CanonicalGameState).entities).some((entity) => entity.components.card || entity.components.deck);
+    const hasCards = artworkScope(draft).needsBack;
     draft.artworkGeneration = { version: 1, sourceManifestHash: draft.bundle.integrity.manifestHash, direction,
       jobs: { cover: { status: "pending", revision: 0 }, cardBack: { status: hasCards ? "pending" : "not-needed", revision: 0 } } };
   }
+  if (response.cardArtBriefs?.length) {
+    draft.artworkGeneration ??= { version: 1, sourceManifestHash: draft.bundle.integrity.manifestHash, direction: null, jobs: { cover: { status: "pending", revision: 0 }, cardBack: { status: "pending", revision: 0 } } };
+    draft.artworkGeneration.cardJobs = response.cardArtBriefs.map((brief) => ({ ...brief, job: { status: "pending", revision: 0 } }));
+  }
+  if (draft.artworkGeneration) { const checked = normalizeArtworkGeneration(draft.artworkGeneration); if (!checked) throw new Error("The card image job plan is invalid. Keep the rules and retry the image plan."); draft.artworkGeneration = checked; }
   return draft;
 }
 
@@ -54,6 +62,10 @@ export function generatedPublicationSlug(draft: EditorDraft): string {
 }
 
 export async function publishDraftAndHost(client: ApiClient, draft: EditorDraft, origin: string, verify = verifyArtwork): Promise<DraftPublicationResult> {
+  try {
+    const content = draft.bundle.files.find((file) => file.path === CARD_DESIGNS_PATH)?.content;
+    if (content) for (const asset of parseCardDesigns(content, sha256).assets) await verify(asset.artwork);
+  } catch (error) { return { ok: false, stage: "artwork", error: { code: "invalid_card_artwork", message: error instanceof Error ? error.message : "Replace or remove damaged card artwork before publishing." } }; }
   if (draft.artwork) {
     try {
       if (draft.artwork.status !== "ready") throw new Error("Replace or remove the unreadable artwork before publishing.");

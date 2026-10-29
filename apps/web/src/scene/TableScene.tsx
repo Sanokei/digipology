@@ -1,3 +1,6 @@
+import { createPortal } from "react-dom";
+import { CardDesignStatus } from "../components/CardDesignStatus";
+import { readCardDesigns, designedCard, entityCardBack } from "./cardDesigns";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { InspectOverlay, type InspectOverlayItem } from "../components/InspectOverlay";
@@ -24,6 +27,7 @@ export interface TableActionSender {
 
 interface TableSceneProps {
   className?: string;
+  artworkStatusTarget?: HTMLElement | null;
   store: KernelStore;
   client?: TableActionSender | null;
   playerId?: string;
@@ -40,6 +44,7 @@ interface TableSceneProps {
 
 export function TableScene({
   className,
+  artworkStatusTarget,
   store,
   client = null,
   playerId = "",
@@ -55,6 +60,7 @@ export function TableScene({
 }: TableSceneProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const view = useKernelStore(store);
+  const cardDesigns = useMemo(() => readCardDesigns(view.cardDesignsBundle), [view.cardDesignsBundle]);
   const cardBack = useMemo(() => cardBackForGame(view.gameTitle, view.cardBackBundle, view.state?.releaseId), [view.gameTitle, view.cardBackBundle, view.state?.releaseId]);
   const [contextMenu, setContextMenu] = useState<{ entityId: string; x: number; y: number } | null>(null);
   const [inspectedId, setInspectedId] = useState<string | null>(null);
@@ -102,10 +108,12 @@ export function TableScene({
     const faceUp = entity.components.flippable?.flipped ?? entity.components.card?.faceUp ?? true;
     const hidden = entity.components.card !== undefined && !faceUp && !owned;
     const definitionId = entity.components.card?.definitionId;
-    const label = hidden ? "Face-down card" : entityDisplayLabel(entity, view.definitions);
+    const design = hidden ? undefined : designedCard(readCardDesigns(view.cardDesignsBundle), definitionId);
+    const label = hidden ? "Face-down card" : design?.card.title ?? entityDisplayLabel(entity, view.definitions);
     const face = hidden ? null : playingCardIdentity(definitionId, label);
     return {
       entityId: entity.id,
+      ...(design ? { design } : {}),
       label,
       ...(face === null ? {} : { face }),
       color: definitionId === undefined ? "#d7b26d" : view.definitions[definitionId]?.color ?? "#e7dfc8",
@@ -113,7 +121,7 @@ export function TableScene({
       hidden,
       heldBy: heldByDisplayName(entity, playerId, view.players),
     };
-  }, [inspectedId, playerId, state, view.definitions, view.players]);
+  }, [inspectedId, playerId, state, view.definitions, view.players, view.cardDesignsBundle]);
 
   useEffect(() => {
     if (interactionsPaused || contextActions.length === 0) setContextMenu(null);
@@ -127,9 +135,10 @@ export function TableScene({
     const faceUp = contextEntity.components.flippable?.flipped ?? contextEntity.components.card?.faceUp ?? true;
     return contextEntity.components.card !== undefined && !faceUp && !owned
       ? "Face-down card"
-      : entityDisplayLabel(contextEntity, view.definitions);
+      : designedCard(cardDesigns, contextEntity.components.card?.definitionId)?.card.title ?? entityDisplayLabel(contextEntity, view.definitions);
   })();
 
+  const artworkStatus = cardDesigns?.families.length ? <CardDesignStatus designs={cardDesigns} /> : Object.values(state?.entities ?? {}).some((entity) => entity.components.card || entity.components.deck) ? <CardBackStatus definition={cardBack} /> : null;
   return <main className={`table-scene${className ? ` ${className}` : ""}`}>
     <canvas ref={canvasRef} className="table-scene__canvas" aria-label={readOnly ? "Read-only 3D draft preview" : "Live synchronized 3D tabletop"} aria-busy={renderState === "loading"} data-render-state={renderState} role="img" tabIndex={0} onContextMenu={(event) => event.preventDefault()} />
     {renderState === "ready" ? null : <div className="table-render-status" role={renderState === "failed" ? "alert" : "status"}>
@@ -143,7 +152,7 @@ export function TableScene({
     {rendererOverrideActive && rendererStatus?.mounted != null ? <span className="renderer-override-chip">Renderer: {rendererStatus.mounted} (override)</span> : null}
     {hover !== null && hoverText !== null ? <div className="table-object-tooltip" style={{ left: hover.x + 12, top: hover.y + 12 }} role="status">{hoverText}</div> : null}
     {panels}{overlay}
-    {Object.values(state?.entities ?? {}).some((entity) => entity.components.card || entity.components.deck) ? <CardBackStatus definition={cardBack} /> : null}
+    {artworkStatusTarget ? createPortal(artworkStatus, artworkStatusTarget) : artworkStatus}
     {contextMenu === null || contextEntity === undefined || contextActions.length === 0 ? null : <ObjectContextMenu
       x={contextMenu.x}
       y={contextMenu.y}
@@ -152,6 +161,6 @@ export function TableScene({
       actions={contextActions}
       onDismiss={() => setContextMenu(null)}
     />}
-    {inspectItem === null ? null : <InspectOverlay item={inspectItem} cardBack={cardBack} onDismiss={() => setInspectedId(null)} />}
+    {inspectItem === null ? null : <InspectOverlay item={inspectItem} cardBack={state?.entities[inspectItem.entityId] ? entityCardBack(readCardDesigns(view.cardDesignsBundle), state.entities[inspectItem.entityId]!, state.entities, cardBack) : cardBack} onDismiss={() => setInspectedId(null)} />}
   </main>;
 }

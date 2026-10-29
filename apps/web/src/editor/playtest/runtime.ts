@@ -20,7 +20,7 @@ import {
 import type { ReleaseBundleDto } from "digipology-protocol/http";
 
 import { prevalidateRelease } from "../../releaseValidation";
-import { rebuildDraftIntegrity } from "../state/bundle";
+import { normalizeReleaseBundle, rebuildDraftIntegrity } from "../state/bundle";
 import type { EditorDraft } from "../state/types";
 
 export const PLAYTEST_PLAYER_ID = "playtest-player";
@@ -46,6 +46,11 @@ export function compileDraftForPlaytest(draft: EditorDraft): ReleaseBundleDto {
   const candidate = structuredClone(draft);
   rebuildDraftIntegrity(candidate);
   const result = prevalidateRelease(canonicalStringify(candidate.bundle), candidate.minPlayers, candidate.maxPlayers);
+  if (result.bundle === null && result.report.some((item) => item.check === "card_designs" && !item.ok) && result.report.every((item) => item.ok || item.check === "card_designs")) {
+    // Local play may use neutral paper while an intact presentation file is
+    // repaired. Admission of rules/state/file hashes and public publishing stay strict.
+    return normalizeReleaseBundle(candidate.bundle);
+  }
   if (result.bundle === null) {
     const failed = result.report.find((item) => !item.ok);
     throw new TypeError(failed?.detail ?? "Draft could not be assembled for playtest.");

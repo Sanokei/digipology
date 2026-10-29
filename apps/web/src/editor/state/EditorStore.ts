@@ -207,6 +207,7 @@ export class EditorStore {
   updateArtworkMetadata(patch: Pick<EditorDraft, "artworkGeneration" | "generationReview">): void {
     const selected = this.draft;
     const sameImages = (draft: EditorDraft) =>
+      draft.bundle.files.find((file) => file.path === "runtime/presentation/cards.json")?.contentHash === selected.bundle.files.find((file) => file.path === "runtime/presentation/cards.json")?.contentHash &&
       JSON.stringify(draft.artwork) === JSON.stringify(selected.artwork) &&
       draft.bundle.files.find((file) => file.path === "runtime/presentation/card-back.json")?.contentHash ===
         selected.bundle.files.find((file) => file.path === "runtime/presentation/card-back.json")?.contentHash &&

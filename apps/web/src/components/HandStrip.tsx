@@ -5,7 +5,7 @@ import { handPlayActions, sortHandItems } from "../pages/tableHandModel";
 import type { TableActionSender } from "../scene/TableScene";
 import { InspectOverlay } from "./InspectOverlay";
 import { ObjectContextMenu } from "./ObjectContextMenu";
-import { CustomCardFace, PlayingCardFace } from "./PlayingCardFace";
+import { DesignedCardFace, CustomCardFace, PlayingCardFace } from "./PlayingCardFace";
 
 export type { HandStripItem } from "../pages/tableHandModel";
 
@@ -134,7 +134,7 @@ export function HandStrip({
                 aria-label={`Inspect ${item.label}`}
               >
                 <i aria-hidden="true" />
-                {item.face === undefined ? <CustomCardFace label={item.label} color={item.color} compact /> : <PlayingCardFace identity={item.face} compact />}
+                {item.design ? <DesignedCardFace design={item.design} compact /> : item.face === undefined ? <CustomCardFace label={item.label} color={item.color} compact /> : <PlayingCardFace identity={item.face} compact />}
                 <span className="hand-card__name">{item.label}</span>
               </button>
             ))}</div>}

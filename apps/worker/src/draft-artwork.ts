@@ -79,22 +79,24 @@ function imageSettings(env: Env): { url: string; model: string; key: string } | 
 export function artworkPrompt(input: DraftArtRequest): string {
   const layout = input.purpose === "cover"
     ? "Create a polished portrait game cover illustration with one strong focal silhouette and clear contrast at thumbnail size. The website adds the title; do not render lettering, logos, watermarks, a box mockup, or a montage of tiny cards."
+    : input.purpose === "card-illustration" ? "Create an original landscape illustration for this card or family, one legible focal subject. No typography, rules, numbers, card frame, collage, box or cover mockup. Printed fields are added by the game UI."
     : "Create a purpose-designed flat printed card back with 180-degree rotational symmetry, one clear central emblem and coherent repeating motifs. Keep a safe edge, strong small-scale contrast and an opaque background. No text, rank/suit/number/ownership clues, miniature cards, cover scene, perspective, or box mockup.";
   return ["Original raster artwork for this specific created game.", `Game: ${input.title}`, `Purpose: ${input.purpose}`,
-    `Art direction: ${input.direction.style}`, `Game-authored brief: ${input.purpose === "cover" ? input.direction.coverPrompt : input.direction.cardBackPrompt}`,
-    layout, "Deliver only the image, portrait 2:3, ready for a rounded paper frame. Keep the chosen game's style and motif; do not reuse another game's sample cover."].join("\n");
+    `Art direction: ${input.direction.style}`, `Game-authored brief: ${input.subject?.brief ?? (input.purpose === "cover" ? input.direction.coverPrompt : input.direction.cardBackPrompt)}`,
+    ...(input.subject ? [`Subject: ${input.subject.kind} ${input.subject.name} (${input.subject.id})`] : []),
+    layout, `Deliver only the image, ${input.purpose === "card-illustration" ? "landscape 3:2" : "portrait 2:3"}, ready for a rounded paper frame. Keep the chosen game's style and motif; do not reuse another game's sample cover.`].join("\n");
 }
 async function byteHash(bytes: Uint8Array): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new Uint8Array(bytes));
   return `sha256:${Array.from(new Uint8Array(digest), (value) => value.toString(16).padStart(2, "0")).join("")}`;
 }
-async function imageBytes(artwork: GeneratedArtwork): Promise<Uint8Array> {
+async function imageBytes(artwork: GeneratedArtwork, purpose: DraftArtRequest["purpose"] = "cover"): Promise<Uint8Array> {
   if (!artwork || typeof artwork.dataUrl !== "string" || artwork.dataUrl.length > ART_ORIGINAL_MAX_BYTES * 4 / 3 + 128) throw new Error("image budget");
   const match = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/]+={0,2})$/.exec(artwork.dataUrl);
   if (!match || match[1] !== artwork.contentType || !normalizeArtworkGenerationProvenance({ model: artwork.model, promptHash: artwork.promptHash, originalSha256: artwork.originalSha256, generatedAt: artwork.generatedAt }) || !artwork.credits || !normalizeArtworkCredits(artwork.credits)) throw new Error("image information");
   const bytes = Uint8Array.from(atob(match[2]!), (character) => character.charCodeAt(0));
   const header = inspectRasterImage(bytes);
-  if (!header || header.width < 768 || header.height < 1152 || header.width > 8192 || header.height > 8192 || header.width * header.height > 16_000_000 || header.width * 3 !== header.height * 2 || bytes.length !== artwork.byteLength || bytes.length > ART_ORIGINAL_MAX_BYTES || header.contentType !== artwork.contentType || header.width !== artwork.width || header.height !== artwork.height || await byteHash(bytes) !== artwork.originalSha256) throw new Error("image integrity");
+  if (!header || header.width < (purpose === "card-illustration" ? 1152 : 768) || header.height < (purpose === "card-illustration" ? 768 : 1152) || header.width > 8192 || header.height > 8192 || header.width * header.height > 16_000_000 || (purpose === "card-illustration" ? header.width * 2 !== header.height * 3 : header.width * 3 !== header.height * 2) || bytes.length !== artwork.byteLength || bytes.length > ART_ORIGINAL_MAX_BYTES || header.contentType !== artwork.contentType || header.width !== artwork.width || header.height !== artwork.height || await byteHash(bytes) !== artwork.originalSha256) throw new Error("image integrity");
   return bytes;
 }
 async function cached(bucket: R2Bucket, user: string, id: string): Promise<StoredAsset | null> {
@@ -104,7 +106,7 @@ async function cached(bucket: R2Bucket, user: string, id: string): Promise<Store
     const value = await object.json<StoredAsset>();
     if (value.version !== 1 || value.artwork.assetId !== id || !normalizeDraftArtRequest(value.request) || typeof value.renderPrompt !== "string" || value.renderPrompt.length > 12_000 ||
       `art_${hashValue({ user, input: value.request }).slice(7)}` !== id || coverByteHash(new TextEncoder().encode(value.renderPrompt)) !== value.artwork.promptHash) throw new Error("cache identity");
-    await imageBytes(value.artwork); return value;
+    await imageBytes(value.artwork, value.request.purpose); return value;
   } catch { throw new ArtworkError(503, "artwork_cache_invalid", "The stored original could not be verified. Retry as a new image; your selected artwork is preserved."); }
 }
 async function acquire(context: Context, input: DraftArtRequest, id: string, bucket: R2Bucket): Promise<StoredAsset> {
@@ -117,7 +119,7 @@ async function acquire(context: Context, input: DraftArtRequest, id: string, buc
   try {
     response = await (context.dependencies?.imageFetch ?? fetch)(settings.url, { method: "POST", signal: controller.signal,
       headers: { "Content-Type": "application/json", ...(settings.key ? { Authorization: `Bearer ${settings.key}` } : {}) },
-      body: JSON.stringify({ model: settings.model, prompt, n: 1, size: "1024x1536", output_format: "webp", output_compression: 80, quality: "medium", background: "opaque" }) });
+      body: JSON.stringify({ model: settings.model, prompt, n: 1, size: input.purpose === "card-illustration" ? "1536x1024" : "1024x1536", output_format: "webp", output_compression: 80, quality: "medium", background: "opaque" }) });
     await recordUsage(context.env.DB, context.session.user.id, dayKey(new Date(context.now)), 1);
     if (!response.ok) { await response.body?.cancel(); throw new ArtworkError(502, "artwork_provider_failed", "The illustration service could not finish this image. Retry it without regenerating your rules."); }
     let raw: { data?: Array<{ b64_json?: unknown }> };
@@ -126,8 +128,8 @@ async function acquire(context: Context, input: DraftArtRequest, id: string, buc
     const encoded = raw?.data?.length === 1 ? raw.data[0]?.b64_json : null;
     if (typeof encoded !== "string" || encoded.length > ART_ORIGINAL_MAX_BYTES * 4 / 3 + 4 || !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)) throw new ArtworkError(502, "artwork_provider_invalid", "The illustration service returned no complete raster image. Your previous images are preserved.");
     const bytes = Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0)), header = inspectRasterImage(bytes);
-    if (!header || bytes.length > ART_ORIGINAL_MAX_BYTES || header.width < 768 || header.height < 1152 || header.width > 8192 || header.height > 8192 || header.width * header.height > 16_000_000 || header.width * 3 !== header.height * 2) {
-      throw new ArtworkError(502, "artwork_provider_invalid", "The generated image is incomplete or has the wrong portrait dimensions. Retry this image.");
+    if (!header || bytes.length > ART_ORIGINAL_MAX_BYTES || header.width < (input.purpose === "card-illustration" ? 1152 : 768) || header.height < (input.purpose === "card-illustration" ? 768 : 1152) || header.width > 8192 || header.height > 8192 || header.width * header.height > 16_000_000 || (input.purpose === "card-illustration" ? header.width * 2 !== header.height * 3 : header.width * 3 !== header.height * 2)) {
+      throw new ArtworkError(502, "artwork_provider_invalid", "The generated image is incomplete or has the wrong requested dimensions. Retry this image.");
     }
     const artwork: GeneratedArtwork = { assetId: id, dataUrl: `data:${header.contentType};base64,${encoded}`, ...header, byteLength: bytes.length,
       originalSha256: await byteHash(bytes), promptHash: coverByteHash(new TextEncoder().encode(prompt)), model: settings.model, generatedAt: new Date(context.now).toISOString(),
@@ -160,7 +162,7 @@ export async function handleArtworkOriginal(id: string, receipt: boolean, contex
     if (!stored) throw new ArtworkError(404, "not_found", "Artwork original not found for this creator.");
     if (receipt) return json({ version: 1, request: stored.request, renderPrompt: stored.renderPrompt, ...stored.artwork, dataUrl: undefined });
     const extension = stored.artwork.contentType.split("/")[1];
-    return new Response(new Uint8Array(await imageBytes(stored.artwork)).buffer, { headers: { "Content-Type": stored.artwork.contentType, "Content-Disposition": `attachment; filename="${stored.request.purpose}-original.${extension}"`, "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
+    return new Response(new Uint8Array(await imageBytes(stored.artwork, stored.request.purpose)).buffer, { headers: { "Content-Type": stored.artwork.contentType, "Content-Disposition": `attachment; filename="${stored.request.purpose}-original.${extension}"`, "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
   } catch (error) { return failure(error); }
 }
 export async function handleArtDirection(request: Request, context: Context): Promise<Response> {

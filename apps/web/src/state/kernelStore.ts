@@ -16,7 +16,7 @@ import {
   type CreatorScriptRuntime,
 } from "digipology-lua";
 import type { OrderedAction, PlayerInfo, ResumeMessage, RoomEndedMessage } from "digipology-protocol";
-import { readRulebook, TABLE_SOUND_PATH, type GameRulebook } from "digipology-protocol";
+import { readRulebook, TABLE_SOUND_PATH, CARD_DESIGNS_PATH, type GameRulebook } from "digipology-protocol";
 
 import type { ReleaseBundleDto } from "digipology-protocol/http";
 
@@ -58,6 +58,7 @@ export interface KernelStoreSnapshot {
   soundBundle: string | null;
   /** Optional game-wide raster back, outside canonical/predicted state. */
   cardBackBundle?: string | null;
+  cardDesignsBundle?: string | null;
 }
 
 export type ApplyStreamResult = { ok: true } | { ok: false; expected: number; actual: number };
@@ -144,6 +145,10 @@ export class KernelStore {
     this.publish({ ...this.current, cardBackBundle: content });
   }
 
+  setCardDesignsBundle(content: string | null): void {
+    if (content !== this.current.cardDesignsBundle) this.publish({ ...this.current, cardDesignsBundle: content });
+  }
+
   loadRelease(bundle: ReleaseBundleDto): void {
     const initial = bundleSnapshot(bundle);
     this.scriptedRelease = snapshotRequiresScripts(initial);
@@ -155,6 +160,7 @@ export class KernelStore {
       gameTitle: bundle.title ?? null,
       rulebook: readRulebook(bundle),
       soundBundle: Array.isArray(bundle.files) ? bundle.files.find((file) => file.path === TABLE_SOUND_PATH)?.content ?? null : null,
+      cardDesignsBundle: bundle.files.find((file) => file.path === CARD_DESIGNS_PATH)?.content ?? null,
       cardBackBundle: Array.isArray(bundle.files) ? bundle.files.find((file) => file.path === "runtime/presentation/card-back.json")?.content ?? null : null,
     });
   }

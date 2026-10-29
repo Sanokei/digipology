@@ -68,3 +68,25 @@
 @media(prefers-reduced-motion:reduce) { .game-art-dialog { scroll-behavior:auto; } }
 
 .draft-artwork-pending { max-width:220px; color:#edcf95; font-size:.67rem; line-height:1.5; }
+.card-design-editor { border-top:1px solid #bbc7b2; padding:22px 0; margin-top:24px; }
+.card-design-editor h3 { margin:0 0 8px; }
+.card-design-editor p { line-height:1.5; }
+.card-design-editor__grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(180px,.65fr); gap:24px; }
+.card-design-editor__form { display:grid; gap:14px; min-width:0; }
+.card-design-editor label { display:grid; gap:6px; font-size:.85rem; font-weight:650; }
+.card-design-editor input,.card-design-editor textarea,.card-design-editor select { width:100%; min-width:0; min-height:44px; padding:10px; color:#1e3d2f; border:1px solid #a6b69c; border-radius:8px; background:#fffdf6; font:inherit; }
+.card-design-editor input[type=color] { width:80px; }
+.card-design-editor fieldset { min-width:0; padding:12px; border:1px solid #b6c4af; display:grid; gap:8px; }
+.card-design-editor button { min-height:44px; padding:10px 14px; border:1px solid #9bad90; border-radius:8px; color:#234b38; background:#eef0e4; cursor:pointer; }
+.card-design-editor button:disabled { opacity:.5; cursor:default; }
+.card-design-editor__actions { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0; }
+.card-design-editor__previews { display:flex; flex-direction:column; gap:20px; align-items:center; min-width:0; }
+.card-design-editor__previews .playing-card { width:min(100%,250px); height:auto; aspect-ratio:512/736; }
+.card-design-editor__previews > div { width:100%; max-width:250px; }
+.card-design-editor__previews p { font-size:.78rem; overflow-wrap:anywhere; }
+@media(max-width:600px) { .card-design-editor__grid { grid-template-columns:minmax(0,1fr); } .card-design-editor__previews { grid-row:1; flex-direction:row; align-items:start; gap:10px; } .card-design-editor__previews > div { min-width:0; width:50%; } }
+.card-design-editor__previews .playing-card { position:relative; inset:auto; }
+.card-image-job { border:1px solid #b6c4af; padding:12px; border-radius:8px; }
+.card-image-job summary { min-height:28px; cursor:pointer; font-weight:700; }
+.card-image-job a { display:block; margin:10px 0; color:#195a48; text-decoration:underline; }
+.card-design-editor input[type=checkbox] { width:22px; min-height:22px; }

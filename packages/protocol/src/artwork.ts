@@ -22,7 +22,7 @@ export interface ReadyDraftArtwork {
   info: RasterArtworkInfo;
   dataUrl: string;
   /** Local provenance is retained in backups, never sent to the public cover API. */
-  source?: { name: string; width: number; height: number; bytes: number };
+  source?: { name: string; width: number; height: number; bytes: number; sha256?: string; recipe?: string };
 }
 export type DraftArtwork = ReadyDraftArtwork | { status: "unavailable"; credits?: ArtworkCredits };
 export interface CoverInfoResponse { coverVersion: number; artwork: RasterArtworkInfo | null }

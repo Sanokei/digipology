@@ -751,3 +751,18 @@ function schemaProblems(value: unknown, schema: unknown, path = "$"): string[] {
   }
   return [];
 }
+
+test("native authoring assembles real printed definition and deck bindings, keeps private briefs out of releases, and rejects invented bindings", () => {
+  const source = builtinCatalog.getRelease("builtin_first_deal_2")!.bundle;
+  const raw = authoringFromBundle(source);
+  const definitionId = Object.keys(source.definitions!)[0]!;
+  raw.cardDesigns = { version: 1, families: [{ id: "cards", label: "Authored cards", color: "#245b40", backBrief: "Private symmetric family back brief", illustrationBrief: "Private landscape illustration brief" }], cards: [{ definitionId, familyId: "cards", title: "Authored printed title", typeLine: "Type", cost: "2 stone", condition: "Dawn", rulesText: "Actual printed effect", flavor: "", fields: [{ label: "Value", value: "5" }], illustrationBrief: "" }], decks: [{ entityId: "deck", familyId: "cards" }] };
+  const first = assembleAiGameDraft(raw); expect(first.report.every((r) => r.ok)).toBe(true);
+  expect(first.cardArtBriefs).toHaveLength(2);
+  const cardFile = first.draft!.files.find((f) => f.path === "runtime/presentation/cards.json")!;
+  expect(cardFile.content).toContain("Actual printed effect"); expect(cardFile.content).not.toContain("Private symmetric"); expect(cardFile.content).not.toContain("Private landscape");
+  const bad = structuredClone(raw); (bad.cardDesigns as { cards: Array<{ definitionId: string }> }).cards[0]!.definitionId = "invented";
+  expect(assembleAiGameDraft(bad).report.some((r) => !r.ok && r.detail?.includes("binding"))).toBe(true);
+  const invalidDeck = structuredClone(raw); (invalidDeck.cardDesigns as { decks: Array<{ entityId: string }> }).decks[0]!.entityId = "seat_1";
+  expect(assembleAiGameDraft(invalidDeck).report.some((r) => !r.ok)).toBe(true);
+});

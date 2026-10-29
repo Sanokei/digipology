@@ -2,6 +2,7 @@ import { authoringFromBundle } from "../apps/worker/src/ai-game-authoring";
 import { builtinCatalog } from "../apps/worker/src/catalog";
 import { createHash } from "node:crypto";
 import { readRulebook, type GameArtDirection } from "digipology-protocol";
+import { fileURLToPath } from "node:url";
 import { rasterPng } from "../packages/protocol/src/raster.fixture";
 const coverByteHash = (bytes: Uint8Array) => `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
 
@@ -34,7 +35,7 @@ export function startGenerationFixture(port = 8795) {
       scope: "Existing authored rules and authorized local raster input fixtures. HTTP transport/processing/persistence only; no live model generation or art-quality claim." });
     if (request.method !== "POST") return new Response("Not found", { status: 404 });
     if (path.endsWith("/images/generations")) {
-      const body = await request.json() as { prompt: string };
+      const body = await request.json() as { prompt: string; size?: string };
       const title = /^Game: (.+)$/m.exec(body.prompt)?.[1] ?? "fixture";
       const purpose = /^Purpose: (.+)$/m.exec(body.prompt)?.[1] ?? "cover";
       const key = title + ":" + purpose + ":" + body.prompt;
@@ -44,10 +45,17 @@ export function startGenerationFixture(port = 8795) {
         bytes = rasterPng(768, 1152, [255, 255, 255, 255]); selected = "intentional blank PNG admission fixture";
       } else {
         // Deliberately pre-existing fixtures. No production path selects these.
-        const night = title.includes("Night");
+        const night = title.includes("Night") || body.prompt.includes("family B Night");
         selected = purpose === "card-back" ? (night ? "zone-runner.webp" : "first-deal.webp") : (night ? "first-deal.webp" : "dice-dash.webp");
         bytes = new Uint8Array(await Bun.file(new URL(`../apps/web/public/art/${selected}`, import.meta.url)).arrayBuffer());
         selected = "apps/web/public/art/" + selected;
+      }
+      if (purpose === "card-illustration") {
+        if (body.size !== "1536x1024") return Response.json({ error: "Fixture expects an actual landscape request" }, { status: 400 });
+        const original = fileURLToPath(new URL("../apps/web/public/art/dice-dash.webp", import.meta.url));
+        const crop = Bun.spawnSync(["ffmpeg", "-v", "error", "-i", original, "-vf", "crop=iw:iw*2/3,scale=1536:1024", "-frames:v", "1", "-c:v", "libwebp", "-quality", "75", "-f", "webp", "pipe:1"]);
+        if (crop.exitCode !== 0) throw new Error("Technical landscape fixture preparation failed");
+        bytes = new Uint8Array(crop.stdout); selected += " (actual FFmpeg landscape crop; transport fixture, rejected final art)";
       }
       imageRequests.push({ title, purpose, promptHash: coverByteHash(new TextEncoder().encode(body.prompt)), source: selected, sha256: coverByteHash(bytes), fixture: true });
       return Response.json({ data: [{ b64_json: Buffer.from(bytes).toString("base64") }] });
@@ -70,6 +78,19 @@ export function startGenerationFixture(port = 8795) {
     source.tagline = isCards ? "Existing card rules with raster transport fixtures." : "Race your friends to twenty, one roll at a time.";
     source.artDirection = direction(String(source.title), isCards);
     if (body.messages.some((message) => message.content.includes("[blank-first]"))) (source.artDirection as GameArtDirection).cardBackPrompt += " [blank-first]";
+    if (body.messages.some((message) => message.content.includes("[card-designs-fixture]"))) {
+      const entities = source.entities as Array<{ id: string; components: Array<{ type: string; dataJson: string }> }>;
+      const deck = entities.find((e) => e.id === "deck")!, reserve = structuredClone(deck); reserve.id = "reserve_deck";
+      const container = deck.components.find((c) => c.type === "container")!, original = JSON.parse(container.dataJson);
+      const reserveIds = original.items.splice(0, 26); container.dataJson = JSON.stringify(original);
+      reserve.components.find((c) => c.type === "container")!.dataJson = JSON.stringify({ ...original, items: reserveIds });
+      const t = reserve.components.find((c) => c.type === "transform")!; const tr = JSON.parse(t.dataJson); tr.position.x = 1.2; t.dataJson = JSON.stringify(tr); entities.push(reserve);
+      const defs = source.definitions as Array<{ id: string; label: string }>;
+      const definitionFamily = new Map(entities.flatMap((e) => { const card = e.components.find((c) => c.type === "card"); return card ? [[JSON.parse(card.dataJson).definitionId, reserveIds.includes(e.id) ? "reserve" : "main"] as const] : []; }));
+      source.cardDesigns = { version: 1,
+        families: [{ id: "main", label: "Main cards", color: "#285b4d", backBrief: "Technical family A back fixture, distinct from family B; no private face clues.", illustrationBrief: "Technical shared landscape illustration for family A." }, { id: "reserve", label: "Reserve cards", color: "#843e30", backBrief: "Technical family B Night motif fixture, distinct from family A; no private face clues.", illustrationBrief: "Technical shared landscape illustration for family B." }],
+        cards: defs.map((d) => ({ definitionId: d.id, familyId: definitionFamily.get(d.id), title: d.label, typeLine: "Authored transport verification", cost: "2 tokens (printed field fixture)", condition: "When inspecting this technical card", rulesText: "Technical printed effect: preserve this complete text through editing, private play and publication. First Deal sandbox rules remain unchanged.", flavor: "Technical input only; not generated game art or a new game.", fields: [{ label: "Verification", value: "Printed fields do not alter deterministic actions." }], illustrationBrief: "" })), decks: [{ entityId: "deck", familyId: "main" }, { entityId: "reserve_deck", familyId: "reserve" }] };
+    }
     const files = source.files as Array<{ path: string; content: string }>;
     const broken = structuredClone(source);
     const firstScript = (broken.files as typeof files).find((file) => file.path.endsWith(".lua"));

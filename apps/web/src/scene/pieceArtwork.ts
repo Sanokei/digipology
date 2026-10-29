@@ -1,10 +1,13 @@
+import type { CardBackDefinition } from "./cardBack";
+import type { DesignedCard } from "./cardDesigns";
 import type { EntityRecord } from "digipology-kernel";
 import { playingCardIdentity, type PlayingCardIdentity } from "../components/playingCardIdentity";
 
 /** Presentation data only. A hidden card never carries its definition into artwork. */
 export type PieceArtwork =
-  | { readonly kind: "card-back"; readonly count?: number; readonly enabled?: boolean; readonly gameTitle?: string }
+  | { readonly kind: "card-back"; readonly count?: number; readonly enabled?: boolean; readonly gameTitle?: string; readonly back?: CardBackDefinition }
   | { readonly kind: "standard-card"; readonly identity: PlayingCardIdentity }
+  | { readonly kind: "designed-card"; readonly design: DesignedCard }
   | { readonly kind: "custom-card"; readonly label: string; readonly accent: string }
   | { readonly kind: "die-face"; readonly value: number | string; readonly pips: boolean }
   | { readonly kind: "paper-edge"; readonly count: number }
@@ -33,10 +36,11 @@ export const DIE_PIPS: Readonly<Record<number, readonly (readonly [number, numbe
   6: [[-1, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [1, 1]],
 };
 
-export function cardArtwork(entity: EntityRecord, definition?: ArtworkDefinition): PieceArtwork {
+export function cardArtwork(entity: EntityRecord, definition?: ArtworkDefinition, design?: DesignedCard): PieceArtwork {
   const card = entity.components.card;
   const faceUp = entity.components.flippable?.flipped ?? card?.faceUp ?? false;
   if (!faceUp) return { kind: "card-back" };
+  if (design) return { kind: "designed-card", design };
   const label = definition?.label ?? "Card";
   const identity = playingCardIdentity(card?.definitionId, label);
   return identity === null
@@ -62,7 +66,7 @@ export function dieArtworkFaces(entity: EntityRecord): readonly PieceArtwork[] {
 
 export function artworkSize(artwork: PieceArtwork): readonly [number, number] {
   switch (artwork.kind) {
-    case "card-back": case "standard-card": case "custom-card": return [512, 736];
+    case "card-back": case "standard-card": case "custom-card": case "designed-card": return [512, 736];
     case "paper-edge": return [512, 128];
     case "felt": case "wood": return [1024, 1024];
     default: return [256, 256];

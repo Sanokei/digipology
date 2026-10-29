@@ -1,3 +1,4 @@
+import { CARD_DESIGNS_PATH, parseCardDesigns } from "digipology-protocol";
 import { canonicalStringify, hashValue, sha256 } from "digipology-canonical-json";
 import {
   createInitialState,
@@ -328,6 +329,13 @@ export function normalizeReleaseBundle(value: unknown): ReleaseBundleDto {
     throw new TypeError("The bundle player limits are missing or invalid.");
   }
   const checked = prevalidateRelease(text, minPlayers as number, maxPlayers as number);
+  if (checked.bundle === null && checked.report.some((item) => item.check === "card_designs" && !item.ok) && checked.report.every((item) => item.ok || item.check === "card_designs")) {
+    // Retain intact release bytes for explicit repair. Never recompute a damaged file hash.
+    const candidate = value as unknown as ReleaseBundleDto;
+    const file = candidate.files.find((f) => f.path === CARD_DESIGNS_PATH)!;
+    parseCardDesigns(file.content, undefined, { definitions: candidate.definitions ?? {}, entities: (candidate.initialSnapshot.state as CanonicalGameState).entities });
+    return structuredClone(candidate);
+  }
   if (checked.bundle === null) {
     const failed = checked.report.find((item) => !item.ok);
     throw new TypeError(failed?.detail ?? `The bundle failed ${failed?.check.replaceAll("_", " ") ?? "validation"}.`);

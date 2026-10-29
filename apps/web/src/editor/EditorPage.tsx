@@ -1,3 +1,4 @@
+import { CARD_DESIGNS_PATH } from "digipology-protocol";
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { CloudUpload, Pause, Play, Save, Square } from "lucide-react";
@@ -92,8 +93,9 @@ export function EditorPage() {
       // Merge presentation only; preserve concurrent scene/script changes.
       const reviewMatches = next.generationReview?.manifestHash === store.getSnapshot().draft.bundle.integrity.manifestHash;
       const prior = store.getSnapshot().draft;
+      const cards = next.bundle.files.find((file) => file.path === CARD_DESIGNS_PATH);
       const back = next.bundle.files.find((file) => file.path === CARD_BACK_PATH);
-      const changed = JSON.stringify(prior.artwork) !== JSON.stringify(next.artwork) ||
+      const changed = prior.bundle.files.find((file) => file.path === CARD_DESIGNS_PATH)?.content !== cards?.content || JSON.stringify(prior.artwork) !== JSON.stringify(next.artwork) ||
         prior.bundle.files.find((file) => file.path === CARD_BACK_PATH)?.content !== back?.content ||
         JSON.stringify(prior.artworkGeneration?.direction) !== JSON.stringify(next.artworkGeneration?.direction);
       if (!changed) {
@@ -104,6 +106,8 @@ export function EditorPage() {
         if (next.artwork) current.artwork = next.artwork; else delete current.artwork;
         if (next.artworkGeneration) current.artworkGeneration = next.artworkGeneration;
         if (reviewMatches && next.generationReview) current.generationReview = next.generationReview;
+        const cardIndex = current.bundle.files.findIndex((file) => file.path === CARD_DESIGNS_PATH);
+        if (cards) { if (cardIndex < 0) current.bundle.files.push(cards); else current.bundle.files[cardIndex] = cards; } else if (cardIndex >= 0) current.bundle.files.splice(cardIndex, 1);
         const index = current.bundle.files.findIndex((file) => file.path === CARD_BACK_PATH);
         if (back) { if (index < 0) current.bundle.files.push(back); else current.bundle.files[index] = back; }
         else if (index >= 0) current.bundle.files.splice(index, 1);
@@ -111,6 +115,7 @@ export function EditorPage() {
       if (!ok) throw new Error(store.getSnapshot().logs.at(-1)?.message ?? "Artwork could not be applied.");
       const content = store.getSnapshot().draft.bundle.files.find((file) => file.path === CARD_BACK_PATH)?.content ?? null;
       playtest.projection.setCardBackBundle(content);
+      playtest.projection.setCardDesignsBundle(store.getSnapshot().draft.bundle.files.find((file) => file.path === CARD_DESIGNS_PATH)?.content ?? null);
     },
     persistDraft: () => saveEditorDraft(localStorage, store.getSnapshot().draft),
   });

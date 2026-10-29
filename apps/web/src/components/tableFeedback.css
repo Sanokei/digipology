@@ -50,3 +50,12 @@
 }
 @media(max-width:768px) and (max-height:600px) { .game-progress ol { display:none; } .table-bottom-dock > .players-panel { max-height:100px; } }
 @media(max-width:768px) { .table-scene:has(.players-panel) .table-hints { display:none; } }
+.card-controls label { display:flex; align-items:center; gap:6px; min-width:0; font-size:.72rem; }
+.card-controls select { min-height:44px; max-width:170px; min-width:0; padding:6px; border:1px solid #82967b; border-radius:6px; color:#eaf3df; background:#183e30; font:inherit; }
+.card-controls > div { display:flex; align-items:center; gap:6px; }
+.card-controls > div > button { min-height:44px; }
+.card-controls--multiple { display:grid; grid-template-columns:minmax(0,1fr) auto; }
+.card-controls--multiple > span { display:none; }
+.card-controls--multiple label { min-width:0; }
+.card-controls--multiple select { width:100%; max-width:none; }
+.card-controls--multiple { width:min(430px,calc(100vw - 32px)); }

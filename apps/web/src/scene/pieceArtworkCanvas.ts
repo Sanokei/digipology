@@ -234,6 +234,61 @@ function drawCustomCard(ctx: CanvasRenderingContext2D, width: number, height: nu
   for (const [index, line] of lines.entries()) ctx.fillText(line, width / 2, start + index * 68, width - 98);
 }
 
+/** Measured character wrapping also handles long unbroken source words. */
+export function wrapCardText(ctx: Pick<CanvasRenderingContext2D, "measureText">, value: string, width: number): string[] {
+  const lines: string[] = [];
+  for (const paragraph of value.split("\n")) {
+    let line = "";
+    for (const word of paragraph.split(/\s+/)) {
+      if (!word) continue;
+      const proposed = line ? `${line} ${word}` : word;
+      if (ctx.measureText(proposed).width <= width) { line = proposed; continue; }
+      if (line) { lines.push(line); line = ""; }
+      for (const char of word) { if (line && ctx.measureText(line + char).width > width) { lines.push(line); line = ""; } line += char; }
+    }
+    lines.push(line);
+  }
+  return lines;
+}
+function drawDesignedCard(ctx: CanvasRenderingContext2D, width: number, height: number, artwork: Extract<PieceArtwork, { kind: "designed-card" }>, options: ArtworkPaintOptions): void {
+  paintCardPaper(ctx, width, height, options.paperShape);
+  const { card, family } = artwork.design;
+  ctx.textAlign = "left"; ctx.textBaseline = "top";
+  const margin = 28, inside = width - margin * 2;
+  ctx.fillStyle = family.color; ctx.fillRect(margin, 24, inside, 96);
+  ctx.fillStyle = "#fffdf4"; ctx.font = "700 29px Manrope, sans-serif";
+  const title = wrapCardText(ctx, card.title, inside - 28);
+  title.slice(0, 2).forEach((line, i) => ctx.fillText(line, margin + 14, 34 + i * 34));
+  let overflow = title.length > 2;
+  const illustrated = family.illustrated !== false || artwork.design.illustration !== undefined;
+  if (illustrated) {
+  ctx.fillStyle = family.color; ctx.fillRect(margin, 126, inside, 252);
+  if (options.backImage) {
+    const size = rasterSize(options.backImage);
+    if (size) { const r = containCardBackImage(size[0], size[1], { x: margin, y: 126, width: inside, height: 252 }); ctx.drawImage(options.backImage, r.x, r.y, r.width, r.height); }
+  } else {
+    ctx.fillStyle = "#fffdf4"; ctx.font = "600 23px Manrope, sans-serif";
+    wrapCardText(ctx, family.label, inside - 36).slice(0, 3).forEach((line, i) => ctx.fillText(line, margin + 18, 208 + i * 30));
+    ctx.font = "500 17px Manrope, sans-serif"; ctx.fillText("Illustration pending", margin + 18, 338);
+  }
+  }
+  let y = illustrated ? 393 : 140;
+  const blocks = [card.typeLine, card.cost ? `Cost · ${card.cost}` : "", card.condition ? `When · ${card.condition}` : "", card.rulesText, ...card.fields.map((field) => `${field.label} · ${field.value}`), card.flavor].filter(Boolean);
+  for (const [index, block] of blocks.entries()) {
+    ctx.font = index === 0 ? "700 20px Manrope, sans-serif" : "500 21px Manrope, sans-serif";
+    ctx.fillStyle = INK;
+    for (const line of wrapCardText(ctx, block, inside - 8)) {
+      if (y > height - 81) { overflow = true; break; }
+      ctx.fillText(line, margin + 4, y); y += 27;
+    }
+    if (overflow && y > height - 81) break;
+    y += 8;
+  }
+  ctx.fillStyle = family.color; ctx.fillRect(margin, height - 46, inside, 2);
+  ctx.font = "600 17px Manrope, sans-serif";
+  ctx.fillText(overflow ? "Full rules in inspection" : family.label, margin + 4, height - 35, inside - 8);
+}
+
 function drawDie(ctx: CanvasRenderingContext2D, width: number, height: number, artwork: Extract<PieceArtwork, { kind: "die-face" }>): void {
   // Only ink is overlaid. The rounded ivory body supplies the continuous face
   // and edge shading, so the six surfaces never look like square stickers.
@@ -285,10 +340,11 @@ export function drawPieceArtwork(ctx: CanvasRenderingContext2D, width: number, h
   const [designWidth, designHeight] = artworkSize(artwork);
   ctx.scale(width / designWidth, height / designHeight);
   width = designWidth; height = designHeight;
-  if (artwork.kind === "card-back" || artwork.kind === "standard-card" || artwork.kind === "custom-card") clipCardPaper(ctx, width, height, options.paperShape);
+  if (artwork.kind === "card-back" || artwork.kind === "standard-card" || artwork.kind === "custom-card" || artwork.kind === "designed-card") clipCardPaper(ctx, width, height, options.paperShape);
   switch (artwork.kind) {
     case "card-back": drawCardBack(ctx, width, height, artwork, options); break;
     case "standard-card": drawStandardCard(ctx, width, height, artwork.identity, options.paperShape); break;
+    case "designed-card": drawDesignedCard(ctx, width, height, artwork, options); break;
     case "custom-card": drawCustomCard(ctx, width, height, artwork, options.paperShape); break;
     case "die-face": drawDie(ctx, width, height, artwork); break;
     case "counter-face": drawCounter(ctx, width, height, artwork.value, artwork.color); break;

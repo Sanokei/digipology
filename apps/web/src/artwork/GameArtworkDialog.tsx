@@ -1,3 +1,7 @@
+import { readCardDesigns } from "../scene/cardDesigns";
+import { selectedCardImage } from "../editor/state/cardDesigns";
+import { CARD_DESIGNS_PATH } from "digipology-protocol";
+import { CardDesignEditor } from "./CardDesignEditor";
 import { useEffect, useId, useRef, useState } from "react";
 import type { ReadyDraftArtwork } from "digipology-protocol";
 import { ArtworkDialog } from "../components/ArtworkDialog";
@@ -85,7 +89,10 @@ export function GameArtworkDialog({ draft, controller, canGenerate, onSignIn, on
   const [directionError, setDirectionError] = useState<string | null>(null);
   const scope = artworkScope(draft);
   const purposes = ART_PURPOSES.filter((purpose) => purpose === "cover" || scope.needsBack);
-  const done = purposes.filter((purpose) => !!controller.selectedImage(purpose) && (!draft.artworkGeneration || draft.artworkGeneration.jobs[jobKey(purpose)].status === "ready")).length;
+  const cardDesigns = readCardDesigns(draft.bundle.files.find((f) => f.path === CARD_DESIGNS_PATH)?.content);
+  const scopedJobs = (draft.artworkGeneration?.cardJobs ?? []).filter((item) => item.job.status !== "not-needed");
+  const total = purposes.length + scopedJobs.length;
+  const done = scopedJobs.filter((item) => item.job.status === "ready" && selectedCardImage(cardDesigns, item)?.info.sha256 === item.job.outputSha256).length + purposes.filter((purpose) => !!controller.selectedImage(purpose) && (!draft.artworkGeneration || draft.artworkGeneration.jobs[jobKey(purpose)].status === "ready")).length;
   const busy = controller.activity !== null;
   useEffect(() => {
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -116,9 +123,9 @@ export function GameArtworkDialog({ draft, controller, canGenerate, onSignIn, on
   const manualImage = manual === "cover" ? draft.artwork : manual ? controller.selectedImage(manual) : undefined;
   return <>
     <dialog ref={dialog} className="game-art-dialog" aria-labelledby={title} onCancel={(event) => { event.preventDefault(); onClose(); }}>
-      <header className="game-art-dialog__header"><div><p className="game-art-eyebrow">Made for this game</p><h2 id={title}>Artwork for {draft.title}</h2><p className="game-art-progress" role="status">{done} of {purposes.length} images ready{controller.activity === "review" ? " · checking gameplay…" : busy ? " · creating artwork…" : ""}</p></div><button type="button" className="game-art-close" aria-label="Close game artwork" autoFocus onClick={onClose}>×</button></header>
+      <header className="game-art-dialog__header"><div><p className="game-art-eyebrow">Made for this game</p><h2 id={title}>Artwork for {draft.title}</h2><p className="game-art-progress" role="status">{done} of {total} images ready{controller.activity === "review" ? " · checking gameplay…" : busy ? " · creating artwork…" : ""}</p></div><button type="button" className="game-art-close" aria-label="Close game artwork" autoFocus onClick={onClose}>×</button></header>
       <div ref={body} className="game-art-dialog__body">
-        <p className="game-art-intro">Your game chooses a visual direction, then creates a distinct cover{scope.needsBack ? " and card-back design" : ""}. You can keep playing while artwork is prepared.</p>
+        <p className="game-art-intro">Your game chooses a visual direction, then creates a distinct cover{scope.needsBack ? " and card-back design" : scope.hasCards ? " and artwork for its card families" : ""}. You can keep playing while artwork is prepared.</p>
         {!canGenerate ? <p className="game-art-notice">Sign in to create or retry artwork.{onSignIn ? <button type="button" onClick={onSignIn}>Sign in</button> : null} Your saved images and draft remain available.</p> : null}
         {controller.storageMessage ? <div className="game-art-notice is-error" role="alert"><p>{controller.storageMessage}</p><button type="button" disabled={busy} onClick={() => void controller.retrySaving()}>Retry saving draft</button><button type="button" onClick={onDownloadDraft}>Download draft</button></div> : null}
         <div className="game-art-direction">
@@ -136,8 +143,9 @@ export function GameArtworkDialog({ draft, controller, canGenerate, onSignIn, on
             <button type="submit" disabled={busy || !dirty}>{canGenerate ? "Save direction & create changed images" : "Save art direction"}</button>
           </form></details>
         </div>
-        {scope.multipleDecks ? <p className="game-art-notice">This generates one default back shared across the game. Separate artwork for each deck is still pending.</p> : null}
+        {scope.multipleDecks && scope.needsBack ? <p className="game-art-notice">This generates one default back shared across the game. Use Cards & decks below to choose separate family backs and printed fronts.</p> : null}
         <div className="game-art-assets">{purposes.map((purpose) => <AssetPanel key={purpose} purpose={purpose} draft={draft} controller={controller} canGenerate={canGenerate} onReplace={() => setManual(purpose)} />)}</div>
+        {scope.hasCards ? <CardDesignEditor draft={draft} controller={controller} /> : null}
         {artworkJobsReady(draft) ? <section className="game-art-review" aria-label="Updated game checks">
           <h3>Game checks</h3>
           {controller.activity === "review" ? <p role="status">Checking the current draft with its finished artwork…</p>

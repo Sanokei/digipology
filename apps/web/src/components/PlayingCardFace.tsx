@@ -1,3 +1,4 @@
+import type { DesignedCard } from "../scene/cardDesigns";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PieceArtwork } from "../scene/pieceArtwork";
 import { drawPieceArtwork } from "../scene/pieceArtworkCanvas";
@@ -7,7 +8,7 @@ import "./playingCard.css";
 import type { PlayingCardIdentity } from "./playingCardIdentity";
 export type { PlayingCardIdentity } from "./playingCardIdentity";
 
-type CardArtwork = Extract<PieceArtwork, { kind: "card-back" | "standard-card" | "custom-card" }>;
+type CardArtwork = Extract<PieceArtwork, { kind: "card-back" | "standard-card" | "custom-card" | "designed-card" }>;
 
 /** The hand, inspection view and physical table use the same raster face. */
 function RasterCardFace({ artwork, fallback, compact = false, back }: { artwork: CardArtwork; fallback: string; compact?: boolean; back?: CardBackDefinition }) {
@@ -25,7 +26,8 @@ function RasterCardFace({ artwork, fallback, compact = false, back }: { artwork:
       catch { setPainted(false); }
     };
     paint();
-    const release = back ? watchCardBackImage(back, (state) => { backImage = state.image ?? undefined; paint(); }) : undefined;
+    const image = artwork.kind === "designed-card" ? artwork.design.illustration : back;
+    const release = image ? watchCardBackImage(image, (state) => { backImage = state.image ?? undefined; paint(); }) : undefined;
     // Repaint once fonts settle, including a late first visit to the table.
     void document.fonts?.ready.then(paint);
     return () => { active = false; release?.(); };
@@ -50,4 +52,9 @@ export function CustomCardFace({ label, color, compact = false }: { label: strin
 export function PlayingCardBack({ definition }: { definition?: CardBackDefinition }) {
   const artwork = useMemo<CardArtwork>(() => ({ kind: "card-back", ...(definition ? { gameTitle: definition.title } : {}) }), [definition?.title]);
   return <RasterCardFace artwork={artwork} fallback="Face-down card" {...(definition ? { back: definition } : {})} />;
+}
+
+export function DesignedCardFace({ design, compact = false }: { design: DesignedCard; compact?: boolean }) {
+  const artwork = useMemo<CardArtwork>(() => ({ kind: "designed-card", design }), [design]);
+  return <RasterCardFace artwork={artwork} fallback={design.card.title} compact={compact} />;
 }

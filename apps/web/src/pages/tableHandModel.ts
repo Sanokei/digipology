@@ -1,3 +1,4 @@
+import { readCardDesigns, designedCard, type DesignedCard } from "../scene/cardDesigns";
 import type { CanonicalGameState, TransformComponent } from "digipology-kernel";
 import { playingCardIdentity, type PlayingCardIdentity } from "../components/playingCardIdentity";
 
@@ -7,6 +8,7 @@ export interface HandStripItem {
   color: string;
   transform?: TransformComponent;
   face?: PlayingCardIdentity;
+  design?: DesignedCard;
 }
 
 export type HandSortMode = "none" | "label";
@@ -68,6 +70,7 @@ export function localHandItems(
   state: CanonicalGameState | null,
   playerId: string,
   definitions: Readonly<Record<string, { label?: string; color?: string }>>,
+  cardDesignsBundle?: string | null,
 ): HandStripItem[] {
   if (state === null) return [];
   const handId = localHandId(state, playerId);
@@ -77,10 +80,12 @@ export function localHandItems(
     const entity = state.entities[entityId];
     if (entity === undefined) return [];
     const definitionId = entity.components.card?.definitionId;
-    const label = definitionId === undefined ? "Card" : definitions[definitionId]?.label ?? "Card";
+    const design = designedCard(readCardDesigns(cardDesignsBundle), definitionId);
+    const label = design?.card.title ?? (definitionId === undefined ? "Card" : definitions[definitionId]?.label ?? "Card");
     const face = playingCardIdentity(definitionId, label);
     return [{
       entityId,
+      ...(design ? { design } : {}),
       label,
       ...(face === null ? {} : { face }),
       color: definitionId === undefined ? "#e7dfc8" : definitions[definitionId]?.color ?? "#e7dfc8",

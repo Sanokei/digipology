@@ -1,3 +1,4 @@
+import { readCardDesigns } from "./cardDesigns";
 import { Engine } from "@babylonjs/core/Engines/engine";
 import { Ray } from "@babylonjs/core/Culling/ray.core";
 import { HighlightLayer } from "@babylonjs/core/Layers/highlightLayer";
@@ -135,7 +136,8 @@ function artworkTexture(
       texture.update(true);
     };
     paint();
-    if (artwork.kind === "card-back" && back && typeof Image !== "undefined") artworkReleases.set(texture, watchCardBackImage(back, (state) => paint(state.image ?? undefined)));
+    const image = artwork.kind === "designed-card" ? artwork.design.illustration : artwork.kind === "card-back" ? artwork.back ?? back : undefined;
+    if (image && typeof Image !== "undefined") artworkReleases.set(texture, watchCardBackImage(image, (state) => paint(state.image ?? undefined)));
   } else {
     // The injected NullEngine texture seam intentionally has no browser canvas.
     texture.drawText(artwork.kind === "custom-card" ? artwork.label : "", null, 150, "bold 54px Manrope", "#203b35", "#fff9eb", true, true);
@@ -145,12 +147,12 @@ function artworkTexture(
 
 function addPieceSurfaces(
   scene: Scene, parent: Mesh, entity: EntityRecord, appearance: ReturnType<typeof piecePresentation>,
-  definition: Parameters<typeof piecePresentation>[1], createTexture?: WebglSceneAdapterDependencies["createLabelTexture"], back?: CardBackDefinition,
+  definition: Parameters<typeof piecePresentation>[1], presentation: Parameters<typeof pieceSurfaceLayout>[3], createTexture?: WebglSceneAdapterDependencies["createLabelTexture"], back?: CardBackDefinition,
 ): DynamicTexture[] {
   const textures: DynamicTexture[] = [];
-  for (const surface of pieceSurfaceLayout(entity, appearance, definition)) {
+  for (const surface of pieceSurfaceLayout(entity, appearance, definition, presentation)) {
     const name = `${parent.name}-surface-${surface.name}`;
-    const artwork = surface.artwork.kind === "card-back" && back ? { ...surface.artwork, gameTitle: back.title } : surface.artwork;
+    const artwork = surface.artwork;
     const texture = artworkTexture(scene, name, artwork, createTexture, back, surface.paperShape);
     textures.push(texture);
     const mat = new StandardMaterial(`${name}-material`, scene);
@@ -478,12 +480,12 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
     shadows?.addShadowCaster(mesh);
     const graph: PieceGraph = {
       mesh,
-      signature: piecePresentationSignature(entity),
+      signature: piecePresentationSignature(entity, currentView?.displayedState?.entities),
       transformSignature: transformSignature(components.transform, restingY),
       restingY,
       ...(appearance.kind !== "token"
         ? {
-            surfaces: addPieceSurfaces(mounted.scene, mesh, entity, appearance, definition, dependencies.createLabelTexture, cardBackForGame(currentView?.gameTitle ?? null, currentView?.cardBackBundle, currentView?.state?.releaseId)),
+            surfaces: addPieceSurfaces(mounted.scene, mesh, entity, appearance, definition, { designs: readCardDesigns(currentView?.cardDesignsBundle), entities: currentView?.displayedState?.entities ?? {}, back: cardBackForGame(currentView?.gameTitle ?? null, currentView?.cardBackBundle, currentView?.state?.releaseId) }, dependencies.createLabelTexture, cardBackForGame(currentView?.gameTitle ?? null, currentView?.cardBackBundle, currentView?.state?.releaseId)),
             shadow: addContactShadow(mounted.scene, mesh, appearance, dependencies.createLabelTexture),
           }
         : appearance.label
@@ -580,7 +582,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       currentView = view;
       const state = view.displayedState;
       const back = cardBackForGame(view.gameTitle, view.cardBackBundle, view.state?.releaseId);
-      const backSignature = `${back.key}:${back.title}`;
+      const backSignature = `${back.key}:${back.title}:${view.cardDesignsBundle ?? ""}`;
       const backChanged = backSignature !== lastBackSignature;
       const correctionId = view.correction?.id ?? null;
       if (state === null) return;
@@ -605,7 +607,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
         if (existing === undefined) {
           const created = makePiece(entity);
           if (created !== null) pieces.set(id, created);
-        } else if (existing.signature !== piecePresentationSignature(entity)) {
+        } else if (existing.signature !== piecePresentationSignature(entity, currentView?.displayedState?.entities)) {
           destroyPiece(existing);
           const created = makePiece(entity);
           if (created === null) pieces.delete(id);

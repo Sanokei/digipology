@@ -8,6 +8,7 @@ export function authoringFromBundle(bundle: ReleaseBundleDto, omitPresentation =
     title: bundle.title ?? "Untitled game",
     tagline: "",
     artDirection: null,
+    cardDesigns: null,
     interactionMode: bundle.interactionMode,
     minPlayers: bundle.minPlayers,
     maxPlayers: bundle.maxPlayers,
