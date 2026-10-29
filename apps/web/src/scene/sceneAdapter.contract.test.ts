@@ -33,6 +33,9 @@ interface FakeMaterial {
   disableLighting?: boolean;
   specularPower?: number;
   alphaCutOff?: number;
+  needAlphaBlending?: boolean;
+  blendMode?: string;
+  depthWrite?: boolean;
 }
 
 interface FakeMesh {
@@ -289,6 +292,7 @@ mock.module("@babylonjs/lite", () => ({
     return result;
   },
   createStandardMaterial: (): FakeMaterial => ({}),
+  createShaderMaterial: (options: FakeMaterial): FakeMaterial => ({ ...options }),
   createDynamicTexture: (): object => {
     const texture = {}; fakeState.createdTextures.push(texture); return texture;
   },
@@ -321,6 +325,9 @@ mock.module("@babylonjs/lite", () => ({
   },
   setParent: (child: FakeMesh, parent: FakeMesh | null): void => {
     child.parent = parent;
+    // Match native Lite's world-preserving scale behavior rather than Core's
+    // local-parent assignment. Production detail attachment must reset it.
+    if (parent !== null) child.scaling.set(child.scaling.x / parent.scaling.x, child.scaling.y / parent.scaling.y, child.scaling.z / parent.scaling.z);
   },
   markMaterialUboDirty: (material: FakeMaterial): void => {
     fakeState.markedMaterials.push(material);
@@ -541,7 +548,10 @@ describe("real Lite SceneAdapter contract through a thin engine mock", () => {
     for (const face of [cardFace, dieFace, scoreFace]) {
       expect(face.rotation.x).toBe(Math.PI / 2);
       expect(face.pickable).toBe(false);
+      expect(face.scaling).toMatchObject({ x: 1, y: 1, z: 1 });
     }
+    const shadow = fakeState.createdPlanes.find((plane) => plane.name === "entity-die-1-contact-shadow");
+    expect(shadow?.material).toMatchObject({ needAlphaBlending: true, blendMode: "alpha", depthWrite: false });
     expect(pieceMesh("counter-1").rotationQuaternion).toMatchObject({ x: 0, y: 1, z: 0, w: 0 });
     adapter.dispose();
   });
@@ -570,7 +580,7 @@ describe("real Lite SceneAdapter contract through a thin engine mock", () => {
     const flippedCard = pieceMesh("card-1");
     expect(flippedCard).not.toBe(initialCard);
     expect(fakeState.scene?.removed).toContain(initialCard);
-    expect(fakeState.releasedTextures).toHaveLength(3); // face, reverse, contact shadow
+    expect(fakeState.releasedTextures).toHaveLength(2); // face/reverse; shader shadow owns no texture
 
     fakeState.pickMesh = flippedCard;
     expect(await adapter.pick(12, 18)).toBe("card-1");

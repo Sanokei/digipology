@@ -11,6 +11,7 @@ import {
   createMeshFromData,
   createPlane,
   createSceneContext,
+  createShaderMaterial,
   createStandardMaterial,
   createTorus,
   disposeEngine,
@@ -55,6 +56,7 @@ import { artworkSize, type PieceArtwork } from "./pieceArtwork";
 import { createArtworkCanvas } from "./pieceArtworkCanvas";
 import { roundedBoxGeometry, roundedCardGeometry } from "./pieceGeometry";
 import { MAX_CAMERA_RADIUS, MIN_CAMERA_RADIUS, pieceFramingBounds, TABLE_CAMERA_BETA, TableFramingController } from "./tableCameraFraming";
+import { horizontalShadowRotation, LITE_CONTACT_SHADOW } from "./liteContactShadow";
 
 interface DragBounds {
   minX: number;
@@ -464,13 +466,13 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       const plane = createPlane(mounted.engine, { width: surface.width, height: surface.height });
       plane.name = `${parent.name}-surface-${surface.name}`; plane.pickable = false; plane.receiveShadows = true;
       plane.material = mat; setParent(plane, parent); plane.position.set(...surface.position);
+      // Native Lite setParent preserves world TRS, including inverse spawn/authored scale.
+      // These are local decorative surfaces and must inherit the parent's full transform.
+      plane.scaling.set(1, 1, 1);
       [plane.rotation.x, plane.rotation.y, plane.rotation.z] = surface.rotation;
       addToScene(mounted.scene, plane); surfaceMeshes.push(plane);
     }
-    const shadowTexture = makeArtworkTexture({ kind: "contact-shadow" }); surfaceTextures.push(shadowTexture);
-    const shadowMaterial = createStandardMaterial(); shadowMaterial.diffuseColor = [0, 0, 0];
-    shadowMaterial.diffuseTexture = shadowTexture; shadowMaterial.opacityTexture = shadowTexture;
-    shadowMaterial.alpha = 0.48; shadowMaterial.disableLighting = true;
+    const shadowMaterial = createShaderMaterial(LITE_CONTACT_SHADOW);
     const shadowMesh = createPlane(mounted.engine, { width: appearance.width * 1.55, height: appearance.depth * 1.55 });
     shadowMesh.name = `${parent.name}-contact-shadow`; shadowMesh.rotation.x = Math.PI / 2;
     shadowMesh.material = shadowMaterial; shadowMesh.pickable = false; addToScene(mounted.scene, shadowMesh);
@@ -483,7 +485,8 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
     shadow.position.set(source.position.x, TABLE_SURFACE_Y + 0.004, source.position.z);
     shadow.scaling.set(Math.abs(source.scaling.x), Math.abs(source.scaling.z), 1);
     const q = source.rotationQuaternion;
-    shadow.rotation.y = Math.atan2(2 * (q.w * q.y + q.x * q.z), 1 - 2 * (q.x * q.x + q.y * q.y));
+    const yaw = Math.atan2(2 * (q.w * q.y + q.x * q.z), 1 - 2 * (q.x * q.x + q.y * q.y));
+    shadow.rotationQuaternion.set(...horizontalShadowRotation(yaw));
   }
 
   function addLabel(parent: Mesh, appearance: ReturnType<typeof piecePresentation>): {
@@ -510,6 +513,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
     labelMesh.material = labelMaterial;
     labelMesh.pickable = false;
     setParent(labelMesh, parent);
+    labelMesh.scaling.set(1, 1, 1);
     labelMesh.position.set(0, appearance.billboardLabel ? 0.48 : appearance.height / 2 + 0.006, 0);
     labelMesh.rotation.x = appearance.billboardLabel ? 0 : Math.PI / 2;
     addToScene(mounted.scene, labelMesh);
@@ -667,6 +671,11 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
           }
           staticMaterial.diffuseTexture = texture; staticMaterial.diffuseColor = [1, 1, 1];
           staticMaterial.ambientColor = [0.12, 0.12, 0.12];
+          if (artwork.kind === "felt") {
+            // The authored cloth already contains its soft light falloff. Keep it
+            // readable while the pieces and wooden frame receive scene lighting.
+            staticMaterial.disableLighting = true; staticMaterial.emissiveColor = [1, 1, 1];
+          }
         }
         const mesh = createBox(mountedEngine, { width, depth, height });
         mesh.name = name;
