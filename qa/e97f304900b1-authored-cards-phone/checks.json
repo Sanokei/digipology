@@ -1,0 +1,62 @@
+{
+  "applicationSource": "e97f304900b1e918c5dd2064e22945c6e67851b6",
+  "captureBuildSource": "087290e5104f62a458cc3b56a1e9f2a4cbca07e2",
+  "equivalentApplicationTrees": {
+    "apps/web": "63f4f665ab4399ff67cfa1191443f6701a2a298c",
+    "apps/worker": "73198be58609422b0878e5cf7ae885e023721d72",
+    "packages/protocol": "408f6d1ec949437d619e10869172988cd64077f7"
+  },
+  "localChecks": [
+    {
+      "run": "browser-final",
+      "exit": 0,
+      "stats": {
+        "startTime": "2026-10-29T22:45:14.456Z",
+        "duration": 159153.782,
+        "expected": 5,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "scope": "browser-final predates maximum-length-target-only guard; newer two runs use final application bytes. Runs overlap and are not summed."
+    },
+    {
+      "run": "native-separate-visitors",
+      "exit": 0,
+      "stats": {
+        "startTime": "2026-10-29T22:48:40.666Z",
+        "duration": 182445.774,
+        "expected": 1,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "scope": "browser-final predates maximum-length-target-only guard; newer two runs use final application bytes. Runs overlap and are not summed."
+    },
+    {
+      "run": "final-target-and-phone",
+      "exit": 0,
+      "stats": {
+        "startTime": "2026-10-29T22:52:14.354Z",
+        "duration": 91050.504,
+        "expected": 5,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "scope": "browser-final predates maximum-length-target-only guard; newer two runs use final application bytes. Runs overlap and are not summed."
+    }
+  ],
+  "focusedUnits": {
+    "pass": 88,
+    "fail": 0,
+    "files": 10,
+    "assertions": 1288,
+    "overlappingFollowups": "max-length binding5tests pass; owner lifecycle/legacy followups still in progress outside this checkpoint."
+  },
+  "hosted": {
+    "run40968735130": "087290e fails site docs sync: missing new-document frontmatter; corrected e97. Other workspace types pass; no units/browser on that run.",
+    "run40969105576": "e97 typecheck passes; units930pass29fail caused by optional legacy release.files assumption in new card reader; fixed locally with affected room/kernel checks, not yet committed. No hosted browser on e97."
+  },
+  "mainIntegrated": false
+}

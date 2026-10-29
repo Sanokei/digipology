@@ -1,0 +1,222 @@
+{
+  "source": "e97f304900b1e918c5dd2064e22945c6e67851b6",
+  "files": [
+    {
+      "path": "current/native-two-visitors/card-editor-390.png",
+      "bytes": 61955,
+      "sha256": "d9fd513491504406d8dc08780ce15ccb8d840dddc29e45e2b2a9f3eff111e750",
+      "applicationSource": "e97f304900b1e918c5dd2064e22945c6e67851b6",
+      "scope": "Original settled capture, native-separate-visitors; technical rule/raster ports, not final art. Native uses separate browser processes."
+    },
+    {
+      "path": "current/native-two-visitors/guest-no-front-leak.png",
+      "bytes": 300607,
+      "sha256": "900330d08b20408cfc933b5a45083462b8f08e07b8e527daf4e115ec388ac6a1",
+      "applicationSource": "e97f304900b1e918c5dd2064e22945c6e67851b6",
+      "scope": "Original settled capture, native-separate-visitors; technical rule/raster ports, not final art. Native uses separate browser processes."
+    },
+    {
+      "path": "current/native-two-visitors/owner-full-rules-390.png",
+      "bytes": 78350,
+      "sha256": "dd64859ea61801a23ee6db4d56a2811e66e46eee01d5d4671bbbe4e366055954",
+      "applicationSource": "e97f304900b1e918c5dd2064e22945c6e67851b6",
+      "scope": "Original settled capture, native-separate-visitors; technical rule/raster ports, not final art. Native uses separate browser processes."
+    },
+    {
+      "path": "current/native-two-visitors/owner-printed-front-desktop.png",
+      "bytes": 217568,
+      "sha256": "650897cd5ed799bbec9922e7c31ff026d3ec7f36e849dc2b8757e94457237481",
+      "applicationSource": "e97f304900b1e918c5dd2064e22945c6e67851b6",
+      "scope": "Original settled capture, native-separate-visitors; technical rule/raster ports, not final art. Native uses separate browser processes."
+    },
+    {
+      "path": "current/native-two-visitors/published-owner-recovered.png",
+      "bytes": 305912,
+      "sha256": "073c5cb1202e98161aeaa009c3b5448de17f5902d72753223b2bf8caf8d403a7",
+      "applicationSource": "e97f304900b1e918c5dd2064e22945c6e67851b6",
+      "scope": "Original settled capture, native-separate-visitors; technical rule/raster ports, not final art. Native uses separate browser processes."
+    },
+    {
+      "path": "current/native-two-visitors/scoped-hidden-back-no-fields.png",
+      "bytes": 282846,
+      "sha256": "343d72034e48b8ebee8a7b884b15e0790c43959ae9a39a6b00926aa88a29aa63",
+      "applicationSource": "e97f304900b1e918c5dd2064e22945c6e67851b6",
+      "scope": "Original settled capture, native-separate-visitors; technical rule/raster ports, not final art. Native uses separate browser processes."
+    },
+    {
+      "path": "current/native-two-visitors/scoped-revealed-front-full-rules.png",
+      "bytes": 351188,
+      "sha256": "9fbbc93d106661e65dda47282fe64e91390dc1437d6448a37369a98240ca4fbe",
+      "applicationSource": "e97f304900b1e918c5dd2064e22945c6e67851b6",
+      "scope": "Original settled capture, native-separate-visitors; technical rule/raster ports, not final art. Native uses separate browser processes."
+    },
+    {
+      "path": "current/native-two-visitors/two-decks-hand-short.png",
+      "bytes": 40660,
+      "sha256": "44eb57989ec61bdc28aa45604089ebe14a4155ac94c3349cc684fcaa78715fea",
+      "applicationSource": "e97f304900b1e918c5dd2064e22945c6e67851b6",
+      "scope": "Original settled capture, native-separate-visitors; technical rule/raster ports, not final art. Native uses separate browser processes."
+    },
+    {
+      "path": "current/phone-and-recovery/card-image-deliberately-recovered.png",
+      "bytes": 274042,
+      "sha256": "ac0b876eed5119b1b0b48cf9716f1ec23530e818f98ba2714404a871f3c9d2e4",
+      "applicationSource": "e97f304900b1e918c5dd2064e22945c6e67851b6",
+      "scope": "Original current browser capture. Technical rule/raster ports, no live provider."
+    },
+    {
+      "path": "current/phone-and-recovery/damaged-card-image-publication-blocked.png",
+      "bytes": 250594,
+      "sha256": "89b7dbce0552e86094c7713384a0e936c96c2b7c8c1b0e985c8aec408d3f5fd8",
+      "applicationSource": "e97f304900b1e918c5dd2064e22945c6e67851b6",
+      "scope": "Original current browser capture. Technical rule/raster ports, no live provider."
+    },
+    {
+      "path": "current/phone-and-recovery/scoped-upload-quota-short.png",
+      "bytes": 35388,
+      "sha256": "2205429ccc03d6a260e60958da2adae3dbb2c2296b885ea249601620f36153e0",
+      "applicationSource": "e97f304900b1e918c5dd2064e22945c6e67851b6",
+      "scope": "Original current browser capture. Technical rule/raster ports, no live provider."
+    },
+    {
+      "path": "current/phone-and-recovery/scoped-upload-recovered-390-short.png",
+      "bytes": 48930,
+      "sha256": "07f118a1ba25aebab8fa22c34c2d9b49a66319d8f72e54215a5353d9a813486d",
+      "applicationSource": "e97f304900b1e918c5dd2064e22945c6e67851b6",
+      "scope": "Original current browser capture. Technical rule/raster ports, no live provider."
+    },
+    {
+      "path": "current/phone-and-recovery/authored-card-after-touch-drop-390.png",
+      "bytes": 119450,
+      "sha256": "14c79b95ee44fcd90819052272c031fd9c9256e0d5f4908107f858f800165a35",
+      "applicationSource": "e97f304900b1e918c5dd2064e22945c6e67851b6",
+      "scope": "Original current browser capture. Technical rule/raster ports, no live provider."
+    },
+    {
+      "path": "current/phone-and-recovery/authored-card-touch-drop-short.png",
+      "bytes": 40151,
+      "sha256": "06bb294d83bf1b6f8965c6a46d4bcfb0858336663d4963d47ca7d98fa2f2315b",
+      "applicationSource": "e97f304900b1e918c5dd2064e22945c6e67851b6",
+      "scope": "Original current browser capture. Technical rule/raster ports, no live provider."
+    },
+    {
+      "path": "current/phone-and-recovery/printed-inspection-touch-short.png",
+      "bytes": 50254,
+      "sha256": "c100b16b13724a9267ad00632cf3618cc795a545b06334f685affc00fe21d832",
+      "applicationSource": "e97f304900b1e918c5dd2064e22945c6e67851b6",
+      "scope": "Original current browser capture. Technical rule/raster ports, no live provider."
+    },
+    {
+      "path": "current/phone-and-recovery/two-family-backs-touch-390.png",
+      "bytes": 117172,
+      "sha256": "87e4098b7fc29ff0016a3edbba162f867129d781b17d1bed88e26aa005ea47f8",
+      "applicationSource": "e97f304900b1e918c5dd2064e22945c6e67851b6",
+      "scope": "Original current browser capture. Technical rule/raster ports, no live provider."
+    },
+    {
+      "path": "current/phone-and-recovery/art-repair-short.png",
+      "bytes": 33532,
+      "sha256": "66684f2e66ae422c812f5ff3798bce3c9d3e8be9b308d339e0456381d5d8c6e8",
+      "applicationSource": "e97f304900b1e918c5dd2064e22945c6e67851b6",
+      "scope": "Original current browser capture. Technical rule/raster ports, no live provider."
+    },
+    {
+      "path": "current/phone-and-recovery/dice-390-repair-recovered.png",
+      "bytes": 99359,
+      "sha256": "125b855445733fc1d301db041302853d85abb2068d274cedeade8cd05cfbc956",
+      "applicationSource": "e97f304900b1e918c5dd2064e22945c6e67851b6",
+      "scope": "Original current browser capture. Technical rule/raster ports, no live provider."
+    },
+    {
+      "path": "current/phone-and-recovery/dice-390-roll-feedback.png",
+      "bytes": 99281,
+      "sha256": "7f74cef3b46ec8aeb2489a6877f3e3b0da273440ddc71cafc5879d31e129de8b",
+      "applicationSource": "e97f304900b1e918c5dd2064e22945c6e67851b6",
+      "scope": "Original current browser capture. Technical rule/raster ports, no live provider."
+    },
+    {
+      "path": "current/phone-and-recovery/dice-desktop-settled.png",
+      "bytes": 328787,
+      "sha256": "6b4ff01f59d1fcd1382a2d718473457940d7331f5381c9b41d83f8e2c3ab77ea",
+      "applicationSource": "e97f304900b1e918c5dd2064e22945c6e67851b6",
+      "scope": "Original current browser capture. Technical rule/raster ports, no live provider."
+    },
+    {
+      "path": "current/phone-and-recovery/dice-short-repair-recovered.png",
+      "bytes": 45665,
+      "sha256": "55459ca7200dfb09c48b2ff67969ad5e8f0038aade52b813bae036c2c2d3710d",
+      "applicationSource": "e97f304900b1e918c5dd2064e22945c6e67851b6",
+      "scope": "Original current browser capture. Technical rule/raster ports, no live provider."
+    },
+    {
+      "path": "current/phone-and-recovery/dice-short-settled.png",
+      "bytes": 46312,
+      "sha256": "e53f041671cbb647f4c84d277aa32c86b6e67ad1136ea2f63ae4b9898e8c17bd",
+      "applicationSource": "e97f304900b1e918c5dd2064e22945c6e67851b6",
+      "scope": "Original current browser capture. Technical rule/raster ports, no live provider."
+    },
+    {
+      "path": "current/phone-and-recovery/tools-short-keyboard.png",
+      "bytes": 36824,
+      "sha256": "81c01461d4aaf3a3f52824d9c0647537302699d36600c180518b6c32aa7c36f6",
+      "applicationSource": "e97f304900b1e918c5dd2064e22945c6e67851b6",
+      "scope": "Original current browser capture. Technical rule/raster ports, no live provider."
+    },
+    {
+      "path": "current/phone-and-recovery/card-drop-short.png",
+      "bytes": 34414,
+      "sha256": "c8607e947a23a0e768fdfbad659e936093fb04960da40bfeb5d366950f51cc34",
+      "applicationSource": "e97f304900b1e918c5dd2064e22945c6e67851b6",
+      "scope": "Original current browser capture. Technical rule/raster ports, no live provider."
+    },
+    {
+      "path": "current/phone-and-recovery/card-inspection-short.png",
+      "bytes": 51686,
+      "sha256": "e527fa1254fb334e871f199df90708b3efef4c1a3d3bbb487ad9a46bf7b5076b",
+      "applicationSource": "e97f304900b1e918c5dd2064e22945c6e67851b6",
+      "scope": "Original current browser capture. Technical rule/raster ports, no live provider."
+    },
+    {
+      "path": "current/phone-and-recovery/cards-390-private-hand.png",
+      "bytes": 107284,
+      "sha256": "571b270eb275c2d277d3d3b6c4a7ef4c175b0d8fe6085b39d865b49c1385b649",
+      "applicationSource": "e97f304900b1e918c5dd2064e22945c6e67851b6",
+      "scope": "Original current browser capture. Technical rule/raster ports, no live provider."
+    },
+    {
+      "path": "current/phone-and-recovery/cards-desktop-after-drop.png",
+      "bytes": 295052,
+      "sha256": "abb740c86176508b73cc647668f5014e31cb55c1fd8eb85f4847326353bd412d",
+      "applicationSource": "e97f304900b1e918c5dd2064e22945c6e67851b6",
+      "scope": "Original current browser capture. Technical rule/raster ports, no live provider."
+    },
+    {
+      "path": "current/phone-and-recovery/cards-short-settled.png",
+      "bytes": 37601,
+      "sha256": "a164decff040565b0288ecb3d38956a03b8a14f2e302f2d30ae96e3c09a2dd10",
+      "applicationSource": "e97f304900b1e918c5dd2064e22945c6e67851b6",
+      "scope": "Original current browser capture. Technical rule/raster ports, no live provider."
+    },
+    {
+      "path": "before/85e433f-private-draft-390.png",
+      "bytes": 101824,
+      "sha256": "d858c65c8c550bde0a90ae335d88fa576f63fc77e6b1919d7405a07103ccaa4f",
+      "applicationSource": "85e433f0c443331208be53d3c8d4d212938d2bbf",
+      "scope": "Prior confirmed phone P1: tall controls/progress obscure the table. Original pinned a9f0f6f QA blob5a021ae3ea65f04ecec00850babaa4eeca72c230."
+    },
+    {
+      "path": "failed/native-browser-second-viewer-loading.png",
+      "bytes": 306268,
+      "sha256": "47f05a342fca203869a77497565e68775f958db44fe920d9bb1dcc1f703d92f3",
+      "applicationSource": "uncommitted experiment; not current-source evidence",
+      "scope": "FAILED uncommitted experiment based9b0d1cc with card work. Second shared Chromium software-GPU viewer stayed loading; retained as failure, not a release pass. Second run included a speculative redraw cap that was removed."
+    },
+    {
+      "path": "failed/native-browser-fixed-second-viewer-loading.png",
+      "bytes": 306020,
+      "sha256": "dc37ea7be32c24a870b96856533ca8ab5e899d895713082143c4eaad8eba47cb",
+      "applicationSource": "uncommitted experiment; not current-source evidence",
+      "scope": "FAILED uncommitted experiment based9b0d1cc with card work. Second shared Chromium software-GPU viewer stayed loading; retained as failure, not a release pass. Second run included a speculative redraw cap that was removed."
+    }
+  ]
+}
