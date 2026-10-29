@@ -607,6 +607,8 @@ button.action-card { width: 100%; border-right: 0; border-left: 0; text-align: l
   min-width: 0;
 }
 
+.table-topbar__game > div { min-width: 0; }
+
 .table-topbar__back {
   display: grid;
   width: 40px;
@@ -867,8 +869,11 @@ button.action-card { width: 100%; border-right: 0; border-left: 0; text-align: l
   }
 
   .table-topbar__game {
-    gap: 8px;
+    gap: 6px;
   }
+
+  .table-topbar { gap: 6px; }
+  .table-topbar__actions { gap: 3px; }
 
   .table-topbar button {
     height: 40px;
@@ -879,10 +884,15 @@ button.action-card { width: 100%; border-right: 0; border-left: 0; text-align: l
     width: 40px;
   }
 
-  .table-topbar__players {
-    width: 44px;
+  .table-topbar .table-topbar__players {
+    width: 40px;
     padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
   }
+  .table-topbar__players .presence-dot { margin-right: 0; }
 
   .table-topbar__players-label {
     display: none;
@@ -967,7 +977,7 @@ button.action-card { width: 100%; border-right: 0; border-left: 0; text-align: l
   }
 
   .table-topbar__invite {
-    max-width: 92px;
+    max-width: 88px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

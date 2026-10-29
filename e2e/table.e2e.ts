@@ -156,6 +156,10 @@ test("mobile table keeps play controls reachable without horizontal overflow", a
   await expect(page.getByRole("button", { name: "Roll Die", exact: true })).toBeEnabled();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   expect(overflow).toBe(false);
+  const title = await page.locator(".table-topbar__game strong").boundingBox();
+  const actions = await page.locator(".table-topbar__actions").boundingBox();
+  if (!title || !actions) throw new Error("Missing mobile header controls");
+  expect(title.x + title.width).toBeLessThanOrEqual(actions.x);
   await page.screenshot({ path: testInfo.outputPath("mobile-table.png"), fullPage: true });
   await page.getByRole("button", { name: "How to play", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "How to play Dice Dash", exact: true })).toBeVisible();
