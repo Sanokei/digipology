@@ -1,0 +1,13 @@
+{
+  "command": "E2E_SKIP_BUILD=1 bun run test:e2e --max-failures=1",
+  "exitCode": 0,
+  "stats": {
+    "startTime": "2026-10-29T12:24:17.322Z",
+    "duration": 319793.378,
+    "expected": 18,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "errors": []
+}

@@ -1,0 +1,349 @@
+{
+  "source": {
+    "repository": "Sanokei/digipology",
+    "commit": "fd26a3e9993a556232be3fb33af54f5bbaa07a53",
+    "branch": "feat/editor-artwork-handoff",
+    "base": "e607e2f4c5286a0635552bf4463c1075535dec24"
+  },
+  "validation": {
+    "bun": {
+      "passed": 860,
+      "files": 117,
+      "expectations": 211495
+    },
+    "fullTypes": true,
+    "webProductionBuild": true,
+    "sitePages": 17,
+    "internalLinks": true,
+    "rendererChunkIsolation": true,
+    "frozenReplayBase": "e607e2f4c5286a0635552bf4463c1075535dec24",
+    "browserCommand": {
+      "command": "E2E_SKIP_BUILD=1 bun run test:e2e --max-failures=1",
+      "exitCode": 0
+    },
+    "browserStats": {
+      "startTime": "2026-10-29T12:24:17.322Z",
+      "duration": 319793.378,
+      "expected": 18,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "reporterErrors": []
+  },
+  "handoff": {
+    "title": "Copper Dice Workshop",
+    "tagline": "Every roll scores one extra point.",
+    "oldReviewManifest": "sha256:7f15a42448293341dbf61fe5cf5635431b8e997c99846fbf580f9683b3990a28",
+    "editedManifest": "sha256:574fd744db7de77f8e6a9a2c3697a337af7e33d40d8ba2431cfed9f52c842a69",
+    "retainedReview": {
+      "manifestHash": "sha256:7f15a42448293341dbf61fe5cf5635431b8e997c99846fbf580f9683b3990a28",
+      "warnings": [
+        {
+          "code": "game_win_unobserved",
+          "message": "The draft has a target-like setting (\"targetScore\") but no winner was declared within 96 simulated action attempts. The condition may need a longer or different strategy; this is not proof it is unreachable. [together-2-first]"
+        }
+      ]
+    },
+    "artwork": {
+      "contentType": "image/webp",
+      "credits": {
+        "artist": "Digipology · local QA fixture",
+        "license": "Original repository illustration, alpha test edit",
+        "sourceUrl": "https://github.com/Sanokei/digipology/tree/194dbac54647c4474d3ab11934843cbf30356fd0/apps/web/public/art"
+      },
+      "formatVersion": 1,
+      "height": 1152,
+      "sha256": "sha256:7e2c3f7ec1366c6e89f4d035c33604f3939b35d3aad66ece4f2f3ccb30522bd0",
+      "width": 768
+    },
+    "sourceFixtureSha256": "27392b8f1c9afa9cfa9acdcddf107b2dfd60d6fc33d335d1c07e62f6dea02919",
+    "authoredSourceFilenameRetainedInEditableBackupOnly": "alpha-local-fixture.png"
+  },
+  "assertions": {
+    "desktopFileImportAcceptsRealEditableBackup": true,
+    "ruleEditRunsInPrivateAndPublishedPlay": "first score equals actual die value + 1 in both runtimes",
+    "latestSnapshotSavedBeforeNavigation": true,
+    "quotaFailureDownloadAndRetry": true,
+    "recoveryKeyboardTabEscapeReturnFocus": true,
+    "openEditorSurvivesNarrowingWithoutUnmount": true,
+    "editedReviewIsStale": true,
+    "metadataExcludedFromReleaseAndCanonicalGameState": true,
+    "artworkErrorRetryNamesItsStage": true,
+    "actualServerCommittedLostReplyReusesOneGameAndCoverVersion1": true,
+    "creditsAndBinaryHashMatchAfterReloadAndDownload": true,
+    "version1ImageAndCreditsStayExactAfterVersion2CreditEdit": true,
+    "coverCreditChangeDoesNotChangeReleaseBytes": true,
+    "editableBackupReimportsThroughDesktopAndReopensPrivateReview": true,
+    "editorFlowModelRequests": 0,
+    "sourceField": "keyboard-focused full input bounds above opaque footer, both sampled corners hit the input, at desktop/390x844/390x480; retains focus across resize",
+    "codecFailure": "real PNG with valid structural CRC but invalid compressed pixels; actual browser decode rejects it and prior image remains; valid image replacement recovers"
+  },
+  "scope": {
+    "fixtures": "reused source-pinned real backup, original repository raster/alpha edit; not a new catalog game or live creative output",
+    "generation": "common generation regressions use explicit canned provider plus real Lua/Worker/browser; editor flow makes zero model requests",
+    "privacy": "official-client presentation only; shared deterministic state is not cryptographic hidden information",
+    "historicalEvidence": "bebeab5405e0b85e3697cd25ccbf190591663109 remains unchanged with its source-by-frame split and retained two-case tool-exit anomaly; this fresh full 18-case command independently exits 0",
+    "pending": [
+      "production migration 0008/deployment",
+      "publish saved cloud draft",
+      "live model endpoint/model/key",
+      "observe scheduled Actions key/permissions/execution",
+      "genuine strategy/fun and integrated external media acceptance"
+    ]
+  },
+  "artifacts": [
+    {
+      "path": "storage-recovery-desktop.png",
+      "sourceRef": "fd26a3e9993a556232be3fb33af54f5bbaa07a53",
+      "originalPath": "test-results/editor-handoff.e2e.ts-real-86403--and-idempotent-publication/editor-storage-recovery-desktop.png",
+      "status": "passing current-source browser capture/file",
+      "bytes": 116221,
+      "sha256": "7fe80580f3157a0c2600454961224c42f22ca5b24da63f68441694b716dbd8f6",
+      "dimensions": [
+        1440,
+        960
+      ]
+    },
+    {
+      "path": "storage-recovery-390.png",
+      "sourceRef": "fd26a3e9993a556232be3fb33af54f5bbaa07a53",
+      "originalPath": "test-results/editor-handoff.e2e.ts-real-86403--and-idempotent-publication/editor-storage-recovery-narrow.png",
+      "status": "passing current-source browser capture/file",
+      "bytes": 70386,
+      "sha256": "bbe1143862f5084aac30efea1d1b960a1609447b05bc694d2f13c050340729ca",
+      "dimensions": [
+        390,
+        844
+      ]
+    },
+    {
+      "path": "edited-private-play-390.png",
+      "sourceRef": "fd26a3e9993a556232be3fb33af54f5bbaa07a53",
+      "originalPath": "test-results/editor-handoff.e2e.ts-real-86403--and-idempotent-publication/edited-private-play-narrow.png",
+      "status": "passing current-source browser capture/file",
+      "bytes": 52785,
+      "sha256": "247f4930d6de058b9c18587bdfb807c07d4fd0e9f2022083d8f8a3c6e00fc20c",
+      "dimensions": [
+        390,
+        844
+      ]
+    },
+    {
+      "path": "stale-review-desktop.png",
+      "sourceRef": "fd26a3e9993a556232be3fb33af54f5bbaa07a53",
+      "originalPath": "test-results/editor-handoff.e2e.ts-real-86403--and-idempotent-publication/edited-stale-review-desktop.png",
+      "status": "passing current-source browser capture/file",
+      "bytes": 115848,
+      "sha256": "8df27ae327b80d870bec37807441629e4d7b758e9782ae785bd18d82a2227ea8",
+      "dimensions": [
+        1440,
+        960
+      ]
+    },
+    {
+      "path": "artwork-publication-retry.png",
+      "sourceRef": "fd26a3e9993a556232be3fb33af54f5bbaa07a53",
+      "originalPath": "test-results/editor-handoff.e2e.ts-real-86403--and-idempotent-publication/edited-artwork-publication-retry.png",
+      "status": "passing current-source browser capture/file",
+      "bytes": 85289,
+      "sha256": "fbd0558a4e83b82ea82af6e848a18f60dabe7e6734af1ea1d402b19c209f3f11",
+      "dimensions": [
+        1440,
+        960
+      ]
+    },
+    {
+      "path": "published-desktop.png",
+      "sourceRef": "fd26a3e9993a556232be3fb33af54f5bbaa07a53",
+      "originalPath": "test-results/editor-handoff.e2e.ts-real-86403--and-idempotent-publication/edited-published-desktop.png",
+      "status": "passing current-source browser capture/file",
+      "bytes": 461490,
+      "sha256": "08acfcc4376e17ec22c963b35576411f8e17f1545706c7eee1056a6cfcd7a58f",
+      "dimensions": [
+        1440,
+        960
+      ]
+    },
+    {
+      "path": "published-390.png",
+      "sourceRef": "fd26a3e9993a556232be3fb33af54f5bbaa07a53",
+      "originalPath": "test-results/editor-handoff.e2e.ts-real-86403--and-idempotent-publication/edited-published-narrow.png",
+      "status": "passing current-source browser capture/file",
+      "bytes": 421631,
+      "sha256": "b9ded35d7a4c60a272dfae968cdc4d4ca8242673fbebced62d51b109d658933a",
+      "dimensions": [
+        390,
+        1473
+      ]
+    },
+    {
+      "path": "source-field-desktop.png",
+      "sourceRef": "fd26a3e9993a556232be3fb33af54f5bbaa07a53",
+      "originalPath": "test-results/editor-handoff.e2e.ts-artw-9404e-ht-including-decode-failure/source-field-desktop.png",
+      "status": "passing current-source browser capture/file",
+      "bytes": 258085,
+      "sha256": "806a06d23fba0570f62e822159e32ebe3ad768e6c423395421fe41fd7de2f400",
+      "dimensions": [
+        1440,
+        960
+      ]
+    },
+    {
+      "path": "source-field-390x844.png",
+      "sourceRef": "fd26a3e9993a556232be3fb33af54f5bbaa07a53",
+      "originalPath": "test-results/editor-handoff.e2e.ts-artw-9404e-ht-including-decode-failure/source-field-390x844.png",
+      "status": "passing current-source browser capture/file",
+      "bytes": 117591,
+      "sha256": "f1c7af30c918e6818eafaac17b71ccd92114287485b4c9264cfb7ddaa0eb6f15",
+      "dimensions": [
+        390,
+        844
+      ]
+    },
+    {
+      "path": "source-field-390x480.png",
+      "sourceRef": "fd26a3e9993a556232be3fb33af54f5bbaa07a53",
+      "originalPath": "test-results/editor-handoff.e2e.ts-artw-9404e-ht-including-decode-failure/source-field-390x480.png",
+      "status": "passing current-source browser capture/file",
+      "bytes": 34282,
+      "sha256": "d32e0e552c39d3d8e2bee15f478dcaa362569f34b3d60ebf0510c943ece57701",
+      "dimensions": [
+        390,
+        480
+      ]
+    },
+    {
+      "path": "decode-recovery-390x480.png",
+      "sourceRef": "fd26a3e9993a556232be3fb33af54f5bbaa07a53",
+      "originalPath": "test-results/editor-handoff.e2e.ts-artw-9404e-ht-including-decode-failure/source-field-decode-recovery-short.png",
+      "status": "passing current-source browser capture/file",
+      "bytes": 34455,
+      "sha256": "94dc0926f04773e01aaed7a657f8d48f2ca16f4e0922e32166cce45f38d789cb",
+      "dimensions": [
+        390,
+        480
+      ]
+    },
+    {
+      "path": "settled-winner-desktop.png",
+      "sourceRef": "fd26a3e9993a556232be3fb33af54f5bbaa07a53",
+      "originalPath": "test-results/generation.e2e.ts-fixture--63b4a-publication-and-multiplayer/fixture-private-draft-winner.png",
+      "status": "passing current-source browser capture/file",
+      "bytes": 66678,
+      "sha256": "bbcd0186cad45b7c65e63ac3b5b81007e928af32aa76885cc1a825befc0d54a3",
+      "dimensions": [
+        1440,
+        960
+      ]
+    },
+    {
+      "path": "settled-winner-390.png",
+      "sourceRef": "fd26a3e9993a556232be3fb33af54f5bbaa07a53",
+      "originalPath": "test-results/generation.e2e.ts-fixture--63b4a-publication-and-multiplayer/fixture-private-draft-winner-mobile.png",
+      "status": "passing current-source browser capture/file",
+      "bytes": 43843,
+      "sha256": "f3abc82420446657b4e2186c703563eb5457b7fb2d68684ac53936b0f84d0a39",
+      "dimensions": [
+        390,
+        844
+      ]
+    },
+    {
+      "path": "guest-hand-desktop.png",
+      "sourceRef": "fd26a3e9993a556232be3fb33af54f5bbaa07a53",
+      "originalPath": "test-results/table.e2e.ts-named-cards-r-06f8c-e-reveal-and-survive-reload/card-hand-guest-private.png",
+      "status": "passing current-source browser capture/file",
+      "bytes": 45805,
+      "sha256": "4760415277be1ce8e1d1c628f9b6b9f1a0b5ec350ef1d812da295c74d3b8adec",
+      "dimensions": [
+        1280,
+        900
+      ]
+    },
+    {
+      "path": "renderer-recovered-desktop.png",
+      "sourceRef": "fd26a3e9993a556232be3fb33af54f5bbaa07a53",
+      "originalPath": "test-results/table.e2e.ts-a-failed-tabl-8cb4f-s-the-existing-private-hand/table-view-recovered.png",
+      "status": "passing current-source browser capture/file",
+      "bytes": 53001,
+      "sha256": "b1cf1816ba8e0853a4aecd69518531b2ac7e48d21699f38601b8b1fd2fb62b63",
+      "dimensions": [
+        1440,
+        960
+      ]
+    },
+    {
+      "path": "edited.editor.json",
+      "sourceRef": "fd26a3e9993a556232be3fb33af54f5bbaa07a53",
+      "originalPath": "test-results/editor-handoff.e2e.ts-real-86403--and-idempotent-publication/edited.editor.json",
+      "status": "passing current-source browser capture/file",
+      "bytes": 370785,
+      "sha256": "12bcd357d440b459886c01874696a9b433353a801fcbd41f3bfacae5ababd9cc"
+    },
+    {
+      "path": "reopened.editor.json",
+      "sourceRef": "fd26a3e9993a556232be3fb33af54f5bbaa07a53",
+      "originalPath": "test-results/editor-handoff.e2e.ts-real-86403--and-idempotent-publication/reopened.editor.json",
+      "status": "passing current-source browser capture/file",
+      "bytes": 370779,
+      "sha256": "5def15b94bca409c537e134c2ca48f3224078022951a7c03ff596eef8e0c08cc"
+    },
+    {
+      "path": "edited.release.json",
+      "sourceRef": "fd26a3e9993a556232be3fb33af54f5bbaa07a53",
+      "originalPath": "test-results/editor-handoff.e2e.ts-real-86403--and-idempotent-publication/edited.release.json",
+      "status": "passing current-source browser capture/file",
+      "bytes": 5796,
+      "sha256": "9c1f6e9ab924404e9cf5baf43c33b2334aa872deadd8fefaba5d426de79f8bca"
+    },
+    {
+      "path": "published.artwork.json",
+      "sourceRef": "fd26a3e9993a556232be3fb33af54f5bbaa07a53",
+      "originalPath": "test-results/editor-handoff.e2e.ts-real-86403--and-idempotent-publication/edited.artwork.json",
+      "status": "passing current-source browser capture/file",
+      "bytes": 364409,
+      "sha256": "3f9b0a2ed6b38b10e412e29378fee2661dc3cee584c29b9b1896af23b04624f0"
+    },
+    {
+      "path": "before-resize-discarded-workspace.png",
+      "sourceRef": null,
+      "originalPath": "first-failure/browser/editor-handoff.e2e.ts-real-86403--and-idempotent-publication/test-failed-1.png",
+      "status": "retained visual failure from earlier uncommitted working tree based on e607e2f; not a final-source pass",
+      "bytes": 33153,
+      "sha256": "00e1ad3ea1e2b97b9a7c83df4efe4dbad98ebc2963c664bab8e37168dde5f307",
+      "dimensions": [
+        390,
+        844
+      ]
+    },
+    {
+      "path": "before-focused-source-clipped.png",
+      "sourceRef": null,
+      "originalPath": "second-failure/browser/editor-handoff.e2e.ts-artw-9404e-ht-including-decode-failure/test-failed-1.png",
+      "status": "retained visual failure from earlier uncommitted working tree based on e607e2f; not a final-source pass",
+      "bytes": 128499,
+      "sha256": "72d35bba6d42ba599b28315a4391bb2ed507fe2d246bb5f869a6ad3eb81b88bf",
+      "dimensions": [
+        390,
+        844
+      ]
+    },
+    {
+      "path": "edited-rule.lua",
+      "sourceRef": "fd26a3e9993a556232be3fb33af54f5bbaa07a53",
+      "originalPath": "edited.release.json#files/scripts/game.lua",
+      "status": "exact rule text exported after real desktop UI edit",
+      "bytes": 1299,
+      "sha256": "034b57b7443b82596c01fe4d702feb858c7deda87e4ea1f0192d7354ee8e6108"
+    },
+    {
+      "path": "browser-command.json",
+      "sourceRef": "fd26a3e9993a556232be3fb33af54f5bbaa07a53",
+      "originalPath": "captured child exit plus Playwright report",
+      "status": "full suite exits 0 with 18 expected, no unexpected/flaky/errors",
+      "bytes": 268,
+      "sha256": "c4839390d3ea9203d8150d77918476d6e28bb0211220a5c8bded03ca15697ea8"
+    }
+  ]
+}
