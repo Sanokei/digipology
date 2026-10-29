@@ -3,8 +3,9 @@ import type { ReadyDraftArtwork } from "digipology-protocol";
 import { ArtworkDialog } from "../components/ArtworkDialog";
 import { PlayingCardBack } from "../components/PlayingCardFace";
 import { artworkPackage, downloadBlob, verifyArtwork } from "../editor/state/artwork";
+import { serializeEditorDraft } from "../editor/state/persistence";
 import { cardBackPackage } from "../scene/cardBack";
-import { ART_PURPOSES, artworkJobsReady, artworkScope, jobKey, purposeLabel, type ArtPurpose, type ArtworkDraft, type ArtworkGenerationJob, type GameArtDirection } from "./model";
+import { ART_PURPOSES, artworkJobsReady, artworkScope, jobKey, purposeLabel, withManualArtwork, type ArtPurpose, type ArtworkDraft, type ArtworkGenerationJob, type GameArtDirection } from "./model";
 import type { DraftArtworkController } from "./useDraftArtworkGeneration";
 import "./gameArtworkGeneration.css";
 
@@ -25,6 +26,7 @@ function AssetPanel({ purpose, draft, controller, canGenerate, onReplace }: {
 }) {
   const title = useId();
   const selected = controller.selectedImage(purpose);
+  const damaged = purpose === "cover" && draft.artwork?.status === "unavailable";
   const prepared = controller.preparedImage(purpose);
   const job = draft.artworkGeneration?.jobs[jobKey(purpose)];
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -45,7 +47,7 @@ function AssetPanel({ purpose, draft, controller, canGenerate, onReplace }: {
     downloadBlob(new Blob([purpose === "cover" ? artworkPackage(prepared) : cardBackPackage(prepared)], { type: "application/json" }), `${purpose}.artwork.json`);
   }
   return <section className="game-art-asset" aria-labelledby={title} data-art-purpose={purpose}>
-    <header><h3 id={title}>{purposeLabel(purpose)}</h3><span className={`game-art-asset__state is-${job?.status ?? "pending"}`}>{previewError ? "Image needs attention" : jobLabel(job, selected)}</span></header>
+    <header><h3 id={title}>{purposeLabel(purpose)}</h3><span className={`game-art-asset__state is-${job?.status ?? "pending"}`}>{previewError || damaged ? "Image needs attention" : jobLabel(job, selected)}</span></header>
     <div className="game-art-asset__preview">
       {selected && !previewError ? purpose === "cover"
         ? <img src={selected.dataUrl} alt={`${draft.title} cover`} onError={() => setPreviewError("The cover preview could not be opened. Replace it or retry this image.")} />
@@ -54,7 +56,7 @@ function AssetPanel({ purpose, draft, controller, canGenerate, onReplace }: {
     </div>
     <p className="game-art-asset__purpose">{purpose === "cover" ? "The first impression in your library and invitations." : "A separate design shared by this game’s concealed cards. It reveals no card identities."}</p>
     {selected && job?.status === "running" ? <p className="game-art-asset__hint">Your current image stays in use until its replacement is ready.</p> : null}
-    {previewError || job?.message ? <p className="game-art-asset__error" role="alert">{previewError ?? job?.message}</p> : null}
+    {damaged || previewError || job?.message ? <p className="game-art-asset__error" role="alert">{damaged ? "Saved artwork could not be read. Replace it, or remove it to publish. Retry creates a replacement using this game’s art direction." : previewError ?? job?.message}</p> : null}
     <div className="game-art-asset__actions">
       {needed ? <button type="button" disabled={!canRetry} onClick={() => void controller.retry(purpose, ready)}>{job?.failureKind === "storage" && prepared ? "Retry saving image" : ready ? `Create another ${purposeLabel(purpose).toLowerCase()}` : `Retry ${purposeLabel(purpose).toLowerCase()}`}</button> : null}
       <button type="button" disabled={running} onClick={onReplace}>Replace image…</button>
@@ -111,7 +113,7 @@ export function GameArtworkDialog({ draft, controller, canGenerate, onSignIn, on
     await controller.saveDirection({ ...edited, style: edited.style.trim(), coverPrompt: edited.coverPrompt.trim(), cardBackPrompt: edited.cardBackPrompt.trim() });
     setDirty(false);
   }
-  const manualImage = manual ? controller.selectedImage(manual) : undefined;
+  const manualImage = manual === "cover" ? draft.artwork : manual ? controller.selectedImage(manual) : undefined;
   return <>
     <dialog ref={dialog} className="game-art-dialog" aria-labelledby={title} onCancel={(event) => { event.preventDefault(); onClose(); }}>
       <header className="game-art-dialog__header"><div><p className="game-art-eyebrow">Made for this game</p><h2 id={title}>Artwork for {draft.title}</h2><p className="game-art-progress" role="status">{done} of {purposes.length} images ready{controller.activity === "review" ? " · checking gameplay…" : busy ? " · creating artwork…" : ""}</p></div><button type="button" className="game-art-close" aria-label="Close game artwork" autoFocus onClick={onClose}>×</button></header>
@@ -146,9 +148,14 @@ export function GameArtworkDialog({ draft, controller, canGenerate, onSignIn, on
       </div>
       <footer className="game-art-dialog__footer"><button type="button" onClick={onDownloadDraft}>Download editable draft</button><span>Rules, art briefs and completed images are kept together.</span><button type="button" onClick={onClose}>Back to game</button></footer>
     </dialog>
-    {manual ? <ArtworkDialog title={draft.title} purpose={manual} allowRemove={false} {...(manualImage ? { artwork: manualImage } : {})} onClose={() => setManual(null)} onSave={async (next) => {
-      if (next?.status !== "ready") throw new Error("Choose a complete image to replace this artwork.");
-      await controller.replaceImage(manual, next);
-    }} /> : null}
+    {manual ? <ArtworkDialog title={draft.title} purpose={manual} allowRemove={manual === "cover"} {...(manualImage ? { artwork: manualImage } : {})} onClose={() => setManual(null)}
+      onDownloadDraft={(next) => {
+        if (next?.status === "unavailable") { onDownloadDraft(); return; }
+        const backup = withManualArtwork(controller.currentDraft(), manual, next);
+        downloadBlob(new Blob([serializeEditorDraft(backup)], { type: "application/json" }), "game-draft.editor.json");
+      }} onSave={async (next) => {
+        if (next?.status === "unavailable") throw new Error("Choose a complete image to replace this artwork.");
+        await controller.replaceImage(manual, next);
+      }} /> : null}
   </>;
 }

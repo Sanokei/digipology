@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReadyDraftArtwork } from "digipology-protocol";
 import { rebuildDraftIntegrity } from "../editor/state/bundle";
 import { attachCardBack } from "../editor/state/cardBack";
-import { ART_PURPOSES, artworkJobsReady, artworkNeedsAutomaticReview, initialArtworkGeneration, jobKey, purposeLabel, selectedDraftImage, type ArtPurpose, type ArtworkApi, type ArtworkDraft, type GameArtDirection, type PreparedResult } from "./model";
+import { ART_PURPOSES, artworkJobsReady, artworkNeedsAutomaticReview, canResumeArtwork, initialArtworkGeneration, jobKey, purposeLabel, selectedDraftImage, withManualArtwork, type ArtPurpose, type ArtworkApi, type ArtworkDraft, type GameArtDirection, type PreparedResult } from "./model";
 import { prepareGeneratedArtwork } from "./prepareGeneratedArtwork";
 import { acceptedArtworkReview } from "./review";
 
@@ -146,7 +146,7 @@ export function useDraftArtworkGeneration({ draft, api, enabled, onDraftChange, 
     const next = ART_PURPOSES.find((purpose) => {
       const job = draft.artworkGeneration!.jobs[jobKey(purpose)];
       // A reloaded running request resumes through the same idempotent API key.
-      return (job.status === "pending" || job.status === "running") && !attempted.current.has(requestKey(draft, purpose));
+      return canResumeArtwork(draft, purpose) && (job.status === "pending" || job.status === "running") && !attempted.current.has(requestKey(draft, purpose));
     });
     if (next) void runJob(next);
   }, [draft, activity, enabled, runJob]);
@@ -162,7 +162,9 @@ export function useDraftArtworkGeneration({ draft, api, enabled, onDraftChange, 
       if (another || next.failureKind === "decode") next.revision += 1;
       next.status = "pending"; delete next.message; delete next.failureKind;
     }, `Queued ${purposeLabel(purpose).toLowerCase()} artwork`);
-  }, [applyPrepared, updateJob]);
+    // Explicit retry may repair a broken saved selection that auto-resume must preserve.
+    await runJob(purpose);
+  }, [applyPrepared, runJob, updateJob]);
 
   const saveDirection = useCallback(async (direction: GameArtDirection) => {
     const next = structuredClone(current.current);
@@ -201,16 +203,12 @@ export function useDraftArtworkGeneration({ draft, api, enabled, onDraftChange, 
     finally { if (mounted.current && epoch.current === version) { active.current = null; setActivity(null); } }
   }, [enabled, saveDirection]);
 
-  const replaceImage = useCallback(async (purpose: ArtPurpose, artwork: ReadyDraftArtwork) => {
-    const next = structuredClone(current.current);
-    next.artworkGeneration ??= initialArtworkGeneration(next);
-    const job = next.artworkGeneration.jobs[jobKey(purpose)];
-    job.revision += 1; job.status = "ready"; job.outputSha256 = artwork.info.sha256;
-    delete job.message; delete job.failureKind; delete job.assetId; delete job.selectedAssetId; delete job.originalSha256;
+  const replaceImage = useCallback(async (purpose: ArtPurpose, artwork: ReadyDraftArtwork | undefined) => {
+    const next = withManualArtwork(current.current, purpose, artwork);
     prepared.current.delete(purpose);
-    if (purpose === "cover") next.artwork = artwork;
-    else { attachCardBack(next, artwork); rebuildDraftIntegrity(next); next.artworkGeneration.reviewManifestHash = next.bundle.integrity.manifestHash; }
-    await commit(next, `Replaced ${purposeLabel(purpose).toLowerCase()} image`);
+    if (!await commit(next, `${artwork ? "Replaced" : "Removed"} ${purposeLabel(purpose).toLowerCase()} image`)) {
+      throw new Error("Your artwork is available in this tab, but browser storage could not save it. Download the draft or free storage and retry saving.");
+    }
   }, [commit]);
 
   const runReview = useCallback(async () => {

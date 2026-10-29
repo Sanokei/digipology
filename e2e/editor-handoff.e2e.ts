@@ -1,4 +1,4 @@
-import { test, expect, type Page, type TestInfo } from "@playwright/test";
+import { test, expect, type Page, type TestInfo } from "./fixtures";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
@@ -184,6 +184,7 @@ test("artwork source field stays above its footer with keyboard focus at 390px a
   await page.getByLabel("Game JSON file", { exact: true }).setInputFiles(fixturePath);
   await expect(page).toHaveURL(/\/playtest\//); await ready(page);
   const edit = page.getByRole("button", { name: "Edit artwork", exact: true }); await edit.click();
+  const replace = page.locator('.game-art-asset[data-art-purpose="cover"]').getByRole("button", { name: "Replace image…", exact: true }); await replace.click();
   await expect(page.getByRole("button", { name: "Close artwork", exact: true })).toBeFocused();
   await tabToSource(page);
   await page.screenshot({ path: testInfo.outputPath("source-field-desktop.png"), fullPage: true });
@@ -194,7 +195,7 @@ test("artwork source field stays above its footer with keyboard focus at 390px a
     await expect(page.getByRole("button", { name: "Save artwork", exact: true })).toBeInViewport();
     await page.screenshot({ path: testInfo.outputPath(`source-field-390x${height}.png`), fullPage: true });
   }
-  const preview = page.getByRole("dialog").getByRole("img"); const previous = await preview.getAttribute("src");
+  const preview = page.locator(".artwork-dialog").getByRole("img"); const previous = await preview.getAttribute("src");
   const broken = rasterPng(768, 1152), view = new DataView(broken.buffer);
   const length = view.getUint32(33); broken[41] = 0; broken[42] = 0; view.setUint32(41 + length, crc32(broken.subarray(37, 41 + length)));
   await page.getByLabel("Image or saved artwork", { exact: true }).setInputFiles({ name: "invalid-pixels.png", mimeType: "image/png", buffer: Buffer.from(broken) });
@@ -205,5 +206,6 @@ test("artwork source field stays above its footer with keyboard focus at 390px a
   await page.getByLabel("Image or saved artwork", { exact: true }).setInputFiles("apps/web/public/art/first-deal.webp");
   await expect(page.getByRole("alert")).toHaveCount(0);
   await page.getByRole("button", { name: "Save artwork", exact: true }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0); await expect(edit).toBeFocused(); await ready(page);
+  await expect(page.locator(".artwork-dialog")).toHaveCount(0); await expect(replace).toBeFocused();
+  await page.keyboard.press("Escape"); await expect(page.getByRole("dialog")).toHaveCount(0); await expect(edit).toBeFocused(); await ready(page);
 });

@@ -1,4 +1,4 @@
-import { test, expect, type Browser, type Page, type WebSocketRoute } from "@playwright/test";
+import { test, expect, type Browser, type Page, type WebSocketRoute } from "./fixtures";
 
 async function renderedTable(page: Page) {
   await page.bringToFront();
@@ -172,9 +172,10 @@ test("named cards remain private in hands, play visibly to the table, reveal and
     await revealed.getByRole("menuitem", { name: "Inspect", exact: true }).click();
     await expect(other.page.getByRole("dialog", { name: "Inspecting 7 of Diamonds", exact: true })).toBeVisible();
     await other.page.screenshot({ path: testInfo.outputPath("played-card-revealed.png"), fullPage: true });
+    await page.bringToFront();
     await page.reload();
-    await expect(page.getByRole("button", { name: "Inspect Queen of Clubs", exact: true })).toBeVisible();
     await renderedTable(page);
+    await expect(page.getByRole("button", { name: "Inspect Queen of Clubs", exact: true })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath("card-hand-restored.png"), fullPage: true });
     await page.getByRole("button", { name: "Inspect Queen of Clubs", exact: true }).click();
     await expect(page.locator(".inspect-overlay__preview .playing-card canvas")).toBeVisible();

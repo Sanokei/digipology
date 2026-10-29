@@ -3,6 +3,8 @@ import type { ApiResult, ReleaseBundleDto } from "digipology-protocol/http";
 import type { EditorDraft } from "../editor/state/types";
 import type { CanonicalGameState } from "digipology-kernel";
 import { CARD_BACK_PATH, readCardBackArtwork } from "../scene/cardBack";
+import { attachCardBack } from "../editor/state/cardBack";
+import { rebuildDraftIntegrity } from "../editor/state/bundle";
 export type { ArtPurpose, ArtJobKey, GameArtDirection, ArtworkGeneration, ArtworkGenerationJob, GeneratedArtwork } from "digipology-protocol";
 export type ArtworkDraft = EditorDraft;
 export type ArtworkReviewResult = ArtworkDraftReview;
@@ -33,6 +35,31 @@ export function selectedDraftImage(draft: EditorDraft, purpose: ArtPurpose): Rea
   if (purpose === "cover") return draft.artwork?.status === "ready" ? draft.artwork : undefined;
   const content = draft.bundle.files.find((file) => file.path === CARD_BACK_PATH)?.content;
   try { return content ? readCardBackArtwork(content) : undefined; } catch { return undefined; }
+}
+
+/** A broken saved selection requires a deliberate repair, never an auto-overwrite. */
+export function canResumeArtwork(draft: EditorDraft, purpose: ArtPurpose): boolean {
+  return purpose !== "cover" || draft.artwork?.status !== "unavailable";
+}
+
+/** Also used for an editable backup when browser storage rejects a manual edit. */
+export function withManualArtwork(draft: ArtworkDraft, purpose: ArtPurpose, artwork: ReadyDraftArtwork | undefined): ArtworkDraft {
+  if (!artwork && purpose !== "cover") throw new Error("Choose a complete image for this game’s card backs.");
+  const next = structuredClone(draft);
+  next.artworkGeneration ??= initialArtworkGeneration(next);
+  const job = next.artworkGeneration.jobs[jobKey(purpose)];
+  job.revision += 1;
+  delete job.message; delete job.failureKind; delete job.assetId; delete job.selectedAssetId; delete job.originalSha256; delete job.outputSha256;
+  if (artwork) { job.status = "ready"; job.outputSha256 = artwork.info.sha256; }
+  else { job.status = "failed"; job.message = "No cover selected. Replace it or retry to create one."; }
+  if (purpose === "cover") {
+    if (artwork) next.artwork = artwork;
+    else delete next.artwork;
+  } else {
+    attachCardBack(next, artwork); rebuildDraftIntegrity(next);
+    next.artworkGeneration.reviewManifestHash = next.bundle.integrity.manifestHash;
+  }
+  return next;
 }
 
 export function artworkJobsReady(draft: EditorDraft): boolean {

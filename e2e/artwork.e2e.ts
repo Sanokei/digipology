@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 
@@ -18,6 +18,15 @@ async function create(page: Page) {
   await page.getByRole("button", { name: "Create & play", exact: true }).click();
   await expect(page).toHaveURL(/\/playtest\//); await ready(page);
 }
+async function replaceCover(page: Page) {
+  await page.getByRole("button", { name: "Edit artwork", exact: true }).click();
+  await page.locator('.game-art-asset[data-art-purpose="cover"]').getByRole("button", { name: "Replace image…", exact: true }).click();
+  return page.locator(".artwork-dialog");
+}
+async function closeArt(page: Page) {
+  await page.getByRole("button", { name: "Back to game", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+}
 async function importDraft(page: Page, json: string) {
   await page.goto("/create");
   await page.locator("summary").filter({ hasText: "Upload an existing game" }).click();
@@ -33,8 +42,7 @@ test("local alpha artwork survives private play, backup, owned publication, vers
   await page.getByRole("button", { name: "Roll Die", exact: true }).click();
   await expect(progress.getByRole("status")).not.toHaveText(oldStatus);
   const scores = await progress.locator("li strong").allTextContents();
-  await page.getByRole("button", { name: "Edit artwork", exact: true }).click();
-  const dialog = page.getByRole("dialog");
+  const dialog = await replaceCover(page);
   // Actual existing raster illustration with an explicitly transparent corner.
   // Canvas only constructs this test upload; the app performs its own real edit/decode.
   const alpha = await page.evaluate(async () => {
@@ -82,6 +90,7 @@ test("local alpha artwork survives private play, backup, owned publication, vers
   await page.evaluate(() => (window as unknown as { restoreStorage(): void }).restoreStorage());
   await dialog.getByRole("button", { name: "Save artwork", exact: true }).click();
   await expect(dialog).toHaveCount(0);
+  await closeArt(page);
   await expect(progress.locator("li strong")).toHaveText(scores); // Saving artwork does not restart the game.
   await ready(page);
   await page.screenshot({ path: testInfo.outputPath("artwork-private-play-desktop.png"), fullPage: true });
@@ -94,13 +103,14 @@ test("local alpha artwork survives private play, backup, owned publication, vers
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   await expect(progress.getByRole("status")).toBeInViewport();
   await expect(page.getByRole("combobox", { name: "Sort", exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "Edit artwork", exact: true }).click();
+  await replaceCover(page);
   await expect(dialog.getByLabel("Artist / credit", { exact: true })).toHaveValue("Digipology · local QA fixture");
   for (const name of ["Save artwork", "Remove artwork", "Download draft"]) {
     await expect(dialog.getByRole("button", { name, exact: true })).toBeInViewport();
   }
   await page.screenshot({ path: testInfo.outputPath("artwork-restored-editor-narrow.png"), fullPage: true });
   await page.keyboard.press("Escape");
+  await closeArt(page);
   await page.screenshot({ path: testInfo.outputPath("artwork-private-play-narrow.png"), fullPage: true });
   await page.setViewportSize({ width: 1440, height: 960 });
   await page.route("**/api/games/*/cover", async (route) => { if (route.request().method() === "POST") await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { code: "cover_storage_unavailable", message: "Controlled upload failure" } }) }); else await route.continue(); });
@@ -147,28 +157,32 @@ test("local alpha artwork survives private play, backup, owned publication, vers
   await expect.poll(() => cover.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(768);
   await page.screenshot({ path: testInfo.outputPath("artwork-recovered-image-desktop.png"), fullPage: true });
   await importDraft(page, backupText);
-  await page.getByRole("button", { name: "Edit artwork", exact: true }).click();
+  await replaceCover(page);
   await page.getByLabel("Image or saved artwork", { exact: true }).setInputFiles(packagePath);
   await expect(page.getByLabel("Artist / credit", { exact: true })).toHaveValue(backup.artwork.info.credits.artist);
   await page.getByRole("button", { name: "Save artwork", exact: true }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0); await ready(page);
+  await expect(page.locator(".artwork-dialog")).toHaveCount(0); await closeArt(page); await ready(page);
 });
 
 test("damaged saved artwork stays visible as a repair task and never silently publishes", async ({ page }, testInfo) => {
   await create(page);
+  await expect(page.getByRole("button", { name: "Publish & invite", exact: true })).toBeEnabled({ timeout: 30_000 });
   await page.evaluate(() => {
     const key = Object.keys(localStorage).find((key) => key.startsWith("dgp.editor.draft."))!;
-    const draft = JSON.parse(localStorage.getItem(key)!); draft.artwork = { status: "ready", dataUrl: "data:image/png;base64,broken", info: { formatVersion: 1 } }; localStorage.setItem(key, JSON.stringify(draft));
+    const draft = JSON.parse(localStorage.getItem(key)!); draft.artworkGeneration.jobs.cover.status = "running"; draft.artwork = { status: "ready", dataUrl: "data:image/png;base64,broken", info: { formatVersion: 1 } }; localStorage.setItem(key, JSON.stringify(draft));
   });
+  let automaticRepairs = 0;
+  page.on("request", (request) => { if (new URL(request.url()).pathname === "/api/ai/artwork") automaticRepairs++; });
   await page.reload(); await ready(page);
   await expect(page.getByRole("button", { name: "Publish & invite", exact: true })).toBeDisabled();
-  await page.getByRole("button", { name: "Edit artwork", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("Replace it, or remove it");
+  await replaceCover(page);
+  await expect(page.locator(".artwork-dialog").getByRole("alert")).toContainText("Replace it, or remove it");
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.getByRole("alert")).toBeInViewport();
+  await expect(page.locator(".artwork-dialog").getByRole("alert")).toBeInViewport();
   await page.screenshot({ path: testInfo.outputPath("artwork-corrupt-backup-recovery-narrow.png"), fullPage: true });
   await page.getByRole("button", { name: "Remove artwork", exact: true }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Publish & invite", exact: true })).toBeEnabled();
+  await closeArt(page);
+  await expect(page.getByRole("button", { name: "Publish draft & invite", exact: true })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Review playtest", exact: true })).toBeVisible();
+  expect(automaticRepairs).toBe(0);
 });

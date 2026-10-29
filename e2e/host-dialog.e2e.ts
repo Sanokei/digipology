@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 test("hosting keeps keyboard focus in the dialog and restores it after Escape", async ({ page }) => {
   await page.goto("/");

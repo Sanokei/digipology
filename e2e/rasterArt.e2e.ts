@@ -1,4 +1,4 @@
-import { test, expect, type Page, type TestInfo } from "@playwright/test";
+import { test, expect, type Page, type TestInfo } from "./fixtures";
 import { readFile, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import type { ReleaseBundleDto, OwnedGameDto } from "../packages/protocol/src/http";
