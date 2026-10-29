@@ -1,0 +1,49 @@
+{
+  "source": "ca8a3c01e9913d381567a48f1b7acbddb0d2bf88",
+  "stats": {
+    "startTime": "2026-10-29T17:48:17.736Z",
+    "duration": 101108.388,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  },
+  "errors": [],
+  "tests": [
+    {
+      "title": "source transport with a fixture provider preserves private input through play, editing and editable backup",
+      "file": "ruleSources.e2e.ts",
+      "line": 13,
+      "status": "unexpected",
+      "expectedStatus": "passed",
+      "results": [
+        {
+          "status": "timedOut",
+          "duration": 92419,
+          "retry": 0,
+          "errors": [
+            {
+              "message": "\u001b[31mTest timeout of 90000ms exceeded.\u001b[39m"
+            },
+            {
+              "location": {
+                "file": "/workspace/digipology/e2e/ruleSources.e2e.ts",
+                "column": 24,
+                "line": 9
+              },
+              "message": "Error: page.waitForEvent: Test timeout of 90000ms exceeded.\n=========================== logs ===========================\nwaiting for event \"download\"\n============================================================\n\n   7 | }\n   8 | async function download(page: Page, info: TestInfo, name: string, action: string) {\n>  9 |   const pending = page.waitForEvent(\"download\"); await menu(page, action);\n     |                        ^\n  10 |   const path = info.outputPath(name); await (await pending).saveAs(path);\n  11 |   return JSON.parse(await readFile(path, \"utf8\"));\n  12 | }\n    at download (/workspace/digipology/e2e/ruleSources.e2e.ts:9:24)\n    at /workspace/digipology/e2e/ruleSources.e2e.ts:34:24"
+            },
+            {
+              "location": {
+                "file": "/workspace/digipology/e2e/ruleSources.e2e.ts",
+                "column": 104,
+                "line": 6
+              },
+              "message": "Error: locator.click: Test timeout of 90000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('.editor-menu-dropdown[open]').getByRole('button', { name: 'Download editable draft', exact: true })\u001b[22m\n\n\n  4 | async function menu(page: Page, action: string) {\n  5 |   await page.locator(\".editor-menu-dropdown > summary\").filter({ hasText: /^File$/ }).click();\n> 6 |   await page.locator(\".editor-menu-dropdown[open]\").getByRole(\"button\", { name: action, exact: true }).click();\n    |                                                                                                        ^\n  7 | }\n  8 | async function download(page: Page, info: TestInfo, name: string, action: string) {\n  9 |   const pending = page.waitForEvent(\"download\"); await menu(page, action);\n    at menu (/workspace/digipology/e2e/ruleSources.e2e.ts:6:104)\n    at download (/workspace/digipology/e2e/ruleSources.e2e.ts:9:50)\n    at /workspace/digipology/e2e/ruleSources.e2e.ts:34:18"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

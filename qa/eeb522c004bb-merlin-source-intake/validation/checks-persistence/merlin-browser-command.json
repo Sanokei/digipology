@@ -1,0 +1,13 @@
+{
+  "source": "d9d428b8aff7a3bf338eeae35c9dae459ba3063b",
+  "command": [
+    "bun",
+    "x",
+    "playwright",
+    "test",
+    "--config",
+    "e2e/merlin.config.ts"
+  ],
+  "exitCode": 1,
+  "elapsedSeconds": 13.02
+}

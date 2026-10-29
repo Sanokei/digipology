@@ -1,0 +1,11 @@
+{
+  "source": "954993b3fe83b969f46110a5c46d1f17f6fd498b",
+  "command": [
+    "bun",
+    "run",
+    "test:e2e",
+    "e2e/ruleSources.e2e.ts"
+  ],
+  "exitCode": 1,
+  "elapsedSeconds": 99.44
+}

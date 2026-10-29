@@ -1,0 +1,167 @@
+bun test v1.4.4 (38afee6c8)
+
+apps/worker/src/ai-games.test.ts:
+(pass) AI game authoring schema and assembly > an explicitly blank model endpoint remains unconfigured [0.29ms]
+(pass) AI game authoring schema and assembly > a key never invents an endpoint or model and invalid settings do not enable generation [0.33ms]
+(pass) AI game authoring schema and assembly > Qwen prompting and smaller local budgets require an explicit profile [2.34ms]
+(pass) AI game authoring schema and assembly > complete source documents remain user data with server-computed hashes [2.73ms]
+(pass) AI game authoring schema and assembly > a real demo game's authorable fields satisfy the forced tool JSON schema [0.88ms]
+(pass) AI game authoring schema and assembly > computes every integrity field and passes the existing eight-check validator [6.42ms]
+(pass) AI game authoring schema and assembly > turns unregistered components and action references into typed checks [3.50ms]
+(pass) AI game route matrices > create: requires a session before checking AI configuration [7.65ms]
+(pass) AI game route matrices > create: keyless is a calm 503 [12.72ms]
+(pass) AI game route matrices > create: rejects the cap boundary before the model [7.16ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 1ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 0 issue(s) (0 errors)
+refine: done after 0 round(s), accepted=true
+(pass) AI game route matrices > create: returns a validated draft without persisting it [1661.52ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: invalid (1 violations)
+ai-game: attempt 2/3 started (timeout 180000ms)
+ai-game: attempt 2 finished in 0ms: invalid (1 violations)
+ai-game: attempt 3/3 started (timeout 180000ms)
+ai-game: attempt 3 finished in 0ms: invalid (1 violations)
+(pass) AI game route matrices > create: three invalid drafts return 502 and typed feedback [40.52ms]
+(pass) AI game route matrices > edit: requires a session before checking AI configuration [0.08ms]
+(pass) AI game route matrices > edit: keyless is a calm 503 [10.35ms]
+(pass) AI game route matrices > edit: rejects the cap boundary before the model [8.80ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 2ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 0 issue(s) (0 errors)
+refine: done after 0 round(s), accepted=true
+(pass) AI game route matrices > edit: returns a validated draft without persisting it [1473.04ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 1ms: invalid (1 violations)
+ai-game: attempt 2/3 started (timeout 180000ms)
+ai-game: attempt 2 finished in 0ms: invalid (1 violations)
+ai-game: attempt 3/3 started (timeout 180000ms)
+ai-game: attempt 3 finished in 0ms: invalid (1 violations)
+(pass) AI game route matrices > edit: three invalid drafts return 502 and typed feedback [63.51ms]
+(pass) AI game route matrices > edit rejects a signed-in non-owner before keyless/model checks [14.46ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 0 issue(s) (0 errors)
+refine: done after 0 round(s), accepted=true
+(pass) AI game route matrices > sends a provider-neutral raw-JSON request with a complete-game output budget [1030.84ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 1 issue(s) (1 errors)
+  - [error] rules_missing: Include runtime/rules.md with a readable player guide of at least 40 characters: the objective, setup, turn choices and victory conditions. Players open it thro
+refine: round 1/2 quality check started
+refine: round 1 refinement attempt 1/1 started
+refine: round 1 quality: 0 issue(s) (0 errors)
+refine: round 1 attempt 1 finished in 0ms: accepted
+refine: done after 1 round(s), accepted=true
+(pass) AI game budgets > OpenAI creation and real rules repair use their own token and timeout budgets [1384.66ms]
+(pass) AI game budgets > invalid configured budgets return a recoverable configuration error before usage or provider calls [6.88ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 1 issue(s) (1 errors)
+  - [error] rules_missing: Include runtime/rules.md with a readable player guide of at least 40 characters: the objective, setup, turn choices and victory conditions. Players open it thro
+refine: round 1/2 quality check started
+refine: round 1 refinement attempt 1/1 started
+refine: round 1 quality: 0 issue(s) (0 errors)
+refine: round 1 attempt 1 finished in 0ms: accepted
+refine: done after 1 round(s), accepted=true
+(pass) AI game budgets > repairs a missing player rulebook as an ordinary release file before accepting a draft [1868.11ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 1ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 2 issue(s) (2 errors)
+  - [error] lua_banned_global: scripts/game.lua: uses math.random which is REMOVED from the Digipology sandbox (it is nil at runtime). Use random:int(min, max), random:float(), or random:choi
+  - [error] lua_runtime_error: Lua on_roll in scripts/game.lua failed at runtime (line 2): [string "sandbox"]:452: attempt to call a nil value (field 'random') Use random:int(min, max), rando
+refine: round 1/2 quality check started
+refine: round 1 refinement attempt 1/1 started
+refine: round 1 quality: 0 issue(s) (0 errors)
+refine: round 1 attempt 1 finished in 0ms: accepted
+refine: done after 1 round(s), accepted=true
+(pass) AI game budgets > repairs a structurally valid broken game before accepting it and meters the repair [1069.79ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 1 issue(s) (1 errors)
+  - [error] lua_runtime_error: Lua on_roll in scripts/game.lua failed at runtime (line 2): [string "sandbox"]:452: transport fixture needs repair. The triggering action was rejected, so this 
+refine: round 1/2 quality check started
+refine: round 1 refinement attempt 1/1 started
+refine: round 1 quality: 0 issue(s) (0 errors)
+refine: round 1 attempt 1 finished in 0ms: accepted
+refine: done after 1 round(s), accepted=true
+(pass) AI game budgets > full rule sources over the old body limit reach generation and repair without becoming release files [1182.54ms]
+(pass) AI game budgets > over-budget documents and transport bodies fail before calling the model [11.01ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 1 issue(s) (1 errors)
+  - [error] lua_runtime_error: Lua on_roll in scripts/game.lua failed at runtime (line 2): [string "sandbox"]:452: broken rules. The triggering action was rejected, so this breaks the game fl
+refine: round 1/2 quality check started
+refine: round 1 refinement attempt 1/1 started
+refine: round 1 attempt 1 finished in 0ms: rejected (1 violations)
+refine: round 2/2 quality check started
+refine: round 2 refinement attempt 1/1 started
+refine: round 2 attempt 1 finished in 0ms: rejected (1 violations)
+refine: done after 2 round(s), accepted=false
+(pass) AI game budgets > does not return a broken game when bounded repairs fail [240.46ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: unusable
+ai-game: attempt 2/3 started (timeout 180000ms)
+ai-game: attempt 2 finished in 0ms: unusable
+ai-game: attempt 3/3 started (timeout 180000ms)
+ai-game: attempt 3 finished in 0ms: unusable
+(pass) AI game budgets > records a request before failed extraction and accumulates all attempts [7.21ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 0 issue(s) (0 errors)
+refine: done after 0 round(s), accepted=true
+(pass) AI game budgets > allows just under the cap and then records the completed call [868.63ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 1ms: invalid (1 violations)
+ai-game: attempt 2/3 started (timeout 180000ms)
+ai-game: attempt 2 finished in 0ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 0 issue(s) (0 errors)
+refine: done after 0 round(s), accepted=true
+(pass) AI game budgets > feeds a typed violation to attempt two and meters both calls [859.10ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 1ms: unusable
+ai-game: attempt 2/3 started (timeout 180000ms)
+ai-game: attempt 2 finished in 0ms: unusable
+ai-game: attempt 3/3 started (timeout 180000ms)
+ai-game: attempt 3 finished in 0ms: unusable
+(pass) AI game budgets > rechecks the cap between validator-loop attempts [14.55ms]
+(pass) cover generation route matrix > requires authentication and rejects a signed-in non-owner [7.67ms]
+(pass) cover generation route matrix > returns the identical four-candidate shape for keyless and capped requests [11.65ms]
+(pass) cover generation route matrix > forces the cover tool and returns four normalized AI candidates [6.09ms]
+(pass) cover generation route matrix > replaces invalid emitted specs positionally and still returns four AI candidates [5.92ms]
+(pass) cover generation route matrix > records usage before parsing and degrades malformed model output procedurally [5.68ms]
+
+ 35 pass
+ 0 fail
+ 169 expect() calls
+Ran 35 tests across 1 file. [11.98s]

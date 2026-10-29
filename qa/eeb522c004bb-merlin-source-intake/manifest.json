@@ -1,0 +1,533 @@
+{
+  "applicationSource": "eeb522c004bbad33e1e3aae5a6aaa76cc281a086",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 5797,
+      "sha256": "35eb0139eb5bd1ef940285cd826104b0b813f1a3a3b7506f8d55dca3778bde88",
+      "source": "eeb522c004bbad33e1e3aae5a6aaa76cc281a086"
+    },
+    {
+      "path": "actual-app/existing-app-browser-attempt.json",
+      "bytes": 530,
+      "sha256": "985fd3d1372cf0a83ea53f0d1dfc7858a2bf6493f0ad0667265d31250b351f6d",
+      "source": "eeb522c004bbad33e1e3aae5a6aaa76cc281a086"
+    },
+    {
+      "path": "actual-app/existing-app-browser-response.json",
+      "bytes": 112,
+      "sha256": "e55d0563a1191a7f3c8750de567d4336e336c9e5c3bfbea48b37b7ac17e5ea74",
+      "source": "eeb522c004bbad33e1e3aae5a6aaa76cc281a086"
+    },
+    {
+      "path": "actual-app/existing-app-recovery-390.png",
+      "bytes": 49740,
+      "sha256": "fef3d2579e49e5c9ab10ed2b62c8b7a446ca28e51d2619cde0e6c5017f793bae",
+      "source": "eeb522c004bbad33e1e3aae5a6aaa76cc281a086"
+    },
+    {
+      "path": "actual-app/existing-app-source-desktop.png",
+      "bytes": 276966,
+      "sha256": "db31ae27215074c7ca33b82d5eb803c1e2b2aa1fe266714411902b8492b44dd8",
+      "source": "eeb522c004bbad33e1e3aae5a6aaa76cc281a086"
+    },
+    {
+      "path": "actual-app/royal-decrees-source-attempt.json",
+      "bytes": 233,
+      "sha256": "c568de17e8aa3e843576d2c8e65b16101009e9b74cafe0273eb447069105e1e5",
+      "source": "Normal primary-source access attempt; CONNECT403, no bypass/retry"
+    },
+    {
+      "path": "browser/checks/fixture-browser/ruleSources.e2e.ts-source--cff31-editing-and-editable-backup/test-failed-1.png",
+      "bytes": 110744,
+      "sha256": "10d494467c85fc7e1985a6708b398e03f69e27f7b10fb06c1e586fd42acce36c",
+      "source": "954993b3fe83b969f46110a5c46d1f17f6fd498b; fixture provider is transport-only; Merlin case has no model fixture/output"
+    },
+    {
+      "path": "browser/checks-body/merlin-browser/merlin.benchmark.ts-the-fu-9ca91--retry-and-request-download/merlin-attempt-receipt.json",
+      "bytes": 1940,
+      "sha256": "34a9dd88e197ddf9965b4f9286cd1894e08970d088a9c84a6bfb78433a941348",
+      "source": "eeb522c004bbad33e1e3aae5a6aaa76cc281a086; fixture provider is transport-only; Merlin case has no model fixture/output"
+    },
+    {
+      "path": "browser/checks-body/merlin-browser/merlin.benchmark.ts-the-fu-9ca91--retry-and-request-download/merlin-full-rules-desktop.png",
+      "bytes": 230088,
+      "sha256": "b0afdfc50fd54cce4b48cc15d64c77b0a6f235ad0673693a482e99f3a74c7fbc",
+      "source": "eeb522c004bbad33e1e3aae5a6aaa76cc281a086; fixture provider is transport-only; Merlin case has no model fixture/output"
+    },
+    {
+      "path": "browser/checks-body/merlin-browser/merlin.benchmark.ts-the-fu-9ca91--retry-and-request-download/merlin-source-short.png",
+      "bytes": 40688,
+      "sha256": "913f005d209e055c1351ef326093405079f5dadb3a0bc2b556108459712736a9",
+      "source": "eeb522c004bbad33e1e3aae5a6aaa76cc281a086; fixture provider is transport-only; Merlin case has no model fixture/output"
+    },
+    {
+      "path": "browser/checks-body/merlin-browser/merlin.benchmark.ts-the-fu-9ca91--retry-and-request-download/merlin-unconfigured-recovery-390.png",
+      "bytes": 55085,
+      "sha256": "e6231b348aa84872b7313d0f89dd92be1b65879ff0dd1e21af1d47b6e28bea7e",
+      "source": "eeb522c004bbad33e1e3aae5a6aaa76cc281a086; fixture provider is transport-only; Merlin case has no model fixture/output"
+    },
+    {
+      "path": "browser/checks-layout/fixture-browser/ruleSources.e2e.ts-source--cff31-editing-and-editable-backup/fixture-source.request.json",
+      "bytes": 284,
+      "sha256": "1fefaecb463faacf500bfc43c3996d7fd6c5d1a275a0b22aa8a29b065962b449",
+      "source": "ca8a3c01e9913d381567a48f1b7acbddb0d2bf88; fixture provider is transport-only; Merlin case has no model fixture/output"
+    },
+    {
+      "path": "browser/checks-layout/fixture-browser/ruleSources.e2e.ts-source--cff31-editing-and-editable-backup/test-failed-1.png",
+      "bytes": 416683,
+      "sha256": "f6b3b4673cafba44d9cf18857a90f2d98d8a28fec8b7cf3940111a02eae4fbb8",
+      "source": "ca8a3c01e9913d381567a48f1b7acbddb0d2bf88; fixture provider is transport-only; Merlin case has no model fixture/output"
+    },
+    {
+      "path": "browser/checks-persistence/fixture-browser/ruleSources.e2e.ts-source--cff31-editing-and-editable-backup/edited-source.editor.json",
+      "bytes": 6472,
+      "sha256": "fe7c9ef15bb13365ff97ca709b636d66e9eadf7fd249bbcf05415c4b08e01389",
+      "source": "d9d428b8aff7a3bf338eeae35c9dae459ba3063b; fixture provider is transport-only; Merlin case has no model fixture/output"
+    },
+    {
+      "path": "browser/checks-persistence/fixture-browser/ruleSources.e2e.ts-source--cff31-editing-and-editable-backup/edited-source.request.json",
+      "bytes": 284,
+      "sha256": "1fefaecb463faacf500bfc43c3996d7fd6c5d1a275a0b22aa8a29b065962b449",
+      "source": "d9d428b8aff7a3bf338eeae35c9dae459ba3063b; fixture provider is transport-only; Merlin case has no model fixture/output"
+    },
+    {
+      "path": "browser/checks-persistence/fixture-browser/ruleSources.e2e.ts-source--cff31-editing-and-editable-backup/fixture-source-editor-restored.png",
+      "bytes": 407519,
+      "sha256": "2ab115876243e8bce5609beeb8aaf81159974a1f082af64aa7238f737b8f376f",
+      "source": "d9d428b8aff7a3bf338eeae35c9dae459ba3063b; fixture provider is transport-only; Merlin case has no model fixture/output"
+    },
+    {
+      "path": "browser/checks-persistence/fixture-browser/ruleSources.e2e.ts-source--cff31-editing-and-editable-backup/fixture-source.editor.json",
+      "bytes": 6452,
+      "sha256": "22402ad93a076f6cd717c415532d29c2d3a9ec7a2fd2da06d1de5467c7bfe800",
+      "source": "d9d428b8aff7a3bf338eeae35c9dae459ba3063b; fixture provider is transport-only; Merlin case has no model fixture/output"
+    },
+    {
+      "path": "browser/checks-persistence/fixture-browser/ruleSources.e2e.ts-source--cff31-editing-and-editable-backup/fixture-source.release.json",
+      "bytes": 5765,
+      "sha256": "c192b10c64f264b7888eac9ceee29cc367b0f2c5d59aada5534c0ba7615ca0db",
+      "source": "d9d428b8aff7a3bf338eeae35c9dae459ba3063b; fixture provider is transport-only; Merlin case has no model fixture/output"
+    },
+    {
+      "path": "browser/checks-persistence/fixture-browser/ruleSources.e2e.ts-source--cff31-editing-and-editable-backup/fixture-source.request.json",
+      "bytes": 284,
+      "sha256": "1fefaecb463faacf500bfc43c3996d7fd6c5d1a275a0b22aa8a29b065962b449",
+      "source": "d9d428b8aff7a3bf338eeae35c9dae459ba3063b; fixture provider is transport-only; Merlin case has no model fixture/output"
+    },
+    {
+      "path": "browser/checks-persistence/fixture-browser/ruleSources.e2e.ts-source--cff31-editing-and-editable-backup/reopened-source.request.json",
+      "bytes": 284,
+      "sha256": "1fefaecb463faacf500bfc43c3996d7fd6c5d1a275a0b22aa8a29b065962b449",
+      "source": "d9d428b8aff7a3bf338eeae35c9dae459ba3063b; fixture provider is transport-only; Merlin case has no model fixture/output"
+    },
+    {
+      "path": "browser/checks-persistence/merlin-browser/merlin.benchmark.ts-the-fu-9ca91--retry-and-request-download/merlin-full-rules-desktop.png",
+      "bytes": 230396,
+      "sha256": "6864e1471293c353c6c689ddc3ab11dd0b5786be633ae640134131dfc34136e4",
+      "source": "d9d428b8aff7a3bf338eeae35c9dae459ba3063b; fixture provider is transport-only; Merlin case has no model fixture/output"
+    },
+    {
+      "path": "browser/checks-persistence/merlin-browser/merlin.benchmark.ts-the-fu-9ca91--retry-and-request-download/merlin-source-short.png",
+      "bytes": 40688,
+      "sha256": "913f005d209e055c1351ef326093405079f5dadb3a0bc2b556108459712736a9",
+      "source": "d9d428b8aff7a3bf338eeae35c9dae459ba3063b; fixture provider is transport-only; Merlin case has no model fixture/output"
+    },
+    {
+      "path": "browser/checks-persistence/merlin-browser/merlin.benchmark.ts-the-fu-9ca91--retry-and-request-download/merlin-unconfigured-recovery-390.png",
+      "bytes": 55085,
+      "sha256": "e6231b348aa84872b7313d0f89dd92be1b65879ff0dd1e21af1d47b6e28bea7e",
+      "source": "d9d428b8aff7a3bf338eeae35c9dae459ba3063b; fixture provider is transport-only; Merlin case has no model fixture/output"
+    },
+    {
+      "path": "browser/checks-persistence/merlin-browser/merlin.benchmark.ts-the-fu-9ca91--retry-and-request-download/test-failed-1.png",
+      "bytes": 54291,
+      "sha256": "994e3599eae90ffa53a383d5f937ee87cc94504f2bf743945218f42f4c82631d",
+      "source": "d9d428b8aff7a3bf338eeae35c9dae459ba3063b; fixture provider is transport-only; Merlin case has no model fixture/output"
+    },
+    {
+      "path": "browser/checks-selector/fixture-browser/ruleSources.e2e.ts-source--cff31-editing-and-editable-backup/fixture-source.editor.json",
+      "bytes": 6452,
+      "sha256": "f434da9d40cdc6e6aa5b295ed533d36120e299570d4427f36602a7d8c7cff340",
+      "source": "2cf3bfa53732abf546bfbdc107a9037ac743c20c; fixture provider is transport-only; Merlin case has no model fixture/output"
+    },
+    {
+      "path": "browser/checks-selector/fixture-browser/ruleSources.e2e.ts-source--cff31-editing-and-editable-backup/fixture-source.release.json",
+      "bytes": 5765,
+      "sha256": "c192b10c64f264b7888eac9ceee29cc367b0f2c5d59aada5534c0ba7615ca0db",
+      "source": "2cf3bfa53732abf546bfbdc107a9037ac743c20c; fixture provider is transport-only; Merlin case has no model fixture/output"
+    },
+    {
+      "path": "browser/checks-selector/fixture-browser/ruleSources.e2e.ts-source--cff31-editing-and-editable-backup/fixture-source.request.json",
+      "bytes": 284,
+      "sha256": "1fefaecb463faacf500bfc43c3996d7fd6c5d1a275a0b22aa8a29b065962b449",
+      "source": "2cf3bfa53732abf546bfbdc107a9037ac743c20c; fixture provider is transport-only; Merlin case has no model fixture/output"
+    },
+    {
+      "path": "browser/checks-selector/fixture-browser/ruleSources.e2e.ts-source--cff31-editing-and-editable-backup/test-failed-1.png",
+      "bytes": 405434,
+      "sha256": "25e9b5af0844bed72d16475e8a1ae389e6c6de9bc2750560c2de239424f75cf3",
+      "source": "2cf3bfa53732abf546bfbdc107a9037ac743c20c; fixture provider is transport-only; Merlin case has no model fixture/output"
+    },
+    {
+      "path": "harnesses/merlin.benchmark.ts",
+      "bytes": 6351,
+      "sha256": "c9e0a9b015b08a212989a74d10f025a3fd20e017a2fdd1e3446be40e94bf8731",
+      "source": "eeb522c004bbad33e1e3aae5a6aaa76cc281a086"
+    },
+    {
+      "path": "harnesses/merlin.config.ts",
+      "bytes": 590,
+      "sha256": "0a601703b1c0394af7ba4a5c9974590e865e3c200d00349ac655eb5d6e67a48f",
+      "source": "eeb522c004bbad33e1e3aae5a6aaa76cc281a086"
+    },
+    {
+      "path": "harnesses/prepare-merlin-economics.ts",
+      "bytes": 4941,
+      "sha256": "86f3c92ab21df5a78be956149aea5255f587ee491c83bf22d0706e13d9e7dfa7",
+      "source": "eeb522c004bbad33e1e3aae5a6aaa76cc281a086"
+    },
+    {
+      "path": "harnesses/ruleSources.e2e.ts",
+      "bytes": 4371,
+      "sha256": "4e704512c9db80f44ca03859e15ebb851fe0e2201a1b750dcfb9a3f77624a317",
+      "source": "eeb522c004bbad33e1e3aae5a6aaa76cc281a086"
+    },
+    {
+      "path": "plans/merlin-economics.md",
+      "bytes": 6612,
+      "sha256": "bdf9c3e899884c6f3e4fb039270551baeb8ca41d3f057f91938228fa0a91c5f7",
+      "source": "eeb522c004bbad33e1e3aae5a6aaa76cc281a086"
+    },
+    {
+      "path": "plans/next-per-game-raster-seam.md",
+      "bytes": 4529,
+      "sha256": "16d4de58de7cc3c266ebc95843c038065a4e65cdfddc0ffc4f78030717c42c56",
+      "source": "Research/acceptance plan only; no live raster-generation claim"
+    },
+    {
+      "path": "source/benchmark-receipt.json",
+      "bytes": 4587,
+      "sha256": "062d5b688dd07c59ebcaff3da04a31b4e27b9dd32727cfbf798bce3d3ff65f67",
+      "source": "eeb522c004bbad33e1e3aae5a6aaa76cc281a086; complete pinned input prepared, not generated game output"
+    },
+    {
+      "path": "source-diff.patch",
+      "bytes": 77199,
+      "sha256": "a834ffb008e2ec06ee20718ebed6c3b986e3447e1451bc2155cf03aacc53fce6",
+      "source": "eeb522c004bbad33e1e3aae5a6aaa76cc281a086"
+    },
+    {
+      "path": "validation/checks/chunks-command.json",
+      "bytes": 192,
+      "sha256": "ff64a4da12cbd0bb6de48f064a2c68ff14327126630f4a01c38d28718cc3db27",
+      "source": "954993b3fe83b969f46110a5c46d1f17f6fd498b"
+    },
+    {
+      "path": "validation/checks/chunks.log",
+      "bytes": 203,
+      "sha256": "acebd9e06c869ec71a234097fc753f70b80a17cb919ec2647f0754d5924f6d2e",
+      "source": "954993b3fe83b969f46110a5c46d1f17f6fd498b"
+    },
+    {
+      "path": "validation/checks/e2e-types-command.json",
+      "bytes": 173,
+      "sha256": "6c538b00054dc8254cf2a3ebcd31488288aef5031d7f3cce2b58596da98ba4b3",
+      "source": "954993b3fe83b969f46110a5c46d1f17f6fd498b"
+    },
+    {
+      "path": "validation/checks/e2e-types.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "954993b3fe83b969f46110a5c46d1f17f6fd498b"
+    },
+    {
+      "path": "validation/checks/fixture-browser-command.json",
+      "bytes": 190,
+      "sha256": "c72c63cf819e1b7d1d8b63f32aa38574e7249eb6177cbba6e51425752445e4c8",
+      "source": "954993b3fe83b969f46110a5c46d1f17f6fd498b"
+    },
+    {
+      "path": "validation/checks/fixture-browser-summary.json",
+      "bytes": 13842,
+      "sha256": "bc7e1e24bd98223214fbc42581499a6f45569d8b2ba83d17e064478e2c7c1d3a",
+      "source": "954993b3fe83b969f46110a5c46d1f17f6fd498b"
+    },
+    {
+      "path": "validation/checks/focused-unit-command.json",
+      "bytes": 428,
+      "sha256": "0ba6dfec0be1479233128e5f9dc6e7afd7655b70ee1c5158f5238c65eb5dacbb",
+      "source": "954993b3fe83b969f46110a5c46d1f17f6fd498b"
+    },
+    {
+      "path": "validation/checks/focused-unit.log",
+      "bytes": 14283,
+      "sha256": "3198e8d1b8390d9e0a9928f72e982450fdcf5c14d3c87193ced01af3922825a3",
+      "source": "954993b3fe83b969f46110a5c46d1f17f6fd498b"
+    },
+    {
+      "path": "validation/checks/frozen-command.json",
+      "bytes": 221,
+      "sha256": "c4f8baa3f182b9c4d9abeeee12c30b42e669648faf188c4289c6c961b3f8b85f",
+      "source": "954993b3fe83b969f46110a5c46d1f17f6fd498b"
+    },
+    {
+      "path": "validation/checks/frozen.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "954993b3fe83b969f46110a5c46d1f17f6fd498b"
+    },
+    {
+      "path": "validation/checks/prepare-benchmark-command.json",
+      "bytes": 316,
+      "sha256": "fb4299c9999cf62d6981031aa3bcad6420aa95be86cc398f7cd251614aaadf19",
+      "source": "954993b3fe83b969f46110a5c46d1f17f6fd498b"
+    },
+    {
+      "path": "validation/checks/prepare-benchmark.log",
+      "bytes": 284,
+      "sha256": "6870fb41968dc8639f7a0ebeb8669dbf3efa540e975851d24f2faa4df8bebbcb",
+      "source": "954993b3fe83b969f46110a5c46d1f17f6fd498b"
+    },
+    {
+      "path": "validation/checks/protocol-types-command.json",
+      "bytes": 198,
+      "sha256": "71e332609bfb8f5fbe01ffd9f7ad51c3bed64dd6dbbbac01e4f602fd6a0dc2a5",
+      "source": "954993b3fe83b969f46110a5c46d1f17f6fd498b"
+    },
+    {
+      "path": "validation/checks/protocol-types.log",
+      "bytes": 15,
+      "sha256": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92",
+      "source": "954993b3fe83b969f46110a5c46d1f17f6fd498b"
+    },
+    {
+      "path": "validation/checks/scripts-types-command.json",
+      "bytes": 177,
+      "sha256": "84874e50b4ebb3abb58be2dc24cb443b54ad80c2bbae91d1b498989e505c3fb4",
+      "source": "954993b3fe83b969f46110a5c46d1f17f6fd498b"
+    },
+    {
+      "path": "validation/checks/scripts-types.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "954993b3fe83b969f46110a5c46d1f17f6fd498b"
+    },
+    {
+      "path": "validation/checks/web-build-command.json",
+      "bytes": 186,
+      "sha256": "5df2b050abe7701b4b304f42ca631eef02c75db685cb7c5f02ce17ba8bd21947",
+      "source": "954993b3fe83b969f46110a5c46d1f17f6fd498b"
+    },
+    {
+      "path": "validation/checks/web-build.log",
+      "bytes": 5389,
+      "sha256": "3666a67be4c2a25ad5dd470bbb3465487e3f63fd49c7eb7f19cec03b293f04bd",
+      "source": "954993b3fe83b969f46110a5c46d1f17f6fd498b"
+    },
+    {
+      "path": "validation/checks/worker-types-command.json",
+      "bytes": 192,
+      "sha256": "882420941c88393c3b8d51c3f4b9657877b9892cc95e0f331267c871eef5b838",
+      "source": "954993b3fe83b969f46110a5c46d1f17f6fd498b"
+    },
+    {
+      "path": "validation/checks/worker-types.log",
+      "bytes": 15,
+      "sha256": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92",
+      "source": "954993b3fe83b969f46110a5c46d1f17f6fd498b"
+    },
+    {
+      "path": "validation/checks-body/chunks-command.json",
+      "bytes": 192,
+      "sha256": "7ea891dff0835261d1f36d5c15d7d80b0738215db37484e86806fd1a50f0ea21",
+      "source": "eeb522c004bbad33e1e3aae5a6aaa76cc281a086"
+    },
+    {
+      "path": "validation/checks-body/chunks.log",
+      "bytes": 203,
+      "sha256": "acebd9e06c869ec71a234097fc753f70b80a17cb919ec2647f0754d5924f6d2e",
+      "source": "eeb522c004bbad33e1e3aae5a6aaa76cc281a086"
+    },
+    {
+      "path": "validation/checks-body/frozen-command.json",
+      "bytes": 221,
+      "sha256": "8aa781c626835ffe06542c4769e287863e4938b3fda184a3d7cc0efe8cec56ca",
+      "source": "eeb522c004bbad33e1e3aae5a6aaa76cc281a086"
+    },
+    {
+      "path": "validation/checks-body/frozen.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "eeb522c004bbad33e1e3aae5a6aaa76cc281a086"
+    },
+    {
+      "path": "validation/checks-body/merlin-browser-command.json",
+      "bytes": 216,
+      "sha256": "a4b1010054a6be807deac309552192b5876251f6bb106d54f86ea1ab65b3b647",
+      "source": "eeb522c004bbad33e1e3aae5a6aaa76cc281a086"
+    },
+    {
+      "path": "validation/checks-body/merlin-browser-summary.json",
+      "bytes": 658,
+      "sha256": "358b8804fd1d59d394bc7471bcb313987485f7cd0408b84babd1cb99a39f9bf4",
+      "source": "eeb522c004bbad33e1e3aae5a6aaa76cc281a086"
+    },
+    {
+      "path": "validation/checks-body/route-unit-command.json",
+      "bytes": 185,
+      "sha256": "e15c9a331e9aaea7c375b51dc0950c87e45bcc479b3e35e371ccc11b50c1c6b4",
+      "source": "eeb522c004bbad33e1e3aae5a6aaa76cc281a086"
+    },
+    {
+      "path": "validation/checks-body/route-unit.log",
+      "bytes": 10625,
+      "sha256": "1ed3b8db32fda3de86f29f7e452dfa93de695b82249d345bd4097b585355f4a9",
+      "source": "eeb522c004bbad33e1e3aae5a6aaa76cc281a086"
+    },
+    {
+      "path": "validation/checks-body/worker-types-command.json",
+      "bytes": 192,
+      "sha256": "ee0f0dc1c9486fb413d3bd6ddfe26b48e2609dd8ac0fb4c340819e8af20cee46",
+      "source": "eeb522c004bbad33e1e3aae5a6aaa76cc281a086"
+    },
+    {
+      "path": "validation/checks-body/worker-types.log",
+      "bytes": 15,
+      "sha256": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92",
+      "source": "eeb522c004bbad33e1e3aae5a6aaa76cc281a086"
+    },
+    {
+      "path": "validation/checks-layout/chunks-command.json",
+      "bytes": 192,
+      "sha256": "f6b7807dac284282e56fac566f599c1b95439a6054631b56fe6c8a65038e3145",
+      "source": "ca8a3c01e9913d381567a48f1b7acbddb0d2bf88"
+    },
+    {
+      "path": "validation/checks-layout/chunks.log",
+      "bytes": 203,
+      "sha256": "acebd9e06c869ec71a234097fc753f70b80a17cb919ec2647f0754d5924f6d2e",
+      "source": "ca8a3c01e9913d381567a48f1b7acbddb0d2bf88"
+    },
+    {
+      "path": "validation/checks-layout/fixture-browser-command.json",
+      "bytes": 191,
+      "sha256": "b1bbd44e3cefb457684264452e9ca933c40265f14a8d9701d66fd36a640d5fb7",
+      "source": "ca8a3c01e9913d381567a48f1b7acbddb0d2bf88"
+    },
+    {
+      "path": "validation/checks-layout/fixture-browser-summary.json",
+      "bytes": 2953,
+      "sha256": "6bacec35b684f9d8f72f4a1542d1c50aeccf874b84e6cec11276a26cb4d59434",
+      "source": "ca8a3c01e9913d381567a48f1b7acbddb0d2bf88"
+    },
+    {
+      "path": "validation/checks-layout/frozen-command.json",
+      "bytes": 221,
+      "sha256": "59d922b3b69bdc71467621ccee9743badbc45b72deb2901c0bcf41a2c3ece872",
+      "source": "ca8a3c01e9913d381567a48f1b7acbddb0d2bf88"
+    },
+    {
+      "path": "validation/checks-layout/frozen.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "ca8a3c01e9913d381567a48f1b7acbddb0d2bf88"
+    },
+    {
+      "path": "validation/checks-layout/web-build-command.json",
+      "bytes": 186,
+      "sha256": "30d8a45635a243c4ddea2b1845de65a306c81eff8cd48dbd42a248d3185f9a4f",
+      "source": "ca8a3c01e9913d381567a48f1b7acbddb0d2bf88"
+    },
+    {
+      "path": "validation/checks-layout/web-build.log",
+      "bytes": 5388,
+      "sha256": "506241e3f5bcaaf6fe38b88b3c2a5df6cdc27f6642403336bf71fcafec26f0de",
+      "source": "ca8a3c01e9913d381567a48f1b7acbddb0d2bf88"
+    },
+    {
+      "path": "validation/checks-persistence/chunks-command.json",
+      "bytes": 192,
+      "sha256": "201b3d9418917c9919c5af64260b174c0f0ec90ba5bb1bb42a4760ab7463b305",
+      "source": "d9d428b8aff7a3bf338eeae35c9dae459ba3063b"
+    },
+    {
+      "path": "validation/checks-persistence/chunks.log",
+      "bytes": 203,
+      "sha256": "acebd9e06c869ec71a234097fc753f70b80a17cb919ec2647f0754d5924f6d2e",
+      "source": "d9d428b8aff7a3bf338eeae35c9dae459ba3063b"
+    },
+    {
+      "path": "validation/checks-persistence/fixture-browser-command.json",
+      "bytes": 189,
+      "sha256": "69bb71c6f37792d0b22529d9e6e3309fe85fa0fea8fc4d61a5ddf5524e1fb0d0",
+      "source": "d9d428b8aff7a3bf338eeae35c9dae459ba3063b"
+    },
+    {
+      "path": "validation/checks-persistence/fixture-browser-summary.json",
+      "bytes": 660,
+      "sha256": "5eea1e9401426c9b8af3dfab336dedbe3ebf66052bcb732b3eba32ec14ee801e",
+      "source": "d9d428b8aff7a3bf338eeae35c9dae459ba3063b"
+    },
+    {
+      "path": "validation/checks-persistence/frozen-command.json",
+      "bytes": 221,
+      "sha256": "802ba0652f8fdcf2acc1a1e1632a90bfa7d8e84ca1b08183021b61b5e492a6a2",
+      "source": "d9d428b8aff7a3bf338eeae35c9dae459ba3063b"
+    },
+    {
+      "path": "validation/checks-persistence/frozen.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "d9d428b8aff7a3bf338eeae35c9dae459ba3063b"
+    },
+    {
+      "path": "validation/checks-persistence/merlin-browser-command.json",
+      "bytes": 216,
+      "sha256": "288c8bb9fe134f9eaeb0224706fbaa8dd40ead91f4b955c936223f1c88bdefcb",
+      "source": "d9d428b8aff7a3bf338eeae35c9dae459ba3063b"
+    },
+    {
+      "path": "validation/checks-persistence/merlin-browser-summary.json",
+      "bytes": 1855,
+      "sha256": "640d8a4096f43dfbb150114d189f15f862ae939bad74a74fd7f9fe6c1d7e199a",
+      "source": "d9d428b8aff7a3bf338eeae35c9dae459ba3063b"
+    },
+    {
+      "path": "validation/checks-selector/chunks-command.json",
+      "bytes": 192,
+      "sha256": "ebedb4dfbbd932ef23d4e61af0866ce03ad04e62464a56c9925aebba2e39ff2c",
+      "source": "2cf3bfa53732abf546bfbdc107a9037ac743c20c"
+    },
+    {
+      "path": "validation/checks-selector/chunks.log",
+      "bytes": 203,
+      "sha256": "acebd9e06c869ec71a234097fc753f70b80a17cb919ec2647f0754d5924f6d2e",
+      "source": "2cf3bfa53732abf546bfbdc107a9037ac743c20c"
+    },
+    {
+      "path": "validation/checks-selector/fixture-browser-command.json",
+      "bytes": 190,
+      "sha256": "818fe1111e6db6cb30439ffed9209ff76917205a271621935e8bf7a480921acf",
+      "source": "2cf3bfa53732abf546bfbdc107a9037ac743c20c"
+    },
+    {
+      "path": "validation/checks-selector/fixture-browser-summary.json",
+      "bytes": 2435,
+      "sha256": "637f44b1e46aff8da258a15440bf4c2e08b7d866bf53b380488f8d8d28bcbfdd",
+      "source": "2cf3bfa53732abf546bfbdc107a9037ac743c20c"
+    },
+    {
+      "path": "validation/checks-selector/frozen-command.json",
+      "bytes": 221,
+      "sha256": "7bd234c704523167a58af0d32ce839a82d9fad74291e216ff040ad49dbbcb52a",
+      "source": "2cf3bfa53732abf546bfbdc107a9037ac743c20c"
+    },
+    {
+      "path": "validation/checks-selector/frozen.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "2cf3bfa53732abf546bfbdc107a9037ac743c20c"
+    }
+  ]
+}

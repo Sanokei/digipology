@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "ai_unconfigured",
+    "message": "AI creation isn't set up on this server yet"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "source": "954993b3fe83b969f46110a5c46d1f17f6fd498b",
+  "command": [
+    "bun",
+    "scripts/benchmarks/merlin-economics.ts",
+    "/workspace/.digipology-cloud/merlin-economics-source",
+    "/workspace/release-receipts/2026-10-29-merlin-economics/verified-input"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 0.02
+}

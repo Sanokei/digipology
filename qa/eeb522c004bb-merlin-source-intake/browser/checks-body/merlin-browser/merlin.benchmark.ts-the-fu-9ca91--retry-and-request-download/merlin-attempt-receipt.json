@@ -1,0 +1,54 @@
+{
+  "sourceCommit": "8bed07f5bfed67b89cf52b5c6ce3baa7bdd97260",
+  "sourceSha256": "e79d0701f988e78458443e8e2b43b98d334d981baf748b46611074c059ef880b",
+  "sourceBytes": 65874,
+  "normalFormAndApiUsed": true,
+  "exactSourceTextRetained": true,
+  "response": {
+    "status": 503,
+    "code": "ai_unconfigured"
+  },
+  "retryPreservedRequest": true,
+  "requestDownloadExact": true,
+  "externalCatalogs": [
+    {
+      "name": "Golems",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1OZ1VNpAdI9pgCz3ABLtk_JlO-WIH3AVhC6CePLWlYdw/edit?usp=sharing",
+      "read": false
+    },
+    {
+      "name": "Royal Gaurds",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1oR_GGQ7mE0Ifk6mvFQT2kStIF9xHH14KWQGaUUn0XQo/edit?usp=sharing",
+      "read": false
+    },
+    {
+      "name": "Tea Leaves",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1mln7ndSg52FSPz6Z5Kf-UkgITCrnG1t0a4z5Ubkw8B8/edit?usp=sharing",
+      "read": false
+    },
+    {
+      "name": "Crystal Ball",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1g9HAlmH1Eswke9tEnsAtYjEWmOQAgdGKqmTda7zncdY/edit?usp=sharing",
+      "read": false
+    },
+    {
+      "name": "Spells",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1M5d9waSGGzukIwMvnTL5MiPquYq5DETy_wEPh_B6LJk/edit?usp=sharing",
+      "read": false
+    },
+    {
+      "name": "Potions",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/18evShnnRvlaVsq7sUKmxrQkjo0443bS5MyTJtERJ55o/edit?usp=sharing",
+      "read": false
+    },
+    {
+      "name": "Royal Decrees",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1uNEaoNqAAULFk0Fa7pxtpMfLCR0uX1N1TvsdwP6tnk4/edit?usp=sharing",
+      "read": false
+    }
+  ],
+  "fixtureModelUsed": false,
+  "liveGenerationVerified": false,
+  "fullMerlinGameAccepted": false,
+  "scope": "Real pinned source intake/recovery with an intentionally unconfigured isolated server; no model output or game/fun/art-quality acceptance."
+}

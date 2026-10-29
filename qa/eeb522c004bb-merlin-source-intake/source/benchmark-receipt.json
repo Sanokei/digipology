@@ -1,0 +1,102 @@
+{
+  "benchmark": "Merlin Economics",
+  "version": "v0.1.27b",
+  "repository": "https://github.com/SidewaysTurtle/MerlinEconomics",
+  "sourceCommit": "8bed07f5bfed67b89cf52b5c6ce3baa7bdd97260",
+  "rights": "Author-provided benchmark; source says All Rights Reserved, SidewaysTurtle / Kei Sano. No CC0 claim.",
+  "rulebook": {
+    "path": "Merlin Economics Obsidian/Rulebook.md",
+    "sourceUrl": "https://github.com/SidewaysTurtle/MerlinEconomics/blob/8bed07f5bfed67b89cf52b5c6ce3baa7bdd97260/Merlin%20Economics%20Obsidian/Rulebook.md",
+    "bytes": 65874,
+    "characters": 65835,
+    "sha256": "e79d0701f988e78458443e8e2b43b98d334d981baf748b46611074c059ef880b",
+    "completeTextIncluded": true
+  },
+  "stage": "input prepared; generation not attempted by this command",
+  "liveGenerationVerified": false,
+  "fullGameAccepted": false,
+  "externalCatalogs": [
+    {
+      "name": "Golems",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1OZ1VNpAdI9pgCz3ABLtk_JlO-WIH3AVhC6CePLWlYdw/edit?usp=sharing",
+      "status": "not included; must be read before complete-game acceptance"
+    },
+    {
+      "name": "Royal Gaurds",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1oR_GGQ7mE0Ifk6mvFQT2kStIF9xHH14KWQGaUUn0XQo/edit?usp=sharing",
+      "status": "not included; must be read before complete-game acceptance"
+    },
+    {
+      "name": "Tea Leaves",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1mln7ndSg52FSPz6Z5Kf-UkgITCrnG1t0a4z5Ubkw8B8/edit?usp=sharing",
+      "status": "not included; must be read before complete-game acceptance"
+    },
+    {
+      "name": "Crystal Ball",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1g9HAlmH1Eswke9tEnsAtYjEWmOQAgdGKqmTda7zncdY/edit?usp=sharing",
+      "status": "not included; must be read before complete-game acceptance"
+    },
+    {
+      "name": "Spells",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1M5d9waSGGzukIwMvnTL5MiPquYq5DETy_wEPh_B6LJk/edit?usp=sharing",
+      "status": "not included; must be read before complete-game acceptance"
+    },
+    {
+      "name": "Potions",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/18evShnnRvlaVsq7sUKmxrQkjo0443bS5MyTJtERJ55o/edit?usp=sharing",
+      "status": "not included; must be read before complete-game acceptance"
+    },
+    {
+      "name": "Royal Decrees",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1uNEaoNqAAULFk0Fa7pxtpMfLCR0uX1N1TvsdwP6tnk4/edit?usp=sharing",
+      "status": "not included; must be read before complete-game acceptance"
+    }
+  ],
+  "acceptance": [
+    {
+      "behavior": "four- and six-player setup, ten starting gold, sealed-bid starting order",
+      "status": "pending actual generated-game verification"
+    },
+    {
+      "behavior": "two-die production for every eligible player and public resource accounting",
+      "status": "pending actual generated-game verification"
+    },
+    {
+      "behavior": "properties, permits, investments, seven losses and Chauffeur protection",
+      "status": "pending actual generated-game verification"
+    },
+    {
+      "behavior": "research success and exact spell/potion catalogs and effects",
+      "status": "pending actual generated-game verification"
+    },
+    {
+      "behavior": "golem and Royal Guard generation, movement, timing and combat",
+      "status": "pending actual generated-game verification"
+    },
+    {
+      "behavior": "Royal Decrees, crowns, highest net worth and bankruptcy victory",
+      "status": "pending actual generated-game verification"
+    },
+    {
+      "behavior": "seasons, forecast cards, commodity transport and climate change",
+      "status": "pending actual generated-game verification"
+    },
+    {
+      "behavior": "covered order book, escrow, futures expiry/default and insurance",
+      "status": "pending actual generated-game verification"
+    },
+    {
+      "behavior": "replay/reload integrity and private-hand/hidden-action isolation",
+      "status": "pending actual generated-game verification"
+    },
+    {
+      "behavior": "readable desktop/phone card/deck/dice art, meaningful audio and usable actions",
+      "status": "pending actual generated-game verification"
+    }
+  ],
+  "sourceQuestions": [
+    "Rulebook references Taxes, Indicators and Bankruptcy sections absent from the repository rulebook; external catalogs remain unread.",
+    "Auction tie/rounding behavior and precise season/climate wheel values require source confirmation.",
+    "Repository Cards.sheet is a partial historical snapshot, not a substitute for unread linked Google Sheets."
+  ]
+}

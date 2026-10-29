@@ -1,0 +1,12 @@
+{
+  "source": "954993b3fe83b969f46110a5c46d1f17f6fd498b",
+  "command": [
+    "bun",
+    "run",
+    "--cwd",
+    "apps/web",
+    "build"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 21.54
+}

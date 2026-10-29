@@ -1,0 +1,38 @@
+{
+  "source": "2cf3bfa53732abf546bfbdc107a9037ac743c20c",
+  "stats": {
+    "startTime": "2026-10-29T17:51:38.461Z",
+    "duration": 38546.722,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  },
+  "errors": [],
+  "tests": [
+    {
+      "title": "source transport with a fixture provider preserves private input through play, editing and editable backup",
+      "file": "ruleSources.e2e.ts",
+      "line": 13,
+      "status": "unexpected",
+      "expectedStatus": "passed",
+      "results": [
+        {
+          "status": "failed",
+          "duration": 29762,
+          "retry": 0,
+          "errors": [
+            {
+              "location": {
+                "file": "/workspace/digipology/e2e/ruleSources.e2e.ts",
+                "column": 44,
+                "line": 40
+              },
+              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('.editor-details-bar').getByLabel('Title', { exact: true })\nExpected: \u001b[32m\"Edited fixture game\"\u001b[39m\nReceived: \u001b[31m\"Dice Dash\"\u001b[39m\nTimeout:  15000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" locator('.editor-details-bar').getByLabel('Title', { exact: true }) with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for locator('.editor-details-bar').getByLabel('Title', { exact: true })\u001b[22m\n\u001b[2m    30 \u00d7 locator resolved to <input value=\"Dice Dash\"/>\u001b[22m\n\u001b[2m       - unexpected value \"Dice Dash\"\u001b[22m\n\n\n  38 |   const title = page.locator(\".editor-details-bar\").getByLabel(\"Title\", { exact: true });\n  39 |   await title.fill(\"Edited fixture game\"); await title.press(\"Tab\");\n> 40 |   await page.reload(); await expect(title).toHaveValue(\"Edited fixture game\");\n     |                                            ^\n  41 |   expect(await download(page, info, \"edited-source.request.json\", \"Download generation request\")).toEqual(request);\n  42 |   const edited = await download(page, info, \"edited-source.editor.json\", \"Download editable draft\");\n  43 |   expect(edited.generationRequest).toEqual(request); expect(edited.bundle.initialSnapshot).toEqual(accepted.draft.initialSnapshot);\n    at /workspace/digipology/e2e/ruleSources.e2e.ts:40:44"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

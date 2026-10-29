@@ -1,0 +1,213 @@
+bun test v1.4.4 (38afee6c8)
+
+apps/worker/src/ai-games.test.ts:
+(pass) AI game authoring schema and assembly > an explicitly blank model endpoint remains unconfigured [0.32ms]
+(pass) AI game authoring schema and assembly > a key never invents an endpoint or model and invalid settings do not enable generation [0.26ms]
+(pass) AI game authoring schema and assembly > Qwen prompting and smaller local budgets require an explicit profile [4.16ms]
+(pass) AI game authoring schema and assembly > complete source documents remain user data with server-computed hashes [1.61ms]
+(pass) AI game authoring schema and assembly > a real demo game's authorable fields satisfy the forced tool JSON schema [0.82ms]
+(pass) AI game authoring schema and assembly > computes every integrity field and passes the existing eight-check validator [6.83ms]
+(pass) AI game authoring schema and assembly > turns unregistered components and action references into typed checks [3.73ms]
+(pass) AI game route matrices > create: requires a session before checking AI configuration [7.15ms]
+(pass) AI game route matrices > create: keyless is a calm 503 [10.08ms]
+(pass) AI game route matrices > create: rejects the cap boundary before the model [5.71ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 1ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 0 issue(s) (0 errors)
+refine: done after 0 round(s), accepted=true
+(pass) AI game route matrices > create: returns a validated draft without persisting it [1639.77ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 1ms: invalid (1 violations)
+ai-game: attempt 2/3 started (timeout 180000ms)
+ai-game: attempt 2 finished in 1ms: invalid (1 violations)
+ai-game: attempt 3/3 started (timeout 180000ms)
+ai-game: attempt 3 finished in 1ms: invalid (1 violations)
+(pass) AI game route matrices > create: three invalid drafts return 502 and typed feedback [49.41ms]
+(pass) AI game route matrices > edit: requires a session before checking AI configuration [0.08ms]
+(pass) AI game route matrices > edit: keyless is a calm 503 [10.46ms]
+(pass) AI game route matrices > edit: rejects the cap boundary before the model [26.38ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 0 issue(s) (0 errors)
+refine: done after 0 round(s), accepted=true
+(pass) AI game route matrices > edit: returns a validated draft without persisting it [1918.79ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: invalid (1 violations)
+ai-game: attempt 2/3 started (timeout 180000ms)
+ai-game: attempt 2 finished in 1ms: invalid (1 violations)
+ai-game: attempt 3/3 started (timeout 180000ms)
+ai-game: attempt 3 finished in 1ms: invalid (1 violations)
+(pass) AI game route matrices > edit: three invalid drafts return 502 and typed feedback [35.41ms]
+(pass) AI game route matrices > edit rejects a signed-in non-owner before keyless/model checks [6.72ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 0 issue(s) (0 errors)
+refine: done after 0 round(s), accepted=true
+(pass) AI game route matrices > sends a provider-neutral raw-JSON request with a complete-game output budget [1584.81ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 1 issue(s) (1 errors)
+  - [error] rules_missing: Include runtime/rules.md with a readable player guide of at least 40 characters: the objective, setup, turn choices and victory conditions. Players open it thro
+refine: round 1/2 quality check started
+refine: round 1 refinement attempt 1/1 started
+refine: round 1 quality: 0 issue(s) (0 errors)
+refine: round 1 attempt 1 finished in 1ms: accepted
+refine: done after 1 round(s), accepted=true
+(pass) AI game budgets > OpenAI creation and real rules repair use their own token and timeout budgets [2909.37ms]
+(pass) AI game budgets > invalid configured budgets return a recoverable configuration error before usage or provider calls [17.59ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 1 issue(s) (1 errors)
+  - [error] rules_missing: Include runtime/rules.md with a readable player guide of at least 40 characters: the objective, setup, turn choices and victory conditions. Players open it thro
+refine: round 1/2 quality check started
+refine: round 1 refinement attempt 1/1 started
+refine: round 1 quality: 0 issue(s) (0 errors)
+refine: round 1 attempt 1 finished in 0ms: accepted
+refine: done after 1 round(s), accepted=true
+(pass) AI game budgets > repairs a missing player rulebook as an ordinary release file before accepting a draft [3243.25ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 2 issue(s) (2 errors)
+  - [error] lua_banned_global: scripts/game.lua: uses math.random which is REMOVED from the Digipology sandbox (it is nil at runtime). Use random:int(min, max), random:float(), or random:choi
+  - [error] lua_runtime_error: Lua on_roll in scripts/game.lua failed at runtime (line 2): [string "sandbox"]:452: attempt to call a nil value (field 'random') Use random:int(min, max), rando
+refine: round 1/2 quality check started
+refine: round 1 refinement attempt 1/1 started
+refine: round 1 quality: 0 issue(s) (0 errors)
+refine: round 1 attempt 1 finished in 0ms: accepted
+refine: done after 1 round(s), accepted=true
+(pass) AI game budgets > repairs a structurally valid broken game before accepting it and meters the repair [1371.84ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 1 issue(s) (1 errors)
+  - [error] lua_runtime_error: Lua on_roll in scripts/game.lua failed at runtime (line 2): [string "sandbox"]:452: transport fixture needs repair. The triggering action was rejected, so this 
+refine: round 1/2 quality check started
+refine: round 1 refinement attempt 1/1 started
+refine: round 1 quality: 0 issue(s) (0 errors)
+refine: round 1 attempt 1 finished in 0ms: accepted
+refine: done after 1 round(s), accepted=true
+(pass) AI game budgets > full rule sources over the old body limit reach generation and repair without becoming release files [1335.83ms]
+(pass) AI game budgets > over-budget documents and transport bodies fail before calling the model [13.19ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 1 issue(s) (1 errors)
+  - [error] lua_runtime_error: Lua on_roll in scripts/game.lua failed at runtime (line 2): [string "sandbox"]:452: broken rules. The triggering action was rejected, so this breaks the game fl
+refine: round 1/2 quality check started
+refine: round 1 refinement attempt 1/1 started
+refine: round 1 attempt 1 finished in 0ms: rejected (1 violations)
+refine: round 2/2 quality check started
+refine: round 2 refinement attempt 1/1 started
+refine: round 2 attempt 1 finished in 0ms: rejected (1 violations)
+refine: done after 2 round(s), accepted=false
+(pass) AI game budgets > does not return a broken game when bounded repairs fail [255.68ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: unusable
+ai-game: attempt 2/3 started (timeout 180000ms)
+ai-game: attempt 2 finished in 0ms: unusable
+ai-game: attempt 3/3 started (timeout 180000ms)
+ai-game: attempt 3 finished in 0ms: unusable
+(pass) AI game budgets > records a request before failed extraction and accumulates all attempts [5.99ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 0 issue(s) (0 errors)
+refine: done after 0 round(s), accepted=true
+(pass) AI game budgets > allows just under the cap and then records the completed call [1061.17ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: invalid (1 violations)
+ai-game: attempt 2/3 started (timeout 180000ms)
+ai-game: attempt 2 finished in 0ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 0 issue(s) (0 errors)
+refine: done after 0 round(s), accepted=true
+(pass) AI game budgets > feeds a typed violation to attempt two and meters both calls [1011.63ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 1ms: unusable
+ai-game: attempt 2/3 started (timeout 180000ms)
+ai-game: attempt 2 finished in 0ms: unusable
+ai-game: attempt 3/3 started (timeout 180000ms)
+ai-game: attempt 3 finished in 0ms: unusable
+(pass) AI game budgets > rechecks the cap between validator-loop attempts [9.51ms]
+(pass) cover generation route matrix > requires authentication and rejects a signed-in non-owner [5.33ms]
+(pass) cover generation route matrix > returns the identical four-candidate shape for keyless and capped requests [12.66ms]
+(pass) cover generation route matrix > forces the cover tool and returns four normalized AI candidates [8.80ms]
+(pass) cover generation route matrix > replaces invalid emitted specs positionally and still returns four AI candidates [5.41ms]
+(pass) cover generation route matrix > records usage before parsing and degrades malformed model output procedurally [5.71ms]
+
+packages/protocol/src/http.test.ts:
+(pass) keeps checkpoint cadence below the shared action retention window [0.02ms]
+(pass) HTTP v1 request validators > validates saved-table DTOs and requests [1.19ms]
+(pass) HTTP v1 request validators > validates magic-link request bodies [0.16ms]
+(pass) HTTP v1 request validators > validates profile names and rejects missing, wrong, empty, oversized, and extra fields [0.09ms]
+(pass) HTTP v1 request validators > validates room creation bodies [0.25ms]
+(pass) HTTP v1 request validators > validates join bodies against the v1 code field [0.11ms]
+(pass) HTTP v1 request validators > validates quick-play requests with exact keys and bounded names [0.10ms]
+(pass) HTTP v1 request validators > validates extended game summaries including metrics and cover signal [0.16ms]
+(pass) HTTP v1 request validators > validates upload DTOs with caps, slugs, player limits, and exact keys [0.45ms]
+(pass) HTTP v1 request validators > validates exact bounded AI prompt and edit instruction bodies [0.05ms]
+(pass) HTTP v1 request validators > aggregates release integrity failures [0.59ms]
+(pass) HTTP v1 request validators > pins Lua stdlib v1 additively and defaults legacy bundles [0.75ms]
+
+packages/protocol/src/ai-rule-sources.test.ts:
+(pass) complete source text and public provenance survive both request forms without trimming [0.11ms]
+(pass) the source budget counts combined UTF-8 bytes and permits the full Merlin-sized rulebook [2.39ms]
+(pass) binary, damaged, duplicate, credential-bearing and unknown source data cannot pass as a valid set [0.24ms]
+
+apps/web/src/pages/ruleSources.test.ts:
+(pass) file intake preserves BOM, line endings, Unicode and exact independently measured hashes [0.48ms]
+(pass) a bad second file or oversized/duplicate source does not replace the already accepted set [0.31ms]
+(pass) spreadsheet CSV is source data, and an omitted reference list keeps the old wire contract [0.09ms]
+
+apps/web/src/pages/generatedDraft.test.ts:
+(pass) only accepted output becomes an ordinary editable, saved browser draft [11.85ms]
+(pass) the authored tagline and bounded quality review survive the ordinary draft round trip [6.81ms]
+(pass) complete generation sources survive editable backups while release exports keep their exact gameplay payload [15.90ms]
+(pass) publication retry reuses the authored version after room failure [6.85ms]
+(pass) publication retry reuses the authored version after lost publication reply [5.09ms]
+(pass) a publication key is stable for retries and changes when the authored content changes [5.51ms]
+(pass) artwork upload retries a lost reply without opening a table early or duplicating publication [9.32ms]
+
+apps/web/src/editor/state/persistence.test.ts:
+(pass) editor draft persistence > returns a calm empty index for corrupt JSON [0.02ms]
+(pass) editor draft persistence > returns a calm empty index for wrong top-level shape
+(pass) editor draft persistence > returns a calm empty index for version missing [0.02ms]
+(pass) editor draft persistence > skips one bad index entry among good entries [0.09ms]
+(pass) editor draft persistence > saves and reloads byte-equivalent canonical drafts [2.83ms]
+Skipped invalid local editor draft. TypeError: This is not a supported editor draft.
+      at normalizeEditorDraft (/workspace/digipology/apps/web/src/editor/state/bundle.ts:339:15)
+      at deserializeEditorDraft (/workspace/digipology/apps/web/src/editor/state/persistence.ts:61:16)
+      at <anonymous> (/workspace/digipology/apps/web/src/editor/state/persistence.test.ts:47:12)
+
+(pass) editor draft persistence > rejects corrupt or versionless per-draft blobs [0.13ms]
+
+ 66 pass
+ 0 fail
+ 326 expect() calls
+Ran 66 tests across 6 files. [16.77s]

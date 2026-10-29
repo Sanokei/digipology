@@ -1,0 +1,12 @@
+{
+  "source": "d9d428b8aff7a3bf338eeae35c9dae459ba3063b",
+  "command": [
+    "bun",
+    "run",
+    "--cwd",
+    "apps/web",
+    "check-chunks"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 0.05
+}

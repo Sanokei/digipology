@@ -1,0 +1,38 @@
+{
+  "source": "d9d428b8aff7a3bf338eeae35c9dae459ba3063b",
+  "stats": {
+    "startTime": "2026-10-29T17:56:01.228Z",
+    "duration": 12426.337,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  },
+  "errors": [],
+  "tests": [
+    {
+      "title": "the full pinned Merlin rulebook survives normal creation, unavailable-provider retry and request download",
+      "file": "merlin.benchmark.ts",
+      "line": 8,
+      "status": "unexpected",
+      "expectedStatus": "passed",
+      "results": [
+        {
+          "status": "failed",
+          "duration": 4525,
+          "retry": 0,
+          "errors": [
+            {
+              "location": {
+                "file": "/workspace/digipology/e2e/merlin.benchmark.ts",
+                "column": 34,
+                "line": 61
+              },
+              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m503\u001b[39m\nReceived: \u001b[31m500\u001b[39m\n\n  59 |   const again = page.waitForResponse((r) => r.url().endsWith(\"/api/ai/games\") && r.request().method() === \"POST\");\n  60 |   await retry.click(); const retryResponse = await again;\n> 61 |   expect(retryResponse.status()).toBe(503); expect(retryResponse.request().postDataJSON()).toEqual(request);\n     |                                  ^\n  62 |   await retry.focus(); await page.keyboard.press(\"Tab\");\n  63 |   await expect(page.getByRole(\"button\", { name: \"Download generation request\", exact: true })).toBeFocused();\n  64 |   const downloading = page.waitForEvent(\"download\"); await page.keyboard.press(\"Enter\");\n    at /workspace/digipology/e2e/merlin.benchmark.ts:61:34"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "source": "eeb522c004bbad33e1e3aae5a6aaa76cc281a086",
+  "command": [
+    "bun",
+    "test",
+    "apps/worker/src/ai-games.test.ts"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 11.99
+}

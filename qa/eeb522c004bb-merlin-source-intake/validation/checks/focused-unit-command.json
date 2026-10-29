@@ -1,0 +1,15 @@
+{
+  "source": "954993b3fe83b969f46110a5c46d1f17f6fd498b",
+  "command": [
+    "bun",
+    "test",
+    "apps/worker/src/ai-games.test.ts",
+    "apps/web/src/pages/generatedDraft.test.ts",
+    "packages/protocol/src/ai-rule-sources.test.ts",
+    "packages/protocol/src/http.test.ts",
+    "apps/web/src/pages/ruleSources.test.ts",
+    "apps/web/src/editor/state/persistence.test.ts"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 16.78
+}

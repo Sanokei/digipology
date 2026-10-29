@@ -1,0 +1,9 @@
+{
+  "prompt": "Exercise the existing deterministic dice fixture; this is source transport testing.",
+  "references": [
+    {
+      "name": "Transport fixture.csv",
+      "text": "Kind,Meaning\r\nScope,Transport fixture only\r\nGame,Existing deterministic dice fixture\r\n"
+    }
+  ]
+}
