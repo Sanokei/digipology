@@ -1,0 +1,12 @@
+{
+  "command": [
+    "bun",
+    "run",
+    "--cwd",
+    "apps/web",
+    "check-chunks"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 0.06,
+  "scope": "game entry and existing host dialog only"
+}

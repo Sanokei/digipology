@@ -1,0 +1,14 @@
+{
+  "command": [
+    "bun",
+    "run",
+    "test:e2e",
+    "e2e/game-detail.e2e.ts",
+    "--grep",
+    "a public raster game"
+  ],
+  "exitCode": 1,
+  "elapsedSeconds": 15.23,
+  "appSource": "fd26a3e9993a556232be3fb33af54f5bbaa07a53",
+  "scope": "baseline existing build, new regression test only"
+}

@@ -1,0 +1,10 @@
+{
+  "command": [
+    "bun",
+    "test",
+    "apps/web/src/components/HostDialog.test.ts"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 0.06,
+  "scope": "game entry and existing host dialog only"
+}

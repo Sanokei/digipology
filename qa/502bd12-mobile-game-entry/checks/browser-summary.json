@@ -1,0 +1,80 @@
+{
+  "source": "502bd124d33bb5dc9fd496c00c5774da36e121fd",
+  "stats": {
+    "startTime": "2026-10-29T13:10:13.342Z",
+    "duration": 31715.797,
+    "expected": 6,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "errors": [],
+  "cases": [
+    {
+      "title": "a public raster game exposes its identity and host action before artwork, preserving original downloads and invite entry",
+      "file": "game-detail.e2e.ts",
+      "line": 70,
+      "status": "expected",
+      "expectedStatus": "passed",
+      "runStatuses": [
+        "passed"
+      ]
+    },
+    {
+      "title": "long titles and absent, landscape or failed covers keep the entry usable across narrow, short and desktop layouts",
+      "file": "game-detail.e2e.ts",
+      "line": 142,
+      "status": "expected",
+      "expectedStatus": "passed",
+      "runStatuses": [
+        "passed"
+      ]
+    },
+    {
+      "title": "detail hosting keeps Close and Create table usable at short height and preserves the game through sign-in dismissal",
+      "file": "game-detail.e2e.ts",
+      "line": 176,
+      "status": "expected",
+      "expectedStatus": "passed",
+      "runStatuses": [
+        "passed"
+      ]
+    },
+    {
+      "title": "hosting keeps keyboard focus in the dialog and restores it after Escape",
+      "file": "host-dialog.e2e.ts",
+      "line": 3,
+      "status": "expected",
+      "expectedStatus": "passed",
+      "runStatuses": [
+        "passed"
+      ]
+    },
+    {
+      "title": "hosting hands focus to the invite and keeps the current app origin",
+      "file": "host-dialog.e2e.ts",
+      "line": 24,
+      "status": "expected",
+      "expectedStatus": "passed",
+      "runStatuses": [
+        "passed"
+      ]
+    },
+    {
+      "title": "the host dialog does not intercept Escape from the separate sign-in overlay",
+      "file": "host-dialog.e2e.ts",
+      "line": 40,
+      "status": "expected",
+      "expectedStatus": "passed",
+      "runStatuses": [
+        "passed"
+      ]
+    }
+  ],
+  "environment": {
+    "E2E_SKIP_BUILD": "1",
+    "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH": "/usr/bin/chromium"
+  },
+  "childExitCode": 0,
+  "scope": "Only game-detail and host-dialog E2E files; local isolated D1/R2/Room and fixed Worker compilation; no external provider requests are required."
+}

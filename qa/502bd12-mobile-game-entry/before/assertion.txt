@@ -1,0 +1,4 @@
+Existing application build: fd26a3e9993a556232be3fb33af54f5bbaa07a53
+The new first-screen regression intentionally failed at fullyVisible(heading).
+At 390x844: title y=921.40625, height=110; action y=1263.40625, height=48.
+Captured child exit: 1. No product fix had been applied.

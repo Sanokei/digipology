@@ -1,0 +1,4 @@
+Retained failing manual spot check on the uncommitted first game-entry layout, based on fd26a3e9993a556232be3fb33af54f5bbaa07a53.
+This is not a released source or a current passing frame. It precedes the hostDialog.css addition.
+The section bounds put Close at y=40-74 underneath the z-index-40 site header; Create table starts at y=490.765625 outside the 390x480 viewport.
+The exact final source and its fresh six-case captures are under after/.

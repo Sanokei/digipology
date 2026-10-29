@@ -1,0 +1,18 @@
+{
+  "coverVersion": 1,
+  "info": {
+    "contentType": "image/webp",
+    "credits": {
+      "artist": "Digipology · local QA fixture",
+      "license": "Original repository illustration, alpha test edit",
+      "sourceUrl": "https://github.com/Sanokei/digipology/tree/194dbac54647c4474d3ab11934843cbf30356fd0/apps/web/public/art"
+    },
+    "formatVersion": 1,
+    "height": 1152,
+    "sha256": "sha256:7e2c3f7ec1366c6e89f4d035c33604f3939b35d3aad66ece4f2f3ccb30522bd0",
+    "width": 768
+  },
+  "downloadedBytesEqual": true,
+  "hostedSlug": "entry-1793279423168",
+  "invitedPlayers": 2
+}

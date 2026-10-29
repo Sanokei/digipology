@@ -1,0 +1,94 @@
+{
+  "dialog": {
+    "x": 24,
+    "y": 24,
+    "width": 342,
+    "height": 575.765625,
+    "top": 24,
+    "right": 366,
+    "bottom": 599.765625,
+    "left": 24
+  },
+  "controls": [
+    {
+      "label": "Close",
+      "bounds": {
+        "x": 316,
+        "y": 40,
+        "width": 34,
+        "height": 34,
+        "top": 40,
+        "right": 350,
+        "bottom": 74,
+        "left": 316
+      }
+    },
+    {
+      "label": "game",
+      "bounds": {
+        "x": 55,
+        "y": 193.765625,
+        "width": 280,
+        "height": 50,
+        "top": 193.765625,
+        "right": 335,
+        "bottom": 243.765625,
+        "left": 55
+      }
+    },
+    {
+      "label": "host-name",
+      "bounds": {
+        "x": 55,
+        "y": 282.765625,
+        "width": 280,
+        "height": 50,
+        "top": 282.765625,
+        "right": 335,
+        "bottom": 332.765625,
+        "left": 55
+      }
+    },
+    {
+      "label": "",
+      "bounds": {
+        "x": 74,
+        "y": 388.765625,
+        "width": 108,
+        "height": 50,
+        "top": 388.765625,
+        "right": 182,
+        "bottom": 438.765625,
+        "left": 74
+      }
+    },
+    {
+      "label": "",
+      "bounds": {
+        "x": 218,
+        "y": 388.765625,
+        "width": 108,
+        "height": 50,
+        "top": 388.765625,
+        "right": 326,
+        "bottom": 438.765625,
+        "left": 218
+      }
+    },
+    {
+      "label": "",
+      "bounds": {
+        "x": 55,
+        "y": 490.765625,
+        "width": 280,
+        "height": 50,
+        "top": 490.765625,
+        "right": 335,
+        "bottom": 540.765625,
+        "left": 55
+      }
+    }
+  ],
+  "scrollHeight": 757,
+  "overflow": false
+}

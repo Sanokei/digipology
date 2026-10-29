@@ -1,0 +1,12 @@
+{
+  "command": [
+    "bun",
+    "run",
+    "--cwd",
+    "apps/web",
+    "build"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 18.04,
+  "scope": "game entry and existing host dialog only"
+}

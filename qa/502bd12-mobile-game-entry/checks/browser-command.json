@@ -1,0 +1,12 @@
+{
+  "command": [
+    "bun",
+    "run",
+    "test:e2e",
+    "e2e/game-detail.e2e.ts",
+    "e2e/host-dialog.e2e.ts"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 32.29,
+  "scope": "game entry and existing host dialog only"
+}

@@ -1,0 +1,19 @@
+{
+  "viewport": {
+    "width": 390,
+    "height": 480
+  },
+  "title": {
+    "x": 39,
+    "y": 185.71875,
+    "width": 312,
+    "height": 29.390625
+  },
+  "action": {
+    "x": 39,
+    "y": 263.109375,
+    "width": 140.890625,
+    "height": 48
+  },
+  "scrollWidth": 390
+}

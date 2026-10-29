@@ -1,0 +1,10 @@
+{
+  "command": [
+    "bash",
+    "scripts/check-frozen-fixtures.sh",
+    "fd26a3e9993a556232be3fb33af54f5bbaa07a53"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 0.01,
+  "scope": "game entry and existing host dialog only"
+}
