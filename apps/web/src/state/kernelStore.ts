@@ -160,7 +160,7 @@ export class KernelStore {
       gameTitle: bundle.title ?? null,
       rulebook: readRulebook(bundle),
       soundBundle: Array.isArray(bundle.files) ? bundle.files.find((file) => file.path === TABLE_SOUND_PATH)?.content ?? null : null,
-      cardDesignsBundle: bundle.files.find((file) => file.path === CARD_DESIGNS_PATH)?.content ?? null,
+      cardDesignsBundle: Array.isArray(bundle.files) ? bundle.files.find((file) => file.path === CARD_DESIGNS_PATH)?.content ?? null : null,
       cardBackBundle: Array.isArray(bundle.files) ? bundle.files.find((file) => file.path === "runtime/presentation/card-back.json")?.content ?? null : null,
     });
   }
