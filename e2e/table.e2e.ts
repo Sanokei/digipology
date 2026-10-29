@@ -89,6 +89,7 @@ test("two people play Dice Dash to a winner, hear feedback, and retain the finis
     await page.screenshot({ path: testInfo.outputPath("finished-game-restored.png"), fullPage: true });
     await page.getByLabel("Sound settings", { exact: true }).click();
     await expect(page.getByRole("button", { name: "Unmute sound", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await page.getByLabel("Sound settings", { exact: true }).click();
     expect(errors).toEqual([]);
     expect(wasmHosts.length).toBeGreaterThan(0);
     expect(wasmHosts.every((host) => host === "127.0.0.1:8797")).toBe(true);
