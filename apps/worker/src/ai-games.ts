@@ -48,6 +48,7 @@ import { FixedWindowRateLimiter } from "./rate-limiter";
 import { validateUploadedBundle } from "./release-validation";
 import { refineGameDraft, logRefinementProgress } from "./ai-game-refine";
 import { resolveQualityCheck, type DraftQualityCheck } from "./quality-client";
+import { readRulebook } from "digipology-protocol";
 
 const AI_RATE_LIMIT = 20;
 const AI_RATE_WINDOW_MS = 60 * 60 * 1000;
@@ -325,9 +326,12 @@ export function buildAiRequest(
   existingBundle: ReleaseBundleDto | null,
 ): ModelRequest {
   const reference = builtinCatalog.getRelease("builtin_dice_dash_3")?.bundle;
-  const referenceText = reference === undefined
-    ? ""
-    : `\nREFERENCE AUTHORABLE BUNDLE:\n${canonicalStringify(authoringFromBundle(reference))}`;
+  const referenceAuthoring = reference === undefined ? null : authoringFromBundle(reference);
+  if (reference && referenceAuthoring) {
+    const guide = readRulebook(reference);
+    if (guide) (referenceAuthoring.files as Array<{ path: string; content: string }>).push({ path: "runtime/rules.md", content: guide.body });
+  }
+  const referenceText = referenceAuthoring === null ? "" : `\nREFERENCE AUTHORABLE BUNDLE:\n${canonicalStringify(referenceAuthoring)}`;
   const current = existingBundle === null
     ? ""
     : `\nCURRENT SERVER-LOADED AUTHORABLE BUNDLE:\n${canonicalStringify(authoringFromBundle(existingBundle))}`;
@@ -361,6 +365,7 @@ export function buildAiRequest(
     "Every script must be attached to an entity with a script component. Define global creator callbacks such as on_start(ctx), on_roll(ctx), and on_player_join(ctx); use scene, players, turns, scores, state, settings and refs through the creator API.",
     "An on_roll callback runs on the rolled die's script binding. Put that callback on the die, and use props.role to separate it from shared game-start rules. ctx.value is the confirmed die face and ctx.player is the actor.",
     "Use refs aliases only when listed in the refs array. Keep a text entity named status updated with the current turn, legal next action and winner so players understand the game.",
+    "Include runtime/rules.md: a player-facing guide explaining the objective, setup, turn choices, resources/cards/dice and victory conditions. These instructions must match your actual Lua rules. Write for players, with no code or API names. The app shows this file through How to play.",
     `Registered kernel actions only: ${actions}.`,
     `Registered components only: ${components}.`,
     "Component dataJson and scriptStateJson must be strict finite JSON with no comments.",

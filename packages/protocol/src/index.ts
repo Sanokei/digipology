@@ -88,6 +88,13 @@ export type BootstrapMessage = {
   players: PlayerInfo[];
 };
 
+/** Transient room metadata, sent only to sockets that opt in with `?presence=1`. */
+export type RoomPresenceMessage = {
+  type: "room_presence";
+  protocolVersion: 1;
+  players: PlayerInfo[];
+};
+
 export type ResumeMessage = {
   type: "resume";
   protocolVersion: 1;
@@ -131,6 +138,7 @@ export type PongMessage = {
 
 export type ServerMessage =
   | BootstrapMessage
+  | RoomPresenceMessage
   | ResumeMessage
   | ResyncRequiredMessage
   | ProtocolErrorMessage
@@ -160,6 +168,7 @@ export const DEFAULT_MESSAGE_SIZE_LIMITS = Object.freeze({
   action_request: 32 * 1024,
   ping: 256,
   bootstrap: 4 * 1024 * 1024,
+  room_presence: 64 * 1024,
   resume: 4 * 1024 * 1024,
   resync_required: 4 * 1024,
   protocol_error: 4 * 1024,
@@ -174,6 +183,7 @@ type JsonObject = Record<string, unknown>;
 const CLIENT_TYPES = new Set(["hello", "action_request", "ping"]);
 const SERVER_TYPES = new Set([
   "bootstrap",
+  "room_presence",
   "resume",
   "resync_required",
   "protocol_error",
@@ -358,6 +368,8 @@ function validateServerMessage(message: JsonObject): ParseFailure | undefined {
   switch (message.type) {
     case "bootstrap":
       return validateBootstrap(message);
+    case "room_presence":
+      return validateRoomPresence(message);
     case "resume":
       return validateResume(message);
     case "resync_required":
@@ -444,6 +456,24 @@ function validateBootstrap(message: JsonObject): ParseFailure | undefined {
   for (let index = 0; index < message.players.length; index += 1) {
     const error = validatePlayerInfo(message.players[index], `$.players[${index}]`);
     if (error !== undefined) return error;
+  }
+  return undefined;
+}
+
+function validateRoomPresence(message: JsonObject): ParseFailure | undefined {
+  const extra = rejectExtraKeys(message, ["type", "protocolVersion", "players"], "$");
+  if (extra !== undefined) return extra;
+  if (!Array.isArray(message.players) || message.players.length > 64) {
+    return wrongType("$.players", "an array of at most 64 players");
+  }
+  const ids = new Set<string>();
+  for (let index = 0; index < message.players.length; index += 1) {
+    const player = message.players[index];
+    const error = validatePlayerInfo(player, `$.players[${index}]`);
+    if (error !== undefined) return error;
+    const id = (player as PlayerInfo).playerId;
+    if (ids.has(id)) return failure("malformed_message", "Duplicate player id", `$.players[${index}].playerId`);
+    ids.add(id);
   }
   return undefined;
 }
@@ -834,6 +864,8 @@ function readJsonString(
   }
   return undefined;
 }
+
+export { authoredRules, readRulebook, type GameRulebook } from "./rulebook";
 
 function decodeSimpleEscape(value: string): string | undefined {
   switch (value) {

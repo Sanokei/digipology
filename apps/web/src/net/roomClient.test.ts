@@ -94,6 +94,35 @@ function counterAction(sequence: number) {
 }
 
 describe("RoomClient", () => {
+  it("opts into live presence and applies it without restarting the handshake or ordered state", async () => {
+    const initial = createInitialState({ releaseId: "release_test", rng: { algorithm: "sfc32-v1", state: [1, 2, 3, 4], draws: 0 } });
+    const api = createApiClient(async () => Response.json({ releaseId: "release_test", initialSnapshot: snapshot(initial) }));
+    const socket = new MockSocket();
+    const store = new KernelStore();
+    const statuses: string[] = [];
+    let socketUrl = "";
+    const client = new RoomClient({ ...session, wsUrl: `${session.wsUrl}?existing=kept` }, store, (status) => statuses.push(status.state), api,
+      (url) => { socketUrl = url; return socket as unknown as WebSocket; });
+    client.start(); socket.open();
+    await waitFor(() => socket.sent.length > 0);
+    expect(new URL(socketUrl).searchParams.get("presence")).toBe("1");
+    expect(new URL(socketUrl).searchParams.get("existing")).toBe("kept");
+    socket.message({ type: "bootstrap", protocolVersion: 1, sequence: 0, players: [] });
+    await waitFor(() => statuses.at(-1) === "connected");
+    const before = store.getSnapshot();
+    const statusCount = statuses.length;
+    const players = [{ playerId: "p1", displayName: "Alice", seatId: "seat_1", connected: false },
+      { playerId: "p2", displayName: "Bob", seatId: "seat_2", connected: true, host: true }];
+    socket.message({ type: "room_presence", protocolVersion: 1, players });
+    await waitFor(() => store.getSnapshot().players.length === 2);
+    expect(store.getSnapshot().players).toEqual(players);
+    expect(store.getSnapshot().state).toBe(before.state);
+    expect(store.getSnapshot().stateHash).toBe(before.stateHash);
+    expect(statuses).toHaveLength(statusCount);
+    expect(socket.sent).toHaveLength(1);
+    client.stop();
+  });
+
   it("loads the release, sends hello, and submits unpredicted actions", async () => {
     const initial = createInitialState({ releaseId: "release_test", rng: { algorithm: "sfc32-v1", state: [1, 2, 3, 4], draws: 0 } });
     const api = createApiClient(async () => Response.json({ releaseId: "release_test", initialSnapshot: snapshot(initial) }));

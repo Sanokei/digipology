@@ -52,9 +52,19 @@ temporary development credentials. The browser suite hosts through the UI,
 joins a second independent browser context, plays Dice Dash to a winner,
 checks turn enforcement and score agreement, observes actual Web Audio source
 playback, reloads the completed game, and verifies mute persistence. It also
-draws and inspects cards, checks separate hands, exercises mobile controls and
-verifies invalid-invite recovery. Screenshots and traces go under ignored
+draws and inspects named cards, checks separate hand views and their restoration,
+exercises mobile controls and readable rules, and verifies invalid-invite recovery.
+It interrupts an actual WebSocket connection, verifies resumed play and live
+host controls, and blocks a renderer import to check explicit failure/reload
+recovery. Hosting and rules dialogs get keyboard focus checks; copied invites
+must retain the current origin and report clipboard failures. Screenshots and traces go under ignored
 `test-results/` and `playwright-report/` directories.
+
+Browser checks wait for renderer readiness after initial scene frames, not just
+the existence of a canvas. Private-hand assertions cover visible owner and
+guest views; they do not establish cryptographic secrecy from a modified client.
+The shared deterministic state model remains a separate limitation for games
+that require server-enforced hidden information.
 
 Install the browser with `bunx --no-install playwright install --with-deps
 chromium`. A system Chromium can instead be selected with

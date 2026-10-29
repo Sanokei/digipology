@@ -5,6 +5,7 @@ import {
   type EntityComponents,
   type EntityRecord,
   type RngState,
+  type TransformComponent,
 } from "digipology-kernel";
 
 export interface InitialStatePlayer {
@@ -59,12 +60,20 @@ function createFirstDealInitialState(
   releaseId: string,
   players: readonly InitialStatePlayer[],
 ): CanonicalGameState {
-  const runtime = JSON.parse(releaseFile("builtin_first_deal_1", "runtime/game.json")) as {
+  const runtime = JSON.parse(releaseFile(releaseId, "runtime/game.json")) as {
     cardIds: string[];
     deckId: string;
     handIds: string[];
     settings: { cardsPerPlayer: number };
+    cardDataFile?: string;
+    deckTransform?: TransformComponent;
   };
+  const authoredCards = runtime.cardDataFile === undefined ? null
+    : JSON.parse(releaseFile(releaseId, runtime.cardDataFile)) as {
+      cards: Array<{ entityId: string; definitionId: string }>;
+    };
+  const cardDefinitions = authoredCards === null ? null
+    : new Map(authoredCards.cards.map((card) => [card.entityId, card.definitionId]));
   const entities: Record<string, EntityRecord> = {};
   entities[runtime.deckId] = entity(runtime.deckId, {
     container: {
@@ -74,6 +83,7 @@ function createFirstDealInitialState(
       visibility: "public",
     },
     deck: { enabled: true },
+    ...(runtime.deckTransform === undefined ? {} : { transform: runtime.deckTransform }),
   });
   for (let index = 0; index < runtime.handIds.length; index += 1) {
     const handId = runtime.handIds[index]!;
@@ -88,8 +98,10 @@ function createFirstDealInitialState(
     });
   }
   for (const cardId of runtime.cardIds) {
+    const definitionId = cardDefinitions === null ? `standard_${cardId.slice(5)}` : cardDefinitions.get(cardId);
+    if (definitionId === undefined) throw new Error(`Missing authored definition for ${cardId} in ${releaseId}`);
     entities[cardId] = entity(cardId, {
-      card: { definitionId: `standard_${cardId.slice(5)}`, faceUp: false },
+      card: { definitionId, faceUp: false },
       flippable: { flipped: false },
       grabbable: { enabled: true, heldBy: null },
       transform: IDENTITY,
@@ -284,7 +296,7 @@ export function createBuiltinInitialState(
   releaseId: string,
   players: readonly InitialStatePlayer[],
 ): CanonicalGameState | null {
-  if (releaseId === "builtin_first_deal_1") {
+  if (releaseId === "builtin_first_deal_1" || releaseId === "builtin_first_deal_2") {
     return createFirstDealInitialState(releaseId, players);
   }
   if (["builtin_dice_dash_1", "builtin_dice_dash_2", "builtin_dice_dash_3"].includes(releaseId)) {

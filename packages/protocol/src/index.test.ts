@@ -43,6 +43,10 @@ const clientVariants: ClientMessage[] = [
 
 const serverVariants: ServerMessage[] = [
   {
+    type: "room_presence", protocolVersion: 1,
+    players: [{ playerId: "alice", displayName: "Alice", seatId: "seat_1", connected: false, host: true }],
+  },
+  {
     type: "bootstrap",
     protocolVersion: 1,
     sequence: 0,
@@ -80,6 +84,15 @@ const serverVariants: ServerMessage[] = [
   orderedPlayer,
   { type: "pong", protocolVersion: 1, t: 123.5 },
 ];
+
+test("presence rejects duplicate, oversized and malformed rosters and canonical fields", () => {
+  const player = { playerId: "alice", displayName: "Alice", seatId: "seat_1", connected: true };
+  for (const players of [[player, player], Array.from({ length: 65 }, (_, index) => ({ ...player, playerId: String(index) })),
+    [{ ...player, host: "yes" }], [{ ...player, connected: 1 }]]) {
+    expectFailure(parseServerMessage(JSON.stringify({ type: "room_presence", protocolVersion: 1, players })), "malformed_message");
+  }
+  expectFailure(parseServerMessage(JSON.stringify({ type: "room_presence", protocolVersion: 1, players: [player], sequence: 12 })), "malformed_message", "$.sequence");
+});
 
 function expectFailure(
   result: ParseResult<unknown>,

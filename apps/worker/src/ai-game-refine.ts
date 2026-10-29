@@ -250,7 +250,7 @@ export function buildGameRefinementRequest(
   model = DEFAULT_MODEL_ID,
 ): ReturnType<typeof buildRequest> {
   const files = draft.files
-    .filter((file) => file.path.endsWith(".lua"))
+    .filter((file) => file.path.endsWith(".lua") || file.path === "runtime/rules.md" || file.path === "runtime/rules.txt")
     .map((file) => `--- ${file.path} ---\n${file.content}`)
     .join("\n\n");
   const errors = issues.filter((issue) => issue.severity === "error");
@@ -267,7 +267,7 @@ export function buildGameRefinementRequest(
   const system = [
     "You are fixing a Digipology game draft. Your entire message must be ONE raw JSON object",
     "(no prose, no markdown fences): a PATCH with only the keys you change.",
-    'Patch keys: "files" (REQUIRED: [{path, content}] with the COMPLETE new content of every Lua',
+    'Patch keys: "files" (REQUIRED: [{path, content}] with the COMPLETE new content of every changed',
     'file you touch — merged into the draft by path, so list only changed/new files), "entities"',
     '(optional: FULL replacement entity array), "settings" (optional: FULL replacement settings',
     'array), "scriptStateJson" (optional: replacement JSON string).',
@@ -282,6 +282,7 @@ export function buildGameRefinementRequest(
     "Write REAL Lua code implementing the requested rules. NEVER emit placeholder text such as",
     '"<COMPLETE new content>", "-- game rules", or "-- setup".',
     "Fix the ERRORS below. Address WARNINGS where they indicate real problems. Change nothing else.",
+    "When rules_missing is reported, add runtime/rules.md with clear player instructions that match the scripts. It is an ordinary changed/new file in the patch, not Lua code.",
   ].join("\n");
   const user = [
     `Original request: ${userPrompt}`,
@@ -389,8 +390,9 @@ export function validateRefinement(patch: GameDraftPatch): Violation[] {
       patch.files.forEach((file, index) => {
         if (!isRecord(file) || !isString(file.path) || !isString(file.content)) {
           violations.push({ code: "patch_shape", message: `files[${index}] needs string path and content` });
-        } else if (!file.path.endsWith(".lua") || !validReleasePath(file.path)) {
-          violations.push({ code: "patch_shape", message: `files[${index}] has an invalid Lua path: ${file.path}` });
+        } else if (!validReleasePath(file.path) || !(file.path.endsWith(".lua") ||
+          file.path === "runtime/rules.md" || file.path === "runtime/rules.txt")) {
+          violations.push({ code: "patch_shape", message: `files[${index}] must be a safe Lua or player-rulebook path: ${file.path}` });
         }
       });
     }

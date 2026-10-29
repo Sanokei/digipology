@@ -16,6 +16,7 @@ import {
 } from "./ai-games";
 import { COVER_GENERATION_TOOL } from "./cover-generation";
 import { checkDraftQuality } from "./ai-game-quality";
+import { readRulebook } from "digipology-protocol";
 
 const NOW = Date.UTC(2026, 7, 14, 12);
 const SESSION_SECRET = "test-session-secret-that-is-at-least-32-bytes";
@@ -182,9 +183,27 @@ describe("AI game route matrices", () => {
 });
 
 describe("AI game budgets", () => {
+  test("repairs a missing player rulebook as an ordinary release file before accepting a draft", async () => {
+    const fixture = await routeFixture();
+    const valid = playableAuthoring();
+    const withoutRules = structuredClone(valid);
+    withoutRules.files = (withoutRules.files as Array<{ path: string; content: string }>).filter((file) => file.path !== "runtime/rules.md");
+    const ruleFile = (valid.files as Array<{ path: string; content: string }>).find((file) => file.path === "runtime/rules.md")!;
+    const requests: ModelRequest[] = [];
+    const response = await requestRoute("create", fixture.env, fixture.cookie, async (payload) => {
+      requests.push(payload);
+      return requests.length === 1 ? modelResponse(withoutRules) : modelResponse({ files: [ruleFile] });
+    });
+    expect(response.status).toBe(200);
+    expect(requests).toHaveLength(2);
+    expect(JSON.stringify(requests[1])).toContain("rules_missing");
+    const body = await response.json() as { draft: ReleaseBundleDto };
+    expect(readRulebook(body.draft)).toMatchObject({ source: "release", body: expect.stringContaining("20 points") });
+  });
+
   test("repairs a structurally valid broken game before accepting it and meters the repair", async () => {
     const fixture = await routeFixture();
-    const valid = authoringFromBundle(builtinCatalog.getRelease("builtin_dice_dash_3")!.bundle);
+    const valid = playableAuthoring();
     const broken = structuredClone(valid);
     const files = broken.files as Array<{ path: string; content: string }>;
     files.find((file) => file.path.endsWith(".lua"))!.content = 'function on_roll(ctx)\n scene:get("score_seat_1"):add(math.random(1, 6))\nend';
@@ -203,7 +222,7 @@ describe("AI game budgets", () => {
 
   test("does not return a broken game when bounded repairs fail", async () => {
     const fixture = await routeFixture();
-    const broken = authoringFromBundle(builtinCatalog.getRelease("builtin_dice_dash_3")!.bundle);
+    const broken = playableAuthoring();
     (broken.files as Array<{ path: string; content: string }>).find((file) => file.path.endsWith(".lua"))!.content = 'function on_roll(ctx)\n error("broken rules")\nend';
     let calls = 0;
     const response = await requestRoute("create", fixture.env, fixture.cookie, async () => {
@@ -473,7 +492,7 @@ async function requestRoute(
     method: "POST",
     headers,
     body: JSON.stringify(route === "create" ? { prompt: "Make a quick dice game" } : { instruction: "Make scoring clearer" }),
-  }), env, { modelFetch: fetch, qualityCheck: (draft) => checkDraftQuality(draft, { simulateRolls: 24 }), now: NOW });
+  }), env, { modelFetch: fetch, qualityCheck: (draft) => checkDraftQuality(draft, { simulateRolls: 24, requireRules: true }), now: NOW });
 }
 
 async function requestCoverRoute(
@@ -490,7 +509,14 @@ async function requestCoverRoute(
 }
 
 function validModelResponse(): unknown {
-  return modelResponse(authoringFromBundle(builtinCatalog.getRelease("builtin_dice_dash_3")!.bundle));
+  return modelResponse(playableAuthoring());
+}
+
+function playableAuthoring(): Record<string, unknown> {
+  const source = builtinCatalog.getRelease("builtin_dice_dash_3")!.bundle;
+  const value = authoringFromBundle(source);
+  (value.files as Array<{ path: string; content: string }>).push({ path: "runtime/rules.md", content: readRulebook(source)!.body });
+  return value;
 }
 
 function modelResponse(authoring: Record<string, unknown>): unknown {

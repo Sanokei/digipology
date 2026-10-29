@@ -400,6 +400,11 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
         highQuality,
         { preserveDrawingBuffer: false, stencil: true },
       ) ?? new Engine(canvas, highQuality, { preserveDrawingBuffer: false, stencil: true });
+      // Software drivers share CPU time with the app. Expensive shadow passes
+      // and an uncapped render loop can stall another table opening on the
+      // same device, even when its reported memory/core count is generous.
+      const software = /swiftshader|llvmpipe|software|microsoft basic render/i.test(engine.getGlInfo().renderer);
+      if (software) engine.maxFPS = 30;
       handleDprChange();
       scene = new Scene(engine);
       scene.clearColor = Color4.FromHexString("#050806ff");
@@ -408,7 +413,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       cameraGraph.beta = 0.82;
       cameraGraph.radius = 13.2;
       const table = buildTableSurface(scene);
-      shadows = buildLighting(scene, highQuality).shadows;
+      shadows = buildLighting(scene, highQuality && !software).shadows;
       table.receiveShadows = shadows !== null;
       presentationHighlight = dependencies.createHighlightLayer?.(scene) ?? new HighlightLayer("presentation-highlight", scene);
       let cameraIntroMs = 0;

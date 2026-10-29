@@ -20,6 +20,7 @@ import {
   scriptsFromReleaseFiles,
 } from "digipology-lua";
 import type { ReleaseBundleDto } from "digipology-protocol/http";
+import { authoredRules } from "digipology-protocol";
 
 /**
  * Quality checks for AI-generated game drafts, beyond structural validity.
@@ -38,6 +39,8 @@ import type { ReleaseBundleDto } from "digipology-protocol/http";
  */
 
 export interface DraftQualityOptions {
+  /** Creation requires a player-facing guide; archived release checks can opt out. */
+  requireRules?: boolean;
   /** Simulated die rolls in the playtest. Default 12. 0 disables simulation. */
   simulateRolls?: number;
   /** Instruction budget for each sandboxed Lua execution. Default 100_000. */
@@ -58,6 +61,9 @@ export async function checkDraftQuality(
   options: DraftQualityOptions = {},
 ): Promise<QualityIssue[]> {
   const issues: QualityIssue[] = [];
+  if (options.requireRules && (authoredRules(draft)?.length ?? 0) < 40) {
+    issues.push({ code: "rules_missing", severity: "error", message: "Include runtime/rules.md with a readable player guide of at least 40 characters: the objective, setup, turn choices and victory conditions. Players open it through How to play." });
+  }
   issues.push(...lintLuaFiles(draft));
   issues.push(...checkLuaHasLogic(draft));
   issues.push(...checkScriptWiring(draft));
@@ -392,6 +398,7 @@ function checkScriptWiring(draft: ReleaseBundleDto): QualityIssue[] {
   const files = luaFiles(draft);
   const bindings = entityScriptBindings(draft);
   const entities = snapshotState(draft).entities;
+  const warnedCallbacks = new Set<string>();
 
   for (const file of files) {
     if (!file.path.startsWith("scripts/")) continue;
@@ -441,20 +448,23 @@ function checkScriptWiring(draft: ReleaseBundleDto): QualityIssue[] {
     }
     const source = files.find((file) => file.path === binding.scriptId)?.content ?? "";
     const code = stripLuaComments(source);
-    const entityComponents = Object.keys(
-      (entities[binding.entityId] as { components?: Record<string, unknown> })
-        ?.components ?? {},
-    );
     for (const callback of definedCallbacks(code)) {
       const needed = CALLBACK_COMPONENT[callback];
       if (needed === undefined) continue;
       const alternatives = needed === "flippable" ? ["flippable", "card"] : [needed];
-      if (!alternatives.some((type) => entityComponents.includes(type))) {
+      const warningKey = `${binding.scriptId}:${callback}`;
+      // One shared script can deliberately handle setup on a rules entity and
+      // rolls on a die. A callback is reachable if any of that file's bindings
+      // has the required component; warning on its other bindings is misleading.
+      const reachable = bindings.some((candidate) => candidate.scriptId === binding.scriptId &&
+        alternatives.some((type) => Object.hasOwn(entities[candidate.entityId]?.components ?? {}, type)));
+      if (!reachable && !warnedCallbacks.has(warningKey)) {
+        warnedCallbacks.add(warningKey);
         issues.push({
           code: "lua_callback_never_fires",
           message:
-            `${binding.scriptId} defines ${callback}(), but entity "${binding.entityId}" ` +
-            `has no ${alternatives.join("/")} component, so the kernel never delivers that event to this binding. ` +
+            `${binding.scriptId} defines ${callback}(), but none of its bound entities ` +
+            `has a ${alternatives.join("/")} component, so the kernel never delivers that event to this script. ` +
             `Put the script component on the entity that has the ${alternatives.join("/")} component.`,
           severity: "warning",
         });

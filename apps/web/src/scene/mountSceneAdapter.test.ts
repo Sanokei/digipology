@@ -76,3 +76,34 @@ test("a WebGL mount failure is surfaced without attempting another adapter", asy
   expect(loaded).toEqual(["webgl"]);
   expect(disposed).toEqual(["webgl"]);
 });
+
+test("a stalled GPU acquisition falls back and cleans up resources that arrive late", async () => {
+  const disposed: string[] = [];
+  let finishLate: () => void = () => {};
+  const pending = new Promise<void>((resolve) => { finishLate = resolve; });
+  const lite = adapterThat(() => pending, disposed, "lite");
+  const webgl = adapterThat(async () => {}, disposed, "webgl");
+  const fallbacks: unknown[] = [];
+  const mounted = await mountSceneAdapter(
+    { renderer: "lite", requestedLiteFallback: false, reason: "webgpu" },
+    async (renderer) => renderer === "lite" ? lite : webgl,
+    {} as HTMLCanvasElement, "default", (fallback) => fallbacks.push(fallback), 5,
+  );
+  expect(mounted).toBe(webgl);
+  expect(disposed).toEqual(["lite"]);
+  expect(fallbacks).toEqual([{ from: "lite", to: "webgl", error: "Table renderer initialization timed out" }]);
+  finishLate();
+  await pending;
+  await Promise.resolve();
+  expect(disposed).toEqual(["lite", "lite"]);
+});
+
+test("a stalled fallback renderer is disposed and surfaced instead of leaving an endless loading state", async () => {
+  const disposed: string[] = [];
+  await expect(mountSceneAdapter(
+    { renderer: "lite", requestedLiteFallback: false, reason: "webgpu" },
+    async (renderer) => adapterThat(renderer === "lite" ? async () => { throw new Error("No GPU"); } : () => new Promise(() => {}), disposed, renderer),
+    {} as HTMLCanvasElement, "low", () => {}, 5,
+  )).rejects.toThrow("initialization timed out");
+  expect(disposed).toEqual(["lite", "webgl"]);
+});

@@ -132,7 +132,7 @@ const BOOTSTRAP_UNAVAILABLE_LOG_INTERVAL_MS = 5 * 60_000;
 const BOOTSTRAP_UNAVAILABLE_MESSAGE =
   "This table needs a checkpoint from a player who is already seated before new players can join. Ask them to keep playing, then try again.";
 
-type SocketAttachment = ConnectionState;
+type SocketAttachment = ConnectionState & { presence?: boolean };
 
 /**
  * A socket counts for checkpoint quorum only once hello produced a bootstrap or
@@ -322,6 +322,7 @@ export class RoomDO extends DurableObject<Env> {
     });
     if (result.status === "ok") {
       for (const ordered of orderedActions) this.broadcast(ordered);
+      this.broadcastPresence();
       this.scheduleIndexMetadataUpdate();
       if (orderedActions.some((ordered) => ordered.action.type === "system.seat_claim")) await this.rescheduleAlarm(Date.now());
     }
@@ -625,6 +626,7 @@ export class RoomDO extends DurableObject<Env> {
       authenticated: false,
       playerId: null,
       bootstrapped: false,
+      presence: new URL(request.url).searchParams.get("presence") === "1",
     } satisfies SocketAttachment);
     const now = Date.now();
     this.ctx.storage.sql.exec(
@@ -861,6 +863,7 @@ export class RoomDO extends DurableObject<Env> {
         this.recordMultiBootstrapPresence(Date.now());
         this.markPlayerActive(playerId);
         this.recordFirstBootstrap(playerId);
+        this.broadcastPresence();
       },
       sequence: (playerId: string, request: ActionRequest) => this.sequence(playerId, request),
       broadcast: (message: ServerMessage): void => {
@@ -1145,6 +1148,19 @@ export class RoomDO extends DurableObject<Env> {
     }
   }
 
+  private broadcastPresence(excludedSocket?: WebSocket): void {
+    const message: ServerMessage = {
+      type: "room_presence", protocolVersion: PROTOCOL_VERSION, players: this.players(excludedSocket),
+    };
+    for (const peer of this.ctx.getWebSockets()) {
+      if (peer === excludedSocket || peer.readyState === WebSocket.CLOSING || peer.readyState === WebSocket.CLOSED) continue;
+      const state = peer.deserializeAttachment() as SocketAttachment | null;
+      // Older parsers reject unknown messages. Only opted-in, seated clients
+      // receive this extension; canonical actions remain unchanged.
+      if (state?.presence === true && isBootstrappedAttachment(state)) sendServerMessage(peer, message);
+    }
+  }
+
   private markPlayerActive(playerId: string): void {
     this.ctx.storage.sql.exec(
       "INSERT OR IGNORE INTO active_players (player_id) VALUES (?)",
@@ -1210,6 +1226,7 @@ export class RoomDO extends DurableObject<Env> {
       );
       await this.rescheduleAlarm(now);
     }
+    this.broadcastPresence(socket);
     this.scheduleIndexMetadataUpdate();
     this.ctx.waitUntil(this.flushPlayCounts());
   }
@@ -1338,8 +1355,8 @@ export class RoomDO extends DurableObject<Env> {
     ).toArray().map((row) => JSON.parse(row.body) as OrderedAction);
   }
 
-  private players(): PlayerInfo[] {
-    const connected = new Set(this.connectedPlayerIds());
+  private players(excludedSocket?: WebSocket): PlayerInfo[] {
+    const connected = new Set(this.connectedPlayerIds(excludedSocket));
     const hostPlayerId = this.requiredRoom().host_player_id;
     return this.playerRows().map((player) => ({
       playerId: player.player_id,
@@ -1356,8 +1373,9 @@ export class RoomDO extends DurableObject<Env> {
     ).toArray();
   }
 
-  private connectedPlayerIds(): string[] {
+  private connectedPlayerIds(excludedSocket?: WebSocket): string[] {
     return [...new Set(this.ctx.getWebSockets().flatMap((socket) => {
+      if (socket === excludedSocket) return [];
       const state = socket.deserializeAttachment() as SocketAttachment | null;
       return state?.authenticated === true && state.playerId !== null ? [state.playerId] : [];
     }))].sort();

@@ -737,6 +737,9 @@ button.action-card { width: 100%; border-right: 0; border-left: 0; text-align: l
 .connection-dot { width: 6px; height: 6px; border-radius: 50%; background: #56635c; }.connection-dot--online { background: var(--accent); box-shadow: 0 0 8px rgba(213,255,118,.5); }
 .diagnostics-panel dl { display: grid; grid-template-columns: 90px 1fr; gap: 9px; margin: 14px; font-family: "DM Mono", monospace; font-size: .62rem; }
 .diagnostics-panel dt { color: var(--muted); }.diagnostics-panel dd { margin: 0; overflow-wrap: anywhere; }.diagnostics-panel p { margin: 0 14px; color: var(--muted); font-size: .68rem; line-height: 1.5; }
+.table-render-status { position:absolute; z-index:1; left:50%; top:45%; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; gap:12px; width:min(340px,calc(100% - 32px)); padding:24px; border:1px solid #ffffff18; border-radius:16px; color:#f8f4e8; background:#10231fed; text-align:center; }
+.table-render-status p { margin:0; font-size:.88rem; line-height:1.6; }
+.table-render-status button { padding:10px 16px; border:1px solid #d7b26d; border-radius:8px; color:#f8e6bd; background:#183b31; cursor:pointer; }
 .connection-overlay { position: absolute; z-index: 4; inset: 0; display: grid; place-items: center; pointer-events: all; background: rgba(3,8,6,.38); }
 .connection-overlay--passthrough { place-items: start center; padding-top: calc(94px + env(safe-area-inset-top)); pointer-events: none; background: transparent; }
 .connection-overlay--passthrough .reconnect-card { width: min(380px, calc(100vw - 32px)); padding: 16px 18px; pointer-events: auto; background: rgba(11,23,18,.92); backdrop-filter: blur(14px); }

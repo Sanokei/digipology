@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { api } from "../api/client";
@@ -6,6 +6,7 @@ import type { GameSummaryDto } from "digipology-protocol/http";
 import { useAuth } from "../auth/AuthContext";
 import { guestDisplayName, saveGuestDisplayName, saveRoomSession } from "../utils/roomSession";
 import type { SavedRoomSession } from "../utils/roomSession";
+import { inviteUrlForCode } from "../utils/inviteUrl";
 
 export function publicHostingAllowed(signedIn: boolean, visibility: "private" | "public"): boolean {
   return visibility === "private" || signedIn;
@@ -28,6 +29,46 @@ export function HostDialog({ initialSlug, onClose, onSignIn }: HostDialogProps) 
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<SavedRoomSession | null>(null);
   const [copied, setCopied] = useState(false);
+  const dialogRef = useRef<HTMLElement>(null);
+  const gameRef = useRef<HTMLSelectElement>(null);
+  const inviteRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    gameRef.current?.focus({ preventScroll: true });
+    return () => {
+      if (trigger?.isConnected) trigger.focus({ preventScroll: true });
+    };
+  }, []);
+
+  useEffect(() => {
+    if (created !== null) inviteRef.current?.focus({ preventScroll: true });
+  }, [created]);
+
+  function handleDialogKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (event.defaultPrevented) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      onClose();
+      return;
+    }
+    if (event.key !== "Tab" || dialogRef.current === null) return;
+    const controls = [...dialogRef.current.querySelectorAll<HTMLElement>(
+      "button, [href], input, select, textarea, [tabindex]",
+    )].filter((element) => element.tabIndex >= 0 && !element.hasAttribute("disabled")
+      && element.getClientRects().length > 0 && getComputedStyle(element).visibility !== "hidden");
+    const first = controls[0];
+    const last = controls.at(-1);
+    if (first === undefined || last === undefined) return;
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
 
   useEffect(() => {
     void api.listGames().then((result) => {
@@ -54,6 +95,7 @@ export function HostDialog({ initialSlug, onClose, onSignIn }: HostDialogProps) 
     if (displayName) saveGuestDisplayName(displayName);
     const saved: SavedRoomSession = {
       ...room.value,
+      inviteUrl: inviteUrlForCode(room.value.joinCode, window.location.origin),
       releaseId: game.value.latestRelease.releaseId,
       gameTitle: game.value.game.title,
     };
@@ -68,12 +110,12 @@ export function HostDialog({ initialSlug, onClose, onSignIn }: HostDialogProps) 
 
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className="modal" role="dialog" aria-modal="true" aria-labelledby="host-title">
+      <section ref={dialogRef} className="modal" role="dialog" aria-modal="true" aria-labelledby="host-title" onKeyDown={handleDialogKeyDown}>
         <button className="modal__close" type="button" onClick={onClose} aria-label="Close">×</button>
         <p className="eyebrow">New table</p><h2 id="host-title">{created === null ? "Host a game" : "Your table is ready"}</h2>
         {created === null ? <form className="stack-form" onSubmit={(event) => void create(event)}>
           <label htmlFor="game">Game</label>
-          <select id="game" required value={slug} onChange={(event) => setSlug(event.currentTarget.value)}>
+          <select ref={gameRef} id="game" required value={slug} onChange={(event) => setSlug(event.currentTarget.value)}>
             {games.map((game) => <option key={game.slug} value={game.slug}>{game.title}{game.creatorHandle === undefined ? "" : ` by ${game.creatorHandle}`} — {game.minPlayers}–{game.maxPlayers} players</option>)}
           </select>
           {user === null ? <><label htmlFor="host-name">Display name</label><input id="host-name" required maxLength={64} value={name} onChange={(event) => setName(event.currentTarget.value)} /></> : null}
@@ -84,7 +126,7 @@ export function HostDialog({ initialSlug, onClose, onSignIn }: HostDialogProps) 
           {publicHostingAllowed(user !== null, visibility) ? null : <p className="form-notice">Public rooms require an account. <button className="text-button" type="button" onClick={onSignIn}>Sign in to continue</button>.</p>}
           {error === null ? null : <p className="form-error" role="alert">{error}</p>}
           <button className="primary-button" type="submit" disabled={busy || slug === ""}>{busy ? "Opening table…" : "Create table"}</button>
-        </form> : <div className="invite-ready"><p>Share this invite, then enter when you’re ready.</p><label htmlFor="invite-url">Invite URL</label><div className="copy-field"><input id="invite-url" readOnly value={created.inviteUrl} /><button type="button" onClick={() => void copyInvite(created.inviteUrl)}>{copied ? "Copied" : "Copy"}</button></div>{error === null ? null : <p className="form-error" role="alert">{error}</p>}<button className="primary-button" type="button" onClick={() => navigate(`/table/${encodeURIComponent(created.roomId)}`)}>Enter table</button></div>}
+        </form> : <div className="invite-ready"><p>Share this invite, then enter when you’re ready.</p><label htmlFor="invite-url">Invite URL</label><div className="copy-field"><input ref={inviteRef} id="invite-url" readOnly value={created.inviteUrl} /><button type="button" onClick={() => void copyInvite(created.inviteUrl)}>{copied ? "Copied" : "Copy"}</button></div>{error === null ? null : <p className="form-error" role="alert">{error}</p>}<button className="primary-button" type="button" onClick={() => navigate(`/table/${encodeURIComponent(created.roomId)}`)}>Enter table</button></div>}
       </section>
     </div>
   );

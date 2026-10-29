@@ -20,6 +20,12 @@ configured model, with those calls included in the request cap. The response
 includes the playability result and any remaining warnings. If playtesting is
 unavailable or errors remain, the server does not present the draft as accepted.
 
+Accepted generated drafts must include `runtime/rules.md` (or `rules.txt`) with
+player instructions covering the objective, setup, turn choices and victory.
+Missing instructions enter the same bounded repair loop. Players can open the
+authored guide through **How to play** at the table. This checks for a readable
+guide; consistency and creative quality still need playtesting.
+
 This gate catches concrete rule/runtime errors. It does not prove that every
 kind of generated game is balanced, fun or ready for release. Full generated
 strategy-game playthroughs, online media integration and generated raster
@@ -39,7 +45,10 @@ Cover creation remains available without the model: if AI is not configured, the
 
 ## Availability and limits
 
-The browser never asks you for a model provider API key. Prompt-based creation and editing run through the server's own Qwen 0.6B configuration (local model, no API key needed by default).
+The browser never asks you for a model provider API key. Prompt-based creation
+and editing use the server's configured model endpoint and model. The legacy
+local Qwen 0.6B profile is a development option, not a promise that a capable
+model is available on a deployment.
 
 The server also requires `AI_QUALITY_BASE_URL` for its Bun playtest harness.
 Locally, start `bun run dev:quality` and point it to the loopback service on

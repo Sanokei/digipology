@@ -441,6 +441,7 @@ function snapshot(
     diagnostic: null,
     definitions: { card: { label: "Contract Card", color: "#abcdef" } },
     gameTitle: null,
+    rulebook: null,
   };
 }
 

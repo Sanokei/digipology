@@ -4,6 +4,7 @@ import { applyOrdered, applyOrderedWithScripts, createInitialState, snapshot, ty
 import { getBuiltinRelease } from "digipology-demo-games";
 import { createCreatorScriptRuntime, scriptsFromReleaseFiles } from "../../../packages/lua/src/creator-runtime";
 import { createBuiltinInitialState } from "./initial-state";
+import type { PlayerInfo, ServerMessage } from "digipology-protocol";
 
 mock.module("cloudflare:workers", () => ({
   DurableObject: class {
@@ -50,11 +51,73 @@ async function join(room: InstanceType<typeof RoomDO>, name: string) {
 function internals(room: InstanceType<typeof RoomDO>) {
   return room as unknown as {
     startIfNeeded(): Promise<void>;
-    players(): { playerId: string; seatId?: string; host?: boolean }[];
+    players(): PlayerInfo[];
+    broadcastPresence(excludedSocket?: WebSocket): void;
+    messageContext(socket: WebSocket): { afterHelloSent(playerId: string, messages: readonly ServerMessage[]): Promise<void> };
     authenticateRoomToken(token: string): Promise<string | null>;
     handleSocketDeparture(socket: WebSocket): Promise<void>;
   };
 }
+
+test("live presence covers joins, hello, host migration and reconnect without reaching legacy sockets or advancing the log", async () => {
+  const { db, room, sockets } = harness();
+  try {
+    room.init("presence", "PRESENCE", "builtin_first_deal_1", 4);
+    const host = await join(room, "Host");
+    function socketFor(playerId: string, presence?: boolean, bootstrapped = true) {
+      let attachment = { authenticated: true, playerId, bootstrapped, ...(presence === undefined ? {} : { presence }) };
+      const sent: ServerMessage[] = [];
+      const socket = {
+        readyState: WebSocket.OPEN,
+        deserializeAttachment: () => attachment,
+        serializeAttachment: (next: typeof attachment) => { attachment = next; },
+        send: (wire: string) => sent.push(JSON.parse(wire) as ServerMessage),
+      } as unknown as WebSocket;
+      sockets.push(socket);
+      return { socket, sent };
+    }
+    const hostSocket = socketFor(host.playerId, true);
+    const legacySocket = socketFor(host.playerId);
+    const guest = await join(room, "Guest");
+    const joined = hostSocket.sent.at(-1);
+    expect(joined).toMatchObject({ type: "room_presence", players: [
+      { playerId: host.playerId, connected: true, host: true }, { playerId: guest.playerId, connected: false },
+    ] });
+    expect(legacySocket.sent).toEqual([]);
+    const guestSocket = socketFor(guest.playerId, true, false);
+    internals(room).broadcastPresence();
+    expect(guestSocket.sent).toEqual([]);
+    await internals(room).messageContext(guestSocket.socket).afterHelloSent(guest.playerId, [
+      { type: "bootstrap", protocolVersion: 1, sequence: 0, players: [] },
+    ]);
+    expect(guestSocket.sent.at(-1)).toMatchObject({ type: "room_presence", players: [
+      { playerId: host.playerId, connected: true, host: true }, { playerId: guest.playerId, connected: true },
+    ] });
+    // Another socket for the host prevents role migration on one tab closing.
+    sockets.splice(sockets.indexOf(legacySocket.socket), 1);
+    await internals(room).handleSocketDeparture(legacySocket.socket);
+    expect(room.hostPlayerId()).toBe(host.playerId);
+    const hostMessagesBeforeClose = hostSocket.sent.length;
+    // Cloudflare may still return the closing socket during this callback.
+    await internals(room).handleSocketDeparture(hostSocket.socket);
+    expect(hostSocket.sent).toHaveLength(hostMessagesBeforeClose);
+    expect(room.hostPlayerId()).toBe(guest.playerId);
+    expect(guestSocket.sent.at(-1)).toMatchObject({ type: "room_presence", players: [
+      { playerId: host.playerId, connected: false }, { playerId: guest.playerId, connected: true, host: true },
+    ] });
+    sockets.splice(sockets.indexOf(hostSocket.socket), 1);
+    const reconnected = socketFor(host.playerId, true);
+    await internals(room).messageContext(reconnected.socket).afterHelloSent(host.playerId, [
+      { type: "resume", protocolVersion: 1, fromSequence: 1, actions: [] },
+    ]);
+    expect(reconnected.sent.at(-1)).toMatchObject({ type: "room_presence", players: [
+      { playerId: host.playerId, connected: true }, { playerId: guest.playerId, connected: true, host: true },
+    ] });
+    expect(legacySocket.sent).toEqual([]);
+    expect(db.query("SELECT last_sequence FROM room").get()).toEqual({ last_sequence: 0 });
+    expect(db.query("SELECT COUNT(*) AS n FROM actions").get()).toEqual({ n: 0 });
+  } finally { db.close(); }
+});
 
 test.each(["missing", "null"])("legacy %s host backfill survives reconnect and cannot be stolen by a later join", async (column) => {
   const { db, room } = harness();

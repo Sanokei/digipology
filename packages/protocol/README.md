@@ -67,6 +67,11 @@ can evolve independently from the platform HTTP API.
 - `bootstrap` initializes a client at non-negative integer `sequence`.
   `snapshot`, when present, is opaque JSON. `players` contains the current room
   roster.
+- `room_presence` updates transient `players` metadata after a join, completed
+  hello, or departure. A client opts in by adding `presence=1` to its WebSocket
+  URL. Only opted-in authenticated sockets that completed bootstrap/resume
+  receive this extension, so legacy strict parsers keep their existing stream.
+  It carries at most 64 unique players and no canonical sequence or state.
 - `resume` starts at non-negative integer `fromSequence` and supplies complete
   `ordered_action` messages in `actions`.
 - `resync_required` tells the client that incremental recovery is unavailable
@@ -84,7 +89,8 @@ can evolve independently from the platform HTTP API.
   `t`.
 
 Each `PlayerInfo` contains string `playerId` and `displayName`, nullable string
-`seatId`, and boolean `connected`.
+`seatId`, boolean `connected`, and optional boolean `host`. Host metadata is for
+display; administrative requests must still authenticate the room token.
 
 ## Protocol error codes
 
@@ -110,6 +116,7 @@ Parser failures use the applicable subset: `malformed_message`,
 | `action_request` | 32 KiB |
 | `ping` / `pong` | 256 B |
 | `ordered_action` | 64 KiB |
+| `room_presence` | 64 KiB |
 | `bootstrap` / `resume` | 4 MiB |
 | `resync_required` / `protocol_error` / `room_ended` | 4 KiB |
 

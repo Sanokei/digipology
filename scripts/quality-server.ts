@@ -16,14 +16,16 @@ export function startQualityServer(options: { port?: number; hostname?: string; 
       if (options.token && request.headers.get("Authorization") !== `Bearer ${options.token}`) return new Response("Unauthorized", { status: 401 });
       if (running >= 2) return new Response("Playtesting is busy", { status: 429, headers: { "Retry-After": "5" } });
       let draft: ReleaseBundleDto;
+      let requireRules = false;
       try {
-        const body = await request.json() as { draft?: ReleaseBundleDto };
+        const body = await request.json() as { draft?: ReleaseBundleDto; requireRules?: boolean };
         if (!body.draft || !validateUploadedBundle(body.draft, body.draft.minPlayers, body.draft.maxPlayers).every((item) => item.ok)) return Response.json({ error: "Invalid game bundle" }, { status: 400 });
         draft = body.draft;
+        requireRules = body.requireRules === true;
       } catch { return Response.json({ error: "Invalid request" }, { status: 400 }); }
       running += 1;
       try {
-        const issues = await checkDraftQuality(draft, { simulateRolls: 24, instructionBudget: 100_000 });
+        const issues = await checkDraftQuality(draft, { simulateRolls: 24, instructionBudget: 100_000, requireRules });
         return Response.json({ issues }, { headers: { "Cache-Control": "no-store" } });
       } catch {
         return Response.json({ error: "The game could not be playtested" }, { status: 422 });

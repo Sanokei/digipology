@@ -16,6 +16,7 @@ import {
   type CreatorScriptRuntime,
 } from "digipology-lua";
 import type { OrderedAction, PlayerInfo, ResumeMessage, RoomEndedMessage } from "digipology-protocol";
+import { readRulebook, type GameRulebook } from "digipology-protocol";
 
 import type { ReleaseBundleDto } from "digipology-protocol/http";
 
@@ -52,6 +53,7 @@ export interface KernelStoreSnapshot {
   diagnostic: string | null;
   definitions: Readonly<Record<string, { label?: string; color?: string }>>;
   gameTitle: string | null;
+  rulebook: GameRulebook | null;
 }
 
 export type ApplyStreamResult = { ok: true } | { ok: false; expected: number; actual: number };
@@ -108,7 +110,7 @@ export class KernelStore {
   private current: KernelStoreSnapshot = {
     state: null, displayedState: null, events: [], players: [], pendingRequestIds: new Set(),
     predictionLedger: [], correction: null, endedReason: null, stateHash: null,
-    diagnostic: null, definitions: {}, gameTitle: null,
+    diagnostic: null, definitions: {}, gameTitle: null, rulebook: null,
   };
   private readonly listeners = new Set<() => void>();
   private initialSnapshot: GameSnapshot | null = null;
@@ -127,6 +129,11 @@ export class KernelStore {
     for (const listener of this.listeners) listener();
   }
 
+  /** Presence and administrative roles never advance or mutate the game state. */
+  updatePlayers(players: PlayerInfo[]): void {
+    this.publish({ ...this.current, players: players.map((player) => ({ ...player })) });
+  }
+
   loadRelease(bundle: ReleaseBundleDto): void {
     const initial = bundleSnapshot(bundle);
     this.scriptedRelease = snapshotRequiresScripts(initial);
@@ -136,6 +143,7 @@ export class KernelStore {
       ...this.current,
       definitions: bundle.definitions ?? {},
       gameTitle: bundle.title ?? null,
+      rulebook: readRulebook(bundle),
     });
   }
 

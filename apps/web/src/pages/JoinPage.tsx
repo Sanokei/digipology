@@ -7,6 +7,7 @@ import { SiteHeader } from "../components/SiteHeader";
 import { isJoinCode, normalizeJoinCode } from "../utils/joinCode";
 import { guestDisplayName, saveGuestDisplayName, saveRoomSession } from "../utils/roomSession";
 import { joinErrorKind, joinErrorView, type JoinErrorKind } from "./joinModel";
+import { inviteUrlForCode } from "../utils/inviteUrl";
 
 type JoinStep = "name" | "joining" | "error";
 
@@ -25,7 +26,7 @@ export function JoinPage() {
     if (displayName) saveGuestDisplayName(displayName);
     const result = await api.joinRoom({ code: normalizedCode, ...(displayName ? { displayName } : {}) });
     if (!result.ok) { setErrorKind(joinErrorKind(result.error.code)); setStep("error"); return; }
-    const inviteUrl = `https://play.digipology.com/join/${normalizedCode}`;
+    const inviteUrl = inviteUrlForCode(normalizedCode, window.location.origin);
     saveRoomSession({
       ...result.value,
       joinCode: normalizedCode,

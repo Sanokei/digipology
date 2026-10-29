@@ -14,7 +14,7 @@ export function resolveQualityCheck(env: object): DraftQualityCheck | null {
     const response = await fetch(new URL("check", base.href.replace(/\/?$/, "/")), {
       method: "POST", signal: AbortSignal.timeout(30_000),
       headers: { "Content-Type": "application/json", ...(typeof token === "string" && token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: JSON.stringify({ draft }),
+      body: JSON.stringify({ draft, requireRules: true }),
     });
     if (!response.ok) throw new Error(`Game playtesting is temporarily unavailable (${response.status})`);
     const body: unknown = await response.json();

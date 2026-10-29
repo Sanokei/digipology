@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { ReleaseBundleDto } from "digipology-protocol/http";
 import { assembleAiGameDraft } from "./ai-games";
+import { builtinCatalog } from "./catalog";
 import {
   checkDraftQuality,
   critiqueInstructionFollowing,
@@ -159,6 +160,13 @@ describe("checkDraftQuality", () => {
     const warning = issues.find((issue) => issue.code === "lua_callback_never_fires");
     expect(warning?.severity).toBe("warning");
     expect(warning?.message).toContain("on_roll");
+  });
+
+  test("shared setup and die bindings do not produce a false never-fires repair warning", async () => {
+    const draft = builtinCatalog.getRelease("builtin_dice_dash_3")!.bundle;
+    const issues = await checkDraftQuality(draft, { simulateRolls: 24 });
+    expect(codes(issues)).not.toContain("lua_callback_never_fires");
+    expect(issues.filter((issue) => issue.severity === "error")).toEqual([]);
   });
 
   test("flags settings keys the draft does not define", async () => {

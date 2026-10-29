@@ -2,7 +2,7 @@
  * The shared contract executes the real WebGL adapter and real attachDragBehavior
  * against Babylon's NullEngine. Only browser-owned construction surfaces are injected.
  */
-import { beforeEach } from "bun:test";
+import { beforeEach, expect, test } from "bun:test";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine";
 import type { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
 import type { Color3 } from "@babylonjs/core/Maths/math.color";
@@ -74,6 +74,29 @@ let highlighted = new Set<Mesh>();
 
 beforeEach(() => {
   highlighted = new Set();
+});
+
+test.each([
+  { renderer: "ANGLE (Google, Vulkan SwiftShader Device (Subzero))", software: true },
+  { renderer: "llvmpipe (LLVM 15.0, 256 bits)", software: true },
+  { renderer: "AMD Radeon RX 6800", software: false },
+])("WebGL keeps the table graph while adapting costly effects for $renderer", async ({ renderer, software }) => {
+  const canvas = new ContractCanvas();
+  const engine = new NullEngine({ renderWidth: 100, renderHeight: 100, textureSize: 256, deterministicLockstep: false, lockstepMaxSteps: 4, renderingCanvas: canvas as unknown as HTMLCanvasElement });
+  engine.getGlInfo = () => ({ renderer, vendor: "test driver", version: "WebGL 2.0" });
+  const adapter = createWebglSceneAdapter({
+    createEngine: () => engine,
+    createHighlightLayer: () => ({ addMesh: () => {}, removeMesh: () => {}, dispose: () => {} }),
+    matchMedia: () => mediaQuery(), devicePixelRatio: () => 1,
+  });
+  try {
+    await adapter.mount(canvas as unknown as HTMLCanvasElement, { tier: "default" });
+    expect(engine.scenes[0]?.activeCamera).not.toBeNull();
+    expect(engine.scenes[0]?.meshes.length).toBeGreaterThan(0);
+    expect(engine.scenes[0]?.getLightByName("key-light")?.getShadowGenerator() !== null).toBe(!software);
+    expect(engine.maxFPS).toBe(software ? 30 : undefined);
+  } finally { adapter.dispose(); }
+  expect(engine.isDisposed).toBe(true);
 });
 
 runSceneAdapterContract({

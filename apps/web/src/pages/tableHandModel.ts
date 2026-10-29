@@ -1,10 +1,12 @@
 import type { CanonicalGameState, TransformComponent } from "digipology-kernel";
+import { playingCardIdentity, type PlayingCardIdentity } from "../components/playingCardIdentity";
 
 export interface HandStripItem {
   entityId: string;
   label: string;
   color: string;
   transform?: TransformComponent;
+  face?: PlayingCardIdentity;
 }
 
 export type HandSortMode = "none" | "label";
@@ -76,9 +78,11 @@ export function localHandItems(
     if (entity === undefined) return [];
     const definitionId = entity.components.card?.definitionId;
     const label = definitionId === undefined ? "Card" : definitions[definitionId]?.label ?? "Card";
+    const face = playingCardIdentity(definitionId, label);
     return [{
       entityId,
       label,
+      ...(face === null ? {} : { face }),
       color: definitionId === undefined ? "#e7dfc8" : definitions[definitionId]?.color ?? "#e7dfc8",
       ...(entity.components.transform === undefined ? {} : { transform: entity.components.transform }),
     }];

@@ -1,0 +1,19 @@
+.playing-card { position:absolute; inset:0; display:block; overflow:hidden; border-radius:inherit; color:#213b35; background:radial-gradient(ellipse at 30% 15%,#fffef8,#f3eddd); font-family:Georgia,"Times New Roman",serif; text-align:center; }
+.playing-card--red { color:#b74535; }
+.playing-card__corner { position:absolute; top:10px; left:12px; display:flex; flex-direction:column; align-items:center; font-size:26px; line-height:1.05; }
+.playing-card__corner b { font-weight:600; }
+.playing-card__corner > span { font-size:21px; margin-top:2px; }
+.playing-card__corner--bottom { inset:auto 12px 10px auto; transform:rotate(180deg); }
+.playing-card__pips { position:absolute; inset:24px 40px; display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(5,1fr); align-items:center; justify-items:center; font-size:30px; line-height:1; }
+.playing-card__center { position:absolute; inset:20%; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:82px; line-height:1; }
+.playing-card__center--court { inset:19% 25%; border:1px solid currentColor; border-radius:40% 40% 12% 12%; font-size:50px; background:#d6be7c15; }
+.playing-card__center--court > span { margin-top:8px; font-size:26px; }
+.playing-card--compact .playing-card__corner { top:5px; left:6px; font-size:15px; }
+.playing-card--compact .playing-card__corner > span { font-size:13px; margin-top:1px; }
+.playing-card--compact .playing-card__corner--bottom { inset:auto 6px 5px auto; }
+.playing-card--compact .playing-card__center { font-size:29px; }
+.inspect-overlay__preview:has(.playing-card) { position:relative; overflow:hidden; }
+.hand-card:has(.playing-card) { position:relative; display:flex; flex-direction:column; padding:0; }
+.hand-card:has(.playing-card) > i { display:none; }
+.hand-card:has(.playing-card) > .hand-card__name { position:relative; z-index:1; margin-top:auto; max-width:100%; padding:4px 2px; color:#274039; background:#fffcf2e8; border-radius:0 0 6px 6px; font-size:8px; line-height:1.2; }
+.hand-card:has(.playing-card) .playing-card__corner--bottom { display:none; }

@@ -118,7 +118,7 @@ describe("built-in game catalog", () => {
       coverVersion: 4,
     });
     expect(releaseSummary(release)).toEqual({
-      releaseId: "builtin_first_deal_1",
+      releaseId: "builtin_first_deal_2",
       kernelVersion: 1,
       luaApiVersion: 1,
     });

@@ -9,7 +9,7 @@ SPEC 05.10 and 07.5 require an authenticated administrative Host to persist a ca
 ## Decision
 
 1. The first successful Room join sets `room.host_player_id`. When that player loses their final socket, the Room selects the oldest still-connected player by `players` row order. If nobody remains connected, it keeps the prior host so that player remains Host if they return. This migration currently lives in the socket-departure path because there is no canonical departure hook; it moves to that hook when one lands.
-2. `PlayerInfo.host` exposes the current host in bootstrap player metadata only. Existing clients may ignore the optional field, and live migration is learned on a later bootstrap. It is never authorization: save and end authenticate the opaque room token inside the Room DO and compare the resulting player id to `host_player_id`, as required by SPEC 07.4.
+2. `PlayerInfo.host` exposes the current host in bootstrap and negotiated live presence metadata (see the presence amendment below). It is never authorization: save and end authenticate the opaque room token inside the Room DO and compare the resulting player id to `host_player_id`, as required by SPEC 07.4.
 3. Unscripted rooms save a mechanical checkpoint computed by the DO from its trusted base plus ordered actions. Scripted rooms prefer an attested checkpoint only when it is at the current room sequence; otherwise the Host supplies its confirmed client snapshot at that sequence. Every selected snapshot must match the pinned Release and pass `loadSnapshot`, including recomputation of its StateHash. Save is not a checkpoint cadence event, so the 200-action cadence rule from ADR-0006 does not apply.
 4. The verified snapshot is stored as-is. Its original sequence and StateHash are recorded in D1 and the identical JSON object is written to R2.
 5. Resume validates the stored object again, then creates a new Room whose initial base is `snapshot({ ...loadSnapshot(saved), sequence: 0 })`. This recomputes the sequence-zero StateHash while preserving the saved canonical state.
@@ -186,3 +186,22 @@ permanently failing pinned creator hook still needs creator-level correction.
 Timer clarification for item 7: each independent room may fire its own timer.
 Rearming deduplicates within the new room's timer lifecycle; it does not stop the
 original room's timer or prevent it firing there.
+
+## Live presence amendment (2026-10-29)
+
+Player membership, connection status and administrative host migration are now
+published as transient `room_presence` messages after a join, completed hello,
+or socket departure. Clients update their player list and host controls without
+replacing a snapshot, advancing the canonical sequence, or changing StateHash.
+Closing one of a player's several sockets does not mark that player away or
+migrate the host. A departing socket is excluded even while the runtime still
+returns it from `getWebSockets()`.
+
+This is a negotiated extension to protocol v1: new clients add `presence=1` to
+the WebSocket URL. The Room persists that capability in the socket attachment
+and sends updates only after authenticated bootstrap/resume. Legacy clients,
+including hibernated attachments without the flag, receive their existing
+protocol stream. New clients still work against older servers, which ignore the
+URL parameter. The server validates at most 64 unique players and no canonical
+fields in a presence message. Presence is display metadata; save/end authorization
+continues to authenticate the room token and durable host record.

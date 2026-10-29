@@ -1,0 +1,2111 @@
+{
+  "fixtureVersion": 1,
+  "initialSnapshot": {
+    "formatVersion": 1,
+    "kernelVersion": 1,
+    "releaseId": "builtin_first_deal_2",
+    "sequence": 0,
+    "state": {
+      "entities": {
+        "card_01": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_clubs_a",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_01"
+        },
+        "card_02": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_clubs_2",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_02"
+        },
+        "card_03": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_clubs_3",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_03"
+        },
+        "card_04": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_clubs_4",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_04"
+        },
+        "card_05": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_clubs_5",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_05"
+        },
+        "card_06": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_clubs_6",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_06"
+        },
+        "card_07": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_clubs_7",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_07"
+        },
+        "card_08": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_clubs_8",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_08"
+        },
+        "card_09": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_clubs_9",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_09"
+        },
+        "card_10": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_clubs_10",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_10"
+        },
+        "card_11": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_clubs_j",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_11"
+        },
+        "card_12": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_clubs_q",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_12"
+        },
+        "card_13": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_clubs_k",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_13"
+        },
+        "card_14": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_diamonds_a",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_14"
+        },
+        "card_15": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_diamonds_2",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_15"
+        },
+        "card_16": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_diamonds_3",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_16"
+        },
+        "card_17": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_diamonds_4",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_17"
+        },
+        "card_18": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_diamonds_5",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_18"
+        },
+        "card_19": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_diamonds_6",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_19"
+        },
+        "card_20": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_diamonds_7",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_20"
+        },
+        "card_21": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_diamonds_8",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_21"
+        },
+        "card_22": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_diamonds_9",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_22"
+        },
+        "card_23": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_diamonds_10",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_23"
+        },
+        "card_24": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_diamonds_j",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_24"
+        },
+        "card_25": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_diamonds_q",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_25"
+        },
+        "card_26": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_diamonds_k",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_26"
+        },
+        "card_27": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_hearts_a",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_27"
+        },
+        "card_28": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_hearts_2",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_28"
+        },
+        "card_29": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_hearts_3",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_29"
+        },
+        "card_30": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_hearts_4",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_30"
+        },
+        "card_31": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_hearts_5",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_31"
+        },
+        "card_32": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_hearts_6",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_32"
+        },
+        "card_33": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_hearts_7",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_33"
+        },
+        "card_34": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_hearts_8",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_34"
+        },
+        "card_35": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_hearts_9",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_35"
+        },
+        "card_36": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_hearts_10",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_36"
+        },
+        "card_37": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_hearts_j",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_37"
+        },
+        "card_38": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_hearts_q",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_38"
+        },
+        "card_39": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_hearts_k",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_39"
+        },
+        "card_40": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_spades_a",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_40"
+        },
+        "card_41": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_spades_2",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_41"
+        },
+        "card_42": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_spades_3",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_42"
+        },
+        "card_43": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_spades_4",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_43"
+        },
+        "card_44": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_spades_5",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_44"
+        },
+        "card_45": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_spades_6",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_45"
+        },
+        "card_46": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_spades_7",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_46"
+        },
+        "card_47": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_spades_8",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_47"
+        },
+        "card_48": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_spades_9",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_48"
+        },
+        "card_49": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_spades_10",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_49"
+        },
+        "card_50": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_spades_j",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_50"
+        },
+        "card_51": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_spades_q",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_51"
+        },
+        "card_52": {
+          "components": {
+            "card": {
+              "definitionId": "standard_v2_spades_k",
+              "faceUp": false
+            },
+            "flippable": {
+              "flipped": false
+            },
+            "grabbable": {
+              "enabled": true,
+              "heldBy": null
+            },
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "card_52"
+        },
+        "deck": {
+          "components": {
+            "container": {
+              "capacity": 52,
+              "items": [
+                "card_01",
+                "card_02",
+                "card_03",
+                "card_04",
+                "card_05",
+                "card_06",
+                "card_07",
+                "card_08",
+                "card_09",
+                "card_10",
+                "card_11",
+                "card_12",
+                "card_13",
+                "card_14",
+                "card_15",
+                "card_16",
+                "card_17",
+                "card_18",
+                "card_19",
+                "card_20",
+                "card_21",
+                "card_22",
+                "card_23",
+                "card_24",
+                "card_25",
+                "card_26",
+                "card_27",
+                "card_28",
+                "card_29",
+                "card_30",
+                "card_31",
+                "card_32",
+                "card_33",
+                "card_34",
+                "card_35",
+                "card_36",
+                "card_37",
+                "card_38",
+                "card_39",
+                "card_40",
+                "card_41",
+                "card_42",
+                "card_43",
+                "card_44",
+                "card_45",
+                "card_46",
+                "card_47",
+                "card_48",
+                "card_49",
+                "card_50",
+                "card_51",
+                "card_52"
+              ],
+              "ordering": "stack",
+              "visibility": "public"
+            },
+            "deck": {
+              "enabled": true
+            },
+            "transform": {
+              "position": {
+                "x": -2.2,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              }
+            }
+          },
+          "id": "deck"
+        },
+        "hand_seat_1": {
+          "components": {
+            "container": {
+              "capacity": 52,
+              "items": [],
+              "ordering": "canonical",
+              "visibility": "owner:seat_1"
+            },
+            "hand": {
+              "canonicalOrder": true,
+              "owner": "seat_1"
+            }
+          },
+          "id": "hand_seat_1"
+        },
+        "hand_seat_2": {
+          "components": {
+            "container": {
+              "capacity": 52,
+              "items": [],
+              "ordering": "canonical",
+              "visibility": "owner:seat_2"
+            },
+            "hand": {
+              "canonicalOrder": true,
+              "owner": "seat_2"
+            }
+          },
+          "id": "hand_seat_2"
+        },
+        "hand_seat_3": {
+          "components": {
+            "container": {
+              "capacity": 52,
+              "items": [],
+              "ordering": "canonical",
+              "visibility": "owner:seat_3"
+            },
+            "hand": {
+              "canonicalOrder": true,
+              "owner": "seat_3"
+            }
+          },
+          "id": "hand_seat_3"
+        },
+        "hand_seat_4": {
+          "components": {
+            "container": {
+              "capacity": 52,
+              "items": [],
+              "ordering": "canonical",
+              "visibility": "owner:seat_4"
+            },
+            "hand": {
+              "canonicalOrder": true,
+              "owner": "seat_4"
+            }
+          },
+          "id": "hand_seat_4"
+        }
+      },
+      "kernelVersion": 1,
+      "players": {
+        "alice": {
+          "id": "alice",
+          "name": "Alice"
+        },
+        "bob": {
+          "id": "bob",
+          "name": "Bob"
+        }
+      },
+      "prompts": {},
+      "releaseId": "builtin_first_deal_2",
+      "rng": {
+        "algorithm": "sfc32-v1",
+        "draws": 0,
+        "state": [
+          691055819,
+          669955037,
+          591673809,
+          2646504518
+        ]
+      },
+      "schemaVersion": 1,
+      "scriptState": {
+        "phase": "setup"
+      },
+      "seats": {
+        "seat_1": {
+          "handId": "hand_seat_1",
+          "id": "seat_1",
+          "playerId": "alice"
+        },
+        "seat_2": {
+          "handId": "hand_seat_2",
+          "id": "seat_2",
+          "playerId": "bob"
+        }
+      },
+      "sequence": 0,
+      "settings": {
+        "cardsPerPlayer": 5
+      }
+    },
+    "stateHash": "sha256:16ac4bb86bd07e99734f7d6f9b2e7b4c5c6189a36bbe8d2749f215b11b0f9775"
+  },
+  "actions": [
+    {
+      "sequence": 1,
+      "actionId": "fd2_01",
+      "actor": {
+        "type": "system"
+      },
+      "action": {
+        "type": "system.game_start",
+        "payload": {}
+      }
+    },
+    {
+      "sequence": 2,
+      "actionId": "fd2_02",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "deck.shuffle",
+        "payload": {
+          "deckId": "deck"
+        }
+      }
+    },
+    {
+      "sequence": 3,
+      "actionId": "fd2_03",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "deck.draw_to_container",
+        "payload": {
+          "deckId": "deck",
+          "target": "hand_seat_1",
+          "count": 2
+        }
+      }
+    },
+    {
+      "sequence": 4,
+      "actionId": "fd2_04",
+      "actor": {
+        "type": "player",
+        "playerId": "bob"
+      },
+      "action": {
+        "type": "deck.draw_to_container",
+        "payload": {
+          "deckId": "deck",
+          "target": "hand_seat_2",
+          "count": 1
+        }
+      }
+    },
+    {
+      "sequence": 5,
+      "actionId": "fd2_05",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "entity.grab",
+        "payload": {
+          "entityId": "card_20"
+        }
+      }
+    },
+    {
+      "sequence": 6,
+      "actionId": "fd2_06",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "entity.drop",
+        "payload": {
+          "entityId": "card_20",
+          "transform": {
+            "position": {
+              "x": 0,
+              "y": 0.045,
+              "z": 0
+            },
+            "rotation": {
+              "x": 0,
+              "y": 0,
+              "z": 0,
+              "w": 1
+            },
+            "scale": {
+              "x": 1,
+              "y": 1,
+              "z": 1
+            }
+          }
+        }
+      }
+    },
+    {
+      "sequence": 7,
+      "actionId": "fd2_07",
+      "actor": {
+        "type": "player",
+        "playerId": "alice"
+      },
+      "action": {
+        "type": "entity.flip",
+        "payload": {
+          "entityId": "card_20"
+        }
+      }
+    }
+  ],
+  "luaExpectations": [],
+  "expectedEventTypes": [
+    "container.removed",
+    "deck.drawn",
+    "deck.shuffled",
+    "entity.dropped",
+    "entity.flipped",
+    "entity.grabbed",
+    "game.started"
+  ],
+  "expectedRejectionCount": 0,
+  "expectedPlayedCardId": "card_20",
+  "expectedPlayedCardLabel": "7 of Diamonds",
+  "expectedPrivateHandLabels": {
+    "alice": [
+      "Queen of Clubs"
+    ],
+    "bob": [
+      "10 of Spades"
+    ]
+  },
+  "expectedFinalStateHash": "sha256:19ad2aefbdd0a3faaa245969a5a0df8965013cf95e322ce85a436db87a0ccc49"
+}

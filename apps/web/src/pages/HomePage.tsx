@@ -12,6 +12,7 @@ import { SiteHeader } from "../components/SiteHeader";
 import { useAuth } from "../auth/AuthContext";
 import { isJoinCode, normalizeJoinCode } from "../utils/joinCode";
 import { guestDisplayName, saveRoomSession, type SavedRoomSession } from "../utils/roomSession";
+import { inviteUrlForCode } from "../utils/inviteUrl";
 import { initialQuickPlayState, quickPlayReducer, type QuickPlayAction, type QuickPlayState } from "./quickPlayModel";
 
 const METRICS_REFRESH_MS = 30_000;
@@ -134,7 +135,7 @@ export function HomePage() {
     }
     const session: SavedRoomSession = {
       ...result.value,
-      inviteUrl: `https://play.digipology.com/join/${normalizeJoinCode(result.value.joinCode)}`,
+      inviteUrl: inviteUrlForCode(result.value.joinCode, window.location.origin),
       gameTitle: game.title,
     };
     const success = dispatchFlow(game.slug, { type: "succeeded", session });

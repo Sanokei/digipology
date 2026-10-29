@@ -107,7 +107,7 @@ describe("built-in catalog", () => {
         releases.map((release) => release.releaseId),
       ]),
     ).toEqual([
-      ["first-deal", "builtin_first_deal_1", ["builtin_first_deal_1"]],
+      ["first-deal", "builtin_first_deal_2", ["builtin_first_deal_1", "builtin_first_deal_2"]],
       [
         "dice-dash",
         "builtin_dice_dash_3",

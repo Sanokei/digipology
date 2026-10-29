@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { InspectOverlay, type InspectOverlayItem } from "../components/InspectOverlay";
+import { playingCardIdentity } from "../components/playingCardIdentity";
 import { ObjectContextMenu, type ObjectContextMenuAction } from "../components/ObjectContextMenu";
 import { TableHints, type TableHintEvent, type TableHintGesture } from "../components/TableHints";
 import {
@@ -57,7 +58,7 @@ export function TableScene({
   const scenePaused = interactionsPaused || readOnly || contextMenu !== null || inspectedId !== null;
   const signalHint = (gesture: TableHintGesture) => setHintEvent((previous) => ({ gesture, nonce: (previous?.nonce ?? 0) + 1 }));
 
-  useBabylonScene(
+  const renderState = useBabylonScene(
     canvasRef,
     store,
     client,
@@ -97,9 +98,11 @@ export function TableScene({
     const hidden = entity.components.card !== undefined && !faceUp && !owned;
     const definitionId = entity.components.card?.definitionId;
     const label = hidden ? "Face-down card" : entityDisplayLabel(entity, view.definitions);
+    const face = hidden ? null : playingCardIdentity(definitionId, label);
     return {
       entityId: entity.id,
       label,
+      ...(face === null ? {} : { face }),
       color: definitionId === undefined ? "#d7b26d" : view.definitions[definitionId]?.color ?? "#e7dfc8",
       kind: entity.components.card === undefined ? "token" : "card",
       hidden,
@@ -123,7 +126,11 @@ export function TableScene({
   })();
 
   return <main className="table-scene">
-    <canvas ref={canvasRef} className="table-scene__canvas" aria-label={readOnly ? "Read-only 3D draft preview" : "Live synchronized 3D tabletop"} role="img" tabIndex={0} onContextMenu={(event) => event.preventDefault()} />
+    <canvas ref={canvasRef} className="table-scene__canvas" aria-label={readOnly ? "Read-only 3D draft preview" : "Live synchronized 3D tabletop"} aria-busy={renderState === "loading"} data-render-state={renderState} role="img" tabIndex={0} onContextMenu={(event) => event.preventDefault()} />
+    {renderState === "ready" ? null : <div className="table-render-status" role={renderState === "failed" ? "alert" : "status"}>
+      {renderState === "loading" ? <><span className="loading-spinner" /><p>Preparing your table…</p></>
+        : <><p>The table view could not load.</p><button type="button" onClick={() => window.location.reload()}>Reload table view</button><p>You can retry without starting a new room.</p></>}
+    </div>}
     {topBar === undefined ? null : <div className="table-scene__topbar">{topBar}</div>}
     {readOnly
       ? <div className="table-scene__hint table-scene__hint--readonly" aria-hidden="true">Draft preview · edit values in Inspector</div>

@@ -152,7 +152,11 @@ export class RoomClient {
     if (this.stopped) return;
     this.onStatus({ state: this.reconnectAttempt === 0 ? "connecting" : "reconnecting", message: this.reconnectAttempt === 0 ? "Joining Table" : "Reconnecting" });
     let socket: WebSocket;
-    try { socket = this.socketFactory(this.session.wsUrl); }
+    try {
+      const url = new URL(this.session.wsUrl);
+      url.searchParams.set("presence", "1");
+      socket = this.socketFactory(url.href);
+    }
     catch { this.scheduleReconnect(); return; }
     this.socket = socket;
     socket.addEventListener("open", () => { void this.opened(socket, resync); });
@@ -203,6 +207,7 @@ export class RoomClient {
 
   private async handle(message: ServerMessage): Promise<void> {
     switch (message.type) {
+      case "room_presence": this.store.updatePlayers(message.players); return;
       case "bootstrap": {
         const synchronizing = this.hasCompletedHandshake;
         if (synchronizing) this.onStatus({ state: "synchronizing", message: "Synchronizing Table" });

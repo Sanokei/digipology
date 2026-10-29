@@ -55,6 +55,24 @@ const IDENTITY: TransformComponent = {
   scale: { x: 1, y: 1, z: 1 },
 };
 
+it("updates transient roster and host metadata without touching confirmed state or pending predictions", () => {
+  const store = loaded();
+  expect(store.bootstrap(0, PLAYERS)).toEqual({ ok: true });
+  store.trackRequest("pending_roll");
+  const before = store.getSnapshot();
+  const players: PlayerInfo[] = PLAYERS.map((player, index) => ({ ...player, connected: index === 1, host: index === 1 }));
+  store.updatePlayers(players);
+  const after = store.getSnapshot();
+  expect(after.players).toEqual(players);
+  expect(after.state).toBe(before.state);
+  expect(after.stateHash).toBe(before.stateHash);
+  expect(after.displayedState).toBe(before.displayedState);
+  expect(after.predictionLedger).toBe(before.predictionLedger);
+  expect(after.pendingRequestIds.has("pending_roll")).toBe(true);
+  players[0]!.displayName = "Changed outside store";
+  expect(after.players[0]!.displayName).toBe("Alice");
+});
+
 function predictionInitial(sequence = 0): CanonicalGameState {
   const state = createInitialState({
     releaseId: "release_prediction",

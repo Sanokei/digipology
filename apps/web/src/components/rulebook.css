@@ -1,0 +1,17 @@
+.table-rules-button { display:flex; gap:7px; align-items:center; justify-content:center; min-width:38px; padding:8px 10px; cursor:pointer; font-size:.75rem; }
+.table-invite { position:relative; }
+.table-invite__notice { position:absolute; z-index:10; top:calc(100% + 12px); right:0; width:max-content; max-width:260px; padding:10px 13px; border:1px solid #d8bb7959; border-radius:10px; color:#fff2d5; background:#183831; box-shadow:0 12px 30px #0003; font-size:.75rem; line-height:1.5; }
+.table-rules-button > span:first-child { display:grid; width:18px; height:18px; place-items:center; border:1px solid currentColor; border-radius:50%; font-weight:700; line-height:1; }
+.rulebook-backdrop { position:fixed; z-index:70; inset:0; display:grid; place-items:center; padding:24px; background:#061715b8; backdrop-filter:blur(7px); }
+.rulebook-dialog { width:min(650px,100%); max-height:min(800px,calc(100dvh - 48px)); overflow:hidden; display:flex; flex-direction:column; color:#243d35; border:1px solid #d6dbca; border-radius:22px; background:#faf7ee; box-shadow:0 28px 100px #0006; overflow-wrap:anywhere; }
+.rulebook-dialog header > div { min-width:0; }
+.rulebook-dialog header { display:flex; gap:20px; justify-content:space-between; align-items:flex-start; padding:25px 28px 20px; border-bottom:1px solid #dfe1d3; }
+.rulebook-dialog header p { margin:0 0 8px; color:#6c7c64; font-size:.65rem; font-weight:750; letter-spacing:.15em; text-transform:uppercase; }
+.rulebook-dialog h2 { margin:0; font-size:1.4rem; line-height:1.3; letter-spacing:-.035em; }
+.rulebook-dialog header button { display:grid; flex-shrink:0; width:36px; height:36px; padding:0; place-items:center; border:1px solid #d1d7c9; border-radius:50%; color:#2c483a; background:#eef0e6; cursor:pointer; font-size:1.4rem; }
+.rulebook-dialog__body { padding:2px 28px 26px; overflow-y:auto; overscroll-behavior:contain; }
+.rulebook-dialog__body h3 { margin:25px 0 8px; font-size:1.03rem; letter-spacing:-.02em; }
+.rulebook-dialog__body p,.rulebook-dialog__body li { color:#536452; font-size:.9rem; line-height:1.75; }
+.rulebook-dialog__body p { margin:8px 0; }
+.rulebook-dialog__body ol,.rulebook-dialog__body ul { padding-left:24px; }
+@media(max-width:768px) { .table-rules-button__label { display:none; } .table-rules-button { min-width:32px; padding:7px; } .rulebook-backdrop { padding:14px; } .rulebook-dialog { max-height:calc(100dvh - 28px); border-radius:18px; } .rulebook-dialog header { padding:20px 18px 16px; } .rulebook-dialog__body { padding:0 18px 22px; } .rulebook-dialog h2 { font-size:1.2rem; } }

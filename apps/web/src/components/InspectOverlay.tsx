@@ -1,4 +1,5 @@
 import { useEffect, useRef, type CSSProperties } from "react";
+import { PlayingCardFace, type PlayingCardIdentity } from "./PlayingCardFace";
 
 export interface InspectOverlayItem {
   entityId: string;
@@ -7,6 +8,7 @@ export interface InspectOverlayItem {
   kind: "card" | "token";
   hidden?: boolean;
   heldBy?: string | null;
+  face?: PlayingCardIdentity;
 }
 
 function focusableElements(root: HTMLElement): HTMLElement[] {
@@ -54,7 +56,7 @@ export function InspectOverlay({ item, onDismiss }: { item: InspectOverlayItem; 
         style={item.hidden ? undefined : { "--inspect-color": item.color } as CSSProperties}
         aria-label={item.hidden ? "Face-down card back" : item.label}
       >
-        <span>{item.hidden ? "DIGIPOLOGY" : item.label}</span>
+        {!item.hidden && item.face !== undefined ? <PlayingCardFace identity={item.face} /> : <span>{item.hidden ? "DIGIPOLOGY" : item.label}</span>}
       </div>
       <strong>{item.hidden ? "Face-down card" : item.label}</strong>
       <small>{item.kind === "card" ? "Card" : "Table object"}</small>

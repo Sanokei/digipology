@@ -6,6 +6,10 @@ import { DICE_DASH_RUNTIME_JSON } from "./games/dice-dash/runtime";
 import { DICE_DASH_V2_RUNTIME_JSON } from "./games/dice-dash/runtime-v2";
 import { FIRST_DEAL_LUA } from "./games/first-deal/game.lua";
 import { FIRST_DEAL_RUNTIME_JSON } from "./games/first-deal/runtime";
+import { FIRST_DEAL_V2_RUNTIME_JSON } from "./games/first-deal/runtime-v2";
+import { FIRST_DEAL_V2_CARDS_JSON, FIRST_DEAL_V2_DEFINITIONS } from "./games/first-deal/cards-v2";
+import { FIRST_DEAL_V2_RULES } from "./games/first-deal/rules-v2";
+import { FIRST_DEAL_V2_LUA } from "./games/first-deal/game-v2.lua";
 import { ZONE_RUNNER_LUA } from "./games/zone-runner/game.lua";
 import { ZONE_RUNNER_V2_LUA } from "./games/zone-runner/game-v2.lua";
 import { ZONE_RUNNER_RUNTIME_JSON } from "./games/zone-runner/runtime";
@@ -50,6 +54,47 @@ const FIRST_DEAL_RELEASE = frozenRelease({
   integrity: Object.freeze({
     manifestHash: "sha256:28e79d8c4c4f5c60154e21ed7784b68de7f025c3df9f0badc6deb4aff5a2c0ea",
   }),
+});
+
+const FIRST_DEAL_RELEASE_V2 = frozenRelease({
+  formatVersion: 1,
+  gameId: "builtin_first_deal",
+  releaseId: "builtin_first_deal_2",
+  releaseNumber: 2,
+  kernelVersion: 1,
+  luaApiVersion: 1,
+  networkProtocolVersion: 1,
+  interactionMode: "sandbox",
+  minPlayers: 2,
+  maxPlayers: 4,
+  files: [
+    frozenFile({
+      path: "runtime/game.json",
+      contentHash: "sha256:085b530c01a54235cf349fff60b394247bc359814e2e4f8b80e736a9fa07a782",
+      byteLength: 1299,
+      content: FIRST_DEAL_V2_RUNTIME_JSON,
+    }),
+    frozenFile({
+      path: "runtime/cards.json",
+      contentHash: "sha256:fef6d9661641563edfc017e0dbc348e4c196a8e4379f9e5755715e03de620fa7",
+      byteLength: 7777,
+      content: FIRST_DEAL_V2_CARDS_JSON,
+    }),
+    frozenFile({
+      path: "runtime/rules.md",
+      contentHash: "sha256:68515aca2418c543e44bcfd56d22a812e8f61ccdf09a489a47541277f0a6a44e",
+      byteLength: 1263,
+      content: FIRST_DEAL_V2_RULES,
+    }),
+    frozenFile({
+      path: "scripts/game.lua",
+      contentHash: "sha256:c2f6477ac523668e778719c32e29d73ca3bd36456d88417b3edbf2a454ea36e0",
+      byteLength: 217,
+      content: FIRST_DEAL_V2_LUA,
+    }),
+  ],
+  definitions: FIRST_DEAL_V2_DEFINITIONS,
+  integrity: Object.freeze({ manifestHash: "sha256:03a1ff5756409d5fc12832ed334d2c89d61a8e1dffac8412fc0e70c173e89132" }),
 });
 
 const DICE_DASH_RELEASE = frozenRelease({
@@ -224,8 +269,8 @@ export const BUILTIN_GAMES: ReadonlyArray<BuiltinGame> = Object.freeze([
     tagline: "Shuffle, deal, draw, flip, and move a full deck together.",
     minPlayers: 2,
     maxPlayers: 4,
-    latestReleaseId: FIRST_DEAL_RELEASE.releaseId,
-    releases: Object.freeze([FIRST_DEAL_RELEASE]),
+    latestReleaseId: FIRST_DEAL_RELEASE_V2.releaseId,
+    releases: Object.freeze([FIRST_DEAL_RELEASE, FIRST_DEAL_RELEASE_V2]),
   }),
   Object.freeze({
     slug: "dice-dash",

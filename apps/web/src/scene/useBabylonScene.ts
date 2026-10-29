@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 
 import type { TableActionSender } from "./TableScene";
 import type { KernelStore } from "../state/kernelStore";
@@ -26,6 +26,7 @@ export interface TableContextRequest {
 }
 
 export interface TableHoverRequest extends TableContextRequest {}
+export type TableRenderState = "loading" | "ready" | "failed";
 
 async function loadAdapter(
   renderer: RendererAdapterKind,
@@ -51,7 +52,8 @@ export function useBabylonScene(
   onHintGesture?: (gesture: TableHintGesture) => void,
   onProjectorChange?: (projector: ((clientX: number, clientY: number) => { x: number; y: number; z: number } | null) | null) => void,
   onRendererStatus?: (status: RendererStatus) => void,
-): void {
+): TableRenderState {
+  const [renderState, setRenderState] = useState<TableRenderState>("loading");
   const pausedRef = useRef(interactionsPaused);
   pausedRef.current = interactionsPaused;
   const contextRequestRef = useRef(onContextRequest);
@@ -81,6 +83,8 @@ export function useBabylonScene(
     let effectDisposed = false;
     let cleanupMounted: (() => void) | null = null;
     let pendingAdapter: SceneAdapter | null = null;
+    let readyFrame: number | null = null;
+    setRenderState("loading");
 
     const mount = async (): Promise<void> => {
       const deviceNavigator = navigator as Navigator & {
@@ -140,7 +144,6 @@ export function useBabylonScene(
         if (clientX < rect.left || clientY < rect.top || clientX > rect.right || clientY > rect.bottom) return null;
         return adapter.projectToTable(clientX - rect.left, clientY - rect.top);
       });
-      publishRendererStatus(fallback === null ? selection.renderer : "webgl");
       adapter.setPaused(pausedRef.current);
       let heldHighlight = "";
       let lockedHighlight = "";
@@ -476,6 +479,17 @@ export function useBabylonScene(
       };
       document.addEventListener("visibilitychange", syncRenderLoop);
       syncRenderLoop();
+      // Start the render loop before announcing readiness. Two browser frames
+      // let the first scene draw reach the canvas rather than exposing a blank
+      // image as a completed table, especially after a reload or lazy import.
+      readyFrame = requestAnimationFrame(() => {
+        readyFrame = requestAnimationFrame(() => {
+          readyFrame = null;
+          if (effectDisposed) return;
+          publishRendererStatus(fallback === null ? selection.renderer : "webgl");
+          setRenderState("ready");
+        });
+      });
       const resize = new ResizeObserver(() => adapter.resize());
       resize.observe(canvas);
 
@@ -510,14 +524,17 @@ export function useBabylonScene(
       pendingAdapter?.dispose();
       pendingAdapter = null;
       console.error("Unable to start a table renderer.", error);
+      if (!effectDisposed) setRenderState("failed");
     });
 
     return () => {
       effectDisposed = true;
+      if (readyFrame !== null) cancelAnimationFrame(readyFrame);
       cleanupMounted?.();
       cleanupMounted = null;
       pendingAdapter?.dispose();
       pendingAdapter = null;
     };
   }, [canvasRef, client, playerId, store]);
+  return renderState;
 }

@@ -18,6 +18,7 @@ export function exhaustClientMessage(message: ClientMessage): string {
 export function exhaustServerMessage(message: ServerMessage): string {
   switch (message.type) {
     case "bootstrap":
+    case "room_presence":
     case "resume":
     case "resync_required":
     case "protocol_error":
