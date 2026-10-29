@@ -13,6 +13,7 @@ import {
 import { prevalidateRelease } from "../../releaseValidation";
 import type { EditorDraft } from "./types";
 import { createScript, updateScript } from "./scripts";
+import { normalizeGenerationReview } from "./generationReview";
 
 export type EditorTemplateId = "blank" | "card" | "dice" | "zone";
 
@@ -350,6 +351,7 @@ export function normalizeEditorDraft(value: unknown): EditorDraft {
     throw new TypeError("Draft and bundle player limits do not match.");
   }
   const strings = value as Record<(typeof requiredStrings)[number], string> & Record<string, unknown>;
+  const generationReview = normalizeGenerationReview(value.generationReview);
   return structuredClone({
     editorVersion: 1,
     id: strings.id,
@@ -361,6 +363,7 @@ export function normalizeEditorDraft(value: unknown): EditorDraft {
     createdAt: strings.createdAt,
     updatedAt: strings.updatedAt,
     bundle,
+    ...(generationReview ? { generationReview } : {}),
   } satisfies EditorDraft);
 }
 

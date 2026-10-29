@@ -28,7 +28,9 @@ import {
   type AiCreatorState,
 } from "./creatorModel";
 import { CoverPicker } from "./CoverPicker";
-import { DraftStorageError, saveGeneratedDraft } from "./generatedDraft";
+import { createGeneratedDraft, DraftStorageError, saveGeneratedDraft } from "./generatedDraft";
+import { normalizeEditorDraft } from "../editor/state/bundle";
+import { saveEditorDraft, serializeEditorDraft } from "../editor/state/persistence";
 import type { AiGameDraftResponse } from "digipology-protocol/http";
 
 export function ValidationReport({ report }: { report: UploadValidationReportItem[] }) {
@@ -128,9 +130,13 @@ export function CreatePage() {
   }
 
   function downloadDraft(response: AiGameDraftResponse) {
-    const url = URL.createObjectURL(new Blob([JSON.stringify(response.draft, null, 2)], { type: "application/json" }));
-    const link = document.createElement("a"); link.href = url; link.download = "game-draft.json"; link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    try {
+      pendingDraftId.current ??= crypto.randomUUID();
+      const draft = createGeneratedDraft(response, aiPrompt, pendingDraftId.current);
+      const url = URL.createObjectURL(new Blob([serializeEditorDraft(draft)], { type: "application/json" }));
+      const link = document.createElement("a"); link.href = url; link.download = "game-draft.editor.json"; link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch { setPlaytestMessage("This draft file could not be prepared. Retry opening the playtest to keep your accepted result."); }
   }
 
   async function publish(event: FormEvent) {
@@ -156,7 +162,19 @@ export function CreatePage() {
     if (user === null) { event.currentTarget.value = ""; signIn(); return; }
     const file = event.currentTarget.files?.[0];
     if (file === undefined) return;
-    setBundleText(await file.text());
+    const text = await file.text();
+    let parsed: unknown;
+    try { parsed = JSON.parse(text); } catch { parsed = null; }
+    if (typeof parsed === "object" && parsed !== null && Reflect.get(parsed, "editorVersion") === 1) {
+      try {
+        const draft = normalizeEditorDraft(parsed);
+        draft.id = crypto.randomUUID();
+        saveEditorDraft(localStorage, draft);
+        navigate(`/playtest/${encodeURIComponent(draft.id)}`);
+      } catch { setPlaytestMessage("This saved draft could not open. Allow browser storage and select the file again."); }
+      return;
+    }
+    setBundleText(text);
     setReport([]);
   }
 
@@ -247,20 +265,20 @@ export function CreatePage() {
       </form>
       {aiState.message === null || playtestMessage !== null ? null : <p className={`form-notice ai-state-${aiState.phase}`} role="status">{aiState.message}</p>}
       {playtestMessage ? <p className="form-notice" role="alert">{playtestMessage}</p> : null}
-      {aiState.report.length === 0 ? null : <ValidationReport report={aiState.report} />}
       {pendingPlaytest ? <div className="button-row"><button type="button" className="secondary-button" onClick={() => openPlaytest(pendingPlaytest)}>Retry opening playtest</button><button type="button" className="secondary-button" onClick={() => downloadDraft(pendingPlaytest)}>Download draft</button></div> : null}
+      {aiState.report.length === 0 ? null : <details className="ai-check-details"><summary>View draft checks</summary><ValidationReport report={aiState.report} /></details>}
     </section>
 
     <section className="creator-panel">
       <details open={editorPrefill !== null || undefined}><summary>Upload an existing game · advanced</summary>
       <p className="eyebrow">Creator upload</p><h2>Publish a game</h2>
-      <p>Choose a release JSON file or paste the same JSON below. Validation runs locally before upload.</p>
+      <p>Open a saved draft, or choose a release JSON to validate before publishing.</p>
       <form className="stack-form" onSubmit={(event) => void publish(event)}>
         <label htmlFor="game-title">Title</label><input id="game-title" maxLength={80} required value={title} onChange={(event) => setTitle(event.currentTarget.value)} />
         <label htmlFor="game-tagline">Tagline</label><input id="game-tagline" maxLength={240} value={tagline} onChange={(event) => setTagline(event.currentTarget.value)} />
         <label htmlFor="game-slug">Slug <small>(optional)</small></label><input id="game-slug" maxLength={48} placeholder="generated-from-title" value={slug} onChange={(event) => setSlug(event.currentTarget.value)} />
         <div className="field-pair"><label>Minimum players<input type="number" min={1} max={64} value={minPlayers} onChange={(event) => setMinPlayers(event.currentTarget.valueAsNumber)} /></label><label>Maximum players<input type="number" min={1} max={64} value={maxPlayers} onChange={(event) => setMaxPlayers(event.currentTarget.valueAsNumber)} /></label></div>
-        <label htmlFor="bundle-file">Release JSON file</label><input id="bundle-file" type="file" accept="application/json,.json" onClick={(event) => { if (user === null) { event.preventDefault(); signIn(); } }} onChange={(event) => void readFile(event)} />
+        <label htmlFor="bundle-file">Game JSON file</label><input id="bundle-file" type="file" accept="application/json,.json" onClick={(event) => { if (user === null) { event.preventDefault(); signIn(); } }} onChange={(event) => void readFile(event)} />
         <label htmlFor="bundle-json">Release JSON</label><textarea id="bundle-json" rows={12} value={bundleText} onChange={(event) => { setBundleText(event.currentTarget.value); setReport([]); }} />
         <div className="button-row"><button type="button" className="secondary-button" onClick={validate}>Validate</button><button className="primary-button" disabled={busy} type="submit">{busy ? "Publishing…" : "Publish release 1"}</button></div>
       </form>

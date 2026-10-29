@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import type { GameRulebook } from "digipology-protocol";
 import "./rulebook.css";
 
@@ -28,7 +28,10 @@ export function rulebookBlocks(body: string): Block[] {
   return blocks;
 }
 
-export function RulebookDialog({ rulebook, title, onClose }: { rulebook: GameRulebook | null; title: string; onClose(): void }) {
+/** A reading surface with two focus stops: close and the scrollable body. */
+export function ReadingDialog({ heading, eyebrow, closeLabel, bodyLabel, children, onClose }: {
+  heading: string; eyebrow: string; closeLabel: string; bodyLabel: string; children: ReactNode; onClose(): void;
+}) {
   const close = useRef<HTMLButtonElement>(null);
   const body = useRef<HTMLDivElement>(null);
   const headingId = useId();
@@ -45,13 +48,17 @@ export function RulebookDialog({ rulebook, title, onClose }: { rulebook: GameRul
         else if (!event.shiftKey && document.activeElement === body.current) { event.preventDefault(); close.current?.focus(); }
       }
     }}>
-      <header><div><p>At a glance</p><h2 id={headingId}>How to play {title}</h2></div><button ref={close} type="button" aria-label="Close rules" onClick={onClose}>×</button></header>
-      <div ref={body} className="rulebook-dialog__body" tabIndex={0} aria-label="Game rules">{rulebook === null
+      <header><div><p>{eyebrow}</p><h2 id={headingId}>{heading}</h2></div><button ref={close} type="button" aria-label={closeLabel} onClick={onClose}>×</button></header>
+      <div ref={body} className="rulebook-dialog__body" tabIndex={0} aria-label={bodyLabel}>{children}</div>
+    </section>
+  </div>;
+}
+
+export function RulebookDialog({ rulebook, title, onClose }: { rulebook: GameRulebook | null; title: string; onClose(): void }) {
+  return <ReadingDialog heading={`How to play ${title}`} eyebrow="At a glance" closeLabel="Close rules" bodyLabel="Game rules" onClose={onClose}>{rulebook === null
         ? <p>No rulebook was included with this game. Ask the host which rules apply.</p>
         : rulebookBlocks(rulebook.body).map((block, index) => block.kind === "heading" ? <h3 key={index}>{block.text}</h3>
           : block.kind === "paragraph" ? <p key={index}>{block.text}</p>
           : block.ordered ? <ol key={index}>{block.items.map((item, itemIndex) => <li key={itemIndex}>{item}</li>)}</ol>
-          : <ul key={index}>{block.items.map((item, itemIndex) => <li key={itemIndex}>{item}</li>)}</ul>)}</div>
-    </section>
-  </div>;
+          : <ul key={index}>{block.items.map((item, itemIndex) => <li key={itemIndex}>{item}</li>)}</ul>)}</ReadingDialog>;
 }

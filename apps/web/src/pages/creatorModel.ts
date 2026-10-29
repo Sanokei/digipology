@@ -84,7 +84,7 @@ export function aiCreatePrefill(
 ): AiCreatePrefill {
   return {
     title: response.draft.title ?? "Untitled game",
-    tagline: promptTagline(originalPrompt),
+    tagline: promptTagline(response.tagline?.trim() || originalPrompt),
     minPlayers: response.draft.minPlayers,
     maxPlayers: response.draft.maxPlayers,
     bundleText: JSON.stringify(response.draft, null, 2),

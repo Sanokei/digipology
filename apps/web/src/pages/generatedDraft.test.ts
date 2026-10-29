@@ -26,6 +26,16 @@ test("only accepted output becomes an ordinary editable, saved browser draft", (
   expect(() => saveGeneratedDraft({ ...store, setItem: () => { throw new Error("Quota"); } }, accepted, "", "quota")).toThrow("storage");
 });
 
+test("the authored tagline and bounded quality review survive the ordinary draft round trip", () => {
+  const store = storage();
+  const accepted = { ...response(), tagline: "  Roll to twenty,\n one turn at a time.  ", qualityReport: [{ code: "game_win_unobserved", message: "No winner in the sampled run", severity: "warning" as const }] };
+  const draft = saveGeneratedDraft(store, accepted, "The original long prompt", "reviewed");
+  expect(draft.tagline).toBe("Roll to twenty, one turn at a time.");
+  expect(loadEditorDraft(store, draft.id)?.generationReview).toEqual({ manifestHash: accepted.draft.integrity.manifestHash, warnings: [{ code: "game_win_unobserved", message: "No winner in the sampled run" }] });
+  expect(draft.bundle).not.toHaveProperty("generationReview");
+  expect(draft.bundle).not.toHaveProperty("tagline");
+});
+
 test.each(["room failure", "lost publication reply"])("publication retry reuses the authored version after %s", async (failure) => {
   const draft = saveGeneratedDraft(storage(), response(), "A dice game", "my-version");
   let created = false, createCalls = 0, roomCalls = 0;

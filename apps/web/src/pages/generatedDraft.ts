@@ -11,14 +11,21 @@ export class DraftStorageError extends Error {
   constructor(cause: unknown) { super("Browser storage could not save this draft", { cause }); this.name = "DraftStorageError"; }
 }
 
-export function saveGeneratedDraft(storage: StorageLike, response: AiGameDraftResponse, prompt: string, id: string): EditorDraft {
+export function createGeneratedDraft(response: AiGameDraftResponse, prompt: string, id: string): EditorDraft {
   if (!response.validationReport.every((check) => check.ok) ||
     !response.validationReport.some((check) => check.check === "playability" && check.ok) ||
     response.qualityReport?.some((issue) => issue.severity === "error")) {
     throw new TypeError("The draft did not pass its playability checks");
   }
   const draft = importBundleAsDraft(JSON.stringify(response.draft), id);
-  draft.tagline = prompt.trim().replaceAll(/\s+/g, " ").slice(0, 240);
+  draft.tagline = (response.tagline?.trim() || prompt.trim()).replaceAll(/\s+/g, " ").slice(0, 240);
+  draft.generationReview = { manifestHash: draft.bundle.integrity.manifestHash,
+    warnings: (response.qualityReport ?? []).filter((issue) => issue.severity === "warning").slice(0, 256).map((issue) => ({ code: issue.code.slice(0, 80), message: issue.message.slice(0, 2_000) })) };
+  return draft;
+}
+
+export function saveGeneratedDraft(storage: StorageLike, response: AiGameDraftResponse, prompt: string, id: string): EditorDraft {
+  const draft = createGeneratedDraft(response, prompt, id);
   try { saveEditorDraft(storage, draft); }
   catch (error) { throw new DraftStorageError(error); }
   return draft;

@@ -107,3 +107,24 @@ seeds, balance, pacing or fun. Unobserved wins and stalled/limited exploration
 remain warnings requiring review; runtime and lifecycle errors prevent draft
 acceptance until repaired. Original live strategy prompts and human playtests
 remain necessary acceptance work.
+
+## Creator handoff and review
+
+The creation response retains the authored one-sentence tagline. Private drafts
+use it in the table and publication metadata, with the original prompt as a
+fallback for older responses. Quality warnings are saved as optional editor
+metadata bound to the checked manifest hash. They never enter the immutable
+release bundle or canonical game state.
+
+When warnings remain, Review playtest offers concrete table actions such as
+playing to a winner or trying choices outside the automated sample. It supports
+keyboard reading, Escape/focus restoration and mobile layout. An authored
+version change shows that a fresh playthrough is needed; old checks do not
+silently apply to changed rules. Review is informational and publication remains
+an explicit action. The interface does not claim automated checks prove fun.
+
+Storage-recovery downloads use the normal editor-draft format, retaining the
+tagline and review. Open that saved JSON under Upload an existing game to resume
+private play without another model request. Raw release JSON still works for
+advanced publication. Malformed optional review metadata is dropped while a
+valid game remains readable; normal bundle validation is unchanged.

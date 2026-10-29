@@ -448,6 +448,8 @@ button.action-card { width: 100%; border-right: 0; border-left: 0; text-align: l
 .file-button { display: inline-flex; align-items: center; }
 .file-button input { display: none; }
 .validation-report { display: grid; gap: 6px; margin: 20px 0 0; padding: 0; list-style: none; }
+.ai-check-details { margin-top: 18px; color: var(--muted); font-size: .85rem; }
+.ai-check-details > summary { cursor: pointer; }
 .validation-report li { padding: 10px 12px; border-left: 3px solid; background: rgba(255,255,255,.025); font-family: "DM Mono", monospace; font-size: .66rem; text-transform: capitalize; }
 .validation-report li strong { margin-right: 8px; }.validation-report li small { display: block; margin: 5px 0 0 43px; color: var(--muted); text-transform: none; overflow-wrap: anywhere; }
 .validation-ok { border-color: var(--accent); }.validation-failed { border-color: #ff8f79; }

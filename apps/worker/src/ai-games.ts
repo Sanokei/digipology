@@ -172,6 +172,7 @@ interface AssemblyContext {
 interface AssemblyResult {
   draft: ReleaseBundleDto | null;
   report: UploadValidationReportItem[];
+  tagline?: string;
 }
 
 interface UsageRow {
@@ -290,6 +291,7 @@ export async function handleAiGameRequest(input: AiGameRouteInput): Promise<Resp
     if (refined.accepted && refined.draft !== null) {
       const response: AiGameDraftResponse = {
         draft: refined.draft,
+        tagline: lastAssembly.tagline ?? "",
         validationReport: lastAssembly.report,
         qualityReport: refined.issues,
         telemetry: task.telemetry,
@@ -507,7 +509,7 @@ export function assembleAiGameDraft(
   if (unsupportedAction !== null) {
     failCheck(report, "bundle_shape", `unregistered action ${unsupportedAction}`);
   }
-  return { draft, report };
+  return { draft, report, tagline: authoring.tagline };
 }
 
 interface NormalizedAuthoring {

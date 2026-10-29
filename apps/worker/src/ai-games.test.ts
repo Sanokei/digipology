@@ -234,6 +234,7 @@ describe("AI game budgets", () => {
   test("repairs a missing player rulebook as an ordinary release file before accepting a draft", async () => {
     const fixture = await routeFixture();
     const valid = playableAuthoring();
+    valid.tagline = "Roll to twenty, one brave turn at a time.";
     const withoutRules = structuredClone(valid);
     withoutRules.files = (withoutRules.files as Array<{ path: string; content: string }>).filter((file) => file.path !== "runtime/rules.md");
     const ruleFile = (valid.files as Array<{ path: string; content: string }>).find((file) => file.path === "runtime/rules.md")!;
@@ -245,7 +246,8 @@ describe("AI game budgets", () => {
     expect(response.status).toBe(200);
     expect(requests).toHaveLength(2);
     expect(JSON.stringify(requests[1])).toContain("rules_missing");
-    const body = await response.json() as { draft: ReleaseBundleDto };
+    const body = await response.json() as { draft: ReleaseBundleDto; tagline: string };
+    expect(body.tagline).toBe("Roll to twenty, one brave turn at a time.");
     expect(readRulebook(body.draft)).toMatchObject({ source: "release", body: expect.stringContaining("20 points") });
   });
 

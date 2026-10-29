@@ -293,6 +293,8 @@ export interface StructuredTaskTelemetryDto {
 
 export interface AiGameDraftResponse {
   draft: ReleaseBundleDto;
+  /** Authored creator metadata; not part of the immutable game snapshot. */
+  tagline?: string;
   validationReport: UploadValidationReportItem[];
   telemetry: StructuredTaskTelemetryDto;
   qualityReport?: Array<{ code: string; message: string; severity: "error" | "warning" }>;
