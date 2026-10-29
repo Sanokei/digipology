@@ -113,7 +113,20 @@ test("real saved raster draft survives desktop rule edits, storage recovery, pri
   await expect(page.locator(".draft-play-bar__tagline")).toHaveText(backup.value.tagline);
   const review = page.getByRole("button", { name: "Review playtest", exact: true });
   await expect(review).toHaveText("Review your changes");
-  await expect(page.getByRole("img", { name: "Copper Dice Workshop cover", exact: true })).toBeVisible();
+  // Phones reserve the compact toolbar for play controls. Check the retained
+  // original through its ordinary artwork dialog rather than a hidden thumbnail.
+  const editArtwork = page.getByRole("button", { name: "Edit artwork", exact: true });
+  await editArtwork.click();
+  const artworkDialog = page.getByRole("dialog", { name: "Artwork for Copper Dice Workshop", exact: true });
+  const retainedCover = artworkDialog.locator('.game-art-asset[data-art-purpose="cover"]').getByRole("img", { name: "Copper Dice Workshop cover", exact: true });
+  await expect(retainedCover).toBeVisible();
+  await expect.poll(() => retainedCover.evaluate((img: HTMLImageElement) => ({ complete: img.complete, width: img.naturalWidth, height: img.naturalHeight }))).toEqual({ complete: true, width: backup.value.artwork.info.width, height: backup.value.artwork.info.height });
+  const retainedCoverDataUrl = await retainedCover.getAttribute("src");
+  expect(retainedCoverDataUrl).toBe(backup.value.artwork.dataUrl);
+  expect(`sha256:${createHash("sha256").update(Buffer.from(retainedCoverDataUrl!.split(",")[1]!, "base64")).digest("hex")}`).toBe(backup.value.artwork.info.sha256);
+  await page.screenshot({ path: testInfo.outputPath("edited-retained-artwork-narrow.png"), fullPage: true });
+  await artworkDialog.getByRole("button", { name: "Close game artwork", exact: true }).click();
+  await expect(artworkDialog).toHaveCount(0); await expect(editArtwork).toBeFocused(); await ready(page);
   await page.screenshot({ path: testInfo.outputPath("edited-private-play-narrow.png"), fullPage: true });
   await page.setViewportSize({ width: 1440, height: 960 });
   await review.click();
