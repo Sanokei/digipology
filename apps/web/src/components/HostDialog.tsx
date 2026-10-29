@@ -7,6 +7,7 @@ import { useAuth } from "../auth/AuthContext";
 import { guestDisplayName, saveGuestDisplayName, saveRoomSession } from "../utils/roomSession";
 import type { SavedRoomSession } from "../utils/roomSession";
 import { inviteUrlForCode } from "../utils/inviteUrl";
+import "./hostDialog.css";
 
 export function publicHostingAllowed(signedIn: boolean, visibility: "private" | "public"): boolean {
   return visibility === "private" || signedIn;
@@ -14,15 +15,16 @@ export function publicHostingAllowed(signedIn: boolean, visibility: "private" | 
 
 interface HostDialogProps {
   initialSlug?: string;
+  initialGame?: GameSummaryDto;
   onClose(): void;
   onSignIn(): void;
 }
 
-export function HostDialog({ initialSlug, onClose, onSignIn }: HostDialogProps) {
+export function HostDialog({ initialSlug, initialGame, onClose, onSignIn }: HostDialogProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [games, setGames] = useState<GameSummaryDto[]>([]);
-  const [slug, setSlug] = useState(initialSlug ?? "");
+  const [games, setGames] = useState<GameSummaryDto[]>(() => initialGame ? [initialGame] : []);
+  const [slug, setSlug] = useState(initialGame?.slug ?? initialSlug ?? "");
   const [visibility, setVisibility] = useState<"private" | "public">("private");
   const [name, setName] = useState(() => guestDisplayName() ?? "");
   const [busy, setBusy] = useState(false);
@@ -71,14 +73,17 @@ export function HostDialog({ initialSlug, onClose, onSignIn }: HostDialogProps) 
   }
 
   useEffect(() => {
+    let active = true;
     void api.listGames().then((result) => {
+      if (!active) return;
       if (result.ok) {
-        setGames(result.value.games);
-        setSlug((current) => current || initialSlug || result.value.games[0]?.slug || "");
+        setGames(initialGame ? [initialGame, ...result.value.games.filter((game) => game.slug !== initialGame.slug)] : result.value.games);
+        setSlug((current) => current || initialGame?.slug || initialSlug || result.value.games[0]?.slug || "");
       }
-      else setError(result.error.message);
+      else if (!initialGame) setError(result.error.message);
     });
-  }, [initialSlug]);
+    return () => { active = false; };
+  }, [initialSlug, initialGame]);
 
   async function create(event: FormEvent) {
     event.preventDefault();
@@ -109,8 +114,8 @@ export function HostDialog({ initialSlug, onClose, onSignIn }: HostDialogProps) 
   }
 
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section ref={dialogRef} className="modal" role="dialog" aria-modal="true" aria-labelledby="host-title" onKeyDown={handleDialogKeyDown}>
+    <div className="modal-backdrop host-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section ref={dialogRef} className="modal host-dialog" role="dialog" aria-modal="true" aria-labelledby="host-title" onKeyDown={handleDialogKeyDown}>
         <button className="modal__close" type="button" onClick={onClose} aria-label="Close">×</button>
         <p className="eyebrow">New table</p><h2 id="host-title">{created === null ? "Host a game" : "Your table is ready"}</h2>
         {created === null ? <form className="stack-form" onSubmit={(event) => void create(event)}>

@@ -1,0 +1,15 @@
+.modal-backdrop.host-dialog-backdrop { z-index: 70; }
+.host-dialog-backdrop .host-dialog { max-height: calc(100dvh - 48px); overflow-y: auto; overscroll-behavior: contain; scroll-padding-block: 16px; }
+.host-dialog .segmented label { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px; }
+.host-dialog .segmented input[type="radio"] { width: 16px; height: 16px; min-height: 16px; padding: 0; margin: 0; accent-color: var(--accent); }
+
+@media (max-height: 560px) {
+  .modal-backdrop.host-dialog-backdrop { padding: 12px; }
+  .host-dialog-backdrop .host-dialog { max-height: calc(100dvh - 24px); padding: 24px 22px; }
+  .host-dialog > .eyebrow { margin-bottom: 10px; }
+  .host-dialog h2 { font-size: 1.75rem; }
+  .host-dialog .stack-form { gap: 8px; margin: 18px 0 0; }
+  .host-dialog .stack-form input:not([type="radio"]), .host-dialog .stack-form select { min-height: 44px; }
+  .host-dialog .segmented { margin: 4px 0; }
+  .host-dialog .modal__close { top: 12px; right: 12px; }
+}
