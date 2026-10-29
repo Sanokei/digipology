@@ -86,8 +86,10 @@ export function HandStrip({
                 type="button"
                 className="hand-card"
                 style={{ "--card-color": item.color } as CSSProperties}
-                onClick={() => {
-                  if (suppressClickRef.current) { suppressClickRef.current = false; return; }
+                onClick={(event) => {
+                  const suppress = suppressClickRef.current;
+                  suppressClickRef.current = false;
+                  if (suppress && event.detail > 0) return;
                   setInspected(item);
                 }}
                 onContextMenu={(event) => {
@@ -96,6 +98,8 @@ export function HandStrip({
                 }}
                 onPointerDown={(event) => {
                   if (interactionsPaused || event.button !== 0) return;
+                  // A new press starts its own gesture after a long-press menu.
+                  suppressClickRef.current = false;
                   clearTimer();
                   dragRef.current = { pointerId: event.pointerId, item, startX: event.clientX, startY: event.clientY, moved: false, longPressed: false };
                   event.currentTarget.setPointerCapture(event.pointerId);
