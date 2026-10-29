@@ -1,0 +1,60 @@
+$ tsc --noEmit && vite build
+vite v6.4.3 building for production...
+transforming...
+[plugin vite:resolve] Module "module" has been externalized for browser compatibility, imported by "/workspace/digipology/node_modules/wasmoon/dist/index.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.
+✓ 2975 modules transformed.
+Export "createCreatorScriptRuntime" of module "../../packages/lua/src/creator-runtime.ts" was reexported through module "../../packages/lua/src/index.ts" while both modules are dependencies of each other and will end up in different chunks by current Rollup settings. This scenario is not well supported at the moment as it will produce a circular dependency between chunks and will likely lead to broken execution order.
+Either change the import in "src/editor/playtest/runtime.ts" to point directly to the exporting module or reconfigure "output.manualChunks" to ensure these modules end up in the same chunk.
+Export "scriptsFromReleaseFiles" of module "../../packages/lua/src/creator-runtime.ts" was reexported through module "../../packages/lua/src/index.ts" while both modules are dependencies of each other and will end up in different chunks by current Rollup settings. This scenario is not well supported at the moment as it will produce a circular dependency between chunks and will likely lead to broken execution order.
+Either change the import in "src/editor/playtest/runtime.ts" to point directly to the exporting module or reconfigure "output.manualChunks" to ensure these modules end up in the same chunk.
+rendering chunks...
+computing gzip size...
+dist/index.html                                  0.68 kB │ gzip:   0.38 kB
+dist/assets/glue-Dlydm7r2.wasm                 271.58 kB │ gzip: 111.01 kB
+dist/assets/stylua_wasm_bg-xyEj2WHM.wasm     1,070.28 kB │ gzip: 361.96 kB
+dist/assets/TableScene-Ebxht1mZ.css              1.13 kB │ gzip:   0.52 kB
+dist/assets/GameDetailPage-D1zEUVhS.css          2.21 kB │ gzip:   0.65 kB
+dist/assets/DraftPlayPage-DAGr4A9-.css           2.83 kB │ gzip:   0.94 kB
+dist/assets/artwork-p5_sxeW7.css                 3.63 kB │ gzip:   1.25 kB
+dist/assets/useTableAudio-lXpDKdFn.css           5.59 kB │ gzip:   1.70 kB
+dist/assets/EditorPage-DO1tylij.css             29.82 kB │ gzip:   5.50 kB
+dist/assets/index-I0ZF4VZi.css                  70.12 kB │ gzip:  14.54 kB
+dist/assets/ViewportPanel-CJTuJ6fk.js            0.85 kB │ gzip:   0.51 kB
+dist/assets/trash-2-BTYk0FBr.js                  0.92 kB │ gzip:   0.47 kB
+dist/assets/ConsolePanel-Cwlw7jcd.js             1.04 kB │ gzip:   0.51 kB
+dist/assets/vite-runtime-BlTxHScW.js             1.11 kB │ gzip:   0.65 kB
+dist/assets/HistoryPanel-Dar252uE.js             1.94 kB │ gzip:   0.84 kB
+dist/assets/LoginPage-kWgz7C92.js                2.07 kB │ gzip:   1.02 kB
+dist/assets/GamesPage-DWX44fZj.js                2.11 kB │ gzip:   0.98 kB
+dist/assets/ScriptExplorerPanel-CZdoeDDb.js      2.30 kB │ gzip:   1.00 kB
+dist/assets/EditorRoute-bcPSvULk.js              3.15 kB │ gzip:   1.13 kB
+dist/assets/SavesPage-Sing3rUJ.js                3.34 kB │ gzip:   1.43 kB
+dist/assets/JoinPage-DULRCbCj.js                 3.39 kB │ gzip:   1.47 kB
+dist/assets/AiAssistPanel-Dz6N2ZU3.js            4.40 kB │ gzip:   1.83 kB
+dist/assets/GameDetailPage-CUvd5ojN.js           4.42 kB │ gzip:   1.68 kB
+dist/assets/HierarchyPanel-Dv4n63ub.js           5.06 kB │ gzip:   2.14 kB
+dist/assets/generatedDraft-C2G0SNHT.js           7.16 kB │ gzip:   2.99 kB
+dist/assets/InspectorPanel-DNlTgcsq.js           7.62 kB │ gzip:   2.74 kB
+dist/assets/PlaytestController-Df5HaNOK.js       8.07 kB │ gzip:   3.05 kB
+dist/assets/tableCameraFraming-BeE3Le9G.js       9.09 kB │ gzip:   3.68 kB
+dist/assets/DraftPlayPage-rFVCo5Lx.js            9.22 kB │ gzip:   3.58 kB
+dist/assets/persistence-CSFe_M3D.js             12.75 kB │ gzip:   4.56 kB
+dist/assets/artwork-B78vCi6D.js                 13.81 kB │ gzip:   5.88 kB
+dist/assets/webglSceneAdapter-BRISZWPq.js       17.19 kB │ gzip:   6.60 kB
+dist/assets/liteSceneAdapter-0e7Xl8rQ.js        17.35 kB │ gzip:   6.86 kB
+dist/assets/CreatePage-CWrnve4z.js              17.53 kB │ gzip:   5.71 kB
+dist/assets/TablePage-C_HpY8-r.js               37.24 kB │ gzip:  11.13 kB
+dist/assets/useTableAudio-Dorbn99n.js           50.38 kB │ gzip:  15.92 kB
+dist/assets/registry-5SgkgNjW.js                60.37 kB │ gzip:  15.98 kB
+dist/assets/TableScene-BUSd7lSv.js              82.15 kB │ gzip:  17.48 kB
+dist/assets/babylon-lite-vendor-CS4f97_W.js    176.71 kB │ gzip:  56.01 kB
+dist/assets/EditorPage-DJDu8ASE.js             272.08 kB │ gzip:  49.77 kB
+dist/assets/LuaEditorPanel-WNr83rPH.js         404.37 kB │ gzip: 130.31 kB
+dist/assets/index-DLyqrLfW.js                  675.08 kB │ gzip: 130.60 kB
+dist/assets/babylon-vendor-DQswyUNW.js       1,505.51 kB │ gzip: 345.11 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 12.98s

@@ -1,0 +1,90 @@
+{
+  "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2",
+  "stats": {
+    "startTime": "2026-10-29T15:32:17.867Z",
+    "duration": 210089.024,
+    "expected": 5,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "errors": [],
+  "tests": [
+    {
+      "title": "a real mastered creator bundle survives editor import, backup, private dice events, publication, credit download and guest reload",
+      "file": "sounds.e2e.ts",
+      "line": 66,
+      "status": "expected",
+      "expectedStatus": "passed",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 33756,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "normal card draws in another seat stay silent while public and own card events remain audible",
+      "file": "sounds.e2e.ts",
+      "line": 137,
+      "status": "expected",
+      "expectedStatus": "passed",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 41328,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "source fetch and decoder failures show retry, preserve playable fallback and recover to exact decoded assets",
+      "file": "sounds.e2e.ts",
+      "line": 164,
+      "status": "expected",
+      "expectedStatus": "passed",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 7635,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "two people play Dice Dash to a winner, hear feedback, and retain the finished game after reload",
+      "file": "table.e2e.ts",
+      "line": 35,
+      "status": "expected",
+      "expectedStatus": "passed",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 59606,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "named cards remain private in hands, play visibly to the table, reveal and survive reload",
+      "file": "table.e2e.ts",
+      "line": 97,
+      "status": "expected",
+      "expectedStatus": "passed",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 59608,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    }
+  ],
+  "scope": "Five actual functional cases; separate die visual continuity failure retained. Raw auth-bearing logs/traces remain outside Git."
+}

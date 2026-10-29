@@ -1,0 +1,8 @@
+{
+  "command": [
+    "bun",
+    "test",
+    "apps/web/src/audio/TableAudio.test.ts"
+  ],
+  "exitCode": 0
+}

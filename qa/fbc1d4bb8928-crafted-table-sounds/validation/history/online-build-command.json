@@ -1,0 +1,12 @@
+{
+  "command": [
+    "bun",
+    "scripts/media.ts",
+    "build-table-sounds",
+    "scripts/media/table-sounds.sources.json",
+    "apps/web/public/audio/table-effects/v1"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 5.58,
+  "method": "fresh normal HTTPS Git acquisition, no cache argument"
+}

@@ -1,0 +1,17 @@
+{
+  "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2",
+  "command": [
+    "bun",
+    "test",
+    "packages/protocol/src/sound-bundle.test.ts",
+    "apps/web/src/audio",
+    "apps/web/src/editor/state/sounds.test.ts",
+    "scripts/media/audio.test.ts",
+    "apps/web/src/state/kernelStore.test.ts",
+    "apps/web/src/scene",
+    "apps/web/src/pages/tableHandModel.test.ts",
+    "apps/worker/src/first-deal-v2.test.ts"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 5.73
+}

@@ -1,0 +1,10 @@
+bun test v1.4.4 (38afee6c8)
+
+apps/web/src/audio/TableAudio.test.ts:
+(pass) the first confirmed cue waits for its user-gesture resume and uses the imported buffer [21.42ms]
+(pass) mute, a seat-change stop and hidden state cancel pending activation cues [31.12ms]
+
+ 2 pass
+ 0 fail
+ 6 expect() calls
+Ran 2 tests across 1 file. [65.00ms]

@@ -1,0 +1,15 @@
+{
+  "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2",
+  "command": [
+    "bun",
+    "run",
+    "test:e2e",
+    "e2e/sounds.e2e.ts",
+    "e2e/table.e2e.ts",
+    "--grep",
+    "a real mastered|normal card draws|source fetch|two people play Dice|named cards remain"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 210.62,
+  "build": "already-built current source; E2E_SKIP_BUILD=1"
+}

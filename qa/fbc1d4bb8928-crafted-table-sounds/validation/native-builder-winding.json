@@ -1,0 +1,80 @@
+{
+  "sceneConvention": "Default left-handed; native clockwise front faces with outward normals",
+  "capturedFrom": "Installed native builders; no renderer mocks",
+  "builders": [
+    {
+      "name": "Babylon Core",
+      "version": "7.54.3",
+      "triangle": [
+        0,
+        1,
+        2
+      ],
+      "vertices": [
+        [
+          0.5,
+          -0.5,
+          0.5
+        ],
+        [
+          -0.5,
+          -0.5,
+          0.5
+        ],
+        [
+          -0.5,
+          0.5,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        1
+      ],
+      "cross": [
+        0,
+        0,
+        -1
+      ],
+      "crossDotOutwardNormal": -1
+    },
+    {
+      "name": "Babylon Lite",
+      "version": "1.21.0",
+      "triangle": [
+        0,
+        1,
+        2
+      ],
+      "vertices": [
+        [
+          0.5,
+          -0.5,
+          0.5
+        ],
+        [
+          -0.5,
+          -0.5,
+          0.5
+        ],
+        [
+          -0.5,
+          0.5,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        1
+      ],
+      "cross": [
+        0,
+        0,
+        -1
+      ],
+      "crossDotOutwardNormal": -1
+    }
+  ]
+}

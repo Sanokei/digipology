@@ -1,0 +1,30 @@
+bun test v1.4.4 (38afee6c8)
+
+apps/web/src/audio/TableAudio.test.ts:
+34 | test("the first confirmed cue waits for its user-gesture resume and uses the imported buffer", async () => {
+35 |   await fake(async (engine) => {
+36 |     const activating = engine.unlock(); engine.play("dice");
+37 |     expect(FakeContext.current.starts).toEqual([]);
+38 |     FakeContext.current.release(); await activating; await Promise.resolve();
+39 |     expect(FakeContext.current.starts).toEqual([34729]);
+                                            ^
+error: expect(received).toEqual(expected)
+
+- [
+-   34729,
+- ]
++ []
+
+- Expected  - 3
++ Received  + 1
+
+      at <anonymous> (/workspace/digipology/apps/web/src/audio/TableAudio.test.ts:39:40)
+      at async fake (/workspace/digipology/apps/web/src/audio/TableAudio.test.ts:31:49)
+      at async <anonymous> (/workspace/digipology/apps/web/src/audio/TableAudio.test.ts:35:9)
+(fail) the first confirmed cue waits for its user-gesture resume and uses the imported buffer [21.45ms]
+(pass) mute, a seat-change stop and hidden state cancel pending activation cues [33.19ms]
+
+ 1 pass
+ 1 fail
+ 5 expect() calls
+Ran 2 tests across 1 file. [68.00ms]

@@ -1,0 +1,60 @@
+{
+  "source": "f72af1d637e3a112950be58bce5aca5558d4a731",
+  "stats": {
+    "startTime": "2026-10-29T15:45:20.948Z",
+    "duration": 123789.34,
+    "expected": 3,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "errors": [],
+  "tests": [
+    {
+      "title": "two people play Dice Dash to a winner, hear feedback, and retain the finished game after reload",
+      "file": "table.e2e.ts",
+      "line": 35,
+      "status": "expected",
+      "expectedStatus": "passed",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 48957,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "named cards remain private in hands, play visibly to the table, reveal and survive reload",
+      "file": "table.e2e.ts",
+      "line": 97,
+      "status": "expected",
+      "expectedStatus": "passed",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 62339,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "mobile table keeps play controls reachable without horizontal overflow",
+      "file": "table.e2e.ts",
+      "line": 174,
+      "status": "expected",
+      "expectedStatus": "passed",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 3649,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    }
+  ],
+  "scope": "Actual WebGL-corrected-source table scenarios; later actual Lite visual findings retained separately."
+}

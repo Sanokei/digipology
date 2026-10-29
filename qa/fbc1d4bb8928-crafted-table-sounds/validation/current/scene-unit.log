@@ -1,0 +1,159 @@
+bun test v1.4.4 (38afee6c8)
+
+apps/web/src/scene/touchGestures.test.ts:
+(pass) TouchGestureMachine single-touch arbitration > keeps movement at the slop boundary as a tap and starts drag just beyond it [0.66ms]
+(pass) TouchGestureMachine single-touch arbitration > does not turn a one-finger move on empty table into camera movement [0.05ms]
+(pass) TouchGestureMachine single-touch arbitration > distinguishes a delayed tap from a double tap within the window [0.07ms]
+(pass) TouchGestureMachine single-touch arbitration > flushes a prior tap when the next tap targets another entity [0.03ms]
+(pass) TouchGestureMachine long press > fires at 450 ms and only once [0.03ms]
+(pass) TouchGestureMachine long press > is cancelled by movement beyond slop [0.02ms]
+(pass) TouchGestureMachine long press > is cancelled by a second finger [0.25ms]
+(pass) TouchGestureMachine long press > does not fire after an up before the threshold [0.06ms]
+(pass) TouchGestureMachine multi-touch arbitration > cancels an active object drag when the second finger arrives [0.05ms]
+(pass) TouchGestureMachine multi-touch arbitration > classifies changing separation as pinch and parallel motion as pan [0.44ms]
+(pass) TouchGestureMachine cancellation cleanup > cleans up idle, dragging, pending-tap, and multi-touch states [0.23ms]
+(pass) TouchGestureMachine cancellation cleanup > treats lost-capture abort equivalently from the public abort path [0.02ms]
+(pass) TouchGestureMachine cancellation cleanup > ignores non-touch pointer input [0.02ms]
+
+apps/web/src/scene/pieceArtwork.test.ts:
+(pass) a face-down surface contains no authored identity, label or color on either side [0.47ms]
+(pass) standard faces require both the explicitly authored identity and the matching label [0.23ms]
+(pass) a rendered standard die shows the actual result on top and physically consistent opposite faces [0.26ms]
+(pass) custom dice preserve their authored result rather than acquiring invented pips [0.43ms]
+(pass) an empty deck is a thin empty placeholder and never displays fictional paper layers [0.18ms]
+(pass) the face-list changes the renderer signature even when the current die value is unchanged [0.08ms]
+(pass) raster artwork paints the correct number of card suits and die pips [1.34ms]
+(pass) spatial counters paint their actual value on the chip and retain the entity hit target [0.36ms]
+(pass) a power-of-two resized WebGL texture retains the full card layout instead of clustering pips at the top [0.12ms]
+(pass) all artwork variants can be painted with browser Canvas2D operations [15.55ms]
+
+apps/web/src/scene/sceneInteraction.test.ts:
+(pass) async adapter picking preserves gesture thresholds > resolves the target before starting the long-press clock [0.36ms]
+(pass) async adapter picking preserves gesture thresholds > uses an async-picked entity for drag without changing the move threshold [0.19ms]
+(pass) async adapter picking preserves gesture thresholds > ignores cancellation after a completed tap so double-tap remains pending [0.33ms]
+(pass) async adapter picking preserves gesture thresholds > cancels an active dragging pointer [0.14ms]
+(pass) hover picker > coalesces rapid requests to the latest point and ignores results after disposal [0.57ms]
+(pass) right-click picking produces a context request without choosing a primary action [0.20ms]
+
+apps/web/src/scene/piecePresentation.test.ts:
+(pass) semantic tabletop objects get distinct silhouettes and restrained materials [0.08ms]
+(pass) seat-owned counters and runners share a stable palette [0.10ms]
+(pass) signatures include presentation-changing snap occupancy [0.03ms]
+(pass) live status belongs in the readable HUD rather than a cropped projected duplicate [0.02ms]
+
+apps/web/src/scene/dragBehavior.test.ts:
+(pass) intersectRayWithHorizontalPlaneToRef > finds the expected point on a table-parallel plane [0.07ms]
+(pass) intersectRayWithHorizontalPlaneToRef > rejects a ray parallel to the plane [0.03ms]
+(pass) intersectRayWithHorizontalPlaneToRef > rejects an intersection behind the ray origin [0.01ms]
+
+apps/web/src/scene/tableCameraFraming.test.ts:
+(pass) narrow initial framing includes the actual deck and played card at readable scale [0.31ms]
+(pass) a broad board and dice with physical score tokens fit on a phone [0.12ms]
+(pass) desktop/tablet framing remains familiar and empty/loading frames are finite [0.03ms]
+(pass) manual pan/zoom/drag ownership survives scene updates and viewport resize until Reset [0.11ms]
+(pass) logical counters, private hand containers and hidden status cannot pull camera bounds [0.13ms]
+(pass) authored rotation and scale are included in world bounds without changing the entity [0.04ms]
+
+apps/web/src/scene/sceneAdapter.contract.webgl.test.ts:
+BJS - [16:02:16]: Babylon.js v7.54.3 - Null engine
+(pass) WebGL keeps the table graph while adapting costly effects for ANGLE (Google, Vulkan SwiftShader Device (Subzero)) [28.94ms]
+BJS - [16:02:16]: Babylon.js v7.54.3 - Null engine
+(pass) WebGL keeps the table graph while adapting costly effects for llvmpipe (LLVM 15.0, 256 bits) [7.16ms]
+BJS - [16:02:16]: Babylon.js v7.54.3 - Null engine
+(pass) WebGL keeps the table graph while adapting costly effects for AMD Radeon RX 6800 [9.84ms]
+BJS - [16:02:16]: Babylon.js v7.54.3 - Null engine
+(pass) SceneAdapter contract (webgl) > omits logical counters without transforms and retains authored spatial score tokens [26.21ms]
+BJS - [16:02:16]: Babylon.js v7.54.3 - Null engine
+(pass) SceneAdapter contract (webgl) > retains a person's pan and zoom across state updates and resize until camera reset [9.06ms]
+BJS - [16:02:16]: Babylon.js v7.54.3 - Null engine
+(pass) SceneAdapter contract (webgl) > syncs create/update/recreate/remove and resolves pick hit/miss [20.11ms]
+BJS - [16:02:16]: Babylon.js v7.54.3 - Null engine
+(pass) SceneAdapter contract (webgl) > routes touch drag through canonical grab/drop payloads [15.08ms]
+BJS - [16:02:16]: Babylon.js v7.54.3 - Null engine
+(pass) SceneAdapter contract (webgl) > does not expose or start dragging without an action sender [6.32ms]
+BJS - [16:02:16]: Babylon.js v7.54.3 - Null engine
+(pass) SceneAdapter contract (webgl) > does not expose remotely held or locked pieces as grabbable [7.04ms]
+BJS - [16:02:16]: Babylon.js v7.54.3 - Null engine
+(pass) SceneAdapter contract (webgl) > projects canvas points to the table plane and rejects off-canvas points [2.34ms]
+BJS - [16:02:16]: Babylon.js v7.54.3 - Null engine
+(pass) SceneAdapter contract (webgl) > hides contained pieces and hands while rendering a pickable deck pile count [3.77ms]
+BJS - [16:02:16]: Babylon.js v7.54.3 - Null engine
+(pass) SceneAdapter contract (webgl) > applies the adapter's documented hover/selected/held highlight affordances [4.36ms]
+BJS - [16:02:16]: Babylon.js v7.54.3 - Null engine
+(pass) SceneAdapter contract (webgl) > keeps held and locked highlights on multiple pieces [13.56ms]
+BJS - [16:02:16]: Babylon.js v7.54.3 - Null engine
+(pass) SceneAdapter contract (webgl) > eases corrections to the target over 180 ms [4.50ms]
+BJS - [16:02:16]: Babylon.js v7.54.3 - Null engine
+(pass) SceneAdapter contract (webgl) > keeps camera ownership shared, cancels a paused drag, and disposes cleanly [4.15ms]
+
+apps/web/src/scene/dragActions.test.ts:
+(pass) shared desktop and touch drag callbacks preserve grab/drop payloads [0.15ms]
+(pass) shared drag callbacks suppress canonical actions while paused [0.04ms]
+(pass) a held rotation override is included in the canonical drop [0.06ms]
+
+apps/web/src/scene/desktopControls.test.ts:
+(pass) Tabletop Simulator-style desktop controls > an async LMB pick claims the current pointer position and drops on release [0.20ms]
+(pass) Tabletop Simulator-style desktop controls > RMB drag orbits while a stationary RMB click requests context [0.04ms]
+(pass) Tabletop Simulator-style desktop controls > MMB pans and cancel rolls an active object gesture back [0.13ms]
+
+apps/web/src/scene/pieceGeometry.test.ts:
+(pass) rounded geometry follows the installed Babylon builder winding while keeping outward normals [1.39ms]
+(pass) rounded dice retain dimensions, smooth outward normals and a closed visible silhouette [8.29ms]
+(pass) thin cards and full decks retain rounded paper corners without inverted faces [2.42ms]
+
+apps/web/src/scene/sceneAdapter.contract.test.ts:
+(pass) SceneAdapter contract (lite) > omits logical counters without transforms and retains authored spatial score tokens [3.50ms]
+(pass) SceneAdapter contract (lite) > retains a person's pan and zoom across state updates and resize until camera reset [1.93ms]
+(pass) SceneAdapter contract (lite) > syncs create/update/recreate/remove and resolves pick hit/miss [4.24ms]
+(pass) SceneAdapter contract (lite) > routes touch drag through canonical grab/drop payloads [1.35ms]
+(pass) SceneAdapter contract (lite) > does not expose or start dragging without an action sender [1.92ms]
+(pass) SceneAdapter contract (lite) > does not expose remotely held or locked pieces as grabbable [1.00ms]
+(pass) SceneAdapter contract (lite) > projects canvas points to the table plane and rejects off-canvas points [0.15ms]
+(pass) SceneAdapter contract (lite) > hides contained pieces and hands while rendering a pickable deck pile count [1.04ms]
+(pass) SceneAdapter contract (lite) > applies the adapter's documented hover/selected/held highlight affordances [0.98ms]
+(pass) SceneAdapter contract (lite) > keeps held and locked highlights on multiple pieces [0.87ms]
+(pass) SceneAdapter contract (lite) > eases corrections to the target over 180 ms [1.05ms]
+(pass) SceneAdapter contract (lite) > keeps camera ownership shared, cancels a paused drag, and disposes cleanly [0.96ms]
+(pass) real Lite SceneAdapter contract through a thin engine mock > keeps card, pip and painted score faces on their physical pieces while the camera orbits [2.06ms]
+(pass) real Lite SceneAdapter contract through a thin engine mock > creates, updates, recreates, removes, and picks real adapter pieces [3.61ms]
+(pass) real Lite SceneAdapter contract through a thin engine mock > eases new pieces into place and gives drops a short landing pulse [0.78ms]
+(pass) real Lite SceneAdapter contract through a thin engine mock > routes touch drag through the real adapter with canonical grab/drop payloads [1.23ms]
+(pass) real Lite SceneAdapter contract through a thin engine mock > does not expose grabbability or begin a drag without sendAction [0.77ms]
+(pass) real Lite SceneAdapter contract through a thin engine mock > updates emissive highlights and restores black when cleared [0.82ms]
+(pass) real Lite SceneAdapter contract through a thin engine mock > eases corrections to the target over 180 ms [1.03ms]
+(pass) real Lite SceneAdapter contract through a thin engine mock > disposes controls, picker, engine, scene, and adapter pieces [0.83ms]
+
+apps/web/src/scene/rendererPolicy.test.ts:
+(pass) device pixel ratio is normalized and clamped to two [0.06ms]
+(pass) renderer override parsing accepts only supported adapter names [0.20ms]
+(pass) renderer adapter selection covers WebGPU availability and overrides [0.09ms]
+
+apps/web/src/scene/mountSceneAdapter.test.ts:
+(pass) a Lite mount failure disposes the failed adapter and mounts WebGL [0.47ms]
+(pass) a WebGL mount failure is surfaced without attempting another adapter [0.11ms]
+(pass) a stalled GPU acquisition falls back and cleans up resources that arrive late [5.48ms]
+(pass) a stalled fallback renderer is disposed and surfaced instead of leaving an endless loading state [5.39ms]
+
+apps/web/src/scene/liteContactShadow.test.ts:
+(pass) a yawed shadow remains flat on the table in Lite's quaternion order [0.10ms]
+
+apps/web/src/scene/interactionMath.test.ts:
+(pass) held-object quarter turns compose into a stable half turn [0.15ms]
+(pass) held-object flip rotates 180 degrees around its local X axis [0.03ms]
+
+apps/web/src/scene/rendererTier.test.ts:
+(pass) renderer tier: unknown desktop profile [0.09ms]
+(pass) renderer tier: typical desktop
+(pass) renderer tier: memory-constrained desktop
+(pass) renderer tier: CPU-constrained desktop
+(pass) renderer tier: budget Android phone
+(pass) renderer tier: mobile UA fallback
+(pass) renderer tier: recent Android phone
+(pass) renderer tier: older iOS Safari without deviceMemory
+(pass) renderer tier: newer iOS Safari without deviceMemory
+(pass) renderer tier: invalid hints
+
+ 106 pass
+ 0 fail
+ 6163 expect() calls
+Ran 106 tests across 16 files. [337.00ms]

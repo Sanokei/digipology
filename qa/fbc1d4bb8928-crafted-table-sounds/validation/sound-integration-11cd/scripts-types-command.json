@@ -1,0 +1,12 @@
+{
+  "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2",
+  "command": [
+    "bun",
+    "x",
+    "tsc",
+    "-p",
+    "scripts"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 2.61
+}

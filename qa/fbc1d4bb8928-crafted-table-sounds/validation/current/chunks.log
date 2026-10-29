@@ -1,0 +1,4 @@
+$ bun run scripts/check-chunks.ts
+babylon-vendor-DQswyUNW.js: 1505510 raw bytes, 346658 gzip bytes
+babylon-lite-vendor-CS4f97_W.js: 176707 raw bytes, 56500 gzip bytes
+Babylon vendor chunks are isolated.

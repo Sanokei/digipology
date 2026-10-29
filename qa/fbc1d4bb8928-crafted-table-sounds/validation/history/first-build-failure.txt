@@ -1,0 +1,1 @@
+First builder run completed acquisition/mastering/strict bundle validation, then Bun fs.cp with errorOnExist:true rejected the newly created destination directory (EEXIST). The builder removed only its own newly created output; previous outputs were not overwritten. Fixed by copying each verified child into the newly created empty output directory.

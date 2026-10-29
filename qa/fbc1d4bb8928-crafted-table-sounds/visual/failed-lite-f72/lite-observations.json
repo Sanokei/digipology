@@ -1,0 +1,54 @@
+{
+  "sourceRef": "f72af1d637e3a112950be58bce5aca5558d4a731",
+  "origin": "http://127.0.0.1:8787",
+  "candidates": [
+    {
+      "candidate": "unsafe-webgpu-swiftshader",
+      "args": [
+        "--enable-unsafe-webgpu",
+        "--use-angle=swiftshader"
+      ],
+      "available": true,
+      "info": {
+        "vendor": "google",
+        "architecture": "swiftshader",
+        "description": "",
+        "isFallbackAdapter": true
+      },
+      "mounted": "Renderer: lite (override)",
+      "error": "Error: expect(locator).toHaveText(expected) failed\n\nLocator: getByRole('menu', { name: 'Object actions', exact: true }).locator('header strong')\nExpected: \"7 of Diamonds\"\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toHaveText\" getByRole('menu', { name: 'Object actions', exact: true }).locator('header strong') with timeout 5000ms\n  - waiting for getByRole('menu', { name: 'Object actions', exact: true }).locator('header strong')\n",
+      "errors": [
+        "Failed to execute 'mapAsync' on 'GPUBuffer': A valid external Instance reference no longer exists."
+      ],
+      "warnings": [
+        "A valid external Instance reference no longer exists."
+      ]
+    },
+    {
+      "candidate": "vulkan-swiftshader",
+      "args": [
+        "--enable-unsafe-webgpu",
+        "--use-angle=swiftshader",
+        "--enable-features=Vulkan",
+        "--use-vulkan=swiftshader"
+      ],
+      "available": true,
+      "info": {
+        "vendor": "google",
+        "architecture": "swiftshader",
+        "description": "",
+        "isFallbackAdapter": true
+      },
+      "mounted": "Renderer: lite (override)",
+      "checks": [
+        "actual mounted Lite",
+        "desktop and narrow card/deck/die frames",
+        "root picking and face flip",
+        "concealed generic back",
+        "guest cannot see owner Queen of Clubs"
+      ],
+      "errors": [],
+      "warnings": []
+    }
+  ]
+}
