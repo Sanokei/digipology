@@ -217,3 +217,45 @@ test("blank replacements retain selected originals and retry only artwork; inter
   expect(gameCalls).toBe(1);
   await writeFile(info.outputPath("recovery.json"), JSON.stringify({ fixtureScope: "Controlled blank raster + lost HTTP reply after real local R2 write; not live generation", selectedOriginal: before.artworkGeneration!.jobs.cardBack, failedAttempt: failed.artworkGeneration!.jobs.cardBack, recovered: recovered.artworkGeneration!.jobs.cardBack, completedCoverReused: dropped!.assetId, gameRequests: gameCalls }, null, 2));
 });
+
+test("browser quota failure keeps prepared artwork downloadable and saves it without another provider operation", async ({ page }, info) => {
+  test.setTimeout(150_000); await signIn(page);
+  let imageCalls = 0, gameCalls = 0;
+  page.on("request", (request) => { const path = new URL(request.url()).pathname; if (path === "/api/ai/artwork" && request.method() === "POST") imageCalls++; if (path === "/api/ai/games" && request.method() === "POST") gameCalls++; });
+  await page.route("**/api/ai/artwork", async (route) => {
+    if (route.request().postDataJSON().purpose !== "card-back") return route.continue();
+    const response = await route.fetch();
+    await page.evaluate(() => {
+      const original = Storage.prototype.setItem;
+      (window as unknown as { restoreArtStorage(): void }).restoreArtStorage = () => { Storage.prototype.setItem = original; };
+      Storage.prototype.setItem = function(key: string, value: string) {
+        if (key.startsWith("dgp.editor.draft.") && JSON.parse(value).artworkGeneration?.jobs.cardBack.status === "ready") throw new DOMException("Controlled browser quota failure", "QuotaExceededError");
+        return original.call(this, key, value);
+      };
+    });
+    await route.fulfill({ response });
+  });
+  const accepted = await create(page, "[raster-cards-fixture] Exercise prepared artwork storage recovery.");
+  const dialog = await openArtwork(page, accepted.draft.title);
+  const back = dialog.locator('[data-art-purpose="card-back"]');
+  await expect(back).toContainText("Needs saving", { timeout: 30_000 });
+  await expect(dialog.getByText(/browser storage could not save it/)).toBeVisible();
+  const bytes = await download(page, info, "unsaved-prepared-artwork.editor.json", () => dialog.getByRole("button", { name: "Download editable draft", exact: true }).click());
+  const backup = JSON.parse(Buffer.from(bytes).toString("utf8"));
+  expect(backup.artworkGeneration.jobs.cardBack.failureKind).toBe("storage");
+  expect(backup.artworkGeneration.jobs.cardBack.selectedAssetId).toBe(backup.artworkGeneration.jobs.cardBack.assetId);
+  expect(backup.bundle.files.some((file: { path: string }) => file.path === BACK)).toBe(true);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await dialog.getByRole("button", { name: "Retry saving draft", exact: true }).scrollIntoViewIfNeeded();
+  await capture(page, info, "artwork-storage-recovery-390.png");
+  expect(imageCalls).toBe(2); expect(gameCalls).toBe(1);
+  await page.evaluate(() => (window as unknown as { restoreArtStorage(): void }).restoreArtStorage());
+  await dialog.getByRole("button", { name: "Retry saving draft", exact: true }).click(); await finished(page);
+  expect(imageCalls).toBe(2); expect(gameCalls).toBe(1);
+  const recovered = await saved(page);
+  expect(recovered.bundle.files.find((file) => file.path === BACK)).toEqual(backup.bundle.files.find((file: { path: string }) => file.path === BACK));
+  expect(recovered.artworkGeneration!.jobs.cardBack.assetId).toBe(backup.artworkGeneration.jobs.cardBack.assetId);
+  await page.keyboard.press("Escape"); await page.reload(); await ready(page);
+  await expect(page.locator("[data-card-back-state]")).toHaveAttribute("data-card-back-state", "ready");
+  await capture(page, info, "artwork-storage-recovered-390.png");
+});
