@@ -23,6 +23,7 @@
 .artwork-dialog footer { flex-shrink:0; display:flex; flex-wrap:wrap; gap:9px; padding:14px 24px 24px; background:#faf7ee; }
 .artwork-status,.artwork-error { margin:0 24px 18px; font-size:.82rem; line-height:1.6; }
 .artwork-error { color:#963b27; }
+.artwork-dialog > .artwork-status,.artwork-dialog > .artwork-error { flex-shrink:0; margin-top:16px; }
 .draft-artwork-thumb { display:block; width:34px; height:51px; border-radius:5px; object-fit:cover; }
 .draft-play-bar .draft-artwork-button { display:flex; align-items:center; gap:8px; }
 .artwork-credit { font-size:.8rem; line-height:1.6; color:var(--muted); }

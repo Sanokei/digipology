@@ -165,6 +165,7 @@ test("damaged saved artwork stays visible as a repair task and never silently pu
   await page.getByRole("button", { name: "Edit artwork", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("Replace it, or remove it");
   await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole("alert")).toBeInViewport();
   await page.screenshot({ path: testInfo.outputPath("artwork-corrupt-backup-recovery-narrow.png"), fullPage: true });
   await page.getByRole("button", { name: "Remove artwork", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);

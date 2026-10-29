@@ -57,6 +57,8 @@ export function ArtworkDialog({ title, artwork, onSave, onClose, onDownloadDraft
   }
   return <dialog ref={dialog} className="artwork-dialog" aria-labelledby={heading} onCancel={(event) => { event.preventDefault(); onClose(); }} onPointerDown={(event) => { if (event.target === event.currentTarget) { const r = event.currentTarget.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) onClose(); } }}>
     <header><div><p>Make it yours</p><h2 id={heading}>Artwork for {title}</h2></div><button type="button" aria-label="Close artwork" autoFocus onClick={onClose}>×</button></header>
+    {busy ? <p className="artwork-status" role="status">Preparing or saving artwork…</p> : null}
+    {error ? <p className="artwork-error" role="alert">{error}</p> : null}
     <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
       <div className="artwork-dialog__body">
       <div className="artwork-editor">
@@ -70,8 +72,6 @@ export function ArtworkDialog({ title, artwork, onSave, onClose, onDownloadDraft
           <label>Public source page<input type="url" maxLength={512} placeholder="https://…" value={credits.sourceUrl} onChange={(event) => setCredits({ ...credits, sourceUrl: event.currentTarget.value })} /></label>
         </div>
       </div>
-      {busy ? <p className="artwork-status" role="status">Preparing or saving artwork…</p> : null}
-      {error ? <p className="artwork-error" role="alert">{error}</p> : null}
       </div>
       <footer><button type="submit" disabled={busy || !selected || decodeFailed}>Save artwork</button>{onDownloadDraft && artwork ? <button type="button" disabled={busy} onClick={() => void save(true)}>Remove artwork</button> : null}<button type="button" disabled={busy || (!selected && !onDownloadDraft)} onClick={download}>{onDownloadDraft ? "Download draft" : "Save with credits"}</button></footer>
     </form>
