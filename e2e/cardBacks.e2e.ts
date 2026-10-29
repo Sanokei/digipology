@@ -57,7 +57,7 @@ test("different games retain their own raster backs through editor, private play
   await importEditor(page, authored, authored.id);
   const baseline = await download(page, info, "before-back.editor.json", () => menu(page, "Download editable draft"));
   await menu(page, "Card backs…"); let dialog = page.getByRole("dialog", { name: "Card backs for Card Back Workshop", exact: true });
-  await dialog.getByRole("button", { name: "Use game cover artwork", exact: true }).click();
+  await dialog.getByLabel("Image or saved artwork", { exact: true }).setInputFiles({ name: "explicit-fixture-card-back.artwork.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({ kind: "digipology-card-back", version: 1, artwork: original.artwork })) });
   await page.setViewportSize({ width: 390, height: 480 });
   await dialog.getByLabel("Public source page", { exact: true }).focus();
   await expect.poll(async () => {

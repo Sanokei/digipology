@@ -203,6 +203,32 @@ export class EditorStore {
     return true;
   }
 
+  /** Background job receipts are not user edits and must not consume Undo. */
+  updateArtworkMetadata(patch: Pick<EditorDraft, "artworkGeneration" | "generationReview">): void {
+    const selected = this.draft;
+    const sameImages = (draft: EditorDraft) =>
+      JSON.stringify(draft.artwork) === JSON.stringify(selected.artwork) &&
+      draft.bundle.files.find((file) => file.path === "runtime/presentation/card-back.json")?.contentHash ===
+        selected.bundle.files.find((file) => file.path === "runtime/presentation/card-back.json")?.contentHash &&
+      JSON.stringify(draft.artworkGeneration?.direction) === JSON.stringify(selected.artworkGeneration?.direction);
+    const update = (draft: EditorDraft): EditorDraft => {
+      if (!sameImages(draft)) return draft;
+      const next = structuredClone(draft);
+      if (patch.artworkGeneration) next.artworkGeneration = structuredClone(patch.artworkGeneration);
+      if (patch.generationReview?.manifestHash === next.bundle.integrity.manifestHash) next.generationReview = structuredClone(patch.generationReview);
+      return next;
+    };
+    // Keep receipts when undoing an unrelated rule edit, without attaching a
+    // review to another manifest or overwriting an older selected image.
+    this.past = this.past.map((frame) => ({ ...frame, draft: update(frame.draft) }));
+    this.future = this.future.map((frame) => ({ ...frame, draft: update(frame.draft) }));
+    if (this.coalesced) this.coalesced.frame.draft = update(this.coalesced.frame.draft);
+    this.draft = update(this.draft);
+    this.draft.updatedAt = this.now();
+    this.saveStatus = "saving";
+    this.publish(true);
+  }
+
   beginCoalescedSceneCommand(label: string): void {
     if (this.coalesced !== null) return;
     this.coalesced = {

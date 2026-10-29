@@ -1,6 +1,6 @@
 import type { CardBackDefinition } from "./cardBack";
 
-export interface BackImageSnapshot { status: "loading" | "ready" | "failed"; image: HTMLImageElement | null }
+export interface BackImageSnapshot { status: "loading" | "ready" | "failed" | "pending"; image: HTMLImageElement | null }
 type Listener = (snapshot: BackImageSnapshot) => void;
 interface Entry { definition: CardBackDefinition; listeners: Set<Listener>; snapshot: BackImageSnapshot; source: HTMLImageElement | null; generation: number }
 const entries = new Map<string, Entry>();
@@ -26,6 +26,7 @@ function start(entry: Entry) {
 
 /** One decoded image per game asset, shared by decks, concealed cards and inspection. */
 export function watchCardBackImage(definition: CardBackDefinition, listener: Listener): () => void {
+  if (definition.pending) { listener({ status: "pending", image: null }); return () => {}; }
   let entry = entries.get(definition.key);
   if (!entry) {
     entry = { definition, listeners: new Set(), snapshot: { status: "loading", image: null }, source: null, generation: 0 };

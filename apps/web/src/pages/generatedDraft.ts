@@ -8,6 +8,8 @@ import type { SavedRoomSession } from "../utils/roomSession";
 import { inviteUrlForCode } from "../utils/inviteUrl";
 import { generationRequest } from "./ruleSources";
 import { artworkBlob, verifyArtwork } from "../editor/state/artwork";
+import type { CanonicalGameState } from "digipology-kernel";
+import { normalizeGameArtDirection } from "digipology-protocol";
 
 export type DraftPublicationStage = "publication" | "artwork" | "table";
 export type DraftPublicationResult = Extract<ApiResult<SavedRoomSession>, { ok: true }>
@@ -28,6 +30,13 @@ export function createGeneratedDraft(response: AiGameDraftResponse, prompt: stri
   draft.generationReview = { manifestHash: draft.bundle.integrity.manifestHash,
     warnings: (response.qualityReport ?? []).filter((issue) => issue.severity === "warning").slice(0, 256).map((issue) => ({ code: issue.code.slice(0, 80), message: issue.message.slice(0, 2_000) })) };
   if (references.length) draft.generationRequest = generationRequest(prompt, references);
+  if (Object.prototype.hasOwnProperty.call(response, "artDirection")) {
+    const direction = response.artDirection == null ? null : normalizeGameArtDirection(response.artDirection);
+    if (response.artDirection != null && !direction) throw new TypeError("The returned art direction is unreadable; keep the accepted rules and retry artwork.");
+    const hasCards = Object.values((draft.bundle.initialSnapshot.state as CanonicalGameState).entities).some((entity) => entity.components.card || entity.components.deck);
+    draft.artworkGeneration = { version: 1, sourceManifestHash: draft.bundle.integrity.manifestHash, direction,
+      jobs: { cover: { status: "pending", revision: 0 }, cardBack: { status: hasCards ? "pending" : "not-needed", revision: 0 } } };
+  }
   return draft;
 }
 
@@ -65,7 +74,7 @@ export async function publishDraftAndHost(client: ApiClient, draft: EditorDraft,
     // A lost upload reply must reuse the committed image and its credit revision.
     const current = game.coverVersion == null ? null : await client.getCoverInfo(game.slug, game.coverVersion);
     if (!current?.ok || !current.value.artwork || hashValue(current.value.artwork) !== hashValue(draft.artwork.info)) {
-      const uploaded = await client.uploadCover(game.slug, artworkBlob(draft.artwork), draft.artwork.info.credits);
+      const uploaded = await client.uploadCover(game.slug, artworkBlob(draft.artwork), draft.artwork.info.credits, draft.artwork.info.generation);
       if (!uploaded.ok) return { ok: false, stage: "artwork", error: { ...uploaded.error, message: `Your game is published, but its artwork could not be saved. Retry to finish without publishing another copy. ${uploaded.error.message}` } };
     }
   }

@@ -34,7 +34,8 @@ test("a game-specific raster back survives release/backup round trips and undo w
   const damaged = JSON.parse(file.content); damaged.artwork.info.sha256 = `sha256:${"0".repeat(64)}`;
   expect(() => readCardBackArtwork(JSON.stringify(damaged))).toThrow("damaged");
   expect(cardBackForGame(edited.title, JSON.stringify(damaged))).toMatchObject({ issue: expect.stringContaining("damaged") });
-  expect(cardBackForGame("First Deal").src).not.toBe(cardBackForGame("Dice Dash").src);
+  expect(cardBackForGame("First Deal", null, "builtin_first_deal_2").src).not.toBe(cardBackForGame("Dice Dash", null, "builtin_dice_dash_3").src);
+  expect(cardBackForGame("First Deal", null, "custom_first_deal")).toMatchObject({ src: "", pending: true });
   expect(cardBackForGame(edited.title, file.content).src).toBe(artwork.dataUrl);
   store.dispose(); projection.dispose();
 });

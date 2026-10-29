@@ -16,6 +16,7 @@ import type { EditorDraft } from "./types";
 import { createScript, updateScript } from "./scripts";
 import { normalizeGenerationReview } from "./generationReview";
 import { normalizeDraftArtwork } from "./artwork";
+import { normalizeArtworkGeneration } from "digipology-protocol";
 
 export type EditorTemplateId = "blank" | "card" | "dice" | "zone";
 
@@ -357,6 +358,8 @@ export function normalizeEditorDraft(value: unknown): EditorDraft {
   const generationRequest = value.generationRequest === undefined ? null : validateCreateAiGameRequest(value.generationRequest);
   if (generationRequest && !generationRequest.ok) throw new TypeError(`Draft generation source is invalid: ${generationRequest.error.message}`);
   const artwork = normalizeDraftArtwork(value.artwork);
+  const artworkGeneration = value.artworkGeneration === undefined ? null : normalizeArtworkGeneration(value.artworkGeneration);
+  if (value.artworkGeneration !== undefined && !artworkGeneration) throw new TypeError("Draft artwork generation information is invalid.");
   return structuredClone({
     editorVersion: 1,
     id: strings.id,
@@ -371,6 +374,7 @@ export function normalizeEditorDraft(value: unknown): EditorDraft {
     ...(generationReview ? { generationReview } : {}),
     ...(generationRequest?.ok ? { generationRequest: generationRequest.value } : {}),
     ...(artwork ? { artwork } : {}),
+    ...(artworkGeneration ? { artworkGeneration } : {}),
   } satisfies EditorDraft);
 }
 

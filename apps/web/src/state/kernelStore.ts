@@ -138,6 +138,12 @@ export class KernelStore {
     this.publish({ ...this.current, players: players.map((player) => ({ ...player })) });
   }
 
+  /** A prepared draft back can arrive during play; no canonical/runtime reset. */
+  setCardBackBundle(content: string | null): void {
+    if (content === this.current.cardBackBundle) return;
+    this.publish({ ...this.current, cardBackBundle: content });
+  }
+
   loadRelease(bundle: ReleaseBundleDto): void {
     const initial = bundleSnapshot(bundle);
     this.scriptedRelease = snapshotRequiresScripts(initial);

@@ -55,7 +55,7 @@ export function CoverPicker({
     {game.coverVersion !== null ? <Link to={`/games/${encodeURIComponent(game.slug)}`}>View artwork & credits</Link> : null}
     {artworkOpen ? <ArtworkDialog title={game.title} onClose={() => setArtworkOpen(false)} onSave={async (artwork) => {
       if (artwork?.status !== "ready") throw new Error("Choose an image first.");
-      const result = await api.uploadCover(game.slug, artworkBlob(artwork), artwork.info.credits);
+      const result = await api.uploadCover(game.slug, artworkBlob(artwork), artwork.info.credits, artwork.info.generation);
       if (!result.ok) throw new Error(result.error.message);
       onUploaded();
     }} /> : null}

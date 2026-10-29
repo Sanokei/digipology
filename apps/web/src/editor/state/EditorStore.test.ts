@@ -30,6 +30,31 @@ describe("EditorStore", () => {
     expect(store.getSnapshot().future).toHaveLength(0);
   });
 
+  test("background artwork status preserves the user's Undo and only reviews its checked manifest", () => {
+    const draft = editorTestDraft();
+    delete draft.generationReview;
+    draft.artworkGeneration = { version: 1, sourceManifestHash: draft.bundle.integrity.manifestHash, direction: null,
+      jobs: { cover: { status: "pending", revision: 0 }, cardBack: { status: "not-needed", revision: 0 } } };
+    const store = new EditorStore(draft);
+    const originalHash = store.getSnapshot().bundle.integrity.manifestHash;
+    expect(store.applySceneCommand("Edit rule", (next) => { next.bundle.files.push({ path: "runtime/rules.md", content: "# Saved user rule edit", byteLength: 0, contentHash: "" }); })).toBe(true);
+    const artworkGeneration = structuredClone(draft.artworkGeneration);
+    artworkGeneration.jobs.cover.status = "failed";
+    artworkGeneration.jobs.cover.message = "Provider unavailable";
+    const generationReview = { manifestHash: store.getSnapshot().bundle.integrity.manifestHash, warnings: [] };
+    store.updateArtworkMetadata({ artworkGeneration, generationReview });
+    expect(store.getSnapshot().past).toHaveLength(1);
+    expect(store.getSnapshot().draft.generationReview?.manifestHash).toBe(generationReview.manifestHash);
+    store.undo();
+    expect(store.getSnapshot().bundle.integrity.manifestHash).toBe(originalHash);
+    expect(store.getSnapshot().draft.artworkGeneration?.jobs.cover.message).toBe("Provider unavailable");
+    expect(store.getSnapshot().draft.generationReview).toBeUndefined();
+    expect(store.getSnapshot().future).toHaveLength(1);
+    store.redo();
+    expect(store.getSnapshot().draft.generationReview?.manifestHash).toBe(generationReview.manifestHash);
+    store.dispose();
+  });
+
   test("coalesces begin, preview mutations, and commit into one history frame", () => {
     const store = new EditorStore(editorTestDraft());
     store.beginCoalescedSceneCommand("Scrub title");

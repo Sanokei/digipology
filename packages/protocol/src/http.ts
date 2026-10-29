@@ -1,5 +1,7 @@
 import { validateAiRuleSources, type AiRuleSource } from "./ai-rule-sources";
 export { validateAiRuleSources, AI_RULE_SOURCE_MAX_BYTES, AI_RULE_SOURCE_MAX_FILES, type AiRuleSource } from "./ai-rule-sources";
+export * from "./art-generation";
+import type { GameArtDirection } from "./art-generation";
 
 export const CSRF_HEADER = "X-Digipology-CSRF";
 export const UPLOAD_BODY_LIMIT = 1024 * 1024;
@@ -300,6 +302,7 @@ export interface AiGameDraftResponse {
   draft: ReleaseBundleDto;
   /** Authored creator metadata; not part of the immutable game snapshot. */
   tagline?: string;
+  artDirection?: GameArtDirection | null;
   validationReport: UploadValidationReportItem[];
   telemetry: StructuredTaskTelemetryDto;
   qualityReport?: Array<{ code: string; message: string; severity: "error" | "warning" }>;

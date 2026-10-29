@@ -2,6 +2,15 @@ import { expect, test } from "bun:test";
 import { cardBackForGame } from "./cardBack";
 import { retryCardBackImage, watchCardBackImage } from "./cardBackImages";
 
+test("a created game cannot inherit a demo cover by name or start a fake loading request", () => {
+  const pending = cardBackForGame("First Deal", null, "draft_new_first_deal");
+  expect(pending).toMatchObject({ pending: true, src: "" });
+  const states: string[] = [];
+  const release = watchCardBackImage(pending, (value) => states.push(value.status));
+  retryCardBackImage(pending); release();
+  expect(states).toEqual(["pending"]);
+});
+
 test("shared image loading retries a failed asset and drops late callbacks after its final consumer leaves", () => {
   const original = Object.getOwnPropertyDescriptor(globalThis, "Image");
   const created: FakeImage[] = [];
@@ -14,7 +23,7 @@ test("shared image loading retries a failed asset and drops late callbacks after
   const first: string[] = [], second: string[] = [];
   let a: (() => void) | undefined, b: (() => void) | undefined;
   try {
-    const back = cardBackForGame("First Deal");
+    const back = cardBackForGame("First Deal", null, "builtin_first_deal_2");
     a = watchCardBackImage(back, (state) => first.push(state.status));
     b = watchCardBackImage(back, (state) => second.push(state.status));
     expect(created).toHaveLength(1); created[0]!.onerror!();

@@ -17,7 +17,7 @@ console.log(unconfigured
 const config = {
   name: "digipology-e2e", main: join(root, "apps/worker/src/index.ts"),
   compatibility_date: "2026-08-13", compatibility_flags: ["nodejs_compat"],
-  vars: { PUBLIC_ORIGIN: "http://127.0.0.1:8797", AI_BASE_URL: unconfigured ? "" : "http://127.0.0.1:8795/v1", AI_MODEL: unconfigured ? "" : "deterministic-test-fixture", AI_QUALITY_BASE_URL: "http://127.0.0.1:8796", EMAIL_FROM: "local@example.invalid" },
+  vars: { PUBLIC_ORIGIN: "http://127.0.0.1:8797", AI_BASE_URL: unconfigured ? "" : "http://127.0.0.1:8795/v1", AI_MODEL: unconfigured ? "" : "deterministic-test-fixture", AI_IMAGE_BASE_URL: unconfigured ? "" : "http://127.0.0.1:8795/v1", AI_IMAGE_MODEL: unconfigured ? "" : "deterministic-raster-fixture", AI_QUALITY_BASE_URL: "http://127.0.0.1:8796", EMAIL_FROM: "local@example.invalid" },
   d1_databases: [{ binding: "DB", database_name: "digipology", database_id: "00000000-0000-0000-0000-000000000001", migrations_dir: join(root, "apps/worker/migrations") }],
   r2_buckets: [{ binding: "RELEASES", bucket_name: "digipology-e2e" }],
   durable_objects: { bindings: [{ name: "ROOM", class_name: "RoomDO" }] },

@@ -2,15 +2,16 @@ import { canonicalStringify } from "digipology-canonical-json";
 import type { CanonicalGameState } from "digipology-kernel";
 import type { ReleaseBundleDto } from "digipology-protocol/http";
 
-export function authoringFromBundle(bundle: ReleaseBundleDto): Record<string, unknown> {
+export function authoringFromBundle(bundle: ReleaseBundleDto, omitPresentation = false): Record<string, unknown> {
   const state = bundle.initialSnapshot.state as CanonicalGameState;
   return {
     title: bundle.title ?? "Untitled game",
     tagline: "",
+    artDirection: null,
     interactionMode: bundle.interactionMode,
     minPlayers: bundle.minPlayers,
     maxPlayers: bundle.maxPlayers,
-    files: bundle.files.map(({ path, content }) => ({ path, content })),
+    files: bundle.files.filter((file) => !omitPresentation || !file.path.startsWith("runtime/presentation/")).map(({ path, content }) => ({ path, content })),
     settings: Object.keys(state.settings).sort().map((key) => {
       const value = state.settings[key]!;
       return {

@@ -1,6 +1,11 @@
 import type {
   ApiError,
   AiRuleSource,
+  ArtDirectionRequest,
+  GameArtDirection,
+  DraftArtRequest,
+  GeneratedArtwork,
+  ArtworkDraftReview,
   ApiResult,
   AiGameDraftResponse,
   CreateGameRequest,
@@ -50,7 +55,10 @@ export interface ApiClient {
   createAiGame(prompt: string, references?: AiRuleSource[]): Promise<ApiResult<AiGameDraftResponse>>;
   editAiGame(slug: string, instruction: string, references?: AiRuleSource[]): Promise<ApiResult<AiGameDraftResponse>>;
   generateCovers(slug: string): Promise<ApiResult<GenerateCoversResponse>>;
-  uploadCover(slug: string, image: Blob, credits?: import("digipology-protocol").ArtworkCredits): Promise<ApiResult<CoverUploadResponse>>;
+  generateArtDirection(input: ArtDirectionRequest): Promise<ApiResult<GameArtDirection>>;
+  generateDraftArtwork(input: DraftArtRequest): Promise<ApiResult<GeneratedArtwork>>;
+  reviewArtworkDraft(bundle: ReleaseBundleDto): Promise<ApiResult<ArtworkDraftReview>>;
+  uploadCover(slug: string, image: Blob, credits?: import("digipology-protocol").ArtworkCredits, generation?: import("digipology-protocol").ArtworkGenerationProvenance): Promise<ApiResult<CoverUploadResponse>>;
   getCoverInfo(slug: string, version: number): Promise<ApiResult<import("digipology-protocol").CoverInfoResponse>>;
   updateGameVisibility(slug: string, visibility: "public" | "unlisted"): Promise<ApiResult<UpdateGameResponse>>;
   createRoom(input: CreateRoomRequest): Promise<ApiResult<CreateRoomResponse>>;
@@ -144,9 +152,12 @@ export function createApiClient(fetcher: Fetcher = fetch): ApiClient {
     createAiGame: (prompt, references) => post("/api/ai/games", { prompt, ...(references?.length ? { references } : {}) }),
     editAiGame: (slug, instruction, references) => post(`/api/ai/games/${encodeURIComponent(slug)}/edit`, { instruction, ...(references?.length ? { references } : {}) }),
     generateCovers: (slug) => post(`/api/games/${encodeURIComponent(slug)}/covers/generate`),
-    uploadCover: (slug, image, credits) => request(`/api/games/${encodeURIComponent(slug)}/cover`, {
+    generateArtDirection: (input) => post("/api/ai/art-direction", input),
+    generateDraftArtwork: (input) => post("/api/ai/artwork", input),
+    reviewArtworkDraft: (bundle) => post("/api/ai/artwork/review", { bundle }),
+    uploadCover: (slug, image, credits, generation) => request(`/api/games/${encodeURIComponent(slug)}/cover`, {
       method: "POST",
-      headers: { "Content-Type": image.type || "application/octet-stream", ...(credits ? { "X-Digipology-Cover-Credits": encodeURIComponent(JSON.stringify(credits)) } : {}) },
+      headers: { "Content-Type": image.type || "application/octet-stream", ...(credits ? { "X-Digipology-Cover-Credits": encodeURIComponent(JSON.stringify(credits)) } : {}), ...(generation ? { "X-Digipology-Cover-Generation": encodeURIComponent(JSON.stringify(generation)) } : {}) },
       body: image,
     }),
     getCoverInfo: (slug, version) => request(`/api/games/${encodeURIComponent(slug)}/cover-info?v=${version}`),

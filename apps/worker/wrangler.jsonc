@@ -20,7 +20,11 @@
     "AI_MODEL": "",
     // Set an explicit endpoint and account-enabled model. Blank means unconfigured,
     // even if a key exists. See docs/runbooks/ai-provider.md; no implicit localhost.
-    "AI_BASE_URL": ""
+    "AI_BASE_URL": "",
+    // Raster jobs use an explicit account-enabled image model; no SVG/stock fallback.
+    // A blank image base reuses AI_BASE_URL when that service supports images/generations.
+    "AI_IMAGE_MODEL": "",
+    "AI_IMAGE_BASE_URL": ""
   },
   "d1_databases": [
     {

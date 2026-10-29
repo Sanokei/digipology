@@ -79,6 +79,22 @@ describe("AI game authoring schema and assembly", () => {
     expect(result.draft?.initialSnapshot.stateHash).toMatch(/^sha256:[0-9a-f]{64}$/);
   });
 
+  test("text edits preserve immutable presentation bytes while omitting them from model context", () => {
+    const source = structuredClone(builtinCatalog.getRelease("builtin_dice_dash_2")!.bundle);
+    const presentation = { path: "runtime/presentation/card-back.json", content: "selected raster bytes are private model context", byteLength: 0, contentHash: "" };
+    source.files.push(presentation);
+    const authored = authoringFromBundle(source, true);
+    expect(JSON.stringify(buildAiRequest({ AI_MODEL: "text-fixture" } as unknown as Env, "edit", "Change the winning score", source))).not.toContain(presentation.content);
+    (authored.files as Array<{ path: string; content: string }>).push({ path: presentation.path, content: "model tried to replace selected artwork" });
+    // Use server-computed file hashes, as real loaded releases do.
+    const baseline = assembleAiGameDraft(authoringFromBundle(source)).draft!;
+    const pinned = baseline.files.find((file) => file.path === presentation.path)!;
+    const edited = assembleAiGameDraft(authored, { presentationFiles: [pinned] });
+    expect(edited.report.every((item) => item.ok)).toBe(true);
+    expect(edited.draft?.files.filter((file) => file.path === presentation.path)).toEqual([pinned]);
+    expect(edited.draft?.initialSnapshot).toEqual(baseline.initialSnapshot);
+  });
+
   test("turns unregistered components and action references into typed checks", () => {
     const source = builtinCatalog.getRelease("builtin_dice_dash_2")!.bundle;
     const componentPayload = authoringFromBundle(source);

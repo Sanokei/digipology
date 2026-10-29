@@ -71,6 +71,8 @@ import {
   type AiGameDependencies,
 } from "./ai-games";
 import { handleCoverGeneration } from "./cover-generation";
+import { handleDraftArtwork, handleArtDirection, handleArtworkOriginal, handleArtworkReview, type ImageFetch } from "./draft-artwork";
+import { COVER_GENERATION_HEADER, normalizeArtworkGenerationProvenance } from "digipology-protocol";
 import { loadSnapshot, snapshotRequiresScripts, type GameSnapshot } from "digipology-kernel";
 
 const HTTP_BODY_LIMIT = 4 * 1024;
@@ -117,6 +119,7 @@ interface DevelopmentMagicLinkRow {
 
 export interface PlatformDependencies extends AiGameDependencies {
   now?: number;
+  imageFetch?: ImageFetch;
 }
 
 export async function handlePlatformRequest(
@@ -242,6 +245,21 @@ export async function handlePlatformRequest(
     if (session === null) return jsonError(401, "authentication_required", "Sign in to view your games");
     const response: MyGamesResponse = { games: await repositories.listOwnedGames(session.user.id) };
     return sessionResponse(response, session);
+  }
+
+  if (request.method === "POST" && ["/api/ai/artwork", "/api/ai/art-direction", "/api/ai/artwork/review"].includes(url.pathname)) {
+    const session = await requestSession(request, repositories, env, now);
+    if (!session) return jsonError(401, "authentication_required", "Sign in to create artwork for your game");
+    const context = { env, repositories, session, now, dependencies };
+    if (url.pathname === "/api/ai/art-direction") return handleArtDirection(request, context);
+    if (url.pathname === "/api/ai/artwork/review") return handleArtworkReview(request, context);
+    return handleDraftArtwork(request, context);
+  }
+  const originalArt = /^\/api\/ai\/artwork\/(art_[a-f0-9]{64})(\/receipt)?$/.exec(url.pathname);
+  if (request.method === "GET" && originalArt?.[1]) {
+    const session = await requestSession(request, repositories, env, now);
+    if (!session) return jsonError(401, "authentication_required", "Sign in to download your artwork original");
+    return handleArtworkOriginal(originalArt[1], !!originalArt[2], { env, repositories, session, now, dependencies });
   }
 
   const aiEditMatch = /^\/api\/ai\/games\/([^/]+)\/edit$/.exec(url.pathname);
@@ -438,7 +456,16 @@ export async function handlePlatformRequest(
       credits = normalizeArtworkCredits(raw ? JSON.parse(decodeURIComponent(raw)) : undefined);
     } catch { credits = null; }
     if (!credits) return jsonError(422, "invalid_cover_credits", "Use short artwork credits and a public HTTPS source page");
-    const info: RasterArtworkInfo = { formatVersion: 1, contentType: validation.contentType, width: validation.width, height: validation.height, sha256: coverByteHash(body.bytes), credits };
+    let generation: import("digipology-protocol").ArtworkGenerationProvenance | null = null;
+    const generationHeader = request.headers.get(COVER_GENERATION_HEADER);
+    if (generationHeader !== null) {
+      try {
+        if (generationHeader.length > 2048) throw new Error("metadata budget");
+        generation = normalizeArtworkGenerationProvenance(JSON.parse(decodeURIComponent(generationHeader)));
+      } catch { /* Return a bounded validation error below. */ }
+      if (!generation) return jsonError(422, "invalid_cover_generation", "The generated artwork information could not be read. Keep the draft and retry the image upload.");
+    }
+    const info: RasterArtworkInfo = { formatVersion: 1, contentType: validation.contentType, width: validation.width, height: validation.height, sha256: coverByteHash(body.bytes), credits, ...(generation ? { generation } : {}) };
     try {
       const coverVersion = await storeCover(env.DB, bucket, game.id, session.user.id, body.bytes, info, now);
       const response: CoverUploadResponse = { coverVersion };

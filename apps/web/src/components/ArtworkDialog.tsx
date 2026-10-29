@@ -4,10 +4,10 @@ import { artworkPackage, downloadBlob, EMPTY_CREDITS, prepareArtwork, verifyArtw
 import { cardBackPackage } from "../scene/cardBack";
 import "./artwork.css";
 
-export function ArtworkDialog({ title, artwork, onSave, onClose, onDownloadDraft, purpose = "cover", sourceArtwork }: {
+export function ArtworkDialog({ title, artwork, onSave, onClose, onDownloadDraft, purpose = "cover", allowRemove = true }: {
   title: string; artwork?: DraftArtwork; onSave(value: DraftArtwork | undefined): Promise<void>;
   onClose(): void; onDownloadDraft?(value: DraftArtwork | undefined): void;
-  purpose?: "cover" | "card-back"; sourceArtwork?: ReadyDraftArtwork;
+  purpose?: "cover" | "card-back"; allowRemove?: boolean;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const scrollBody = useRef<HTMLDivElement>(null);
@@ -84,7 +84,6 @@ export function ArtworkDialog({ title, artwork, onSave, onClose, onDownloadDraft
         <div className="artwork-preview">{selected ? <img src={selected.dataUrl} alt={`${title} artwork preview`} onError={() => { setDecodeFailed(true); setError("This saved image could not be decoded. Replace it, or remove it to publish."); }} /> : <p>Choose your {purpose === "card-back" ? "card-back" : "cover"} image</p>}
           {selected ? <small>{selected.info.width} × {selected.info.height} · {selected.info.contentType.replace("image/", "").toUpperCase()}</small> : null}</div>
         <div className="artwork-fields">
-          {sourceArtwork ? <button type="button" disabled={busy} onClick={() => { setSelected(sourceArtwork); setCredits(sourceArtwork.info.credits); setDecodeFailed(false); setError(null); }}>Use game cover artwork</button> : null}
           <label>Image or saved artwork<input type="file" accept="image/png,image/jpeg,image/webp,application/json,.json" disabled={busy} onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void choose(file); }} /></label>
           <p>{purpose === "card-back" ? "Keeps the full image inside the card." : "Fits a portrait crop."} Transparent areas use a cream background. PNG, JPEG or WebP, up to 8 MiB and 16 megapixels.</p>
           <label>Artist / credit<input maxLength={120} value={credits.artist} onChange={(event) => setCredits({ ...credits, artist: event.currentTarget.value })} /></label>
@@ -93,7 +92,7 @@ export function ArtworkDialog({ title, artwork, onSave, onClose, onDownloadDraft
         </div>
       </div>
       </div>
-      <footer><button type="submit" disabled={busy || !selected || decodeFailed}>{purpose === "card-back" ? "Use for card backs" : "Save artwork"}</button>{(onDownloadDraft || purpose === "card-back") && artwork ? <button type="button" disabled={busy} onClick={() => void save(true)}>Remove artwork</button> : null}<button type="button" disabled={busy || (!selected && !onDownloadDraft)} onClick={download}>{onDownloadDraft ? "Download draft" : "Save with credits"}</button></footer>
+      <footer><button type="submit" disabled={busy || !selected || decodeFailed}>{purpose === "card-back" ? "Use for card backs" : "Save artwork"}</button>{allowRemove && (onDownloadDraft || purpose === "card-back") && artwork ? <button type="button" disabled={busy} onClick={() => void save(true)}>Remove artwork</button> : null}<button type="button" disabled={busy || (!selected && !onDownloadDraft)} onClick={download}>{onDownloadDraft ? "Download draft" : "Save with credits"}</button></footer>
     </form>
   </dialog>;
 }

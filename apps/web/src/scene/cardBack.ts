@@ -10,6 +10,7 @@ export interface CardBackDefinition {
   readonly height: number;
   readonly credits?: ArtworkCredits;
   readonly issue?: string;
+  readonly pending?: true;
 }
 const parsed = new Map<string, ReadyDraftArtwork>();
 
@@ -37,7 +38,7 @@ export function cardBackPackage(artwork: ReadyDraftArtwork): string {
 }
 
 /** Public game branding only; this selection never sees a concealed card's identity. */
-export function cardBackForGame(title: string | null, content?: string | null): CardBackDefinition {
+export function cardBackForGame(title: string | null, content?: string | null, releaseId?: string | null): CardBackDefinition {
   const name = title?.trim() || "Your game";
   let issue: string | undefined;
   if (content) {
@@ -46,7 +47,9 @@ export function cardBackForGame(title: string | null, content?: string | null): 
       return { key: art.info.sha256, title: name, src: art.dataUrl, width: art.info.width, height: art.info.height, credits: art.info.credits };
     } catch (error) { issue = error instanceof Error ? error.message : "The card-back image could not be read."; }
   }
-  const known: Record<string, string> = { "first deal": "first-deal", "dice dash": "dice-dash", "zone runner": "zone-runner" };
-  const art = known[name.toLowerCase()] ?? "tabletop-world";
-  return { key: `builtin-back:${art}:1`, title: name, src: `/art/${art}.webp`, width: art === "tabletop-world" ? 1672 : 1024, height: art === "tabletop-world" ? 941 : 1536, ...(issue ? { issue } : {}) };
+  const known = [["builtin_first_deal_", "first-deal"], ["builtin_dice_dash_", "dice-dash"], ["builtin_zone_runner_", "zone-runner"]] as const;
+  const art = known.find(([prefix]) => releaseId?.startsWith(prefix))?.[1];
+  if (art) return { key: `builtin-back:${art}:1`, title: name, src: `/art/${art}.webp`, width: 1024, height: 1536, ...(issue ? { issue } : {}) };
+  // An unrelated sample poster is not artwork created for this game.
+  return { key: `pending-back:${name}`, title: name, src: "", width: 768, height: 1152, pending: true, ...(issue ? { issue } : {}) };
 }

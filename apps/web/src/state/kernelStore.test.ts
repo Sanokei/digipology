@@ -138,6 +138,27 @@ function predictionOrdered(
   };
 }
 
+it("replaces a live back without losing a private hand prediction or its later confirmation", () => {
+  const store = containedPredictionStore();
+  expect(store.predictLocal({ requestId: "held-card", action: grab("card"), predictedAtSequence: 0 }, "alice")).toBe(true);
+  const before = store.getSnapshot();
+  store.setCardBackBundle("prepared public card-back metadata");
+  const after = store.getSnapshot();
+  expect(after.cardBackBundle).toBe("prepared public card-back metadata");
+  expect(after.state).toBe(before.state);
+  expect(after.stateHash).toBe(before.stateHash);
+  expect(after.displayedState).toBe(before.displayedState);
+  expect(after.predictionLedger).toBe(before.predictionLedger);
+  expect(after.events).toBe(before.events);
+  expect(after.players).toBe(before.players);
+  expect(after.pendingRequestIds.has("held-card")).toBe(true);
+  expect(after.state!.entities.hand!.components.container!.items).toEqual(["card"]);
+  expect(store.applyOrdered(predictionOrdered(1, grab("card"), "alice", "held-card"))).toEqual({ ok: true });
+  expect(store.getSnapshot().state!.sequence).toBe(1);
+  expect(store.getSnapshot().state!.entities.card!.components.grabbable!.heldBy).toBe("alice");
+  expect(store.getSnapshot().pendingRequestIds.has("held-card")).toBe(false);
+});
+
 function grab(entityId: string): PredictionAction {
   return { type: "entity.grab", payload: { entityId } };
 }

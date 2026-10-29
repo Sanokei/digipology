@@ -53,7 +53,7 @@ export function TableScene({
 }: TableSceneProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const view = useKernelStore(store);
-  const cardBack = useMemo(() => cardBackForGame(view.gameTitle, view.cardBackBundle), [view.gameTitle, view.cardBackBundle]);
+  const cardBack = useMemo(() => cardBackForGame(view.gameTitle, view.cardBackBundle, view.state?.releaseId), [view.gameTitle, view.cardBackBundle, view.state?.releaseId]);
   const [contextMenu, setContextMenu] = useState<{ entityId: string; x: number; y: number } | null>(null);
   const [inspectedId, setInspectedId] = useState<string | null>(null);
   const [hover, setHover] = useState<TableHoverRequest | null>(null);

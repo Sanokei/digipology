@@ -67,7 +67,7 @@ function drawCardBack(ctx: CanvasRenderingContext2D, width: number, height: numb
   const rim = width * 0.035;
   const title = artwork.gameTitle?.trim() ?? "";
   ctx.font = "600 19px Manrope, sans-serif";
-  const caption = title.length > 0 && ctx.measureText(title).width <= width - rim * 2 ? title : "";
+  const caption = options.backImage === undefined && title.length > 0 && ctx.measureText(title).width <= width - rim * 2 ? title : "";
   // A deck's top card is the same printed back as every loose card. Counts
   // belong in the table controls/metadata and must never resize the artwork.
   const footer = caption ? 34 : 0;

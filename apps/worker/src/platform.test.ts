@@ -435,8 +435,9 @@ describe("uploaded game authorization", () => {
     expect(served.headers.get("X-Content-Type-Options")).toBe("nosniff");
     expect(Array.from(new Uint8Array(await served.arrayBuffer()))).toEqual(Array.from(minimalPng(336, 504)));
     const credits = { artist: "Créateur", license: "Original test artwork", sourceUrl: "https://example.com/artwork" };
+    const generation = { model: "explicit-image-fixture", promptHash: "sha256:" + "a".repeat(64), originalSha256: "sha256:" + "b".repeat(64), generatedAt: "2026-10-29T18:00:00.000Z" };
     const replace = () => handlePlatformRequest(new Request("https://play.digipology.com/api/games/community/cover", {
-      method: "POST", headers: { "X-Digipology-CSRF": "1", Cookie: owner.cookie, "Content-Type": "image/png", "X-Digipology-Cover-Credits": encodeURIComponent(JSON.stringify(credits)) },
+      method: "POST", headers: { "X-Digipology-CSRF": "1", Cookie: owner.cookie, "Content-Type": "image/png", "X-Digipology-Cover-Credits": encodeURIComponent(JSON.stringify(credits)), "X-Digipology-Cover-Generation": encodeURIComponent(JSON.stringify(generation)) },
       body: minimalPng(336, 504, [160, 80, 40, 255]).buffer as ArrayBuffer,
     }), owner.env);
     // Database failure rolls back the pointer/history, even after immutable bytes were staged.
@@ -454,7 +455,14 @@ describe("uploaded game authorization", () => {
     const old = await handlePlatformRequest(new Request("https://play.digipology.com/api/games/community/cover?v=1"), owner.env);
     expect(Array.from(new Uint8Array(await old.arrayBuffer()))).toEqual(Array.from(minimalPng(336, 504)));
     const info = await handlePlatformRequest(new Request("https://play.digipology.com/api/games/community/cover-info?v=2"), owner.env);
-    expect(await info.json()).toMatchObject({ coverVersion: 2, artwork: { contentType: "image/png", width: 336, height: 504, credits } });
+    expect(await info.json()).toMatchObject({ coverVersion: 2, artwork: { contentType: "image/png", width: 336, height: 504, credits, generation } });
+    const oldInfo = await handlePlatformRequest(new Request("https://play.digipology.com/api/games/community/cover-info?v=1"), owner.env);
+    expect((await oldInfo.json() as { artwork: { generation?: unknown } }).artwork.generation).toBeUndefined();
+    const invalidGeneration = await handlePlatformRequest(new Request("https://play.digipology.com/api/games/community/cover", {
+      method: "POST", headers: { "X-Digipology-CSRF": "1", Cookie: owner.cookie, "Content-Type": "image/png", "X-Digipology-Cover-Generation": "%bad" }, body: minimalPng(336, 504).buffer as ArrayBuffer,
+    }), owner.env);
+    expect(invalidGeneration.status).toBe(422);
+    expect(owner.db.query("SELECT COUNT(*) AS count FROM game_covers").get()).toEqual({ count: 2 });
     expect((await handlePlatformRequest(new Request("https://play.digipology.com/api/games/community/cover?v=999"), owner.env)).status).toBe(404);
   });
 

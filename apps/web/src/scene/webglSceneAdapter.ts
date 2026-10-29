@@ -483,7 +483,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       restingY,
       ...(appearance.kind !== "token"
         ? {
-            surfaces: addPieceSurfaces(mounted.scene, mesh, entity, appearance, definition, dependencies.createLabelTexture, cardBackForGame(currentView?.gameTitle ?? null, currentView?.cardBackBundle)),
+            surfaces: addPieceSurfaces(mounted.scene, mesh, entity, appearance, definition, dependencies.createLabelTexture, cardBackForGame(currentView?.gameTitle ?? null, currentView?.cardBackBundle, currentView?.state?.releaseId)),
             shadow: addContactShadow(mounted.scene, mesh, appearance, dependencies.createLabelTexture),
           }
         : appearance.label
@@ -579,7 +579,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
     syncEntities(view: KernelStoreSnapshot): void {
       currentView = view;
       const state = view.displayedState;
-      const back = cardBackForGame(view.gameTitle, view.cardBackBundle);
+      const back = cardBackForGame(view.gameTitle, view.cardBackBundle, view.state?.releaseId);
       const backSignature = `${back.key}:${back.title}`;
       const backChanged = backSignature !== lastBackSignature;
       const correctionId = view.correction?.id ?? null;

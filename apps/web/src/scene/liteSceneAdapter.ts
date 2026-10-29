@@ -470,7 +470,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
   } {
     const mounted = requireMounted(); const surfaceMeshes: Mesh[] = []; const surfaceTextures: DynamicTexture2D[] = [];
     for (const surface of pieceSurfaceLayout(entity, appearance, definition)) {
-      const back = cardBackForGame(currentView?.gameTitle ?? null, currentView?.cardBackBundle);
+      const back = cardBackForGame(currentView?.gameTitle ?? null, currentView?.cardBackBundle, currentView?.state?.releaseId);
       const artwork = surface.artwork.kind === "card-back" ? { ...surface.artwork, gameTitle: back.title } : surface.artwork;
       const texture = makeArtworkTexture(artwork, back, surface.paperShape); surfaceTextures.push(texture);
       const mat = createStandardMaterial(); mat.diffuseTexture = texture; mat.diffuseColor = [1, 1, 1];
@@ -765,7 +765,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
     syncEntities(view: KernelStoreSnapshot): void {
       currentView = view;
       const state = view.displayedState;
-      const back = cardBackForGame(view.gameTitle, view.cardBackBundle);
+      const back = cardBackForGame(view.gameTitle, view.cardBackBundle, view.state?.releaseId);
       const backSignature = `${back.key}:${back.title}`;
       const backChanged = backSignature !== lastBackSignature;
       const correctionId = view.correction?.id ?? null;

@@ -26,7 +26,7 @@ function recorder() {
   return { context, text, images, clips };
 }
 
-test("concealed bitmap backs use the stock mask and carry no count or generic monogram", () => {
+test("concealed bitmap backs use the stock mask without app-added tiny titles, counts or monograms", () => {
   const image = { width: 1024, height: 1536 } as unknown as CanvasImageSource;
   const shape = cardStockProfile(0.98, 0.012, 1.4).paperShape;
   const drawing = recorder();
@@ -34,11 +34,11 @@ test("concealed bitmap backs use the stock mask and carry no count or generic mo
   expect(drawing.images).toHaveLength(1);
   expect(drawing.images[0]?.[0]).toBe(image);
   expect(drawing.images[0]).toHaveLength(5); // whole image; no source-crop rectangle
-  expect(drawing.text).toEqual(["First Deal"]);
+  expect(drawing.text).toEqual([]);
   expect(drawing.clips[0]).toEqual([0, 0, 512, 736, { x: 512 * shape.radiusX, y: 736 * shape.radiusY }]);
 });
 
-test("every nonempty pile and loose card share the same image window and public title", () => {
+test("every nonempty pile and loose card share the exact full image window", () => {
   const image = { width: 1024, height: 1536 } as unknown as CanvasImageSource;
   const bounds: unknown[][] = [];
   for (const count of [52, 1, undefined]) {
@@ -47,11 +47,11 @@ test("every nonempty pile and loose card share the same image window and public 
     const rect = drawing.images[0]!;
     expect(rect[0]).toBe(image);
     bounds.push(rect);
-    expect(drawing.text).toEqual(["First Deal"]);
+    expect(drawing.text).toEqual([]);
   }
   expect(bounds[0]).toEqual(bounds[1]); expect(bounds[1]).toEqual(bounds[2]);
   const empty = recorder();
   drawPieceArtwork(empty.context, 512, 736, { kind: "card-back", gameTitle: "First Deal", count: 0 }, { backImage: image });
   expect(empty.images[0]).toEqual(bounds[0]);
-  expect(empty.text).toEqual(["First Deal", "EMPTY"]);
+  expect(empty.text).toEqual(["EMPTY"]);
 });

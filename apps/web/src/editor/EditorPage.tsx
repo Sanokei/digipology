@@ -11,6 +11,12 @@ import { SoundBundleDialog } from "./SoundBundleDialog";
 import { attachSoundBundle } from "./state/sounds";
 import { CardBackDialog } from "./CardBackDialog";
 import { attachCardBack } from "./state/cardBack";
+import { GameArtworkDialog } from "../artwork/GameArtworkDialog";
+import { useDraftArtworkGeneration } from "../artwork/useDraftArtworkGeneration";
+import { CARD_BACK_PATH } from "../scene/cardBack";
+import { useAuth } from "../auth/AuthContext";
+import { useLocation } from "react-router-dom";
+import { api } from "../api/client";
 import { CommitTextInput } from "./panels/common/PanelComponents";
 import { editableDraftBackup, saveDraftForReview } from "./publish";
 import { downloadBlob } from "./state/artwork";
@@ -56,6 +62,8 @@ export function EditorPage() {
   const landing = params.draftId === undefined;
   const draftId = params.draftId?.trim() || "untitled";
   const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
   const fileInput = useRef<HTMLInputElement>(null);
   const publishButton = useRef<HTMLButtonElement>(null);
   const layoutApi = useRef<EditorLayoutApi | null>(null);
@@ -67,6 +75,7 @@ export function EditorPage() {
   const [newDraftOpen, setNewDraftOpen] = useState(landing);
   const [soundsOpen, setSoundsOpen] = useState(false);
   const [backsOpen, setBacksOpen] = useState(false);
+  const [artworkOpen, setArtworkOpen] = useState(false);
   const store = useMemo(() => {
     const loaded = landing ? null : loadEditorDraft(localStorage, draftId);
     const draft = loaded ?? createEmptyEditorDraft(draftId);
@@ -78,6 +87,33 @@ export function EditorPage() {
     return editorStore;
   }, [draftId, landing]);
   const snapshot = useEditorSnapshot(store);
+  const artwork = useDraftArtworkGeneration({ draft: snapshot.draft, api, enabled: user !== null && !landing,
+    onDraftChange: (next, label) => {
+      // Merge presentation only; preserve concurrent scene/script changes.
+      const reviewMatches = next.generationReview?.manifestHash === store.getSnapshot().draft.bundle.integrity.manifestHash;
+      const prior = store.getSnapshot().draft;
+      const back = next.bundle.files.find((file) => file.path === CARD_BACK_PATH);
+      const changed = JSON.stringify(prior.artwork) !== JSON.stringify(next.artwork) ||
+        prior.bundle.files.find((file) => file.path === CARD_BACK_PATH)?.content !== back?.content ||
+        JSON.stringify(prior.artworkGeneration?.direction) !== JSON.stringify(next.artworkGeneration?.direction);
+      if (!changed) {
+        store.updateArtworkMetadata({ ...(next.artworkGeneration ? { artworkGeneration: next.artworkGeneration } : {}), ...(reviewMatches && next.generationReview ? { generationReview: next.generationReview } : {}) });
+        return;
+      }
+      const ok = store.applySceneCommand(label, (current) => {
+        if (next.artwork) current.artwork = next.artwork; else delete current.artwork;
+        if (next.artworkGeneration) current.artworkGeneration = next.artworkGeneration;
+        if (reviewMatches && next.generationReview) current.generationReview = next.generationReview;
+        const index = current.bundle.files.findIndex((file) => file.path === CARD_BACK_PATH);
+        if (back) { if (index < 0) current.bundle.files.push(back); else current.bundle.files[index] = back; }
+        else if (index >= 0) current.bundle.files.splice(index, 1);
+      });
+      if (!ok) throw new Error(store.getSnapshot().logs.at(-1)?.message ?? "Artwork could not be applied.");
+      const content = store.getSnapshot().draft.bundle.files.find((file) => file.path === CARD_BACK_PATH)?.content ?? null;
+      playtest.projection.setCardBackBundle(content);
+    },
+    persistDraft: () => saveEditorDraft(localStorage, store.getSnapshot().draft),
+  });
   useEffect(() => () => store.dispose(), [store]);
   useEffect(() => () => playtest.dispose(), [playtest]);
   useEffect(() => {
@@ -161,6 +197,7 @@ export function EditorPage() {
       { kind: "separator" },
       { kind: "action", label: "Import draft or bundle…", searchTerms: ["json file artwork backup"], onSelect: () => fileInput.current?.click() },
       { kind: "action", label: "Add sound bundle…", searchTerms: ["audio clips credits mastered import"], disabled: playtestSnapshot.status !== "stopped", onSelect: () => setSoundsOpen(true) },
+      { kind: "action", label: "Game artwork…", searchTerms: ["cover card backs generate image art direction briefs"], onSelect: () => setArtworkOpen(true) },
       { kind: "action", label: "Card backs…", searchTerms: ["deck image theme artwork credits"], disabled: playtestSnapshot.status !== "stopped", onSelect: () => setBacksOpen(true) },
       { kind: "action", label: "Download editable draft", shortcut: "Ctrl+S", searchTerms: ["save backup json artwork credits review"], onSelect: () => downloadDraft(store) },
       ...(snapshot.draft.generationRequest ? [{ kind: "action" as const, label: "Download generation request", searchTerms: ["original rules source documents prompt"], onSelect: () => downloadBlob(new Blob([JSON.stringify(snapshot.draft.generationRequest, null, 2)], { type: "application/json" }), "game-generation.request.json") }] : []),
@@ -188,7 +225,7 @@ export function EditorPage() {
     ],
   }), [newDraft, openDraft, playtest, playtestSnapshot.status, publish, snapshot.draft.generationRequest, snapshot.future.length, snapshot.past.length, snapshot.selectedEntityId, store]);
   return <div className="editor-shell">
-    <MenuBar actions={menuActions} status={<><span className={`editor-save-status is-${snapshot.saveStatus}`}>{snapshot.saveStatus === "saved" ? <Save size={13} /> : null}{snapshot.saveStatus}</span><span>{snapshot.draft.title}</span>{playtestSnapshot.status === "playing" ? <><button type="button" className="editor-transport-button" onClick={() => playtest.tick()}><Pause size={13} />Tick {playtestSnapshot.tick}</button><button type="button" className="editor-transport-button" onClick={() => playtest.stop()}><Square size={12} />Stop</button></> : <button type="button" className="editor-transport-button" disabled={playtestSnapshot.status === "starting"} onClick={() => { void playtest.start(store.getSnapshot().draft); }}><Play size={13} />{playtestSnapshot.status === "starting" ? "Starting" : "Play"}</button>}<button ref={publishButton} type="button" className="editor-publish-button" onClick={publish}><CloudUpload size={14} />Publish</button></>} />
+    <MenuBar actions={menuActions} status={<><span className={`editor-save-status is-${snapshot.saveStatus}`}>{snapshot.saveStatus === "saved" ? <Save size={13} /> : null}{snapshot.saveStatus}</span><span>{snapshot.draft.title}</span>{playtestSnapshot.status === "playing" ? <><button type="button" className="editor-transport-button" onClick={() => playtest.tick()}><Pause size={13} />Tick {playtestSnapshot.tick}</button><button type="button" className="editor-transport-button" onClick={() => playtest.stop()}><Square size={12} />Stop</button></> : <button type="button" className="editor-transport-button" disabled={playtestSnapshot.status === "starting"} onClick={() => { void playtest.start(store.getSnapshot().draft); }}><Play size={13} />{playtestSnapshot.status === "starting" ? "Starting" : "Play"}</button>}<button type="button" className="editor-transport-button" onClick={() => setArtworkOpen(true)}>{artwork.activity === "review" ? "Checking game…" : artwork.activity ? "Creating artwork…" : "Artwork"}</button><button ref={publishButton} type="button" className="editor-publish-button" onClick={publish}><CloudUpload size={14} />Publish</button></>} />
     <div className="editor-details-bar">
       <label>Title<CommitTextInput value={snapshot.draft.title} onCommit={(title) => store.updateDraftMetadata({ title })} /></label>
       <label>Tagline<CommitTextInput value={snapshot.draft.tagline} onCommit={(tagline) => store.updateDraftMetadata({ tagline })} /></label>
@@ -203,8 +240,19 @@ export function EditorPage() {
       <p role="alert">{reviewError}</p><div className="editor-recovery-actions"><button type="button" onClick={publish}>Retry opening review</button><button type="button" onClick={() => downloadDraft(store)}>Download editable draft</button></div>
     </ReadingDialog> : null}
     <EditorLayoutHost store={store} playtest={playtest} onReady={onLayoutReady} />
+    {artworkOpen ? <GameArtworkDialog draft={snapshot.draft} controller={artwork} canGenerate={user !== null}
+      onSignIn={() => navigate("/login", { state: { backgroundLocation: location } })}
+      onDownloadDraft={() => downloadDraft(store)} onClose={() => setArtworkOpen(false)} /> : null}
     {backsOpen ? <CardBackDialog draft={snapshot.draft} onClose={() => setBacksOpen(false)} onSave={(artwork) => {
-      const ok = store.applySceneCommand("Updated this game’s card backs", (draft) => attachCardBack(draft, artwork));
+      const ok = store.applySceneCommand("Updated this game’s card backs", (draft) => {
+        attachCardBack(draft, artwork);
+        if (draft.artworkGeneration) {
+          const job = draft.artworkGeneration.jobs.cardBack;
+          draft.artworkGeneration.jobs.cardBack = artwork
+            ? { status: "ready", revision: job.revision + 1, outputSha256: artwork.info.sha256 }
+            : { status: "failed", revision: job.revision + 1, message: "The card-back image was removed. Create or replace it when ready." };
+        }
+      });
       if (!ok) throw new Error(store.getSnapshot().logs.at(-1)?.message ?? "The card back could not be attached.");
     }} /> : null}
     {soundsOpen ? <SoundBundleDialog onClose={() => setSoundsOpen(false)} onSave={(content) => {
