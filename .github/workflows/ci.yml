@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      fixture_base:
+        description: "Base commit for preserving immutable replay fixtures"
+        required: true
+        type: string
 
 jobs:
   test:
@@ -14,13 +20,36 @@ jobs:
           fetch-depth: 0
       - name: Preserve frozen replay fixtures
         env:
-          FIXTURE_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          FIXTURE_BASE: ${{ inputs.fixture_base || github.event.pull_request.base.sha || github.event.before }}
         run: bash scripts/check-frozen-fixtures.sh "$FIXTURE_BASE"
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
       - run: bun install --frozen-lockfile
+      - name: Prepare audio processing
+        run: |
+          if ! command -v ffmpeg >/dev/null; then sudo apt-get update && sudo apt-get install -y ffmpeg; fi
       - run: bun run typecheck
       - run: bun test
       - name: Build site and check docs links
         run: bun run --filter digipology-site build
+      - name: Build the playable app
+        run: bun run --cwd apps/web build
+      - name: Verify isolated renderer bundles
+        run: bun run --cwd apps/web check-chunks
+      - name: Install browser
+        run: bunx --no-install playwright install --with-deps chromium
+      - name: Play full games in the browser
+        env:
+          E2E_SKIP_BUILD: "1"
+          WRANGLER_SEND_METRICS: "false"
+        run: bun run test:e2e
+      - name: Save browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-evidence
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 14

@@ -41,6 +41,7 @@ export interface CreatorScriptInvocationResult {
 export const LUA_STDLIB_VERSION = 1 as const;
 
 export interface CreatorScriptRuntimeOptions {
+  readonly wasmUri?: string;
   readonly scripts: Readonly<Record<string, string>>;
   readonly refs?: Readonly<Record<string, string>>;
   readonly definitions?: Readonly<Record<string, JsonValue>>;
@@ -649,6 +650,7 @@ function invocationEnvironment(
 export async function createCreatorScriptRuntime(options: CreatorScriptRuntimeOptions): Promise<CreatorScriptRuntime> {
   const sandbox = await createSandbox({
     instructionBudget: options.instructionBudget,
+    ...(options.wasmUri === undefined ? {} : { wasmUri: options.wasmUri }),
     ...(options.memoryBudgetBytes === undefined ? {} : { memoryBudgetBytes: options.memoryBudgetBytes }),
   });
   const scripts = Object.freeze({ ...options.scripts });

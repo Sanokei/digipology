@@ -10,10 +10,13 @@
     "dev": "bun run --cwd apps/web build && bun run --cwd apps/worker dev",
     "dev:web": "bun run --cwd apps/web dev",
     "dev:worker": "bun run --cwd apps/worker dev",
+    "dev:quality": "bun scripts/quality-server.ts",
     "test": "bun test",
-    "typecheck": "bun run --filter '*' typecheck && tsc -p scripts"
+    "typecheck": "bun run --filter '*' typecheck && tsc -p scripts && tsc -p e2e",
+    "test:e2e": "playwright test --config e2e/playwright.config.ts"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "typescript": "^5.7.0"
   }
 }

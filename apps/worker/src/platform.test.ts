@@ -18,8 +18,8 @@ describe("catalog routes", () => {
       games: Array<{ slug: string; currentPlayers: number; totalPlays: number; coverVersion: number | null }>;
     };
     expect(gamesBody.games.map((game) => game.slug)).toEqual(["first-deal", "dice-dash", "zone-runner"]);
-    expect(gamesBody.games[0]).toMatchObject({ currentPlayers: 0, totalPlays: 0, coverVersion: 3 });
-    expect(gamesBody.games.every((game) => game.coverVersion === 3)).toBe(true);
+    expect(gamesBody.games[0]).toMatchObject({ currentPlayers: 0, totalPlays: 0, coverVersion: 4 });
+    expect(gamesBody.games.every((game) => game.coverVersion === 4)).toBe(true);
 
     const gameResponse = await handlePlatformRequest(
       new Request("https://play.digipology.com/api/games/dice-dash"),
@@ -30,7 +30,7 @@ describe("catalog routes", () => {
       latestRelease: { releaseId: string };
     };
     expect(gameBody.game.slug).toBe("dice-dash");
-    expect(gameBody.latestRelease.releaseId).toBe("builtin_dice_dash_2");
+    expect(gameBody.latestRelease.releaseId).toBe("builtin_dice_dash_3");
 
     const bundleResponse = await handlePlatformRequest(
       new Request("https://play.digipology.com/api/releases/builtin_dice_dash_1/bundle"),
@@ -433,14 +433,19 @@ describe("uploaded game authorization", () => {
     expect(Array.from(new Uint8Array(await served.arrayBuffer()))).toEqual(Array.from(minimalPng(336, 504)));
   });
 
-  test("serves bespoke built-in SVG covers through the same endpoint", async () => {
+  test("serves real illustrated raster covers with immutable versioned caching", async () => {
     for (const slug of ["first-deal", "dice-dash", "zone-runner"]) {
       const response = await handlePlatformRequest(new Request(
-        `https://play.digipology.com/api/games/${slug}/cover?v=3`,
-      ), {} as Env);
+        `https://play.digipology.com/api/games/${slug}/cover?v=4`,
+      ), { ASSETS: { async fetch(request: Request) {
+        const path = new URL(request.url).pathname;
+        const bytes = await Bun.file(new URL(`../../web/public${path}`, import.meta.url)).arrayBuffer();
+        return new Response(bytes, { headers: { "Content-Type": "image/webp" } });
+      } } } as unknown as Env);
       expect(response.status).toBe(200);
-      expect(response.headers.get("Content-Type")).toBe("image/svg+xml");
-      expect(await response.text()).toContain('width="336" height="504"');
+      expect(response.headers.get("Content-Type")).toBe("image/webp");
+      expect(response.headers.get("Cache-Control")).toBe("public, max-age=31536000, immutable");
+      expect(new Uint8Array(await response.arrayBuffer()).length).toBeGreaterThan(100_000);
     }
   });
 });

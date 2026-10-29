@@ -3,6 +3,8 @@ import react from "@vitejs/plugin-react";
 import wasm from "vite-plugin-wasm";
 import topLevelAwait from "vite-plugin-top-level-await";
 import { fileURLToPath, URL } from "node:url";
+import type { ClientRequest, IncomingMessage } from "node:http";
+import { devProxyOrigin } from "./src/utils/devProxyOrigin";
 
 export default defineConfig({
   plugins: [react(), wasm(), topLevelAwait()],
@@ -12,6 +14,14 @@ export default defineConfig({
         target: "http://127.0.0.1:8787",
         changeOrigin: true,
         ws: true,
+        configure(proxy) {
+          const rewriteOrigin = (outgoing: ClientRequest, incoming: IncomingMessage) => {
+            const origin = devProxyOrigin(incoming.headers.origin, incoming.headers.host, "http://127.0.0.1:8787");
+            if (origin !== undefined && origin !== incoming.headers.origin) outgoing.setHeader("origin", origin);
+          };
+          proxy.on("proxyReq", rewriteOrigin);
+          proxy.on("proxyReqWs", rewriteOrigin);
+        },
       },
     },
   },

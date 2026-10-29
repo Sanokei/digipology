@@ -78,13 +78,14 @@ describe("built-in game catalog", () => {
     expect(state.entities.rules?.components.script?.scriptId).toBe("scripts/game.lua");
   });
 
-  test("keeps v1 resolvable while new Dice Dash rooms pin v2", () => {
-    expect(builtinCatalog.getGame("dice-dash")?.latestReleaseId).toBe("builtin_dice_dash_2");
+  test("keeps old releases resolvable while new Dice Dash rooms pin playable v3", () => {
+    expect(builtinCatalog.getGame("dice-dash")?.latestReleaseId).toBe("builtin_dice_dash_3");
+    expect(builtinCatalog.getRelease("builtin_dice_dash_2")?.releaseId).toBe("builtin_dice_dash_2");
     expect(builtinCatalog.getRelease("builtin_dice_dash_1")?.releaseId).toBe(
       "builtin_dice_dash_1",
     );
     expect(builtinCatalog.resolveRelease("dice-dash")?.releaseId).toBe(
-      "builtin_dice_dash_2",
+      "builtin_dice_dash_3",
     );
   });
 
@@ -114,7 +115,7 @@ describe("built-in game catalog", () => {
       builtin: true,
       currentPlayers: 0,
       totalPlays: 0,
-      coverVersion: 3,
+      coverVersion: 4,
     });
     expect(releaseSummary(release)).toEqual({
       releaseId: "builtin_first_deal_1",

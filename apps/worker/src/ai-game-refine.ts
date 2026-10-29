@@ -15,10 +15,7 @@ import {
   authoringFromBundle,
   validReleasePath,
 } from "./ai-games";
-import {
-  checkDraftQuality,
-  type DraftQualityOptions,
-} from "./ai-game-quality";
+import type { DraftQualityOptions } from "./ai-game-quality";
 import type { CanonicalGameState } from "digipology-kernel";
 
 /**
@@ -53,6 +50,8 @@ const PATCH_KEYS = ["files", "entities", "settings", "scriptStateJson"] as const
 
 export interface RefineGameDraftInput {
   fetch: ModelFetch;
+  model?: string;
+  qualityCheck?: (draft: ReleaseBundleDto) => Promise<QualityIssue[]>;
   /** The structurally valid draft to improve. */
   draft: ReleaseBundleDto;
   /** The user's original request text (context for refinement + critique). */
@@ -122,10 +121,13 @@ export async function refineGameDraft(
       maxAttempts: 1,
       timeoutMs: 1,
     },
-    qualityCheck: (draft) => checkDraftQuality(draft, qualityOptions),
+    qualityCheck: input.qualityCheck ?? (async (draft) => {
+      const { checkDraftQuality } = await import("./ai-game-quality");
+      return checkDraftQuality(draft, qualityOptions);
+    }),
     // Pass all issues: errors must be fixed, warnings are secondary guidance.
     buildRefinementRequest: (draft, issues) =>
-      buildGameRefinementRequest(draft, issues, input.userPrompt),
+      buildGameRefinementRequest(draft, issues, input.userPrompt, input.model),
     extractRefinement,
     validateRefinement,
     applyRefinement: applyGamePatch,
@@ -245,6 +247,7 @@ export function buildGameRefinementRequest(
   draft: ReleaseBundleDto,
   issues: QualityIssue[],
   userPrompt: string,
+  model = DEFAULT_MODEL_ID,
 ): ReturnType<typeof buildRequest> {
   const files = draft.files
     .filter((file) => file.path.endsWith(".lua"))
@@ -301,7 +304,7 @@ export function buildGameRefinementRequest(
     "Emit the patch JSON now. /no_think",
   ].join("\n");
   return buildRequest({
-    model: DEFAULT_MODEL_ID,
+    model,
     messages: [
       { role: "system", content: system },
       { role: "user", content: user },

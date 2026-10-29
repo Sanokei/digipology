@@ -255,9 +255,10 @@ export async function handlePlatformRequest(
     if (aiEditMatch?.[1] !== undefined && slug === null) {
       return jsonError(404, "not_found", "Game not found");
     }
-    const aiDependencies = Object.prototype.hasOwnProperty.call(dependencies, "modelFetch")
-      ? { modelFetch: dependencies.modelFetch ?? null }
-      : undefined;
+    const aiDependencies: AiGameDependencies = {
+      ...(Object.prototype.hasOwnProperty.call(dependencies, "modelFetch") ? { modelFetch: dependencies.modelFetch ?? null } : {}),
+      ...(dependencies.qualityCheck === undefined ? {} : { qualityCheck: dependencies.qualityCheck }),
+    };
     return handleAiGameRequest({
       request,
       env,
@@ -445,9 +446,15 @@ export async function handlePlatformRequest(
     if (slug === null) return jsonError(404, "not_found", "Cover not found");
     const builtinCover = getBuiltinCover(slug);
     if (builtinCover !== null) {
-      return new Response(builtinCover.body, {
-        headers: coverResponseHeaders(url, builtinCover.contentType, builtinCover.version),
-      });
+      const assets = Reflect.get(env, "ASSETS") as { fetch(request: Request): Promise<Response> } | undefined;
+      if (typeof assets?.fetch !== "function") return jsonError(503, "cover_storage_unavailable", "Cover artwork is unavailable");
+      const artwork = await assets.fetch(new Request(new URL(builtinCover.assetPath, url)));
+      if (!artwork.ok || !artwork.headers.get("Content-Type")?.startsWith(builtinCover.contentType)) {
+        return jsonError(503, "cover_storage_unavailable", "Cover artwork is unavailable");
+      }
+      const headers = coverResponseHeaders(url, builtinCover.contentType, builtinCover.version);
+      if (artwork.headers.has("ETag")) headers.set("ETag", artwork.headers.get("ETag")!);
+      return new Response(artwork.body, { headers });
     }
     if (!hasDatabase(env)) return jsonError(404, "not_found", "Cover not found");
     const game = await repositories.getUploadedGame(slug);

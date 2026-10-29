@@ -13,6 +13,18 @@ On the create page, describe the game you want and choose **Create draft with AI
 
 AI creation requires an account. Publishing the generated draft is a separate action and uses the same validated upload path as a manually authored bundle.
 
+Before accepting a generated draft, the server sends it to the playtest
+harness. The harness checks Lua, bindings, references and a simulated dice
+playthrough. Broken drafts receive up to two bounded repair rounds through the
+configured model, with those calls included in the request cap. The response
+includes the playability result and any remaining warnings. If playtesting is
+unavailable or errors remain, the server does not present the draft as accepted.
+
+This gate catches concrete rule/runtime errors. It does not prove that every
+kind of generated game is balanced, fun or ready for release. Full generated
+strategy-game playthroughs, online media integration and generated raster
+packaging remain acceptance milestones in the product backlog.
+
 ## Iterate inside the editor
 
 The desktop editor's **AI Assist** panel has separate prompt boxes for creating a new game and editing the open draft. A proposed edit is not applied immediately: the editor first summarizes entity-count changes, changed script line counts, and changed settings. Choose **Apply as one edit** to add the proposal to the draft as a single undoable edit, or cancel it.
@@ -28,6 +40,14 @@ Cover creation remains available without the model: if AI is not configured, the
 ## Availability and limits
 
 The browser never asks you for a model provider API key. Prompt-based creation and editing run through the server's own Qwen 0.6B configuration (local model, no API key needed by default).
+
+The server also requires `AI_QUALITY_BASE_URL` for its Bun playtest harness.
+Locally, start `bun run dev:quality` and point it to the loopback service on
+port 8798. Production must use an authenticated HTTPS harness and a matching
+`AI_QUALITY_TOKEN`; the Wasmoon runtime runs in that service rather than inside
+the Cloudflare request runtime. Model transport and model selection remain
+server configuration. A small local model is not evidence that complex
+one-prompt creation works well.
 
 If that configuration is missing, game creation and edit requests return `ai_unconfigured` with **“AI creation isn't set up on this server yet”**. Prompt-based drafting is unavailable on that server; the manual editor remains available, and cover generation uses its procedural fallback.
 

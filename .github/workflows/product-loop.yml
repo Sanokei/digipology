@@ -1,0 +1,147 @@
+name: Product improvement loop
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: product-improvement-loop
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  iterate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    env:
+      CI: "1"
+      WRANGLER_SEND_METRICS: "false"
+      ASTRO_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.4"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Refuse overlapping unfinished changes
+        id: pending
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          count=$(gh pr list --state open --json headRefName --jq '[.[] | select(.headRefName | startswith("feat/product-loop-"))] | length')
+          echo "clear=$([ "$count" -eq 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          if [ "$count" -ne 0 ]; then echo "An existing product-loop PR needs attention before another iteration." >> "$GITHUB_STEP_SUMMARY"; fi
+      - name: Prepare one bounded product task
+        id: plan
+        if: steps.pending.outputs.clear == 'true'
+        run: bun scripts/product-loop.ts prepare
+      - name: Check model credential prerequisite
+        if: steps.plan.outputs.has_task == 'true'
+        env:
+          MODEL_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "$MODEL_KEY" ]; then
+            echo "::error::Configure the OPENAI_API_KEY repository Actions secret to run the product loop. Never put its value in an issue, commit, or workflow."
+            exit 1
+          fi
+      - name: Install frozen dependencies and browser
+        if: steps.plan.outputs.has_task == 'true'
+        run: |
+          bun install --frozen-lockfile
+          bunx --no-install playwright install --with-deps chromium
+          if ! command -v ffmpeg >/dev/null; then sudo apt-get update && sudo apt-get install -y ffmpeg; fi
+      - name: Implement the selected increment
+        if: steps.plan.outputs.has_task == 'true'
+        uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          codex-version: "0.163.0"
+          permission-profile: ":workspace"
+          safety-strategy: drop-sudo
+          allow-bots: true
+          prompt-file: .product-loop/prompt.md
+          output-file: .product-loop/result.json
+          output-schema-file: .github/product-loop/result.schema.json
+      - name: Preserve the trusted automation baseline
+        if: steps.plan.outputs.has_task == 'true'
+        run: |
+          git diff --exit-code HEAD -- .github AGENTS.md scripts/product-loop.ts scripts/product-loop.test.ts
+          test -z "$(git ls-files --others --exclude-standard .github 'scripts/product-loop*')"
+          bash scripts/check-frozen-fixtures.sh HEAD
+      - name: Validate the product increment
+        if: steps.plan.outputs.has_task == 'true'
+        run: |
+          bun install
+          bun install --frozen-lockfile
+          bun run typecheck
+          bun test
+          bun run --cwd apps/web build
+          bun run --cwd apps/web check-chunks
+          bun run --filter digipology-site build
+          E2E_SKIP_BUILD=1 bun run test:e2e
+      - name: Record verified progress
+        if: steps.plan.outputs.has_task == 'true'
+        run: bun scripts/product-loop.ts finish
+      - name: Push PR, wait for CI on its commit, and merge
+        if: steps.plan.outputs.has_task == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TASK_ID: ${{ steps.plan.outputs.task_id }}
+          RUN_ID: ${{ github.run_id }}
+          BASE_SHA: ${{ github.sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          if [ -z "$(git status --porcelain --untracked-files=all)" ]; then
+            echo "No product changes were produced; nothing to publish." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          branch="feat/product-loop-$TASK_ID-$RUN_ID"
+          git switch -c "$branch"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add --all
+          git commit -F .product-loop/commit-title.txt
+          sha=$(git rev-parse HEAD)
+          basic=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $basic" push origin "HEAD:refs/heads/$branch"
+          unset basic
+          title=$(cat .product-loop/commit-title.txt)
+          pr=$(gh pr create --repo "$REPOSITORY" --head "$branch" --base main --title "$title" --body-file .product-loop/pr-body.md)
+          echo "Created $pr" >> "$GITHUB_STEP_SUMMARY"
+          # GITHUB_TOKEN pushes do not trigger pull_request workflows. Explicit
+          # workflow_dispatch is supported, so CI runs on the actual branch SHA.
+          gh workflow run ci.yml --repo "$REPOSITORY" --ref "$branch" -f "fixture_base=$BASE_SHA"
+          run_id=""
+          for attempt in $(seq 1 18); do
+            run_id=$(gh run list --repo "$REPOSITORY" --workflow ci.yml --branch "$branch" --commit "$sha" --event workflow_dispatch --json databaseId --jq '.[0].databaseId // empty')
+            if [ -n "$run_id" ]; then break; fi
+            sleep 5
+          done
+          test -n "$run_id"
+          gh run watch "$run_id" --repo "$REPOSITORY" --exit-status --interval 20
+          gh pr merge "$pr" --repo "$REPOSITORY" --squash --delete-branch --match-head-commit "$sha"
+          echo "Merged verified increment: $pr" >> "$GITHUB_STEP_SUMMARY"
+      - name: Preserve browser and iteration evidence
+        if: always() && steps.plan.outputs.has_task == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: product-loop-evidence-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+            .product-loop/result.json
+            .product-loop/pr-body.md
+          include-hidden-files: true
+          retention-days: 14

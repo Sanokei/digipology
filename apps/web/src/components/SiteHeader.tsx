@@ -11,7 +11,7 @@ export function SiteHeader() {
   const { user, logout } = useAuth();
   return (
     <header className="site-header play-header">
-      <Link className="play-brand" to="/" aria-label="Digipology Play home">Digipology <span>Play</span></Link>
+      <Link className="play-brand" to="/" aria-label="Digipology Play home"><span className="play-brand__mark" aria-hidden="true"><i /><i /><i /></span>Digipology<span className="play-brand__tag">Play</span></Link>
       <nav className="play-nav" aria-label="Primary navigation">
         <NavLink className={navClassName} end to="/">Browse</NavLink>
         <NavLink className={navClassName} to="/create">Create</NavLink>

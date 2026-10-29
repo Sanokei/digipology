@@ -19,6 +19,7 @@ import {
   type GameSnapshot,
   type OrderedActionInput,
 } from "digipology-kernel";
+import { validateCoverImage } from "../apps/worker/src/cover-image";
 import {
   parseServerMessage,
   type ActionRequest,
@@ -230,10 +231,8 @@ async function runChecks(): Promise<void> {
         response.cacheControl === IMMUTABLE_CACHE,
         `cover cache-control is ${response.cacheControl || "<missing>"}`,
       );
-      expect(
-        response.body.includes('width="336"') && response.body.includes('height="504"'),
-        "cover is not the 336x504 (2:3) builtin artwork",
-      );
+      const image = validateCoverImage(response.bytes, response.contentType);
+      expect(image.ok, "cover must be actual validated 2:3 raster artwork");
     });
   }
 
@@ -411,6 +410,7 @@ function compareStrings(left: string, right: string): number {
 }
 
 interface HttpResponse {
+  bytes: Uint8Array;
   status: number;
   contentType: string;
   cacheControl: string;
@@ -439,12 +439,14 @@ async function httpRequest(
   const timeout = setTimeout(() => controller.abort(), NETWORK_TIMEOUT_MS);
   try {
     const response = await fetch(`${origin}${path}`, { ...init, signal: controller.signal });
-    const body = await response.text();
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    const body = new TextDecoder().decode(bytes);
     return {
       status: response.status,
       contentType: response.headers.get("content-type") ?? "",
       cacheControl: response.headers.get("cache-control") ?? "",
       body,
+      bytes,
     };
   } catch (error) {
     if (controller.signal.aborted) {

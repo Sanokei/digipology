@@ -574,7 +574,7 @@ button.action-card { width: 100%; border-right: 0; border-left: 0; text-align: l
 
 .table-scene__topbar {
   position: absolute;
-  z-index: 2;
+  z-index: 5;
   top: 0;
   right: 0;
   left: 0;
@@ -1175,3 +1175,219 @@ button.action-card { width: 100%; border-right: 0; border-left: 0; text-align: l
 .editor-mobile-gate h1 { margin: 8px 0 14px; font-size: clamp(30px, 8vw, 52px); line-height: 1.05; }
 .editor-mobile-gate p { color: #a1a1aa; }
 .editor-mobile-gate nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 24px; }
+
+/* A welcoming game shelf: warm paper, tactile artwork, clear ways into a table. */
+.play-app {
+  --dgp-bg: #f7f5ee;
+  --dgp-surface: #fffdf8;
+  --dgp-text: #202d2a;
+  --dgp-muted: #61716a;
+  --dgp-border: #dedfd5;
+  --dgp-accent: #f87850;
+  --dgp-accent-text: #25241e;
+  --dgp-error: #a13024;
+  background: var(--dgp-bg);
+  font-family: "Manrope", sans-serif;
+}
+.play-app > .play-header { width: min(1320px, calc(100% - 80px)); min-height: 88px; margin: 0 auto; padding: 12px 0; border: 0; background: var(--dgp-bg); backdrop-filter: none; }
+.play-app .play-brand { display: inline-flex; align-items: center; gap: 9px; color: #19392f; font-size: 22px; letter-spacing: -.055em; font-weight: 700; }
+.play-brand__mark { position: relative; display: inline-block; width: 29px; height: 32px; flex: 0 0 auto; border-radius: 8px; background: #f87850; transform: rotate(-12deg); box-shadow: 2px 3px 0 #c95233; }
+.play-brand__mark i { position: absolute; display: block; width: 5px; height: 5px; border-radius: 50%; background: #fff8e9; }
+.play-brand__mark i:first-child { top: 7px; left: 7px; }
+.play-brand__mark i:nth-child(2) { top: 14px; left: 12px; }
+.play-brand__mark i:nth-child(3) { top: 21px; left: 17px; }
+.play-app .play-brand .play-brand__tag { padding: 3px 7px; border-radius: 5px; background: #e9eee4; color: #58745e; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
+.play-app .play-nav { margin-left: 32px; gap: 12px; }
+.play-app .play-nav__link { font-size: 13px; padding: 9px 13px; border-radius: 100px; }
+.play-app .play-nav__link--active, .play-app .play-nav__link:hover { color: #1b4135; background: #e9eee4; }
+.play-app .play-account__signin { padding: 10px 19px; border-color: #cbd3c6; font-size: 12px; }
+.play-app .play-account__signin:hover { background: #fffdf8; color: #203c30; }
+.play-app .play-account__menu > div { background: #fffdf8; box-shadow: 0 12px 36px #20302515; }
+.play-app .play-account__menu a:hover, .play-app .play-account__menu button:hover { background: #eff1e8; }
+.play-catalog { width: 100%; gap: 58px; padding-bottom: 0; }
+.play-app .game-hero { width: min(1320px, calc(100% - 80px)); min-height: 540px; margin: 2px auto 0; align-items: center; border-radius: 24px; background: #10332f; color: #fff9e9; box-shadow: 0 15px 25px #18362b0d; }
+.play-app .game-hero__art { z-index: -2; }
+.play-app .game-hero__art img { object-position: center; }
+.play-app .game-hero__scrim { background: linear-gradient(90deg, #082a2bed 0%, #082a2bb3 31%, #082a2b12 70%), linear-gradient(0deg, #082a2b35, transparent 40%); }
+.play-app .game-hero__body { gap: 22px; max-width: 570px; padding: 48px 0 56px 50px; }
+.play-app .game-hero__eyebrow { display: inline-flex; align-items: center; gap: 8px; color: #f9d69c; font-size: 10px; letter-spacing: .14em; }
+.game-hero__eyebrow > span { width: 7px; height: 7px; border-radius: 50%; background: #b8db8c; box-shadow: 0 0 0 4px #b8db8c14; }
+.play-app .game-hero h1 { color: #fffae9; font-family: "Manrope", sans-serif; font-size: clamp(44px, 4.9vw, 72px); font-weight: 700; line-height: 1.04; letter-spacing: -.065em; }
+.play-app .game-hero h1 em { color: #ffc97b; font-style: normal; }
+.play-app .game-hero__description { max-width: 350px; color: #e4ece2; font-size: 14px; line-height: 1.8; }
+.play-app .game-hero__actions { gap: 11px; margin-top: 0; }
+.play-app .game-hero__cta, .play-app .game-hero__host { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 46px; padding: 0 24px; border-radius: 9px; font-size: 12px; font-weight: 700; }
+.play-app .game-hero__cta { background: #ffc67a; color: #28312a; box-shadow: 0 3px 0 #b17b3b; }
+.play-app .game-hero__cta > span { font-size: 9px; }
+.play-app .game-hero__host { border-color: #f9f4dc5c; background: #10322f40; color: #fff9e9; }
+.game-hero__footnote { margin: -3px 0 0; color: #d3e0d2; font-size: 10px; }
+.game-hero__pick { position: absolute; right: 24px; bottom: 24px; display: flex; align-items: center; gap: 13px; min-width: 260px; padding: 11px 17px 11px 11px; border: 1px solid #f9f7e631; border-radius: 12px; background: #17322adf; box-shadow: 0 10px 30px #0003; backdrop-filter: blur(12px); }
+.game-hero__pick-art { width: 44px; height: 58px; overflow: hidden; flex: 0 0 auto; border-radius: 5px; }
+.game-hero__pick-art img { width: 100%; height: 100%; object-fit: cover; }
+.game-hero__pick > div:nth-child(2) { display: grid; gap: 4px; }
+.game-hero__pick-label { color: #f1c88e; font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; }
+.game-hero__pick strong { max-width: 180px; color: #fff8e6; font-size: 14px; }
+.game-hero__pick > div:nth-child(2) > span:last-child { color: #d1dcce; font-size: 10px; }
+.game-hero__pick-arrow { margin-left: auto; color: #ffc67a; font-size: 25px; }
+.game-hero__create { position: absolute; top: 26px; right: 26px; display: inline-flex; align-items: center; gap: 16px; padding: 9px 13px; border: 1px solid #fff8e831; border-radius: 100px; background: #0d2925aa; color: #fff6e4; font-size: 10px; backdrop-filter: blur(8px); }
+.game-hero__create:hover { background: #193f33; }
+.play-shelf { width: min(1216px, calc(100% - 96px)); margin: 0 auto; }
+.play-shelf__heading { display: flex; justify-content: space-between; align-items: center; gap: 24px; }
+.play-app .play-section-eyebrow { color: #596f58; font-size: 9px; letter-spacing: .13em; }
+.play-shelf__heading h2 { display: flex; gap: 15px; align-items: center; margin: 9px 0 0; color: #253b30; font-size: 29px; font-weight: 700; letter-spacing: -.055em; }
+.play-shelf__heading h2 > span { color: #ed8052; font-size: 33px; font-weight: 400; }
+.play-search { display: inline-flex; align-items: center; gap: 8px; width: 216px; height: 41px; padding: 0 13px; border: 1px solid #dddcd2; border-radius: 100px; background: #fffcf5; color: #627262; }
+.play-search > span:first-child { font-size: 25px; line-height: 1; }
+.play-search input { width: 100%; min-width: 0; padding: 0; border: 0; background: transparent; color: #304237; font-size: 11px; outline-offset: 5px; }
+.play-shelf__tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 27px 0 22px; }
+.play-shelf__tabs button { min-height: 35px; padding: 0 16px; border: 1px solid #dadfd2; border-radius: 100px; background: transparent; color: #61715e; font-size: 11px; font-weight: 700; cursor: pointer; }
+.play-shelf__tabs button[aria-pressed="true"] { border-color: #254a36; background: #254a36; color: #f8f5e6; }
+.play-shelf__tabs button:hover:not([aria-pressed="true"]) { background: #eef0e6; }
+.play-shelf .game-rail > h2 { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
+.play-shelf .game-rail__track { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; padding: 4px 0 12px; overflow: visible; }
+.play-shelf .game-rail__nav { display: none; }
+.play-app .game-capsule { width: 100%; min-width: 0; }
+.play-app .game-capsule__button { gap: 12px; }
+.play-app .game-capsule__poster { aspect-ratio: 1.2; border-radius: 14px; box-shadow: 0 3px 0 #d2d8c8; outline-offset: 4px; }
+.play-app .game-capsule__poster img { object-position: center 47%; transition: transform .4s ease; }
+.play-app .game-capsule__button:hover .game-capsule__poster img { transform: scale(1.045); }
+.play-app .game-capsule__button:hover .game-capsule__poster, .play-app .game-capsule--actions .game-capsule__poster { box-shadow: 0 10px 24px #2a48322b; }
+.play-app .game-capsule__title { color: #294130; font-size: 18px; font-weight: 700; letter-spacing: -.04em; }
+.play-app .game-capsule__metrics { margin-top: 4px; color: #596e55; font-size: 10px; }
+.play-app .game-capsule__desc { max-height: 44px; margin-top: 6px; color: #61705a; font-size: 11px; line-height: 1.7; opacity: 1; -webkit-line-clamp: 2; }
+.play-app .game-capsule__more { top: 10px; right: 10px; left: auto; width: 28px; height: 28px; border-color: #fff7e14d; background: #14352ec7; color: #fff9e9; }
+.play-app .game-capsule__badge-slot { top: 10px; right: auto; left: 10px; }
+.game-capsule__play-label { position: absolute; bottom: 12px; left: 13px; right: 13px; display: flex; align-items: center; justify-content: space-between; color: #fff9ed; font-size: 10px; font-weight: 700; text-shadow: 0 1px 5px #000; }
+.game-capsule__play-label > span { display: grid; width: 28px; height: 28px; place-items: center; border: 1px solid #fff5dd5c; border-radius: 50%; background: #152b2680; font-size: 18px; }
+.play-app .game-capsule__quick-actions { top: 50%; left: 20%; right: 20%; transform: translateY(-70%); border-color: #fff4d34d; background: #16372de8; box-shadow: 0 12px 25px #142d3b40; }
+.play-app .game-capsule__quick-actions button { min-height: 36px; color: #fff9e9; }
+.play-app .game-capsule__quick-actions .game-capsule__quick-primary { background: #ffc67a; color: #22382d; }
+.play-app .game-capsule__live { color: #fff9e9; background: #214735e8; }
+.play-shelf__empty { padding: 30px 0; color: #697765; font-size: 14px; }
+.play-app .play-room-hub { width: min(1216px, calc(100% - 96px)); grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 24px; margin: 0 auto; }
+.play-app .play-join-card { padding: 28px; border-color: #dbe6d7; border-radius: 16px; background: #e7eddf; }
+.play-app .play-room-hub h2 { margin: 9px 0 12px; font-size: 24px; letter-spacing: -.045em; }
+.play-join-card > p:not(.play-section-eyebrow) { margin: 0 0 22px; color: #53674b; font-size: 11px; line-height: 1.6; }
+.play-app .play-join-card input { height: 43px; border-color: #cbd6c3; background: #fcfdf5; color: #2b4331; font-size: 10px; }
+.play-app .play-join-card button { background: #2e543a; color: #fff9e8; font-size: 10px; }
+.play-app .play-public-rooms { padding: 28px; border: 1px solid #e0e0d5; border-radius: 16px; background: #fdfbf5; }
+.play-app .play-public-rooms__heading button { background: transparent; border: 1px solid #d5dbc9; color: #405338; font-size: 10px; }
+.play-app .play-room-list a { min-height: 59px; font-size: 12px; }
+.play-app .play-room-list a > span:nth-child(2) { padding: 4px 9px; border-radius: 100px; background: #edf0e4; font-size: 10px; }
+.play-app .play-room-list small { margin-top: 5px; font-size: 9px; }
+.play-app .play-empty-copy { max-width: 34ch; margin-top: 22px; color: #5f7155; line-height: 1.8; font-size: 12px; }
+.play-create-banner { display: flex; align-items: center; gap: 26px; width: min(1216px, calc(100% - 96px)); margin: 0 auto; padding: 30px 34px; border: 1px solid #efccb4; border-radius: 16px; background: #fae0c9; }
+.play-create-banner__spark { color: #de6d3e; font-size: 70px; line-height: 1; }
+.play-create-banner .play-section-eyebrow { color: #835438; }
+.play-create-banner h2 { margin: 7px 0 9px; color: #503c27; font-size: 24px; letter-spacing: -.05em; }
+.play-create-banner > div > p:last-child { margin: 0; color: #785c43; font-size: 11px; line-height: 1.7; }
+.play-create-banner > a { display: inline-flex; align-items: center; gap: 20px; min-height: 43px; margin-left: auto; padding: 0 19px; flex: 0 0 auto; border: 1px solid #a9805e; border-radius: 8px; color: #5d432b; font-size: 11px; font-weight: 700; }
+.play-create-banner > a:hover { background: #fff0d9; }
+.play-footer { display: flex; justify-content: space-between; align-items: center; gap: 20px; width: min(1216px, calc(100% - 96px)); margin: -18px auto 0; padding: 0 0 34px; color: #62715a; font-size: 10px; }
+.play-footer a { color: #62745b; }
+.play-app .capsule-sheet, .play-app .modal { border-color: #dde2d1; background: #fffcf3; box-shadow: 0 30px 70px #16362738; color: #344631; }
+.play-app .capsule-sheet button { background: #f1f2e7; }
+.play-app .modal .primary-button { background: #31533c; color: #fff9e8; }
+.play-app .stack-form input, .play-app .stack-form select { background: #f6f6ec; color: #374832; border-color: #d7ddcc; }
+.play-app .play-skeleton-hero { height: 540px; border-radius: 24px; }
+.play-app .play-catalog-skeleton { width: min(1320px, calc(100% - 80px)); margin: 0 auto; padding: 0; }
+.play-app .play-skeleton-hero, .play-app .play-skeleton-card, .play-app .play-skeleton-heading { background-image: linear-gradient(100deg,#e4e8d9,#f1f2e6,#e4e8d9); }
+.table-topbar { background: #0b2725e8; border-color: #68867a45; border-radius: 15px; box-shadow: 0 7px 30px #0002; backdrop-filter: blur(12px); }
+.table-topbar .table-topbar__invite { border-color: #d8bb7959; background: #e5c46a10; color: #f4d78b; }
+.table-topbar button, .table-topbar__back { border-radius: 8px; }
+.table-topbar__label { color: #a8b9a6; }
+.table-sheet, .dice-controls { border-radius: 12px; }
+
+@media (max-width: 1024px) {
+  .play-app > .play-header, .play-app .game-hero { width: calc(100% - 48px); }
+  .play-app .game-hero { min-height: 480px; }
+  .play-app .game-hero__body { max-width: 495px; padding: 38px; }
+  .play-app .game-hero h1 { font-size: 57px; }
+  .play-app .game-hero__pick { min-width: 0; right: 16px; bottom: 16px; }
+  .play-app .game-hero__pick-art { display: none; }
+  .play-shelf, .play-app .play-room-hub, .play-create-banner, .play-footer { width: calc(100% - 64px); }
+  .play-app .game-capsule__quick-actions { left: 12%; right: 12%; }
+  .play-create-banner { gap: 18px; padding: 26px; }
+  .play-create-banner h2 { font-size: 21px; }
+}
+@media (max-width: 700px) {
+  .play-app > .play-header { width: calc(100% - 36px); min-height: 73px; gap: 10px; }
+  .play-app .play-brand { gap: 7px; font-size: 19px; }
+  .play-brand__mark { width: 25px; height: 28px; }
+  .play-brand__mark i { width: 4px; height: 4px; }
+  .play-brand__mark i:first-child { top: 6px; left: 6px; }
+  .play-brand__mark i:nth-child(2) { top: 12px; left: 11px; }
+  .play-brand__mark i:nth-child(3) { top: 18px; left: 16px; }
+  .play-app .play-brand .play-brand__tag { display: none; }
+  .play-app .play-nav { gap: 0; margin-left: auto; }
+  .play-app .play-nav__link { padding: 7px 8px; font-size: 11px; }
+  .play-app .play-account { margin-left: 0; }
+  .play-app .play-account__signin { padding: 8px 10px; font-size: 10px; }
+  .play-catalog { gap: 34px; }
+  .play-app .game-hero { width: calc(100% - 28px); min-height: 520px; align-items: flex-start; border-radius: 18px; }
+  .play-app .game-hero__body { max-width: 100%; gap: 18px; padding: 33px 24px 146px; }
+  .play-app .game-hero h1 { font-size: clamp(37px, 8.5vw, 54px); }
+  .play-app .game-hero__description { max-width: 280px; font-size: 12px; line-height: 1.75; }
+  .play-app .game-hero__art img { object-position: 60% center; }
+  .play-app .game-hero__scrim { background: linear-gradient(90deg, #082a2be6, #082a2b44), linear-gradient(0deg, #082a2b66, transparent 50%); }
+  .play-app .game-hero__eyebrow { font-size: 9px; }
+  .play-app .game-hero__actions { gap: 8px; }
+  .play-app .game-hero__cta, .play-app .game-hero__host { padding: 0 19px; min-height: 43px; font-size: 11px; }
+  .play-app .game-hero__pick { bottom: 16px; right: 16px; left: 16px; gap: 11px; padding: 10px; }
+  .play-app .game-hero__pick-art { display: block; width: 34px; height: 44px; }
+  .play-app .game-hero__pick strong { font-size: 12px; }
+  .play-app .game-hero__pick-arrow { margin-right: 7px; }
+  .game-hero__create { top: auto; right: auto; left: 25px; bottom: 99px; padding: 0; border: 0; background: none; backdrop-filter: none; font-size: 10px; }
+  .play-shelf, .play-app .play-room-hub, .play-create-banner, .play-footer { width: calc(100% - 40px); }
+  .play-shelf__heading { flex-direction: column; align-items: stretch; gap: 18px; }
+  .play-shelf__heading h2 { margin-top: 7px; gap: 10px; font-size: 25px; }
+  .play-shelf__heading h2 > span { font-size: 27px; }
+  .play-search { width: 100%; height: 40px; }
+  .play-shelf__tabs { gap: 6px; margin: 18px 0 16px; }
+  .play-shelf__tabs button { padding: 0 12px; font-size: 10px; }
+  .play-shelf .game-rail__track { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 15px; }
+  .play-app .game-capsule__poster { aspect-ratio: .85; border-radius: 10px; }
+  .play-app .game-capsule__title { font-size: 15px; }
+  .play-app .game-capsule__desc { font-size: 10px; }
+  .play-app .game-capsule__metrics { font-size: 9px; }
+  .play-app .game-capsule__quick-actions { top: 42%; left: 8%; right: 8%; transform: translateY(-50%); padding: 8px; }
+  .play-app .game-capsule__quick-actions button { min-height: 32px; font-size: 9px; }
+  .play-app .game-capsule__more { top: 8px; right: 8px; width: 26px; height: 26px; }
+  .game-capsule__play-label { bottom: 10px; left: 10px; right: 10px; font-size: 9px; }
+  .game-capsule__play-label > span { width: 24px; height: 24px; font-size: 16px; }
+  .play-app .play-room-hub { grid-template-columns: 1fr; gap: 16px; }
+  .play-app .play-join-card, .play-app .play-public-rooms { padding: 23px; }
+  .play-app .play-join-card form { flex-direction: row; }
+  .play-app .play-room-hub h2 { font-size: 23px; }
+  .play-app .play-join-card button { padding: 0 13px; }
+  .play-app .play-public-rooms__heading { align-items: center; }
+  .play-create-banner { position: relative; gap: 16px; align-items: flex-start; flex-wrap: wrap; padding: 25px; }
+  .play-create-banner__spark { position: absolute; top: 20px; right: 20px; font-size: 38px; }
+  .play-create-banner > div { width: 100%; padding-right: 16px; }
+  .play-create-banner .play-section-eyebrow { max-width: 24ch; font-size: 8px; }
+  .play-create-banner h2 { max-width: 18ch; font-size: 24px; }
+  .play-create-banner > a { min-height: 39px; margin-left: 0; margin-top: 3px; font-size: 10px; }
+  .play-footer { align-items: flex-start; flex-direction: column; gap: 10px; margin-top: 0; padding-bottom: 26px; font-size: 9px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .play-app .game-capsule__poster img { transition: none; }
+}
+.play-footer a { display: inline-flex; align-items: center; gap: 6px; }
+.play-search > svg { flex: 0 0 auto; }
+.play-app .modal > .eyebrow { color: #819071; }
+.play-app .modal p { color: #5b6f51; }
+.play-app .stack-form label, .play-app .invite-ready label, .play-app .segmented legend { color: #697c61; }
+.play-app .segmented { margin: 7px 0 10px; }
+.play-app .segmented label { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 43px; padding: 10px; border-color: #d8dfcc; border-radius: 8px; color: #566c4e; font-size: 10px; }
+.play-app .segmented label:has(input:checked) { border-color: #709367; background: #e9efdf; color: #34532e; }
+.play-app .segmented input[type="radio"] { width: 15px; height: 15px; min-height: 15px; padding: 0; margin: 0; accent-color: #4b7641; }
+.play-app .modal__close { border-color: #d9decc; border-radius: 50%; color: #62725a; }
+.play-app .modal .primary-button { border-radius: 8px; }
+.play-app .invite-ready .copy-field input { border-color: #d9decc; border-radius: 8px; background: #f2f4e8; color: #526c46; }
+.reconnect-card { border-color: #79927a66; border-radius: 16px; background: #102c26f2; font-family: "Manrope", sans-serif; }
+.reconnect-card > button, .reconnect-card > .button-link { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; margin: 4px 8px 0 0; padding: 10px 15px; border: 1px solid #f7efd052; border-radius: 8px; background: #254638; color: #fff9e9; font-size: 11px; font-weight: 700; text-transform: none; cursor: pointer; }
+.reconnect-card > .button-link { border-color: transparent; background: #ffc67a; color: #2a3f2d; }
+.reconnect-card > button:hover { background: #355b43; }
+.game-hero__pick strong, .play-app .play-room-list strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.play-app .play-account__menu summary { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 700px) { .play-app .play-account__menu summary { max-width: 80px; } }

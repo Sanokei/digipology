@@ -1,10 +1,13 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { setLuaWasmUri } from "digipology-lua";
+import luaWasmUri from "wasmoon/dist/glue.wasm?url";
 
 import { App } from "./App";
 import "./styles.css";
 
 const rootElement = document.getElementById("root");
+setLuaWasmUri(luaWasmUri);
 
 if (rootElement === null) {
   throw new Error("Missing #root element");

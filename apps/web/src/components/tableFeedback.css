@@ -1,0 +1,16 @@
+.game-progress { position:absolute; z-index:3; top:94px; left:16px; width:min(300px,calc(100vw - 32px)); padding:18px; color:#f6eedc; border:1px solid #ffffff26; border-radius:14px; background:#162422ed; box-shadow:0 12px 36px #0003; backdrop-filter:blur(12px); }
+.game-progress__eyebrow { margin:0 0 8px; color:#f2bb69; font-size:.68rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; }
+.game-progress__status { margin:0; font-size:.94rem; line-height:1.5; }
+.game-progress ol { display:grid; gap:8px; margin:14px 0 0; padding:0; list-style:none; }
+.game-progress li { display:flex; justify-content:space-between; gap:12px; padding:8px 10px; border-radius:7px; font-size:.8rem; background:#ffffff08; }
+.game-progress li[aria-current] { outline:1px solid #f2bb6970; background:#f2bb6914; }
+.game-progress strong { color:#f2bb69; font-variant-numeric:tabular-nums; }
+.table-audio { position:relative; }
+.table-audio summary { display:flex; align-items:center; gap:7px; padding:10px; min-height:40px; cursor:pointer; font-size:.75rem; list-style:none; }
+.table-audio__settings { position:absolute; z-index:8; top:50px; right:0; display:grid; gap:14px; width:230px; padding:18px; color:#f6eedc; border:1px solid #ffffff26; border-radius:12px; background:#162422; box-shadow:0 12px 36px #0004; }
+.table-audio__settings label { display:grid; gap:8px; font-size:.8rem; }
+.table-audio__settings input { width:100%; accent-color:#ef9c61; }
+.table-audio__settings button { min-height:40px; cursor:pointer; }
+.dice-controls output { font-size:.8rem; font-variant-numeric:tabular-nums; color:var(--accent,#f2bb69); }
+.dice-controls__die { display:flex; gap:10px; align-items:center; }
+@media(max-width:768px) { .game-progress { top:84px; left:10px; width:min(240px,calc(100vw - 20px)); padding:12px; } .game-progress__status { font-size:.8rem; } .game-progress ol { margin-top:8px; gap:4px; } .game-progress li { padding:5px 8px; font-size:.72rem; } .table-audio summary span { display:none; } }

@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type FocusEvent, type PointerEvent } from "react";
+import { ArrowUpRight } from "lucide-react";
 
-import { gameCoverUrl, gameMetrics, type CatalogGameSummaryDto } from "../api/quickplayAdapter";
+import { gameMetrics, type CatalogGameSummaryDto } from "../api/quickplayAdapter";
 import { formatCompactCount } from "../utils/compactCount";
 import { coverPlaceholder } from "../utils/coverPlaceholder";
+import { gameArtwork } from "../utils/gameArtwork";
 import { capsuleKeyboardAction, createHoverIntentModel, type HoverIntentModel } from "./capsuleModel";
 
 interface GameCapsuleProps {
@@ -19,7 +21,7 @@ export function GameCapsule({ game, pending, onQuickPlay, onHost, onDetails }: G
   const [actionsVisible, setActionsVisible] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [coverFailed, setCoverFailed] = useState(false);
-  const coverUrl = gameCoverUrl(game);
+  const coverUrl = gameArtwork(game);
   const metrics = gameMetrics(game);
   const placeholder = coverPlaceholder(game.slug);
   const plays = `${formatCompactCount(metrics.totalPlays)} plays`;
@@ -109,10 +111,11 @@ export function GameCapsule({ game, pending, onQuickPlay, onHost, onDetails }: G
             ) : null}
           </span>
           {pending ? <span className="game-capsule__loading">Finding a table…</span> : null}
+          {!pending ? <span className="game-capsule__play-label">Let’s play <span aria-hidden="true"><ArrowUpRight size={15} /></span></span> : null}
         </span>
         <span className="game-capsule__meta">
           <span className="game-capsule__title">{game.title}</span>
-          <span className="game-capsule__metrics" aria-hidden="true">{plays}</span>
+          <span className="game-capsule__metrics" aria-hidden="true">{game.minPlayers}–{game.maxPlayers} players{metrics.totalPlays > 0 ? ` · ${plays}` : ""}</span>
           <span className="game-capsule__desc">{game.tagline || `${game.minPlayers}–${game.maxPlayers} players`}</span>
         </span>
       </button>

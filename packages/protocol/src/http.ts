@@ -273,7 +273,8 @@ export type UploadValidationCheck =
   | "state_hash"
   | "kernel_load"
   | "version_pins"
-  | "player_limits";
+  | "player_limits"
+  | "playability";
 
 export interface UploadValidationReportItem {
   check: UploadValidationCheck;
@@ -294,6 +295,7 @@ export interface AiGameDraftResponse {
   draft: ReleaseBundleDto;
   validationReport: UploadValidationReportItem[];
   telemetry: StructuredTaskTelemetryDto;
+  qualityReport?: Array<{ code: string; message: string; severity: "error" | "warning" }>;
 }
 
 export interface AiGameGenerationErrorResponse extends ApiErrorResponse {

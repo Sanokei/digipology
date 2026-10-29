@@ -1,5 +1,7 @@
 import { DICE_DASH_LUA } from "./games/dice-dash/game.lua";
 import { DICE_DASH_V2_LUA } from "./games/dice-dash/game-v2.lua";
+import { DICE_DASH_V3_LUA } from "./games/dice-dash/game-v3.lua";
+import { DICE_DASH_V3_RUNTIME_JSON } from "./games/dice-dash/runtime-v3";
 import { DICE_DASH_RUNTIME_JSON } from "./games/dice-dash/runtime";
 import { DICE_DASH_V2_RUNTIME_JSON } from "./games/dice-dash/runtime-v2";
 import { FIRST_DEAL_LUA } from "./games/first-deal/game.lua";
@@ -184,6 +186,37 @@ const ZONE_RUNNER_RELEASE_V2 = frozenRelease({
   }),
 });
 
+const DICE_DASH_RELEASE_V3 = frozenRelease({
+  formatVersion: 1,
+  gameId: "builtin_dice_dash",
+  releaseId: "builtin_dice_dash_3",
+  releaseNumber: 3,
+  kernelVersion: 1,
+  luaApiVersion: 1,
+  luaStdlibVersion: 1,
+  networkProtocolVersion: 1,
+  interactionMode: "scripted",
+  minPlayers: 2,
+  maxPlayers: 4,
+  files: [
+    frozenFile({
+      path: "runtime/game.json",
+      contentHash: "sha256:0ffb53c11f3b4f19c0aff2cd8af22cdf2c8a5387286fadfbcc43788e3a11d201",
+      byteLength: 255,
+      content: DICE_DASH_V3_RUNTIME_JSON,
+    }),
+    frozenFile({
+      path: "scripts/game.lua",
+      contentHash: "sha256:5db197a2755c4add135fa0a7ec552e6a43c9d45e196bbd7c0441113c0c943b10",
+      byteLength: 1295,
+      content: DICE_DASH_V3_LUA,
+    }),
+  ],
+  definitions: Object.freeze({ standard_d6: Object.freeze({ label: "Die", color: "#f4c46b" }) }),
+  refs: Object.freeze({ status: "status" }),
+  integrity: Object.freeze({ manifestHash: "sha256:d14ff78a0bf4e2d117adff593cc1596daaca43ef8def4b7b1b1b34e1e89959af" }),
+});
+
 export const BUILTIN_GAMES: ReadonlyArray<BuiltinGame> = Object.freeze([
   Object.freeze({
     slug: "first-deal",
@@ -200,8 +233,8 @@ export const BUILTIN_GAMES: ReadonlyArray<BuiltinGame> = Object.freeze([
     tagline: "Race to 20 on deterministic rolls from the shared table.",
     minPlayers: 2,
     maxPlayers: 4,
-    latestReleaseId: DICE_DASH_RELEASE_V2.releaseId,
-    releases: Object.freeze([DICE_DASH_RELEASE, DICE_DASH_RELEASE_V2]),
+    latestReleaseId: DICE_DASH_RELEASE_V3.releaseId,
+    releases: Object.freeze([DICE_DASH_RELEASE, DICE_DASH_RELEASE_V2, DICE_DASH_RELEASE_V3]),
   }),
   Object.freeze({
     slug: "zone-runner",

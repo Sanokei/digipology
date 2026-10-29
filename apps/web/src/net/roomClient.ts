@@ -171,7 +171,7 @@ export class RoomClient {
         await this.store.loadScriptRuntime(result.value);
         this.releaseLoaded = true;
       }
-      catch { this.onStatus({ state: "error", message: "This game could not be started.", recoverable: true }); this.stopped = true; socket.close(); return; }
+      catch (error) { this.store.setDiagnostic(error instanceof Error ? error.message : "Creator runtime initialization failed"); this.onStatus({ state: "error", message: "This game could not be started.", recoverable: true }); this.stopped = true; socket.close(); return; }
     }
     if (this.stopped || socket !== this.socket || socket.readyState !== WebSocket.OPEN) return;
     this.onStatus({ state: "starting", message: "Joining Table" });

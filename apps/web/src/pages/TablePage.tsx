@@ -5,6 +5,9 @@ import { HandStrip } from "../components/HandStrip";
 import { ConnectionOverlay } from "../components/ConnectionOverlay";
 import { TableTopBar } from "../components/TableTopBar";
 import { TableMenu } from "../components/TableMenu";
+import { AudioControls } from "../components/AudioControls";
+import { GameProgressPanel } from "../components/GameProgressPanel";
+import { useTableAudio } from "../audio/useTableAudio";
 import type { GameSnapshotDto } from "digipology-protocol/http";
 import { RoomClient, type RoomClientStatus } from "../net/roomClient";
 import { TableScene } from "../scene/TableScene";
@@ -16,7 +19,8 @@ import {
 import { KernelStore } from "../state/kernelStore";
 import { useKernelStore } from "../state/useKernelStore";
 import { loadRoomSession } from "../utils/roomSession";
-import { localHandItems } from "./tableHandModel";
+import { localHandId, localHandItems } from "./tableHandModel";
+import { gameProgress } from "./gameProgress";
 import { diceControlLabels } from "./tableContextModel";
 import type { CanonicalGameState, EntityRecord, PromptRecord } from "digipology-kernel";
 
@@ -65,12 +69,11 @@ export function DiceControls({
 }) {
   if (dice.length === 0) return null;
   const labels = diceControlLabels(dice, definitions);
-  return <aside className="dice-controls"><span>Dice</span>{dice.map((entity) => <button
+  return <aside className="dice-controls"><span>Dice</span>{dice.map((entity) => <div className="dice-controls__die" key={entity.id}><button
     type="button"
     disabled={disabled}
-    key={entity.id}
     onClick={() => onRoll(entity.id)}
-  >Roll {labels.get(entity.id) ?? "Die"}</button>)}</aside>;
+  >Roll {labels.get(entity.id) ?? "Die"}</button><output aria-label={`${labels.get(entity.id) ?? "Die"} result`}>{String(entity.components.die?.value ?? "—")}</output></div>)}</aside>;
 }
 
 function PromptPanel({
@@ -108,6 +111,7 @@ export function TablePage() {
   const client = useMemo(() => session === null ? null : new RoomClient(session, store, setStatus), [clientGeneration, session, store]);
   const [projectToTable, setProjectToTable] = useState<((clientX: number, clientY: number) => { x: number; y: number; z: number } | null) | undefined>();
   const view = useKernelStore(store);
+  const audio = useTableAudio(store, status.state === "connected");
   const [playersOpen, setPlayersOpen] = useState(() => playersPanelOpenByDefault(
     typeof window !== "undefined" && window.matchMedia("(min-width: 769px)").matches,
   ));
@@ -132,18 +136,28 @@ export function TablePage() {
   const dice = Object.values(view.state?.entities ?? {}).filter((entity) => entity.components.die !== undefined);
   const handItems = localHandItems(view.displayedState, session.playerId, view.definitions);
   const prompts = openPromptsForPlayer(view.state, session.playerId);
+  const progress = gameProgress(view.state);
+  const turnDisabled = progress.winnerId !== null || (progress.currentPlayerId !== null && progress.currentPlayerId !== session.playerId);
+  const handId = localHandId(view.state, session.playerId);
+  const decks = Object.values(view.state?.entities ?? {}).filter((entity) => entity.components.deck?.enabled);
 
   return <TableScene
     store={store} client={client} playerId={session.playerId} interactionsPaused={status.state !== "connected"}
     onProjectorChange={(next) => setProjectToTable(next === null ? undefined : () => next)}
     onRendererStatus={setRendererStatus} rendererStatus={rendererStatus} rendererOverrideActive={rendererOverrideActive}
-    topBar={<TableTopBar gameTitle={gameTitle} playerCount={view.players.length} joinCode={session.joinCode} inviteUrl={session.inviteUrl} onPlayers={() => setPlayersOpen((value) => !value)} onDiagnostics={() => setDiagnosticsOpen((value) => !value)} menu={<TableMenu roomId={roomId} roomToken={session.roomToken} isHost={view.players.find((player) => player.playerId === session.playerId)?.host === true} scripted={store.requiresScripts()} confirmedSnapshot={() => store.confirmedSnapshot() as GameSnapshotDto | null} onDiagnostics={() => setDiagnosticsOpen((value) => !value)} />} />}
+    topBar={<TableTopBar gameTitle={gameTitle} playerCount={view.players.length} joinCode={session.joinCode} inviteUrl={session.inviteUrl} onPlayers={() => setPlayersOpen((value) => !value)} onDiagnostics={() => setDiagnosticsOpen((value) => !value)} menu={<><AudioControls {...audio} /><TableMenu roomId={roomId} roomToken={session.roomToken} isHost={view.players.find((player) => player.playerId === session.playerId)?.host === true} scripted={store.requiresScripts()} confirmedSnapshot={() => store.confirmedSnapshot() as GameSnapshotDto | null} onDiagnostics={() => setDiagnosticsOpen((value) => !value)} /></>} />}
     panels={<>
+      <GameProgressPanel state={view.state} playerId={session.playerId} />
       {view.correction === null ? null : <div key={view.correction.id} className="prediction-correction" role="status">{view.correction.message}</div>}
       {playersOpen ? <aside className="players-panel table-sheet" aria-label="Players"><div className="panel-heading"><span>Players</span><button type="button" aria-label="Close players" onClick={() => setPlayersOpen(false)}>×</button></div>{view.players.map((player) => <div className="player-row" key={player.playerId}><span className={player.connected ? "connection-dot connection-dot--online" : "connection-dot"} /><span><strong>{player.displayName}</strong><small>{player.seatId ?? "No seat"}</small></span><em>{player.connected ? "Connected" : "Away"}</em></div>)}</aside> : null}
-      <DiceControls dice={dice} definitions={view.definitions} disabled={status.state !== "connected"} onRoll={(entityId) => {
+      <DiceControls dice={dice} definitions={view.definitions} disabled={status.state !== "connected" || turnDisabled} onRoll={(entityId) => {
         client.sendAction({ type: "die.roll", payload: { entityId } });
       }} />
+      {decks.length === 0 ? null : <aside className="dice-controls card-controls" aria-label="Card actions"><span>Cards</span>{decks.map((deck) => <div className="dice-controls__die" key={deck.id}>
+        <button type="button" disabled={status.state !== "connected" || handId === null || (deck.components.container?.items.length ?? 0) === 0} onClick={() => client.sendAction({ type: "deck.draw_to_container", payload: { deckId: deck.id, target: handId, count: 1 } })}>Draw card</button>
+        <button type="button" disabled={status.state !== "connected"} onClick={() => client.sendAction({ type: "deck.shuffle", payload: { deckId: deck.id } })}>Shuffle deck</button>
+        <output aria-label="Cards remaining">{deck.components.container?.items.length ?? 0}</output>
+      </div>)}</aside>}
       {prompts.map((prompt) => <PromptPanel key={prompt.id} prompt={prompt} disabled={status.state !== "connected"} respond={(response) => {
         client.sendAction({ type: "prompt.respond", payload: { promptId: prompt.id, response } });
       }} />)}

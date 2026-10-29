@@ -46,6 +46,8 @@ import {
 } from "./d1-repositories";
 import { FixedWindowRateLimiter } from "./rate-limiter";
 import { validateUploadedBundle } from "./release-validation";
+import { refineGameDraft, logRefinementProgress } from "./ai-game-refine";
+import { resolveQualityCheck, type DraftQualityCheck } from "./quality-client";
 
 const AI_RATE_LIMIT = 20;
 const AI_RATE_WINDOW_MS = 60 * 60 * 1000;
@@ -145,9 +147,10 @@ export const AI_GAME_TOOL: ModelTool = {
         items: { ...NUM("Unsigned 32-bit deterministic RNG seed word."), minimum: 0, maximum: 0xffff_ffff, multipleOf: 1 },
       },
       definitions: { type: "array", items: definitionSchema },
+      refs: { type: "array", items: strictObject({ name: STR("Lua refs alias."), entityId: STR("Existing entity ID.") }, ["name", "entityId"]) },
     }, [
       "title", "tagline", "interactionMode", "minPlayers", "maxPlayers",
-      "files", "settings", "entities", "scriptStateJson", "rngSeed", "definitions",
+      "files", "settings", "entities", "scriptStateJson", "rngSeed", "definitions", "refs",
     ]),
   },
 };
@@ -155,6 +158,7 @@ export const AI_GAME_TOOL: ModelTool = {
 export interface AiGameDependencies {
   /** Tests inject a hermetic port. Omit to construct the production model port. */
   modelFetch?: ModelFetch | null;
+  qualityCheck?: DraftQualityCheck;
 }
 
 export interface AiGameRouteInput {
@@ -196,6 +200,8 @@ export async function handleAiGameRequest(input: AiGameRouteInput): Promise<Resp
   if (modelFetch === null) {
     return jsonError(503, "ai_unconfigured", "AI creation isn't set up on this server yet");
   }
+  const qualityCheck = input.dependencies?.qualityCheck ?? resolveQualityCheck(input.env);
+  if (qualityCheck === null) return jsonError(503, "ai_unconfigured", "AI game playtesting isn't set up on this server yet");
 
   const usageDay = dayKey(new Date(input.now));
   const cap = dailyCap(input.env);
@@ -270,19 +276,41 @@ export async function handleAiGameRequest(input: AiGameRouteInput): Promise<Resp
   });
 
   if (task.result !== null && lastAssembly.draft !== null && uploadReportOk(lastAssembly.report)) {
-    const response: AiGameDraftResponse = {
+    let refined;
+    try { refined = await refineGameDraft({
+      fetch: metered.fetch,
       draft: lastAssembly.draft,
-      validationReport: lastAssembly.report,
-      telemetry: task.telemetry,
-    };
-    return jsonResponse(response);
+      userPrompt: prompt,
+      model: configuredString(input.env, "AI_MODEL", DEFAULT_MODEL_ID),
+      maxRounds: 2,
+      refinementAttempts: 1,
+      simulateRolls: 24,
+      qualityCheck,
+      onProgress: logRefinementProgress,
+    }); } catch {
+      return jsonError(503, "ai_playtest_unavailable", "Game playtesting is temporarily unavailable. Your draft was not accepted without its checks.");
+    }
+    if (metered.capReached()) return dailyCapResponse(cap);
+    const errors = refined.issues.filter((issue) => issue.severity === "error");
+    lastAssembly.report.push({ check: "playability", ok: refined.accepted,
+      ...(errors.length === 0 ? {} : { detail: errors.map((issue) => `${issue.code}: ${issue.message}`).join("; ") }),
+    });
+    if (refined.accepted && refined.draft !== null) {
+      const response: AiGameDraftResponse = {
+        draft: refined.draft,
+        validationReport: lastAssembly.report,
+        qualityReport: refined.issues,
+        telemetry: task.telemetry,
+      };
+      return jsonResponse(response);
+    }
   }
   if (metered.capReached()) return dailyCapResponse(cap);
 
   const response: AiGameGenerationErrorResponse = {
     error: {
       code: "ai_generation_failed",
-      message: "AI could not produce a valid game draft after three attempts. Review the checks and retry.",
+      message: "AI could not produce a playable game after validation and repair. Review the checks and retry.",
     },
     validationReport: lastAssembly.report,
     telemetry: task.telemetry,
@@ -296,7 +324,7 @@ export function buildAiRequest(
   prompt: string,
   existingBundle: ReleaseBundleDto | null,
 ): ModelRequest {
-  const reference = builtinCatalog.getRelease("builtin_dice_dash_2")?.bundle;
+  const reference = builtinCatalog.getRelease("builtin_dice_dash_3")?.bundle;
   const referenceText = reference === undefined
     ? ""
     : `\nREFERENCE AUTHORABLE BUNDLE:\n${canonicalStringify(authoringFromBundle(reference))}`;
@@ -329,6 +357,10 @@ export function buildAiRequest(
     "Every object inside \"files\" MUST contain both a \"path\" key and a \"content\" key — never a path alone.",
     "Every entity needs the components its types require: a \"die\" component needs a \"transform\" component on the same entity.",
     "Your draft must be a COMPLETE playable game, not the skeleton: write real Lua code implementing the user's requested rules.",
+    "Use a memorable, specific title tied to the theme and mechanics. Include understandable rules, meaningful choices, player feedback, and a reachable win condition.",
+    "Every script must be attached to an entity with a script component. Define global creator callbacks such as on_start(ctx), on_roll(ctx), and on_player_join(ctx); use scene, players, turns, scores, state, settings and refs through the creator API.",
+    "An on_roll callback runs on the rolled die's script binding. Put that callback on the die, and use props.role to separate it from shared game-start rules. ctx.value is the confirmed die face and ctx.player is the actor.",
+    "Use refs aliases only when listed in the refs array. Keep a text entity named status updated with the current turn, legal next action and winner so players understand the game.",
     `Registered kernel actions only: ${actions}.`,
     `Registered components only: ${components}.`,
     "Component dataJson and scriptStateJson must be strict finite JSON with no comments.",
@@ -466,6 +498,7 @@ export function assembleAiGameDraft(
     kernelVersion: 1,
     luaApiVersion: 1,
     networkProtocolVersion: 1,
+    ...(Object.values(authoring.entities).some((entity) => entity.components.script !== undefined) ? { luaStdlibVersion: 1 as const } : {}),
     interactionMode: authoring.interactionMode,
     minPlayers: authoring.minPlayers,
     maxPlayers: authoring.maxPlayers,
@@ -474,6 +507,7 @@ export function assembleAiGameDraft(
     initialSnapshot: snapshot(state) as unknown as ReleaseBundleDto["initialSnapshot"],
     title,
     ...(Object.keys(authoring.definitions).length === 0 ? {} : { definitions: authoring.definitions }),
+    ...(Object.keys(authoring.refs).length === 0 ? {} : { refs: authoring.refs }),
   };
   draft.integrity.manifestHash = releaseManifestHash(draft, hashValue);
   const report = validateUploadedBundle(
@@ -500,6 +534,7 @@ interface NormalizedAuthoring {
   scriptState: JsonValue;
   rngSeed: [number, number, number, number];
   definitions: Record<string, { label?: string; color?: string }>;
+  refs: Record<string, string>;
 }
 
 function normalizeAuthoring(raw: Record<string, unknown>):
@@ -507,7 +542,7 @@ function normalizeAuthoring(raw: Record<string, unknown>):
   | { ok: false; detail: string } {
   const allowed = [
     "title", "tagline", "interactionMode", "minPlayers", "maxPlayers", "files",
-    "settings", "entities", "scriptStateJson", "rngSeed", "definitions",
+    "settings", "entities", "scriptStateJson", "rngSeed", "definitions", "refs",
   ];
   const unknown = Object.keys(raw).find((key) => !allowed.includes(key));
   if (unknown !== undefined) return invalidAuthoring(`unknown authorable field ${unknown}`);
@@ -535,6 +570,13 @@ function normalizeAuthoring(raw: Record<string, unknown>):
   if (!rngSeed.ok) return rngSeed;
   const definitions = normalizeDefinitions(raw.definitions);
   if (!definitions.ok) return definitions;
+  const refs: Record<string, string> = {};
+  if (raw.refs !== undefined && !Array.isArray(raw.refs)) return invalidAuthoring("refs must be an array");
+  for (const candidate of Array.isArray(raw.refs) ? raw.refs : []) {
+    const ref = exactRecord(candidate, ["name", "entityId"]);
+    if (!ref || typeof ref.name !== "string" || !/^[a-z][a-z0-9_]*$/.test(ref.name) || ref.name in refs || typeof ref.entityId !== "string" || !(ref.entityId in entities.value)) return invalidAuthoring("refs need unique names pointing to existing entities");
+    refs[ref.name] = ref.entityId;
+  }
   return { ok: true, value: {
     title,
     tagline,
@@ -547,6 +589,7 @@ function normalizeAuthoring(raw: Record<string, unknown>):
     scriptState: scriptState.value,
     rngSeed: rngSeed.value,
     definitions: definitions.value,
+    refs,
   } };
 }
 
@@ -732,6 +775,7 @@ export function authoringFromBundle(bundle: ReleaseBundleDto): Record<string, un
       label: bundle.definitions?.[id]?.label ?? "",
       color: bundle.definitions?.[id]?.color ?? "",
     })),
+    refs: Object.keys(bundle.refs ?? {}).sort().map((name) => ({ name, entityId: bundle.refs![name]! })),
   };
 }
 
@@ -754,7 +798,8 @@ export function resolveModelFetch(env: Env, dependencies: AiGameDependencies | u
     return dependencies.modelFetch ?? null;
   }
   const apiKey = configuredString(env, "AI_API_KEY", "") || undefined;
-  const baseUrl = configuredString(env, "AI_BASE_URL", "") || undefined;
+  const configuredBase = Reflect.get(env, "AI_BASE_URL");
+  const baseUrl = typeof configuredBase === "string" ? configuredBase : undefined;
   return makeModelFetch({
     ...(apiKey === undefined ? {} : { apiKey }),
     ...(baseUrl === undefined ? {} : { baseUrl }),

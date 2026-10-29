@@ -12,6 +12,16 @@ export interface SandboxOptions {
   instructionBudget: number;
   memoryBudgetBytes?: number;
   env?: Record<string, unknown>;
+  /** Host-owned local/bundled Wasmoon binary URI. Never exposed to creator Lua. */
+  wasmUri?: string;
+}
+
+let defaultWasmUri: string | undefined;
+
+/** Browser hosts configure their bundled WASM once, before creating any sandbox. */
+export function setLuaWasmUri(uri: string): void {
+  if (typeof uri !== "string" || uri.trim() === "") throw new TypeError("A Wasmoon binary URI is required");
+  defaultWasmUri = uri;
 }
 
 export interface Sandbox {
@@ -237,7 +247,7 @@ export async function createSandbox(opts: SandboxOptions): Promise<Sandbox> {
     assertPositiveInteger(opts.memoryBudgetBytes, "memoryBudgetBytes");
   }
   const baseEnvironment = snapshotEnvironment(opts.env, "env");
-  const factory = new LuaFactory() as unknown as LuaFactoryLike;
+  const factory = new LuaFactory(opts.wasmUri ?? defaultWasmUri) as unknown as LuaFactoryLike;
   await factory.getLuaModule();
 
   let closed = false;

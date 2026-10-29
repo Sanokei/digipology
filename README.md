@@ -39,10 +39,16 @@ Digipology is built around a **deterministic game kernel**: canonical gameplay i
 
 Requires [Bun](https://bun.sh) ≥ 1.2.
 
+FFmpeg and ffprobe are required for the media harness tests. Browser acceptance
+tests use Playwright Chromium (`bunx --no-install playwright install --with-deps
+chromium`), or a system browser selected by
+`PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`.
+
 ```bash
 bun install
 bun test
 bun run typecheck
+bun run test:e2e
 ```
 
 For the local product, apply the D1 migrations once and run the single-origin
@@ -58,6 +64,17 @@ bun run dev
 This serves the app and API at `http://127.0.0.1:8787`. Run `bun run dev:web`
 alongside it when you want Vite hot reload on port 5173; API and WebSocket
 requests are proxied to the worker.
+
+The [product improvement loop](docs/runbooks/product-loop.md) runs focused,
+tested increments toward the one-prompt creation workflow. The
+[media harness](docs/runbooks/media-pipeline.md) searches online model/audio
+sources, preserves provenance and masters sound effects and music with FFmpeg.
+
+AI creation also needs the Bun playtest service (`bun run dev:quality`) and an
+`AI_QUALITY_BASE_URL` pointing to it, alongside the configured model endpoint.
+The local service uses port 8798. Production uses an authenticated HTTPS
+endpoint and matching `AI_QUALITY_TOKEN`; the Room Durable Object continues
+to sequence actions and never runs game-rule logic.
 
 ## Specification
 

@@ -1,5 +1,6 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { ArrowRight, ArrowUpRight, Search } from "lucide-react";
 
 import { api } from "../api/client";
 import { gameMetrics, type CatalogGameSummaryDto } from "../api/quickplayAdapter";
@@ -37,6 +38,8 @@ export function HomePage() {
   const [rooms, setRooms] = useState<PublicRoomDto[]>([]);
   const [roomsError, setRoomsError] = useState<string | null>(null);
   const [hostingSlug, setHostingSlug] = useState<string | null>(null);
+  const [shelfOrder, setShelfOrder] = useState<"featured" | "popular" | "new">("featured");
+  const [search, setSearch] = useState("");
   const [toast, setToast] = useState<string | null>(null);
   const [flows, setFlows] = useState<Record<string, QuickPlayState>>({});
   const flowsRef = useRef<Record<string, QuickPlayState>>({});
@@ -94,6 +97,8 @@ export function HomePage() {
   }), [games]);
   const mostPlayed = useMemo(() => [...games].sort((left, right) => gameMetrics(right).totalPlays - gameMetrics(left).totalPlays), [games]);
   const newest = useMemo(() => [...games].reverse(), [games]);
+  const shelfGames = (shelfOrder === "popular" ? mostPlayed : shelfOrder === "new" ? newest : featuredGames)
+    .filter((game) => `${game.title} ${game.tagline}`.toLowerCase().includes(search.trim().toLowerCase()));
   const hero = featuredGames[0];
   const pendingSlugs = useMemo(() => new Set(
     Object.entries(flows).filter(([, flow]) => flow.phase === "pending").map(([slug]) => slug),
@@ -164,13 +169,16 @@ export function HomePage() {
       ) : (
         <main className="play-catalog">
           {hero ? <GameHero game={hero} pending={pendingSlugs.has(hero.slug)} onQuickPlay={(game) => void quickPlay(game)} onHost={(game) => setHostingSlug(game.slug)} /> : null}
-          <GameRail title="Featured" games={featuredGames} pendingSlugs={pendingSlugs} onQuickPlay={(game) => void quickPlay(game)} onHost={(game) => setHostingSlug(game.slug)} onDetails={(game) => navigate(`/games/${encodeURIComponent(game.slug)}`)} />
-          <GameRail title="Most played" games={mostPlayed} pendingSlugs={pendingSlugs} onQuickPlay={(game) => void quickPlay(game)} onHost={(game) => setHostingSlug(game.slug)} onDetails={(game) => navigate(`/games/${encodeURIComponent(game.slug)}`)} />
-          <GameRail title="New" games={newest} pendingSlugs={pendingSlugs} onQuickPlay={(game) => void quickPlay(game)} onHost={(game) => setHostingSlug(game.slug)} onDetails={(game) => navigate(`/games/${encodeURIComponent(game.slug)}`)} />
+          <section className="play-shelf" id="games" aria-labelledby="shelf-title">
+            <div className="play-shelf__heading"><div><p className="play-section-eyebrow">Small games. Big game-night energy.</p><h2 id="shelf-title">Find your next favorite<span aria-hidden="true">✺</span></h2></div><label className="play-search"><Search size={14} aria-hidden="true" /><span className="sr-only">Search games</span><input type="search" placeholder="Find a game…" value={search} onChange={(event) => setSearch(event.currentTarget.value)} /></label></div>
+            <div className="play-shelf__tabs" role="group" aria-label="Sort games">{([['featured', 'All games'], ['popular', 'Most played'], ['new', 'New to the table']] as const).map(([order, label]) => <button type="button" key={order} aria-pressed={shelfOrder === order} onClick={() => setShelfOrder(order)}>{label}</button>)}</div>
+            {shelfGames.length > 0 ? <GameRail title="Games to play" games={shelfGames} pendingSlugs={pendingSlugs} onQuickPlay={(game) => void quickPlay(game)} onHost={(game) => setHostingSlug(game.slug)} onDetails={(game) => navigate(`/games/${encodeURIComponent(game.slug)}`)} /> : <p className="play-shelf__empty" role="status">No games match “{search}”. Try another name.</p>}
+          </section>
           <section className="play-room-hub" aria-label="Join or host a table">
             <div className="play-join-card">
-              <p className="play-section-eyebrow">Have an invite?</p>
-              <h2>Join by code</h2>
+              <p className="play-section-eyebrow">Your friends saved you a seat</p>
+              <h2>Got an invite?</h2>
+              <p>One little code. A whole table of possibilities.</p>
               <form onSubmit={handleJoin}>
                 <label className="sr-only" htmlFor="join-code">Invite code or link</label>
                 <input id="join-code" autoComplete="off" inputMode="text" maxLength={160} onChange={(event) => { setJoinCode(event.currentTarget.value); setJoinError(null); }} placeholder="ABCD-EFGH or invite link" value={joinCode} />
@@ -188,11 +196,13 @@ export function HomePage() {
               <div className="play-room-list">{rooms.map((room) => (
                 <Link key={room.joinCode} to={`/join/${normalizeJoinCode(room.joinCode)}`} aria-label={`Join ${room.gameTitle}, ${room.players} of ${room.maxPlayers} seats filled`}>
                   <span><strong>{room.gameTitle}</strong><small>{relativeCreatedTime(room.createdAt)}</small></span>
-                  <span>{room.players}/{room.maxPlayers}</span><i aria-hidden="true">→</i>
+                  <span>{room.players}/{room.maxPlayers}</span><ArrowRight size={14} aria-hidden="true" />
                 </Link>
               ))}</div>
             </section>
           </section>
+          <section className="play-create-banner"><span className="play-create-banner__spark" aria-hidden="true">✺</span><div><p className="play-section-eyebrow">Your imagination has a seat here, too</p><h2>What if your next favorite game was yours?</h2><p>Bring an idea, make your rules, and invite your first playtesters.</p></div><Link to="/create">Make a game <ArrowUpRight size={16} aria-hidden="true" /></Link></section>
+          <footer className="play-footer"><span>Good games bring people together.</span><Link to="/create">Create something worth a rematch <ArrowUpRight size={12} aria-hidden="true" /></Link></footer>
         </main>
       )}
       {toast ? <div className="play-toast" role="status">{toast}</div> : null}

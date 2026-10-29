@@ -8,6 +8,7 @@ import {
 } from "digipology-ai";
 import {
   applyOrderedWithScripts,
+  createInitialState,
   loadSnapshot,
   type CanonicalGameState,
   type GameSnapshot,
@@ -535,7 +536,7 @@ async function checkLuaSyntax(
   const files = luaFiles(draft);
   if (files.length === 0) return [];
   const issues: QualityIssue[] = [];
-  const sandbox = await createSandbox({ instructionBudget });
+  const sandbox = await createSandbox({ instructionBudget, memoryBudgetBytes: 512 * 1024 });
   try {
     for (const file of files) {
       // Mirror the creator runtime's load shape (source becomes a function
@@ -607,7 +608,7 @@ function winnerDeclared(state: CanonicalGameState): boolean {
   }
   const scriptState = state.scriptState;
   if (typeof scriptState === "object" && scriptState !== null && !Array.isArray(scriptState)) {
-    const winner = (scriptState as Record<string, unknown>).winner;
+    const winner = (scriptState as Record<string, unknown>).winner_id ?? (scriptState as Record<string, unknown>).winner;
     if (winner !== undefined && winner !== null && winner !== 0 && winner !== "" && winner !== false) {
       return true;
     }
@@ -673,10 +674,11 @@ export async function simulateDraft(
   const scripts = scriptsFromReleaseFiles(draft.files);
   if (Object.keys(scripts).length === 0) return [];
   const issues: QualityIssue[] = [];
-  const runtime = await createCreatorScriptRuntime({ scripts, instructionBudget });
+  const runtime = await createCreatorScriptRuntime({ scripts, instructionBudget, memoryBudgetBytes: 512 * 1024, refs: draft.refs ?? {}, definitions: draft.definitions ?? {} });
   try {
-    let state = loadSnapshot(draft.initialSnapshot as unknown as GameSnapshot);
-    let sequence = state.sequence;
+    const initial = loadSnapshot(draft.initialSnapshot as unknown as GameSnapshot);
+    const players: CanonicalGameState["players"] = {};
+    const seats = structuredClone(initial.seats);
 
     const playerCount = Math.min(Math.max(draft.minPlayers, 1), 4);
     const playerIds: string[] = [];
@@ -684,22 +686,23 @@ export async function simulateDraft(
     for (let index = 1; index <= playerCount; index += 1) {
       const playerId = `sim_player_${index}`;
       playerIds.push(playerId);
-      sequence += 1;
-      const result = await applyOrderedWithScripts(
-        state,
-        nextAction(sequence, `sim-join-${index}`, "system.player_joined",
-          { type: "system" }, { playerId }),
-        { runtime },
-      );
-      allEvents.push(...result.events);
-      state = result.state;
+      players[playerId] = { id: playerId, name: `Player ${index}` };
+      const seatId = Object.keys(seats).sort()[index - 1] ?? `seat_${index}`;
+      seats[seatId] = { ...seats[seatId], id: seatId, playerId };
     }
+    // Live rooms place their initial roster in the sequence-zero snapshot,
+    // then run game_start once. Joining first would make game_start invalid.
+    let state = createInitialState({ ...initial, players, seats });
+    const started = await applyOrderedWithScripts(state, nextAction(1, "sim-start", "system.game_start", { type: "system" }, {}), { runtime });
+    state = started.state;
+    let sequence = state.sequence;
+    allEvents.push(...started.events);
 
     const dice = Object.entries(state.entities)
       .filter(([, entity]) =>
         (entity.components as Record<string, unknown>).die !== undefined)
       .map(([id]) => id);
-    if (dice.length === 0) return issues;
+    if (dice.length === 0) return scriptErrorIssues(allEvents);
 
     let progressObserved = false;
     let winObserved = winnerDeclared(state);
@@ -708,9 +711,13 @@ export async function simulateDraft(
     for (let round = 1; round <= rolls; round += 1) {
       for (const dieId of dice) {
         sequence += 1;
+        const script = typeof state.scriptState === "object" && state.scriptState !== null && !Array.isArray(state.scriptState) ? state.scriptState : {};
+        const stdlib = typeof script.__stdlib === "object" && script.__stdlib !== null && !Array.isArray(script.__stdlib) ? script.__stdlib : {};
+        const turns = typeof stdlib.turns === "object" && stdlib.turns !== null && !Array.isArray(stdlib.turns) ? stdlib.turns : {};
+        const current = turns.active === true && Array.isArray(turns.order) && typeof turns.index === "number" ? turns.order[turns.index - 1] : null;
         const actor = {
           type: "player",
-          playerId: playerIds[(round - 1) % playerIds.length]!,
+          playerId: typeof current === "string" ? current : playerIds[(round - 1) % playerIds.length]!,
         } as const;
         const result = await applyOrderedWithScripts(
           state,

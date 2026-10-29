@@ -99,7 +99,7 @@ function validateManifestShape(release: ReleaseBundle): void {
 }
 
 describe("built-in catalog", () => {
-  test("exports all immutable releases and points latest games at v2", () => {
+  test("exports immutable releases and points new games at playable current versions", () => {
     expect(
       BUILTIN_GAMES.map(({ slug, latestReleaseId, releases }) => [
         slug,
@@ -110,8 +110,8 @@ describe("built-in catalog", () => {
       ["first-deal", "builtin_first_deal_1", ["builtin_first_deal_1"]],
       [
         "dice-dash",
-        "builtin_dice_dash_2",
-        ["builtin_dice_dash_1", "builtin_dice_dash_2"],
+        "builtin_dice_dash_3",
+        ["builtin_dice_dash_1", "builtin_dice_dash_2", "builtin_dice_dash_3"],
       ],
       [
         "zone-runner",

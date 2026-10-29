@@ -39,6 +39,7 @@
   // EMAIL_DEV_MODE is intentionally absent. Set it only in an uncommitted
   // `.dev.vars` while running `wrangler dev`.
   "assets": {
+    "binding": "ASSETS",
     "directory": "../web/dist",
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*"]

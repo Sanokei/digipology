@@ -1,0 +1,74 @@
+[
+  {
+    "id": "prompt-to-play",
+    "title": "Make one prompt produce a tested, playable game",
+    "done": false,
+    "outcome": "A creator describes a strategy game combining cards, dice, resources, turns and player choices; the app orchestrates generation, playtesting and repair internally before opening the playable result.",
+    "acceptance": [
+      "Wire the existing game-quality and refinement harness into the real creation route, not just a test-only entry point.",
+      "Reject structurally valid games whose scripts do not run or whose actions cannot make progress; return actionable errors and preserve request metering.",
+      "Use a configured capable model without machine-specific default model paths or unsupported promises of live availability.",
+      "Exercise a generated game from creation through actual browser play, including negative cases and recorded evidence. A handcrafted demo or mocked provider alone does not establish live one-shot quality."
+    ]
+  },
+  {
+    "id": "names-and-raster-covers",
+    "title": "Generate memorable names and genuine raster cover art with each game",
+    "done": false,
+    "outcome": "The game name, thumbnail and theme form coherent packaging that makes a player want to try the generated game.",
+    "acceptance": [
+      "Choose and validate a distinctive name that reflects actual mechanics and theme; avoid generic placeholder names.",
+      "Integrate a server-side raster image-generation provider into the creation pipeline and save validated images with the immutable release.",
+      "Verify actual image bytes, dimensions, aspect ratio, theme consistency and thumbnail readability; SVG shapes converted to PNG do not qualify as generated illustration.",
+      "Keep secrets off the browser and never label an unconfigured or failed image provider as successful artwork generation."
+    ]
+  },
+  {
+    "id": "online-assets",
+    "title": "Discover and import coherent online 3D models, textures and artwork",
+    "done": false,
+    "outcome": "Generation selects suitable online assets and turns them into performant, attributed assets in a playable release.",
+    "acceptance": [
+      "Connect the asset search harness to generation and an editor review surface, including provenance and applicable attribution.",
+      "Import self-contained GLB models, normalize scale and orientation, and enforce scene geometry, texture and file-size budgets.",
+      "Use thematic consistency and readability checks when selecting assets; verify the actual imported model renders in a browser.",
+      "Exercise provider outages, missing assets and malformed imports without producing a falsely complete game."
+    ]
+  },
+  {
+    "id": "sound-and-music",
+    "title": "Source, edit and master sound effects and music for generated games",
+    "done": false,
+    "outcome": "Card, dice, resource, turn and victory actions have coherent sound design, with optional mastered music and accessible controls.",
+    "acceptance": [
+      "Connect online audio search and the FFmpeg mastering harness to the generation asset pipeline.",
+      "Trim unusable silence, normalize measured loudness, preserve true-peak headroom, add appropriate fades and validate loops.",
+      "Support separate music/effects levels, mute persistence, gesture-based audio activation, hidden-tab behavior and cleanup.",
+      "Test actual decoding and playback plus clipping, repetition and layering; attach audio samples and browser evidence for listening review."
+    ]
+  },
+  {
+    "id": "full-game-quality",
+    "title": "Evaluate complete generated strategy games for bugs and playability",
+    "done": false,
+    "outcome": "The creation pipeline finds broken rules, soft locks, inaccessible controls and pacing problems before a creator sees the result.",
+    "acceptance": [
+      "Play multiple seeds and legal choices from setup to victory with two to four clients; verify deterministic convergence and reconnect recovery.",
+      "Check turns, resources, trading, legal actions, progress, reachable win conditions and post-victory behavior.",
+      "Capture screenshots, action histories, timing and audio evidence; turn discovered bugs into permanent regressions.",
+      "Report decision variety, downtime and completion length as measurable signals, and include a human playtest rubric. Do not claim automated tests prove fun."
+    ]
+  },
+  {
+    "id": "one-shot-release",
+    "title": "Complete and verify the real prompt-to-publish player experience",
+    "done": false,
+    "outcome": "A person supplies one idea and receives a cohesive game that looks and plays well, can be shared, and works for invited players.",
+    "acceptance": [
+      "Run the real configured generation and media providers end to end; no demo substitution or mocked success in acceptance evidence.",
+      "Verify generated title, raster thumbnail, rule explanation, themed assets, mastered audio and full multiplayer game completion.",
+      "Exercise desktop and mobile navigation, loading states, recoverable errors, sign-in, publication and invite joining.",
+      "Record limitations and failed creative playtests honestly and queue focused follow-up work."
+    ]
+  }
+]

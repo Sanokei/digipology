@@ -12,4 +12,7 @@ coverage/
 *.tsbuildinfo
 .idea/
 .vscode/
+.product-loop/
+test-results/
+playwright-report/
 tmp/

@@ -12,8 +12,10 @@ import {
   AI_GAME_TOOL,
   assembleAiGameDraft,
   authoringFromBundle,
+  resolveModelFetch,
 } from "./ai-games";
 import { COVER_GENERATION_TOOL } from "./cover-generation";
+import { checkDraftQuality } from "./ai-game-quality";
 
 const NOW = Date.UTC(2026, 7, 14, 12);
 const SESSION_SECRET = "test-session-secret-that-is-at-least-32-bytes";
@@ -25,6 +27,9 @@ afterEach(() => {
 });
 
 describe("AI game authoring schema and assembly", () => {
+  test("an explicitly blank model endpoint remains unconfigured", () => {
+    expect(resolveModelFetch({ AI_BASE_URL: "" } as Env, undefined)).toBeNull();
+  });
   test("a real demo game's authorable fields satisfy the forced tool JSON schema", () => {
     const bundle = builtinCatalog.getRelease("builtin_dice_dash_2")!.bundle;
     const authoring = authoringFromBundle(bundle);
@@ -104,7 +109,7 @@ describe("AI game route matrices", () => {
         validationReport: Array<{ ok: boolean }>;
         telemetry: { attempts: number; firstTryValid: boolean };
       };
-      expect(body.validationReport).toHaveLength(8);
+      expect(body.validationReport).toHaveLength(9);
       expect(body.validationReport.every((item) => item.ok)).toBe(true);
       expect(body.telemetry).toMatchObject({ attempts: 1, firstTryValid: true });
       expect(databaseCounts(fixture.db)).toEqual(before);
@@ -177,6 +182,39 @@ describe("AI game route matrices", () => {
 });
 
 describe("AI game budgets", () => {
+  test("repairs a structurally valid broken game before accepting it and meters the repair", async () => {
+    const fixture = await routeFixture();
+    const valid = authoringFromBundle(builtinCatalog.getRelease("builtin_dice_dash_3")!.bundle);
+    const broken = structuredClone(valid);
+    const files = broken.files as Array<{ path: string; content: string }>;
+    files.find((file) => file.path.endsWith(".lua"))!.content = 'function on_roll(ctx)\n scene:get("score_seat_1"):add(math.random(1, 6))\nend';
+    const fixed = (valid.files as Array<{ path: string; content: string }>).filter((file) => file.path.endsWith(".lua"));
+    let calls = 0;
+    const response = await requestRoute("create", fixture.env, fixture.cookie, async () => {
+      calls += 1;
+      return calls === 1 ? modelResponse(broken) : modelResponse({ files: fixed });
+    });
+    expect(response.status).toBe(200);
+    expect(calls).toBe(2);
+    const body = await response.json() as { validationReport: Array<{ check: string; ok: boolean }> };
+    expect(body.validationReport.find((item) => item.check === "playability")?.ok).toBe(true);
+    expect((fixture.db.query("SELECT requests FROM ai_usage WHERE user_id = ?").get("user_owner") as { requests: number }).requests).toBe(2);
+  });
+
+  test("does not return a broken game when bounded repairs fail", async () => {
+    const fixture = await routeFixture();
+    const broken = authoringFromBundle(builtinCatalog.getRelease("builtin_dice_dash_3")!.bundle);
+    (broken.files as Array<{ path: string; content: string }>).find((file) => file.path.endsWith(".lua"))!.content = 'function on_roll(ctx)\n error("broken rules")\nend';
+    let calls = 0;
+    const response = await requestRoute("create", fixture.env, fixture.cookie, async () => {
+      calls += 1;
+      return calls === 1 ? modelResponse(broken) : modelResponse({ files: [] });
+    });
+    expect(response.status).toBe(502);
+    expect(calls).toBe(3);
+    const body = await response.json() as { validationReport: Array<{ check: string; ok: boolean; detail?: string }> };
+    expect(body.validationReport.find((item) => item.check === "playability")).toMatchObject({ ok: false, detail: expect.stringContaining("broken rules") });
+  });
   test("records a request before failed extraction and accumulates all attempts", async () => {
     const fixture = await routeFixture();
     const unextractable = { choices: [{ message: { content: "no tool object" } }], usage: {
@@ -435,7 +473,7 @@ async function requestRoute(
     method: "POST",
     headers,
     body: JSON.stringify(route === "create" ? { prompt: "Make a quick dice game" } : { instruction: "Make scoring clearer" }),
-  }), env, { modelFetch: fetch, now: NOW });
+  }), env, { modelFetch: fetch, qualityCheck: (draft) => checkDraftQuality(draft, { simulateRolls: 24 }), now: NOW });
 }
 
 async function requestCoverRoute(
@@ -448,11 +486,11 @@ async function requestCoverRoute(
   return handlePlatformRequest(new Request(
     "https://play.digipology.com/api/games/owned-game/covers/generate",
     { method: "POST", headers },
-  ), env, { modelFetch: fetch, now: NOW });
+  ), env, { modelFetch: fetch, qualityCheck: (draft) => checkDraftQuality(draft, { simulateRolls: 24 }), now: NOW });
 }
 
 function validModelResponse(): unknown {
-  return modelResponse(authoringFromBundle(builtinCatalog.getRelease("builtin_dice_dash_2")!.bundle));
+  return modelResponse(authoringFromBundle(builtinCatalog.getRelease("builtin_dice_dash_3")!.bundle));
 }
 
 function modelResponse(authoring: Record<string, unknown>): unknown {

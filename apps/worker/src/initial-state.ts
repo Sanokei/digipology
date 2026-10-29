@@ -163,6 +163,23 @@ function createDiceDashInitialState(
   entities[runtime.winnerId] = entity(runtime.winnerId, {
     counter: { value: 0, default: 0, min: 0, max: 4 },
   });
+  if (releaseId === "builtin_dice_dash_3") {
+    entities.rules = entity("rules", {
+      script: { scriptId: "scripts/game.lua", bindingId: "dice_rules", props: { role: "rules" } },
+    });
+    entities[runtime.dieId]!.components.script = {
+      scriptId: "scripts/game.lua", bindingId: "dice_roll", props: { role: "die" },
+    };
+    entities.status = entity("status", {
+      text: { value: "Roll the die. First to 20 wins." },
+      transform: { ...IDENTITY, position: { x: 0, y: 0, z: -2 } },
+    });
+    for (let index = 0; index < runtime.scoreIds.length; index += 1) {
+      entities[runtime.scoreIds[index]!]!.components.transform = {
+        ...IDENTITY, position: { x: -3 + index * 2, y: 0, z: 2 },
+      };
+    }
+  }
   return createInitialState({
     releaseId,
     rng: DICE_DASH_RNG,
@@ -270,7 +287,7 @@ export function createBuiltinInitialState(
   if (releaseId === "builtin_first_deal_1") {
     return createFirstDealInitialState(releaseId, players);
   }
-  if (releaseId === "builtin_dice_dash_1" || releaseId === "builtin_dice_dash_2") {
+  if (["builtin_dice_dash_1", "builtin_dice_dash_2", "builtin_dice_dash_3"].includes(releaseId)) {
     return createDiceDashInitialState(releaseId, players);
   }
   if (releaseId === "builtin_zone_runner_1" || releaseId === "builtin_zone_runner_2") {
