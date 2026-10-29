@@ -1,0 +1,32 @@
+[
+  {
+    "service": "worker",
+    "url": "http://127.0.0.1:8787/api/games",
+    "source": "c2f78ea76a4ff2570af01c40c911736bef72db80",
+    "time": "2026-10-29T19:16:38.221669+00:00",
+    "command": [
+      "bun",
+      "run",
+      "dev:worker"
+    ],
+    "pid": 2188,
+    "status": 200,
+    "responseBytes": 644,
+    "responseSha256": "d80e3fe6eff96022c94b09aed1ce2026502b1ac16096c304feef373d3a255cf0"
+  },
+  {
+    "service": "quality",
+    "url": "http://127.0.0.1:8798/health",
+    "source": "c2f78ea76a4ff2570af01c40c911736bef72db80",
+    "time": "2026-10-29T19:16:40.379045+00:00",
+    "command": [
+      "bun",
+      "run",
+      "dev:quality"
+    ],
+    "pid": 2245,
+    "status": 200,
+    "responseBytes": 50,
+    "responseSha256": "59a18d104780c5d2d6a6b7a7079def811c2be08796db9fb2f8666169bc98f7d6"
+  }
+]

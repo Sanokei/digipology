@@ -1,0 +1,31 @@
+{
+  "fixtureScope": "Controlled blank raster + lost HTTP reply after real local R2 write; not live generation",
+  "selectedOriginal": {
+    "assetId": "art_9da2d7836d7e1a7f607b83b72e471db59b5f333fc2828440b2d9a9a642429f22",
+    "originalSha256": "sha256:ac0d60e5aac771a67613c87be497402d516898ae9eb3101ce097bb16a6ab505d",
+    "outputSha256": "sha256:6c4b4ed65cf979681c45f89a062ca11954eada1f49e967b647b233707f243a6d",
+    "revision": 0,
+    "selectedAssetId": "art_9da2d7836d7e1a7f607b83b72e471db59b5f333fc2828440b2d9a9a642429f22",
+    "status": "ready"
+  },
+  "failedAttempt": {
+    "assetId": "art_93befce538d163920c602189f4b547717b68559dee314655c85bdb9e98dca7c6",
+    "failureKind": "decode",
+    "message": "The generated image was blank or invisible. Retry to create a new image.",
+    "originalSha256": "sha256:36a3ed922edec16b0f8b85521aa4bca98ac408ffbc6715076abe9579a50d9e5e",
+    "outputSha256": "sha256:6c4b4ed65cf979681c45f89a062ca11954eada1f49e967b647b233707f243a6d",
+    "revision": 1,
+    "selectedAssetId": "art_9da2d7836d7e1a7f607b83b72e471db59b5f333fc2828440b2d9a9a642429f22",
+    "status": "failed"
+  },
+  "recovered": {
+    "assetId": "art_8972d6312fa6cfe4c15bb9a027cbb3e3c227e0e9191e5ddc0359b519b176f93b",
+    "originalSha256": "sha256:ac0d60e5aac771a67613c87be497402d516898ae9eb3101ce097bb16a6ab505d",
+    "outputSha256": "sha256:6c4b4ed65cf979681c45f89a062ca11954eada1f49e967b647b233707f243a6d",
+    "revision": 2,
+    "selectedAssetId": "art_8972d6312fa6cfe4c15bb9a027cbb3e3c227e0e9191e5ddc0359b519b176f93b",
+    "status": "ready"
+  },
+  "completedCoverReused": "art_9995b4ea6d3a70d89085ea14b32968275ed7f602d8425db1c677f97ae96f0fd4",
+  "gameRequests": 1
+}

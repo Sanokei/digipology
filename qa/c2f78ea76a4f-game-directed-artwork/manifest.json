@@ -1,0 +1,479 @@
+{
+  "applicationSource": "c2f78ea76a4ff2570af01c40c911736bef72db80",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 8948,
+      "sha256": "e25a26d83142689fc02103beb9c8af7b2027688991daf963ac347c9c427fab6a",
+      "source": "c2f78ea76a4ff2570af01c40c911736bef72db80"
+    },
+    {
+      "path": "actual-app/actual-image-provider-access.json",
+      "bytes": 585,
+      "sha256": "4a6e9fa378b0e093b743010baa773ad02ee577b66ea5ff0c62edad39472f92b0",
+      "source": "c2f78ea76a4ff2570af01c40c911736bef72db80"
+    },
+    {
+      "path": "actual-app/development-services.json",
+      "bytes": 813,
+      "sha256": "85d76cf0e167983f2f35d0137eedc788f74ca4c2b537a341fd7d3fe2589eb685",
+      "source": "c2f78ea76a4ff2570af01c40c911736bef72db80; local service startup/health only, no public preview or deployment"
+    },
+    {
+      "path": "actual-app/wrangler-exit-observation.json",
+      "bytes": 856,
+      "sha256": "8ecf2aa0b813e73413077e2b4838cdd8d037b816b4caca7e4c95dbc7f5d8d1ba",
+      "source": "6a5a08ab4464f3d0468b0aaddc01bb68f2aa1125"
+    },
+    {
+      "path": "current/generation.e2e.ts-fixture--76ead-covery-survive-private-play/fixture-edited-draft-review.png",
+      "bytes": 55265,
+      "sha256": "279a701f2553724b14e3b09c833098119ccca352fa24f81ee9c6c009e2543264",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/generation.e2e.ts-fixture--76ead-covery-survive-private-play/fixture-imported-review-fallback.png",
+      "bytes": 54661,
+      "sha256": "c50fdc9edfcd0c344e31364e6f437443116d33c68771b2fbf8de8ece8b7ff5e0",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/generation.e2e.ts-fixture--76ead-covery-survive-private-play/fixture-playtest-review-desktop.png",
+      "bytes": 138326,
+      "sha256": "948d0e0bc81b43faec6e8ab68f2de67f52af8e1791db5b88c45639b055372ac0",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/generation.e2e.ts-fixture--76ead-covery-survive-private-play/fixture-playtest-review-mobile.png",
+      "bytes": 52990,
+      "sha256": "e607ff97de337d087225f9a10577c1a8600fb5705f4d15a329414bdee4ceb435",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/rasterArt.e2e.ts-blank-rep-f326c-eplies-reuse-stored-results/artwork-recovered-390.png",
+      "bytes": 111184,
+      "sha256": "ba734ada9ec64e521b841528d1c3dc558e4b7ef9f3055fb4aa06f97573b8894e",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/rasterArt.e2e.ts-blank-rep-f326c-eplies-reuse-stored-results/blank-replacement-keeps-selected-390.png",
+      "bytes": 116071,
+      "sha256": "7de2e03d802febc2f332419000ad28b12efc33591e513251298b3770d100ff3b",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/rasterArt.e2e.ts-blank-rep-f326c-eplies-reuse-stored-results/blank-replacement-keeps-selected-desktop.png",
+      "bytes": 283630,
+      "sha256": "71830c1fa80c378d2a0ddc819b4a918080fa25f4f5226d22b3c70104bb6fa5a9",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/rasterArt.e2e.ts-blank-rep-f326c-eplies-reuse-stored-results/recovery.json",
+      "bytes": 1674,
+      "sha256": "e1825d2fdd4f0259327652e70a8f84247c5426656cdfbe7e9145e612f1705c72",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/rasterArt.e2e.ts-blank-rep-f326c-eplies-reuse-stored-results/rejected-blank-attempt.png",
+      "bytes": 5988,
+      "sha256": "36a3ed922edec16b0f8b85521aa4bca98ac408ffbc6715076abe9579a50d9e5e",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/rasterArt.e2e.ts-blank-rep-f326c-eplies-reuse-stored-results/selected-original-after-failure.webp",
+      "bytes": 400888,
+      "sha256": "ac0d60e5aac771a67613c87be497402d516898ae9eb3101ce097bb16a6ab505d",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/rasterArt.e2e.ts-browser-q-9e61a--another-provider-operation/artwork-storage-recovered-390.png",
+      "bytes": 159738,
+      "sha256": "af712e75b1f47578614ab350360de96024310a0f43377d2fd85376877b0fea28",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/rasterArt.e2e.ts-browser-q-9e61a--another-provider-operation/artwork-storage-recovery-390.png",
+      "bytes": 78809,
+      "sha256": "7e502333fb506c0efaf53f7bd4d525fdcc6671f6c370198fe896366c0553460f",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/rasterArt.e2e.ts-browser-q-9e61a--another-provider-operation/unsaved-prepared-artwork.editor.json",
+      "bytes": 648907,
+      "sha256": "490dcb1dc6af785420c5604be6bdf94514cde2d4d2c452703e2144d9bcb7ac98",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/rasterArt.e2e.ts-game-dire-22f48-privacy-and-editable-backup/artwork-roundtrip.json",
+      "bytes": 3162,
+      "sha256": "6cd7a92161979de6a878d90f8a9413853c443fefc835258eb6b0324fec42e490",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/rasterArt.e2e.ts-game-dire-22f48-privacy-and-editable-backup/card-back-original.receipt.json",
+      "bytes": 2144,
+      "sha256": "c5e190a2a98cb93c712ecf187b4c4155ad1cc29cb797590345abe5cff7d4e5ac",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/rasterArt.e2e.ts-game-dire-22f48-privacy-and-editable-backup/card-back-original.webp",
+      "bytes": 400888,
+      "sha256": "ac0d60e5aac771a67613c87be497402d516898ae9eb3101ce097bb16a6ab505d",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/rasterArt.e2e.ts-game-dire-22f48-privacy-and-editable-backup/game-artwork-390.png",
+      "bytes": 112248,
+      "sha256": "8e3e63f5a77dd01a5cdc01ecc624e0ecfe57ae42a77e135b2c2b2e3f95f9c11f",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/rasterArt.e2e.ts-game-dire-22f48-privacy-and-editable-backup/game-artwork-brief-short.png",
+      "bytes": 41816,
+      "sha256": "ec9edcd0e69ed719df9913fb4fce4dc6c708417c9b90d27c0194906049fdcc9d",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/rasterArt.e2e.ts-game-dire-22f48-privacy-and-editable-backup/game-artwork-desktop.png",
+      "bytes": 284933,
+      "sha256": "a6c1d09aad890bb9a1314537197a8ba78722fee8d6e2bebb5536d8e079c39a55",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/rasterArt.e2e.ts-game-dire-22f48-privacy-and-editable-backup/game-artwork-field-short.png",
+      "bytes": 42689,
+      "sha256": "261caa5b4e16c99c7586bc2d45da548fa31e0533b7bcb7736ccd4fd7879e8eed",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/rasterArt.e2e.ts-game-dire-22f48-privacy-and-editable-backup/game-artwork.editor.json",
+      "bytes": 648778,
+      "sha256": "daef51830b346b8ac471deaaa047a6bc81b604b95f830b112feb5361e7dd8d73",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/rasterArt.e2e.ts-game-dire-22f48-privacy-and-editable-backup/game-artwork.release.json",
+      "bytes": 402605,
+      "sha256": "f36f6e3a24159d064cc22cb7c523ff476f2a141935f9408aa4141c2cb65b5074",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/rasterArt.e2e.ts-game-dire-22f48-privacy-and-editable-backup/pending-neutral-back-desktop.png",
+      "bytes": 523256,
+      "sha256": "4f30c0a56ffaf442e5900688b2de568b5df435efbbdf799579d2770e1d4382a1",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/rasterArt.e2e.ts-game-dire-22f48-privacy-and-editable-backup/prepared-private-hand-390.png",
+      "bytes": 154589,
+      "sha256": "e93eb269775b804be7a84ffe8faaf3f7a99c983e7626b642d97a41fef4e0bc5b",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/rasterArt.e2e.ts-game-dire-22f48-privacy-and-editable-backup/prepared-private-hand-desktop.png",
+      "bytes": 539228,
+      "sha256": "e6af233e6ee488d0ef1ed4c62f98d494c9810a84d34b62d39fa9c7b3fcf42e8e",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/rasterArt.e2e.ts-game-dire-22f48-privacy-and-editable-backup/published-artwork-390.png",
+      "bytes": 151161,
+      "sha256": "0ab7a7d983384382f4d963c1db2be881940d917517da347870150a5d54fb5fd4",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/rasterArt.e2e.ts-game-dire-22f48-privacy-and-editable-backup/published-guest-390.png",
+      "bytes": 150856,
+      "sha256": "a6563c9c85fe2682cf2b124a46289b5ddfc821749f00041ca6661e33d4632794",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/rasterArt.e2e.ts-game-dire-22f48-privacy-and-editable-backup/reopened-artwork.editor.json",
+      "bytes": 648778,
+      "sha256": "daef51830b346b8ac471deaaa047a6bc81b604b95f830b112feb5361e7dd8d73",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/rasterArt.e2e.ts-game-dire-22f48-privacy-and-editable-backup/second-game-artwork-desktop.png",
+      "bytes": 292430,
+      "sha256": "2358db2ed10dc47ee57f0b39e4772aa787e350da8113dd348b2cc1e3db6a5039",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/ruleSources.e2e.ts-source--cff31-editing-and-editable-backup/edited-source.editor.json",
+      "bytes": 251620,
+      "sha256": "d6f66576bb9bc5994d0bd3b3584722a8cf552e25bc41e92323a4a86049202050",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/ruleSources.e2e.ts-source--cff31-editing-and-editable-backup/edited-source.request.json",
+      "bytes": 284,
+      "sha256": "1fefaecb463faacf500bfc43c3996d7fd6c5d1a275a0b22aa8a29b065962b449",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/ruleSources.e2e.ts-source--cff31-editing-and-editable-backup/fixture-source-editor-restored.png",
+      "bytes": 408442,
+      "sha256": "a3bb89c76e6216f5444df8807df8ff71c26462bfb6385f448f038fd1acc3a256",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/ruleSources.e2e.ts-source--cff31-editing-and-editable-backup/fixture-source.editor.json",
+      "bytes": 251600,
+      "sha256": "5ed736c52f29fbc82d399405c4f84b05b4f7603dde2a2cad7b490c2655f3f48a",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/ruleSources.e2e.ts-source--cff31-editing-and-editable-backup/fixture-source.release.json",
+      "bytes": 5765,
+      "sha256": "c192b10c64f264b7888eac9ceee29cc367b0f2c5d59aada5534c0ba7615ca0db",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/ruleSources.e2e.ts-source--cff31-editing-and-editable-backup/fixture-source.request.json",
+      "bytes": 284,
+      "sha256": "1fefaecb463faacf500bfc43c3996d7fd6c5d1a275a0b22aa8a29b065962b449",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "current/ruleSources.e2e.ts-source--cff31-editing-and-editable-backup/reopened-source.request.json",
+      "bytes": 284,
+      "sha256": "1fefaecb463faacf500bfc43c3996d7fd6c5d1a275a0b22aa8a29b065962b449",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd; production path with authored local fixture rules/raster inputs, no creative-output acceptance"
+    },
+    {
+      "path": "harnesses/art-renderer.config.ts",
+      "bytes": 532,
+      "sha256": "03b82f8a178c0e429d75a4920da8910a0a78cc32dca06c4b7f6acb92571ac2cf",
+      "source": "c2f78ea76a4ff2570af01c40c911736bef72db80"
+    },
+    {
+      "path": "harnesses/check-provider-access.mjs",
+      "bytes": 2363,
+      "sha256": "796ff35171ba6fb8070c0df6f85b74e89b8eb70034787d73571bd204d84992d6",
+      "source": "c2f78ea76a4ff2570af01c40c911736bef72db80; actual normal app access probe, no fixtures"
+    },
+    {
+      "path": "harnesses/e2e-generation-fixture.ts",
+      "bytes": 7369,
+      "sha256": "7a3018938fc6c68f5aa99d05ff170d520531cc87c5d3c0f992e265c4823cbbfc",
+      "source": "c2f78ea76a4ff2570af01c40c911736bef72db80"
+    },
+    {
+      "path": "harnesses/playwright.config.ts",
+      "bytes": 1197,
+      "sha256": "718b73b2d05113464e62e76ef0a555cf46d05c93ba42c40f4775d020bdb0eee9",
+      "source": "c2f78ea76a4ff2570af01c40c911736bef72db80"
+    },
+    {
+      "path": "harnesses/rasterArt.e2e.ts",
+      "bytes": 25576,
+      "sha256": "8960e1afd9367937c3b2b27a8f6185ae97dd2c9fdb3135a7d6a513511d0965d0",
+      "source": "c2f78ea76a4ff2570af01c40c911736bef72db80"
+    },
+    {
+      "path": "historical-failures/floating-preview-game-artwork-390.png",
+      "bytes": 104510,
+      "sha256": "03f784f9712f2c02c29d2102b28bd3792324723b59bb30a61dc4e0175fa6101f",
+      "source": "2759d014f16864a11d8615213494903992a509ca; superseded capture from manually interrupted run, not a pass"
+    },
+    {
+      "path": "historical-failures/floating-preview-game-artwork-desktop.png",
+      "bytes": 276137,
+      "sha256": "754c70616a429f55334326d5bdc2140b4f25f79dc86cf33e6cca42fc8ff93af5",
+      "source": "2759d014f16864a11d8615213494903992a509ca; superseded capture from manually interrupted run, not a pass"
+    },
+    {
+      "path": "historical-failures/floating-preview-test-failed-1.png",
+      "bytes": 92248,
+      "sha256": "06cb725595e260c4fab31683cd14440e87915e80a499dfe24f6e08477afdad8b",
+      "source": "2759d014f16864a11d8615213494903992a509ca; superseded capture from manually interrupted run, not a pass"
+    },
+    {
+      "path": "native-lite/rasterArt.e2e.ts-game-dire-22f48-privacy-and-editable-backup-native-art/artwork-roundtrip.json",
+      "bytes": 3162,
+      "sha256": "b163a925bed3dbf7c5d285e4fdeb0de967802d6df4ffefa332247baf7246950f",
+      "source": "c2f78ea76a4ff2570af01c40c911736bef72db80; actual mounted Lite required, controlled image-access failure is explicitly a UI fixture"
+    },
+    {
+      "path": "native-lite/rasterArt.e2e.ts-game-dire-22f48-privacy-and-editable-backup-native-art/prepared-private-hand-desktop.png",
+      "bytes": 290049,
+      "sha256": "821cf83fe6a37122fd7d5ddeb144fdbca84c481d1bf27e5e9b35273ba759af95",
+      "source": "c2f78ea76a4ff2570af01c40c911736bef72db80; actual mounted Lite required, controlled image-access failure is explicitly a UI fixture"
+    },
+    {
+      "path": "native-lite/rasterArt.e2e.ts-game-dire-22f48-privacy-and-editable-backup-native-art/published-artwork-390.png",
+      "bytes": 85595,
+      "sha256": "930b2730dce8513360c7a4fd17c6da453d6d6ddcd57868ab429bb6bdbf5796dd",
+      "source": "c2f78ea76a4ff2570af01c40c911736bef72db80; actual mounted Lite required, controlled image-access failure is explicitly a UI fixture"
+    },
+    {
+      "path": "native-lite/rasterArt.e2e.ts-unconfigu-27d84-iefs-without-sample-artwork-native-art/image-provider-unavailable-390.png",
+      "bytes": 43409,
+      "sha256": "5e12459a8507f9d64ba595742046cc9c99f31e663e628fffd591cb26d9cc21a5",
+      "source": "c2f78ea76a4ff2570af01c40c911736bef72db80; actual mounted Lite required, controlled image-access failure is explicitly a UI fixture"
+    },
+    {
+      "path": "native-lite/rasterArt.e2e.ts-unconfigu-27d84-iefs-without-sample-artwork-native-art/image-provider-unavailable-desktop.png",
+      "bytes": 132776,
+      "sha256": "dfa2ec03da8abf2243578b3ec54c0cf35b12893880ecfd56d9595e1cbb50d703",
+      "source": "c2f78ea76a4ff2570af01c40c911736bef72db80; actual mounted Lite required, controlled image-access failure is explicitly a UI fixture"
+    },
+    {
+      "path": "native-lite/rasterArt.e2e.ts-unconfigu-27d84-iefs-without-sample-artwork-native-art/missing-provider-scope.json",
+      "bytes": 347,
+      "sha256": "c98ac5f7251354afefbd31daac88984955adce3e405d1f3886930ed25d81b8ef",
+      "source": "c2f78ea76a4ff2570af01c40c911736bef72db80; actual mounted Lite required, controlled image-access failure is explicitly a UI fixture"
+    },
+    {
+      "path": "native-lite/rasterArt.e2e.ts-unconfigu-27d84-iefs-without-sample-artwork-native-art/missing-provider.editor.json",
+      "bytes": 35481,
+      "sha256": "3802b8cac1f2d69ad709567bdc0457f99b611539d35c6f6485b9165875bde0e5",
+      "source": "c2f78ea76a4ff2570af01c40c911736bef72db80; actual mounted Lite required, controlled image-access failure is explicitly a UI fixture"
+    },
+    {
+      "path": "next/merlin-sheet-access.json",
+      "bytes": 6341,
+      "sha256": "264e93d2c1f752e7aa4414a6c09526022c9affe9ae039e44a59fe89ed4ac921a",
+      "source": "Normal primary-source reads after draft17/fresh environment changed access; not a claim of draft publication"
+    },
+    {
+      "path": "plans/game-directed-artwork.md",
+      "bytes": 5702,
+      "sha256": "a2799aa028ee825868d934f4327a30953787ba85ccd1761e013561dd1e2b48bb",
+      "source": "c2f78ea76a4ff2570af01c40c911736bef72db80"
+    },
+    {
+      "path": "plans/pre-implementation-art-plan.md",
+      "bytes": 4529,
+      "sha256": "16d4de58de7cc3c266ebc95843c038065a4e65cdfddc0ffc4f78030717c42c56",
+      "source": "Primary-source audit and acceptance written before implementation"
+    },
+    {
+      "path": "prior-affected/different-themed-back-desktop.png",
+      "bytes": 530816,
+      "sha256": "68323626bf52e0312bd2aea2a6020fb0aab96d6e37e9119dd3ded99c350936d8",
+      "source": "6a5a08ab4464f3d0468b0aaddc01bb68f2aa1125; earlier affected pass before the unrelated empty local Worker exit"
+    },
+    {
+      "path": "prior-affected/fixture-published-multiplayer-winner.png",
+      "bytes": 525538,
+      "sha256": "6a3bd74337d16187f408db139c2fd6f5d788366f26b8d68898b44b05ab73bfd1",
+      "source": "6a5a08ab4464f3d0468b0aaddc01bb68f2aa1125; earlier affected pass before the unrelated empty local Worker exit"
+    },
+    {
+      "path": "prior-affected/private-themed-back-390.png",
+      "bytes": 171567,
+      "sha256": "3b7b479888a9849371392949280a097d3f6e5bfc19f028b016af46261c938f83",
+      "source": "6a5a08ab4464f3d0468b0aaddc01bb68f2aa1125; earlier affected pass before the unrelated empty local Worker exit"
+    },
+    {
+      "path": "source-diff.patch",
+      "bytes": 224062,
+      "sha256": "9aec89155447fa5dd79d70c19116b068dae49271cd32295c5375f78b8c9ddca6",
+      "source": "c2f78ea76a4ff2570af01c40c911736bef72db80"
+    },
+    {
+      "path": "validation/affected-browser-6a5a08a.json",
+      "bytes": 5485,
+      "sha256": "089a108c5739626f858943798eb8f84fbb9f0ba8087236b32c9997aeae1b806d",
+      "source": "6a5a08ab4464f3d0468b0aaddc01bb68f2aa1125"
+    },
+    {
+      "path": "validation/affected-unit-fixed.log",
+      "bytes": 19797,
+      "sha256": "29bd867b394e5e95b4e52a2a41c243e19cdbccd070dfa8a80bdcf4d86dd60095",
+      "source": "6ce833f6e72a4c7ff8918850701797258ece3a8e"
+    },
+    {
+      "path": "validation/browser-5d-fixture.json",
+      "bytes": 2255,
+      "sha256": "48c0f479a0ae684fa09cdab55b738a5dededc731269496f8e95b96339fb1e0d8",
+      "source": "2759d014f16864a11d8615213494903992a509ca"
+    },
+    {
+      "path": "validation/browser-6a5a08a.json",
+      "bytes": 1558,
+      "sha256": "30a3782eb40c93162e491f4b3a54f3b6a7dd13bc6e5f8a24c780a7112a3b33a5",
+      "source": "6a5a08ab4464f3d0468b0aaddc01bb68f2aa1125"
+    },
+    {
+      "path": "validation/browser-e0dbb9d.json",
+      "bytes": 4533,
+      "sha256": "a1f2aa40a2386a4fb0ea3fb9acf526146e6abb4994658d2a1772dd70f7122aa4",
+      "source": "e0dbb9dbae46b5c135784aaadcfc3734fdecefb1"
+    },
+    {
+      "path": "validation/build-e6f012d.log",
+      "bytes": 5389,
+      "sha256": "1af5c8ea34db151caf40f39845963410fdf3a2de5843613f34d04370d72709b4",
+      "source": "e6f012dfc097a46808759611d0f4085e5ab3be31"
+    },
+    {
+      "path": "validation/chunks-e6f012d.log",
+      "bytes": 203,
+      "sha256": "acebd9e06c869ec71a234097fc753f70b80a17cb919ec2647f0754d5924f6d2e",
+      "source": "e6f012dfc097a46808759611d0f4085e5ab3be31"
+    },
+    {
+      "path": "validation/completion-browser-7c8fa6e.json",
+      "bytes": 2400,
+      "sha256": "aedff97938ad61871b831fad310b3740aab220d9da39e7412154904ba92cc698",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd"
+    },
+    {
+      "path": "validation/completion-unit-fixed.log",
+      "bytes": 2575,
+      "sha256": "d371ce8a9a9c6e88f4e584218e6dee83c16edeff09a0c82e9d3b3cd78ac4552d",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd"
+    },
+    {
+      "path": "validation/e2e-c2f78ea-types.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "c2f78ea76a4ff2570af01c40c911736bef72db80"
+    },
+    {
+      "path": "validation/frozen-c2f78ea.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "c2f78ea76a4ff2570af01c40c911736bef72db80"
+    },
+    {
+      "path": "validation/native-browser-c2f78ea.json",
+      "bytes": 1131,
+      "sha256": "58386fede53eafec330efa80545e23511a6867058c40c8ecebed896a94b56c28",
+      "source": "c2f78ea76a4ff2570af01c40c911736bef72db80"
+    },
+    {
+      "path": "validation/persistence-unit-c2f78ea.log",
+      "bytes": 1973,
+      "sha256": "36c90673fac9fcd191925a53b8ea21139c7b9fe1ec2b0b37a7a15f1fd1394a0e",
+      "source": "c2f78ea76a4ff2570af01c40c911736bef72db80"
+    },
+    {
+      "path": "validation/protocol-types-6ce833f.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "6ce833f6e72a4c7ff8918850701797258ece3a8e"
+    },
+    {
+      "path": "validation/scripts-c2f78ea-types.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "c2f78ea76a4ff2570af01c40c911736bef72db80"
+    },
+    {
+      "path": "validation/web-third-types.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "6ce833f6e72a4c7ff8918850701797258ece3a8e"
+    },
+    {
+      "path": "validation/worker-7c8fa6e-types.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd"
+    }
+  ]
+}

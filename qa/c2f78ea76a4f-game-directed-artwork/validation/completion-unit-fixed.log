@@ -1,0 +1,38 @@
+bun test v1.4.4 (38afee6c8)
+
+apps/worker/src/draft-artwork.test.ts:
+(pass) real raster bytes retain hashes/originals and completed replies reuse the same game/revision [158.38ms]
+(pass) concurrent identical local requests share one provider operation and neither consumes a response body twice [10.26ms]
+(pass) missing account-selected image model, invalid bytes and storage failures never invent ready artwork [14.86ms]
+(pass) cached corruption remains explicit and a new revision preserves prior originals [28.58ms]
+(pass) authentication, strict input and daily budget are enforced before image inference [9.31ms]
+(pass) game-authored direction is separate from images and review binds only successful actual checks [11.57ms]
+(pass) artwork provenance is validated instead of silently disappearing in backups or image information [0.45ms]
+
+apps/web/src/artwork/rasterSignal.test.ts:
+(pass) fully transparent output is rejected even when its hidden RGB values differ [0.13ms]
+(pass) uniform opaque and barely visible rasters are rejected as blank admission results [0.08ms]
+(pass) visible color structure can be admitted without claiming it is good artwork [0.02ms]
+
+apps/web/src/artwork/review.test.ts:
+(pass) only actual successful current-version checks rebind the review and retain playtest warnings [0.12ms]
+(pass) a reply for an earlier manifest cannot mark edited rules or artwork reviewed [0.03ms]
+(pass) an empty, failing or incomplete check response cannot clear an earlier stale review [0.06ms]
+(pass) quality errors keep a matching-hash draft unreviewed [0.02ms]
+
+apps/web/src/artwork/model.test.ts:
+(pass) legacy manually selected cover and distinct back remain selected when generation metadata is added [5.13ms]
+(pass) a prior image does not count as a finished replacement or stand in for missing selected bytes [0.80ms]
+(pass) artwork completion checks its exact manifest without launching checks on every unrelated rule edit [2.01ms]
+
+apps/web/src/editor/state/EditorStore.test.ts:
+(pass) EditorStore > applies commands, undoes, redoes, and keeps snapshots stable between changes [1.66ms]
+(pass) EditorStore > caps deep-clone history and clears redo after a new command [20.39ms]
+(pass) EditorStore > background artwork status preserves the user's Undo and only reviews its checked manifest [1.15ms]
+(pass) EditorStore > coalesces begin, preview mutations, and commit into one history frame [1.08ms]
+(pass) EditorStore > autosaves once 2.5 seconds after the last change [0.85ms]
+
+ 22 pass
+ 0 fail
+ 99 expect() calls
+Ran 22 tests across 5 files. [342.00ms]

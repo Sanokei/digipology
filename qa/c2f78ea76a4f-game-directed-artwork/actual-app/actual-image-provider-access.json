@@ -1,0 +1,14 @@
+{
+  "source": "c2f78ea76a4ff2570af01c40c911736bef72db80",
+  "origin": "http://127.0.0.1:8787",
+  "time": "2026-10-29T19:19:04.462Z",
+  "scope": "Actual normal development app, existing account/config, no model/image fixture. Host-authored typed art access request, not a generated Merlin game or game-authored plan.",
+  "status": 503,
+  "error": {
+    "code": "artwork_unconfigured",
+    "message": "Illustration is unavailable on this server. Your rules are saved. Retry artwork later or replace the images."
+  },
+  "model": null,
+  "originalSha256": null,
+  "generatedGame": false
+}

@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "request": {
+    "draftId": "721f5b56-7c52-44dd-8028-c76035c0ffdb",
+    "title": "Ember Cards transport",
+    "purpose": "card-back",
+    "direction": {
+      "version": 1,
+      "style": "Transport fixture only: copper and ember merchant ledger illustration for Ember Cards transport.",
+      "coverPrompt": "One merchant's alchemical ledger as a strong focal image for Ember Cards transport; no lettering or box mockup.",
+      "cardBackPrompt": "Copper seal and mirrored alembics in a 180-degree symmetric card-back motif for Ember Cards transport; safe edge, no text, ranks, suits or tiny cards."
+    },
+    "revision": 0
+  },
+  "renderPrompt": "Original raster artwork for this specific created game.\nGame: Ember Cards transport\nPurpose: card-back\nArt direction: Transport fixture only: copper and ember merchant ledger illustration for Ember Cards transport.\nGame-authored brief: Copper seal and mirrored alembics in a 180-degree symmetric card-back motif for Ember Cards transport; safe edge, no text, ranks, suits or tiny cards.\nCreate a purpose-designed flat printed card back with 180-degree rotational symmetry, one clear central emblem and coherent repeating motifs. Keep a safe edge, strong small-scale contrast and an opaque background. No text, rank/suit/number/ownership clues, miniature cards, cover scene, perspective, or box mockup.\nDeliver only the image, portrait 2:3, ready for a rounded paper frame. Keep the chosen game's style and motif; do not reuse another game's sample cover.",
+  "assetId": "art_67d11d122729e398a42fab4f37194e0477ab735a13e18bc0dcaa69c1c0aae8dd",
+  "contentType": "image/webp",
+  "width": 1024,
+  "height": 1536,
+  "byteLength": 400888,
+  "originalSha256": "sha256:ac0d60e5aac771a67613c87be497402d516898ae9eb3101ce097bb16a6ab505d",
+  "promptHash": "sha256:585e19a815cc01927e03f7b23d36abe71bfdb2f94e200b2599d3fb06124a26f5",
+  "model": "deterministic-raster-fixture",
+  "generatedAt": "2026-10-29T19:10:32.019Z",
+  "credits": {
+    "artist": "Generated with deterministic-raster-fixture",
+    "license": "AI-generated; provider/account terms apply",
+    "sourceUrl": ""
+  }
+}

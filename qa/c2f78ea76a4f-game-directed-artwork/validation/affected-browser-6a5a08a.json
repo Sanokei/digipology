@@ -1,0 +1,134 @@
+{
+  "source": "6a5a08ab4464f3d0468b0aaddc01bb68f2aa1125",
+  "stats": {
+    "startTime": "2026-10-29T19:03:01.625Z",
+    "duration": 195298.361,
+    "expected": 5,
+    "skipped": 0,
+    "unexpected": 2,
+    "flaky": 0
+  },
+  "errors": [],
+  "tests": [
+    {
+      "title": "different games retain their own raster backs through editor, private play, publication, guest inspection and backup",
+      "file": "cardBacks.e2e.ts",
+      "line": 48,
+      "projectName": "",
+      "status": "expected",
+      "expectedStatus": "passed",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 65727,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "missing game-back images show a playable fallback and recover through retry",
+      "file": "cardBacks.e2e.ts",
+      "line": 141,
+      "projectName": "",
+      "status": "expected",
+      "expectedStatus": "passed",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 8403,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "fixture model goes through real repair into an unpublished playable draft, then explicit publication and multiplayer",
+      "file": "generation.e2e.ts",
+      "line": 21,
+      "projectName": "",
+      "status": "expected",
+      "expectedStatus": "passed",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 63368,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "provider failure preserves the prompt and never opens an accepted draft",
+      "file": "generation.e2e.ts",
+      "line": 104,
+      "projectName": "",
+      "status": "expected",
+      "expectedStatus": "passed",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 2777,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "browser storage failure preserves accepted output and retries without another model request",
+      "file": "generation.e2e.ts",
+      "line": 115,
+      "projectName": "",
+      "status": "expected",
+      "expectedStatus": "passed",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 7986,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "fixture review warnings, authored identity and saved-file recovery survive private play",
+      "file": "generation.e2e.ts",
+      "line": 148,
+      "projectName": "",
+      "status": "unexpected",
+      "expectedStatus": "passed",
+      "results": [
+        {
+          "status": "failed",
+          "duration": 36922,
+          "retry": 0,
+          "errors": [
+            {
+              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveAttribute\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('img', { name: 'Live synchronized 3D tabletop', exact: true })\nExpected: \u001b[32m\"ready\"\u001b[39m\nTimeout: 30000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveAttribute\" getByRole('img', { name: 'Live synchronized 3D tabletop', exact: true }) with timeout 30000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('img', { name: 'Live synchronized 3D tabletop', exact: true })\u001b[22m\n\n\n  16 | async function ready(page: Page) {\n  17 |   await page.bringToFront();\n> 18 |   await expect(page.getByRole(\"img\", { name: \"Live synchronized 3D tabletop\", exact: true })).toHaveAttribute(\"data-render-state\", \"ready\", { timeout: 30_000 });\n     |                                                                                               ^\n  19 | }\n  20 |\n  21 | test(\"fixture model goes through real repair into an unpublished playable draft, then explicit publication and multiplayer\", async ({ page, browser }, testInfo) => {\n    at ready (/workspace/digipology/e2e/generation.e2e.ts:18:95)\n    at /workspace/digipology/e2e/generation.e2e.ts:161:3"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "source transport with a fixture provider preserves private input through play, editing and editable backup",
+      "file": "ruleSources.e2e.ts",
+      "line": 13,
+      "projectName": "",
+      "status": "unexpected",
+      "expectedStatus": "passed",
+      "results": [
+        {
+          "status": "failed",
+          "duration": 773,
+          "retry": 0,
+          "errors": [
+            {
+              "message": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:8797/login\nCall log:\n\u001b[2m  - navigating to \"http://127.0.0.1:8797/login\", waiting until \"load\"\u001b[22m\n\n\n  14 |   const prompt = \"Exercise the existing deterministic dice fixture; this is source transport testing.\";\n  15 |   const text = \"Kind,Meaning\\r\\nScope,Transport fixture only\\r\\nGame,Existing deterministic dice fixture\\r\\n\";\n> 16 |   await page.goto(\"/login\");\n     |              ^\n  17 |   await page.getByLabel(\"Email address\", { exact: true }).fill(`source-transport-${Date.now()}@example.com`);\n  18 |   await page.getByRole(\"button\", { name: \"Email me a link\", exact: true }).click();\n  19 |   await expect(page.getByRole(\"heading\", { name: \"Check your email\", exact: true })).toBeVisible();\n    at /workspace/digipology/e2e/ruleSources.e2e.ts:16:14"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

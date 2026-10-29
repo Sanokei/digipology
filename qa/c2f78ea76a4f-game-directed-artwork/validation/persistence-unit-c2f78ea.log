@@ -1,0 +1,32 @@
+bun test v1.4.4 (38afee6c8)
+
+apps/web/src/editor/publish.test.ts:
+(pass) desktop review saves the latest real edited draft and keeps artwork/review outside the release [169.85ms]
+(pass) a failed editor save prevents handoff while the full editable backup stays available [71.98ms]
+
+apps/web/src/editor/state/cardBack.test.ts:
+(pass) a game-specific raster back survives release/backup round trips and undo without changing rules, cover or canonical state [220.42ms]
+(pass) combined budget failure preserves a valid draft before replacing its back [75.61ms]
+
+apps/web/src/editor/state/bundle.test.ts:
+(pass) editor bundle adaptation > round-trips a fixture through normalization with canonical equality [4.50ms]
+(pass) editor bundle adaptation > adds required components and blocks removal while depended upon [1.33ms]
+(pass) editor bundle adaptation > stores only explicit position, rotation, and scale transform fields [0.89ms]
+
+apps/web/src/editor/state/persistence.test.ts:
+(pass) editor draft persistence > returns a calm empty index for corrupt JSON [0.06ms]
+(pass) editor draft persistence > returns a calm empty index for wrong top-level shape
+(pass) editor draft persistence > returns a calm empty index for version missing [0.02ms]
+(pass) editor draft persistence > skips one bad index entry among good entries [0.05ms]
+(pass) editor draft persistence > saves and reloads byte-equivalent canonical drafts [1.63ms]
+Skipped invalid local editor draft. TypeError: This is not a supported editor draft.
+      at normalizeEditorDraft (/workspace/digipology/apps/web/src/editor/state/bundle.ts:340:15)
+      at deserializeEditorDraft (/workspace/digipology/apps/web/src/editor/state/persistence.ts:61:16)
+      at <anonymous> (/workspace/digipology/apps/web/src/editor/state/persistence.test.ts:47:12)
+
+(pass) editor draft persistence > rejects corrupt or versionless per-draft blobs [0.24ms]
+
+ 13 pass
+ 0 fail
+ 59 expect() calls
+Ran 13 tests across 4 files. [595.00ms]

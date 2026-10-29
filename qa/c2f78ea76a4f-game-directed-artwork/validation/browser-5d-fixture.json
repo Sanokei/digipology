@@ -1,0 +1,52 @@
+{
+  "source": "2759d014f16864a11d8615213494903992a509ca",
+  "stats": {
+    "startTime": "2026-10-29T18:57:34.660Z",
+    "duration": 114851.809,
+    "expected": 0,
+    "skipped": 3,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "errors": [],
+  "tests": [
+    {
+      "title": "game-directed cover and back finish without resetting play, then survive publication, privacy and editable backup",
+      "file": "rasterArt.e2e.ts",
+      "line": 65,
+      "projectName": "",
+      "status": "skipped",
+      "expectedStatus": "passed",
+      "results": [
+        {
+          "status": "interrupted",
+          "duration": 105924,
+          "retry": 0,
+          "errors": [
+            {
+              "message": "Error: locator.focus: Test ended.\nCall log:\n\u001b[2m  - waiting for getByRole('dialog', { name: 'Artwork for Ember Cards transport', exact: true }).getByLabel('Card-back brief', { exact: true })\u001b[22m\n\n\n  113 |     await dialog.getByText(\"Edit the direction & image briefs\", { exact: true }).click();\n  114 |     await page.setViewportSize({ width: 390, height: 480 });\n> 115 |     const brief = dialog.getByLabel(\"Card-back brief\", { exact: true }); await brief.focus();\n      |                                                                                      ^\n  116 |     await expect.poll(async () => {\n  117 |       const field = await brief.boundingBox(), footer = await dialog.locator(\"footer\").boundingBox();\n  118 |       return !!field && !!footer && field.y >= 0 && field.y + field.height <= footer.y;\n    at /workspace/digipology/e2e/rasterArt.e2e.ts:115:86"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "blank replacements retain selected originals and retry only artwork; interrupted replies reuse stored results",
+      "file": "rasterArt.e2e.ts",
+      "line": 173,
+      "projectName": "",
+      "status": "skipped",
+      "expectedStatus": "passed",
+      "results": []
+    },
+    {
+      "title": "browser quota failure keeps prepared artwork downloadable and saves it without another provider operation",
+      "file": "rasterArt.e2e.ts",
+      "line": 221,
+      "projectName": "",
+      "status": "skipped",
+      "expectedStatus": "passed",
+      "results": []
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "fixtureScope": "Existing authored First Deal rules + explicit local raster HTTP fixtures; no live creative output or artwork-quality acceptance",
+  "firstDirection": {
+    "cardBackPrompt": "Copper seal and mirrored alembics in a 180-degree symmetric card-back motif for Ember Cards transport; safe edge, no text, ranks, suits or tiny cards.",
+    "coverPrompt": "One merchant's alchemical ledger as a strong focal image for Ember Cards transport; no lettering or box mockup.",
+    "style": "Transport fixture only: copper and ember merchant ledger illustration for Ember Cards transport.",
+    "version": 1
+  },
+  "secondDirection": {
+    "cardBackPrompt": "Moon and interwoven leaves in a 180-degree symmetric card-back motif for Night Market transport; safe edge, no text, ranks, suits or tiny cards.",
+    "coverPrompt": "One moonlit market stall as a strong focal image for Night Market transport; no lettering or box mockup.",
+    "style": "Transport fixture only: midnight blue botanical market illustration for Night Market transport.",
+    "version": 1
+  },
+  "firstJobs": {
+    "cardBack": {
+      "assetId": "art_314bdcdedacdda9243865892bb534bed11413f771eb0b885e89b044eabdb9489",
+      "originalSha256": "sha256:ac0d60e5aac771a67613c87be497402d516898ae9eb3101ce097bb16a6ab505d",
+      "outputSha256": "sha256:bdb21914d16aa7dc3379a86ddf9d43861a21aad82937da8a0d18d21d5ca03448",
+      "revision": 0,
+      "selectedAssetId": "art_314bdcdedacdda9243865892bb534bed11413f771eb0b885e89b044eabdb9489",
+      "status": "ready"
+    },
+    "cover": {
+      "assetId": "art_5a4682aad8f7ab6300f0508535e9799abad928a79f4b5eb3957c7b2be840ed00",
+      "originalSha256": "sha256:b38bb8e41fc771c947d66ea167076625a9d491575abbc4da5cd3888aad6e1c83",
+      "outputSha256": "sha256:e27ee75246b83cdfd2426be2847dd6c15192a9b130161f195ff75c5bcd571b84",
+      "revision": 0,
+      "selectedAssetId": "art_5a4682aad8f7ab6300f0508535e9799abad928a79f4b5eb3957c7b2be840ed00",
+      "status": "ready"
+    }
+  },
+  "secondJobs": {
+    "cardBack": {
+      "assetId": "art_720c76275dd8524878954d7f933c81950a4230d2973a1bb8b2aa21cd39d55abd",
+      "originalSha256": "sha256:10c8d9c6da05031a76f17c7d58c4cac065915c78e4b70393b35073f1e2c4c25b",
+      "outputSha256": "sha256:ced6901afdb8ad3c81961d68189c52aac83525fe1722074c2a44b2a725a3ce95",
+      "revision": 0,
+      "selectedAssetId": "art_720c76275dd8524878954d7f933c81950a4230d2973a1bb8b2aa21cd39d55abd",
+      "status": "ready"
+    },
+    "cover": {
+      "assetId": "art_972930445a9e0c4d55933a6c4ed288769d758295532b6fe99a098a58f7c72f66",
+      "originalSha256": "sha256:ac0d60e5aac771a67613c87be497402d516898ae9eb3101ce097bb16a6ab505d",
+      "outputSha256": "sha256:bdb21914d16aa7dc3379a86ddf9d43861a21aad82937da8a0d18d21d5ca03448",
+      "revision": 0,
+      "selectedAssetId": "art_972930445a9e0c4d55933a6c4ed288769d758295532b6fe99a098a58f7c72f66",
+      "status": "ready"
+    }
+  },
+  "actualRasterDecode": true,
+  "canonicalInitialStatePreserved": true,
+  "inProgressHandPreserved": true,
+  "originalAndPublishedHashVerified": true,
+  "oldReleasePreserved": true,
+  "ownerOnlyHandPresentation": true,
+  "modelGameRequests": 2
+}

@@ -1,0 +1,22 @@
+{
+  "applicationSource": "6a5a08ab4464f3d0468b0aaddc01bb68f2aa1125",
+  "browserReceipt": "affected-browser-6a5a08a.json",
+  "localWorkerExit": 1,
+  "signal": "none",
+  "browserResult": {
+    "passed": 5,
+    "failed": 2
+  },
+  "lastSuccessfulApi": "POST /api/ai/games 200 after actual fixture repair",
+  "observedFailures": [
+    "Warning/recovery scenario could not find/render page after Worker exit",
+    "Following source-transport scenario received ERR_CONNECTION_REFUSED at /login"
+  ],
+  "debugLog": {
+    "name": "wrangler-2026-10-29_19-03-07_300.log",
+    "bytes": 30210,
+    "sha256": "fafb28a04e54c26609caa4bda8b8b1d034445489850a52df69420ed772808092",
+    "errorEntryMetadata": []
+  },
+  "cause": "Unresolved empty local Wrangler error. Do not claim an app fix or production failure from this receipt. No raw debug log or credentials copied."
+}

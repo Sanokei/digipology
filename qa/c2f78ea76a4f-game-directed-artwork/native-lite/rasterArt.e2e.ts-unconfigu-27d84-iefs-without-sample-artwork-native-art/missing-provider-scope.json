@@ -1,0 +1,8 @@
+{
+  "scope": "Controlled HTTP artwork_unconfigured response after actual fixture rules acceptance; handler configuration is tested separately. No image port/model invoked and no stock image installed.",
+  "gameCalls": 1,
+  "imageCalls": 3,
+  "canonicalInitialStatePreserved": true,
+  "imageBriefsPreserved": true,
+  "privateDrawStillWorks": true
+}

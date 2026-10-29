@@ -1,0 +1,94 @@
+{
+  "source": "7c8fa6e7fca88869820d3e78cd3f5d47db843cbd",
+  "stats": {
+    "startTime": "2026-10-29T19:09:44.376Z",
+    "duration": 133943.87000000002,
+    "expected": 5,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "errors": [],
+  "tests": [
+    {
+      "title": "fixture review warnings, authored identity and saved-file recovery survive private play",
+      "file": "generation.e2e.ts",
+      "line": 148,
+      "projectName": "",
+      "status": "expected",
+      "expectedStatus": "passed",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 24563,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "game-directed cover and back finish without resetting play, then survive publication, privacy and editable backup",
+      "file": "rasterArt.e2e.ts",
+      "line": 65,
+      "projectName": "",
+      "status": "expected",
+      "expectedStatus": "passed",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 40379,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "blank replacements retain selected originals and retry only artwork; interrupted replies reuse stored results",
+      "file": "rasterArt.e2e.ts",
+      "line": 183,
+      "projectName": "",
+      "status": "expected",
+      "expectedStatus": "passed",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 16798,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "browser quota failure keeps prepared artwork downloadable and saves it without another provider operation",
+      "file": "rasterArt.e2e.ts",
+      "line": 232,
+      "projectName": "",
+      "status": "expected",
+      "expectedStatus": "passed",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 12809,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "source transport with a fixture provider preserves private input through play, editing and editable backup",
+      "file": "ruleSources.e2e.ts",
+      "line": 13,
+      "projectName": "",
+      "status": "expected",
+      "expectedStatus": "passed",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 22104,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    }
+  ]
+}

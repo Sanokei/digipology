@@ -1,0 +1,74 @@
+{
+  "source": "e0dbb9dbae46b5c135784aaadcfc3734fdecefb1",
+  "stats": {
+    "startTime": "2026-10-29T18:56:05.834Z",
+    "duration": 53728.887,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 3,
+    "flaky": 0
+  },
+  "errors": [],
+  "tests": [
+    {
+      "title": "game-directed cover and back finish without resetting play, then survive publication, privacy and editable backup",
+      "file": "rasterArt.e2e.ts",
+      "line": 65,
+      "projectName": "",
+      "status": "unexpected",
+      "expectedStatus": "passed",
+      "results": [
+        {
+          "status": "failed",
+          "duration": 12310,
+          "retry": 0,
+          "errors": [
+            {
+              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m200\u001b[39m\nReceived: \u001b[31m502\u001b[39m\n\n  24 |   const waiting = page.waitForResponse((response) => response.url().endsWith(\"/api/ai/games\") && response.request().method() === \"POST\");\n  25 |   await page.getByRole(\"button\", { name: \"Create & play\", exact: true }).click();\n> 26 |   const generated = await waiting; expect(generated.status()).toBe(200);\n     |                                                               ^\n  27 |   const accepted = await generated.json();\n  28 |   await expect(page).toHaveURL(/\\/playtest\\//); await ready(page);\n  29 |   return accepted;\n    at create (/workspace/digipology/e2e/rasterArt.e2e.ts:26:63)\n    at /workspace/digipology/e2e/rasterArt.e2e.ts:78:22"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "blank replacements retain selected originals and retry only artwork; interrupted replies reuse stored results",
+      "file": "rasterArt.e2e.ts",
+      "line": 173,
+      "projectName": "",
+      "status": "unexpected",
+      "expectedStatus": "passed",
+      "results": [
+        {
+          "status": "failed",
+          "duration": 19452,
+          "retry": 0,
+          "errors": [
+            {
+              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m200\u001b[39m\nReceived: \u001b[31m502\u001b[39m\n\n  24 |   const waiting = page.waitForResponse((response) => response.url().endsWith(\"/api/ai/games\") && response.request().method() === \"POST\");\n  25 |   await page.getByRole(\"button\", { name: \"Create & play\", exact: true }).click();\n> 26 |   const generated = await waiting; expect(generated.status()).toBe(200);\n     |                                                               ^\n  27 |   const accepted = await generated.json();\n  28 |   await expect(page).toHaveURL(/\\/playtest\\//); await ready(page);\n  29 |   return accepted;\n    at create (/workspace/digipology/e2e/rasterArt.e2e.ts:26:63)\n    at /workspace/digipology/e2e/rasterArt.e2e.ts:177:3"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "browser quota failure keeps prepared artwork downloadable and saves it without another provider operation",
+      "file": "rasterArt.e2e.ts",
+      "line": 221,
+      "projectName": "",
+      "status": "unexpected",
+      "expectedStatus": "passed",
+      "results": [
+        {
+          "status": "failed",
+          "duration": 11853,
+          "retry": 0,
+          "errors": [
+            {
+              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m200\u001b[39m\nReceived: \u001b[31m502\u001b[39m\n\n  24 |   const waiting = page.waitForResponse((response) => response.url().endsWith(\"/api/ai/games\") && response.request().method() === \"POST\");\n  25 |   await page.getByRole(\"button\", { name: \"Create & play\", exact: true }).click();\n> 26 |   const generated = await waiting; expect(generated.status()).toBe(200);\n     |                                                               ^\n  27 |   const accepted = await generated.json();\n  28 |   await expect(page).toHaveURL(/\\/playtest\\//); await ready(page);\n  29 |   return accepted;\n    at create (/workspace/digipology/e2e/rasterArt.e2e.ts:26:63)\n    at /workspace/digipology/e2e/rasterArt.e2e.ts:238:20"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

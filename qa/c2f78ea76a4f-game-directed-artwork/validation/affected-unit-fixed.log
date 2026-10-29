@@ -1,0 +1,272 @@
+bun test v1.4.4 (38afee6c8)
+
+apps/worker/src/ai-games.test.ts:
+(pass) AI game authoring schema and assembly > an explicitly blank model endpoint remains unconfigured [0.24ms]
+(pass) AI game authoring schema and assembly > a key never invents an endpoint or model and invalid settings do not enable generation [1.35ms]
+(pass) AI game authoring schema and assembly > Qwen prompting and smaller local budgets require an explicit profile [4.45ms]
+(pass) AI game authoring schema and assembly > complete source documents remain user data with server-computed hashes [2.08ms]
+(pass) AI game authoring schema and assembly > a real demo game's authorable fields satisfy the forced tool JSON schema [2.93ms]
+(pass) AI game authoring schema and assembly > computes every integrity field and passes the existing eight-check validator [7.00ms]
+(pass) AI game authoring schema and assembly > text edits preserve immutable presentation bytes while omitting them from model context [9.12ms]
+(pass) AI game authoring schema and assembly > turns unregistered components and action references into typed checks [4.72ms]
+(pass) AI game route matrices > create: requires a session before checking AI configuration [5.70ms]
+(pass) AI game route matrices > create: keyless is a calm 503 [25.15ms]
+(pass) AI game route matrices > create: rejects the cap boundary before the model [14.22ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 0 issue(s) (0 errors)
+refine: done after 0 round(s), accepted=true
+(pass) AI game route matrices > create: returns a validated draft without persisting it [1836.51ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: invalid (1 violations)
+ai-game: attempt 2/3 started (timeout 180000ms)
+ai-game: attempt 2 finished in 0ms: invalid (1 violations)
+ai-game: attempt 3/3 started (timeout 180000ms)
+ai-game: attempt 3 finished in 0ms: invalid (1 violations)
+(pass) AI game route matrices > create: three invalid drafts return 502 and typed feedback [40.54ms]
+(pass) AI game route matrices > edit: requires a session before checking AI configuration [0.06ms]
+(pass) AI game route matrices > edit: keyless is a calm 503 [9.70ms]
+(pass) AI game route matrices > edit: rejects the cap boundary before the model [10.53ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 1ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 0 issue(s) (0 errors)
+refine: done after 0 round(s), accepted=true
+(pass) AI game route matrices > edit: returns a validated draft without persisting it [1282.02ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: invalid (1 violations)
+ai-game: attempt 2/3 started (timeout 180000ms)
+ai-game: attempt 2 finished in 0ms: invalid (1 violations)
+ai-game: attempt 3/3 started (timeout 180000ms)
+ai-game: attempt 3 finished in 0ms: invalid (1 violations)
+(pass) AI game route matrices > edit: three invalid drafts return 502 and typed feedback [30.54ms]
+(pass) AI game route matrices > edit rejects a signed-in non-owner before keyless/model checks [6.02ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 1ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 0 issue(s) (0 errors)
+refine: done after 0 round(s), accepted=true
+(pass) AI game route matrices > sends a provider-neutral raw-JSON request with a complete-game output budget [1050.22ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 1ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 1 issue(s) (1 errors)
+  - [error] rules_missing: Include runtime/rules.md with a readable player guide of at least 40 characters: the objective, setup, turn choices and victory conditions. Players open it thro
+refine: round 1/2 quality check started
+refine: round 1 refinement attempt 1/1 started
+refine: round 1 quality: 0 issue(s) (0 errors)
+refine: round 1 attempt 1 finished in 0ms: accepted
+refine: done after 1 round(s), accepted=true
+(pass) AI game budgets > OpenAI creation and real rules repair use their own token and timeout budgets [1799.54ms]
+(pass) AI game budgets > invalid configured budgets return a recoverable configuration error before usage or provider calls [14.96ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 1ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 1 issue(s) (1 errors)
+  - [error] rules_missing: Include runtime/rules.md with a readable player guide of at least 40 characters: the objective, setup, turn choices and victory conditions. Players open it thro
+refine: round 1/2 quality check started
+refine: round 1 refinement attempt 1/1 started
+refine: round 1 quality: 0 issue(s) (0 errors)
+refine: round 1 attempt 1 finished in 1ms: accepted
+refine: done after 1 round(s), accepted=true
+(pass) AI game budgets > repairs a missing player rulebook as an ordinary release file before accepting a draft [2006.28ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 2 issue(s) (2 errors)
+  - [error] lua_banned_global: scripts/game.lua: uses math.random which is REMOVED from the Digipology sandbox (it is nil at runtime). Use random:int(min, max), random:float(), or random:choi
+  - [error] lua_runtime_error: Lua on_roll in scripts/game.lua failed at runtime (line 2): [string "sandbox"]:452: attempt to call a nil value (field 'random') Use random:int(min, max), rando
+refine: round 1/2 quality check started
+refine: round 1 refinement attempt 1/1 started
+refine: round 1 quality: 0 issue(s) (0 errors)
+refine: round 1 attempt 1 finished in 0ms: accepted
+refine: done after 1 round(s), accepted=true
+(pass) AI game budgets > repairs a structurally valid broken game before accepting it and meters the repair [1089.85ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 1ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 1 issue(s) (1 errors)
+  - [error] lua_runtime_error: Lua on_roll in scripts/game.lua failed at runtime (line 2): [string "sandbox"]:452: transport fixture needs repair. The triggering action was rejected, so this 
+refine: round 1/2 quality check started
+refine: round 1 refinement attempt 1/1 started
+refine: round 1 quality: 0 issue(s) (0 errors)
+refine: round 1 attempt 1 finished in 0ms: accepted
+refine: done after 1 round(s), accepted=true
+(pass) AI game budgets > full rule sources over the old body limit reach generation and repair without becoming release files [1454.00ms]
+(pass) AI game budgets > over-budget documents and transport bodies fail before calling the model [12.64ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 1 issue(s) (1 errors)
+  - [error] lua_runtime_error: Lua on_roll in scripts/game.lua failed at runtime (line 2): [string "sandbox"]:452: broken rules. The triggering action was rejected, so this breaks the game fl
+refine: round 1/2 quality check started
+refine: round 1 refinement attempt 1/1 started
+refine: round 1 attempt 1 finished in 0ms: rejected (1 violations)
+refine: round 2/2 quality check started
+refine: round 2 refinement attempt 1/1 started
+refine: round 2 attempt 1 finished in 0ms: rejected (1 violations)
+refine: done after 2 round(s), accepted=false
+(pass) AI game budgets > does not return a broken game when bounded repairs fail [226.66ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 1ms: unusable
+ai-game: attempt 2/3 started (timeout 180000ms)
+ai-game: attempt 2 finished in 0ms: unusable
+ai-game: attempt 3/3 started (timeout 180000ms)
+ai-game: attempt 3 finished in 0ms: unusable
+(pass) AI game budgets > records a request before failed extraction and accumulates all attempts [6.95ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 0 issue(s) (0 errors)
+refine: done after 0 round(s), accepted=true
+(pass) AI game budgets > allows just under the cap and then records the completed call [908.31ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: invalid (1 violations)
+ai-game: attempt 2/3 started (timeout 180000ms)
+ai-game: attempt 2 finished in 0ms: valid
+refine: generation attempt 1/1 started
+refine: generation attempt 1 finished in 0ms: valid
+refine: round 0/2 quality check started
+refine: round 0 quality: 0 issue(s) (0 errors)
+refine: done after 0 round(s), accepted=true
+(pass) AI game budgets > feeds a typed violation to attempt two and meters both calls [1045.26ms]
+ai-game: attempt 1/3 started (timeout 180000ms)
+ai-game: attempt 1 finished in 0ms: unusable
+ai-game: attempt 2/3 started (timeout 180000ms)
+ai-game: attempt 2 finished in 0ms: unusable
+ai-game: attempt 3/3 started (timeout 180000ms)
+ai-game: attempt 3 finished in 0ms: unusable
+(pass) AI game budgets > rechecks the cap between validator-loop attempts [9.75ms]
+(pass) cover generation route matrix > requires authentication and rejects a signed-in non-owner [5.27ms]
+(pass) cover generation route matrix > returns the identical four-candidate shape for keyless and capped requests [11.70ms]
+(pass) cover generation route matrix > forces the cover tool and returns four normalized AI candidates [6.00ms]
+(pass) cover generation route matrix > replaces invalid emitted specs positionally and still returns four AI candidates [5.83ms]
+(pass) cover generation route matrix > records usage before parsing and degrades malformed model output procedurally [5.25ms]
+
+apps/worker/src/platform.test.ts:
+(pass) catalog routes > serve demo-game summaries, details, and the immutable release bundle [0.68ms]
+(pass) catalog routes > interleaves public uploaded games and streams uploaded bundles with immutable headers [0.62ms]
+(pass) same-origin custom-header CSRF check > requires the custom header [0.02ms]
+(pass) same-origin custom-header CSRF check > accepts a matching origin and rejects a cross origin [0.05ms]
+(pass) same-origin custom-header CSRF check > allows non-browser clients with the custom header and no Origin [0.01ms]
+(pass) canonical room timer metadata > authenticates register and cancel reports through the Room DO [0.44ms]
+(pass) scripted checkpoint attestation route > forwards a size-bounded authenticated attestation to the Room DO [0.41ms]
+(pass) scripted checkpoint attestation route > maps unauthenticated, divergent, conflicted, rejected, rate-limited, and oversized reports [0.35ms]
+(pass) upload body cap > uses a 1 MiB route-specific limit without changing existing API bodies [0.17ms]
+(pass) upload body cap > rejects cover bodies above 512 KiB before buffering them [0.19ms]
+(pass) quick play route > joins a fresh room as an auto-named guest and returns its join code [1.07ms]
+(pass) quick play route > creates a public system-owned quickplay room when no candidate survives [0.78ms]
+(pass) release publish ordering > does not insert a release or move its pointer when R2 fails [0.17ms]
+(pass) uploaded game authorization > requires authentication on every uploaded-game mutation and My Games [0.24ms]
+(pass) uploaded game authorization > rejects a signed-in non-owner and keeps built-ins immutable [4.79ms]
+(pass) uploaded game authorization > enforces cover ownership and serves a valid versioned raster round-trip [73.98ms]
+(pass) uploaded game authorization > legacy cover reads survive rollout and migration pins the existing current object [8.26ms]
+(pass) uploaded game authorization > serves real illustrated raster covers with immutable versioned caching [1.89ms]
+(pass) saved tables routes > rejects empty and missing save tokens as unauthorized before persistence [4.09ms]
+(pass) saved tables routes > checks the exact uploaded bundle before allocating a resumed room [69.13ms]
+(pass) saved tables routes > require authentication for save, list, delete, and resume [0.35ms]
+(pass) saved tables routes > maps save token, host, availability, and freshness failures [7.39ms]
+(pass) saved tables routes > rejects tampered and oversized snapshots without persistence [3.87ms]
+(pass) saved tables routes > enforces the per-minute rate limit and active-save cap [9.24ms]
+(pass) saved tables routes > persists a verified snapshot and pinned metadata on success [4.02ms]
+(pass) saved tables routes > persists requires_scripts for a scripted save [4.01ms]
+(pass) saved tables routes > lists only the owner's active saves newest first with resolved and fallback titles [3.68ms]
+(pass) saved tables routes > soft-deletes only an owner's save and removes its R2 object [4.10ms]
+(pass) saved tables routes > does not leak foreign saves and resumes available saves into a new indexed room [13.07ms]
+(pass) saved tables routes > resumes scripted saves through the same pinned-room allocation path [7.19ms]
+(pass) end table route > requires a host token and reports an already-ended table [3.30ms]
+
+apps/worker/src/draft-artwork.test.ts:
+(pass) real raster bytes retain hashes/originals and completed replies reuse the same game/revision [326.67ms]
+(pass) concurrent identical local requests share one provider operation and neither consumes a response body twice [16.56ms]
+(pass) missing account-selected image model, invalid bytes and storage failures never invent ready artwork [26.80ms]
+(pass) cached corruption remains explicit and a new revision preserves prior originals [46.51ms]
+(pass) authentication, strict input and daily budget are enforced before image inference [3.46ms]
+(pass) game-authored direction is separate from images and review binds only successful actual checks [18.99ms]
+(pass) artwork provenance is validated instead of silently disappearing in backups or image information [0.54ms]
+
+apps/web/src/pages/generatedDraft.test.ts:
+(pass) only accepted output becomes an ordinary editable, saved browser draft [11.50ms]
+(pass) the authored tagline and bounded quality review survive the ordinary draft round trip [7.77ms]
+(pass) complete generation sources survive editable backups while release exports keep their exact gameplay payload [13.84ms]
+(pass) publication retry reuses the authored version after room failure [6.52ms]
+(pass) publication retry reuses the authored version after lost publication reply [5.32ms]
+(pass) a publication key is stable for retries and changes when the authored content changes [5.17ms]
+(pass) artwork upload retries a lost reply without opening a table early or duplicating publication [6.73ms]
+
+apps/web/src/state/kernelStore.test.ts:
+(pass) updates transient roster and host metadata without touching confirmed state or pending predictions [1.25ms]
+(pass) replaces a live back without losing a private hand prediction or its later confirmation [3.65ms]
+(pass) KernelStore > records a stale system timer fire without presenting it as an error [1.88ms]
+(pass) KernelStore > still presents an ordinary kernel rejection as an error [1.36ms]
+(pass) KernelStore > does not activate the creator runtime for immutable legacy Lua without script bindings [1.08ms]
+(pass) KernelStore > applies ordered actions strictly in order [1.28ms]
+(pass) KernelStore > replays resume actions from lastSequence [2.47ms]
+(pass) KernelStore > replaces state on resync [2.06ms]
+(pass) KernelStore > confirms matching request IDs and handles room end [1.38ms]
+(pass) KernelStore > confirms the ledger head without replacing a hash-equal displayed state [3.25ms]
+(pass) KernelStore > shows a predicted drop immediately and confirms the grab/drop chain without a re-snap [5.68ms]
+(pass) KernelStore > removes a hand card from the displayed container when its predicted drop lands [4.39ms]
+(pass) KernelStore > reconciles an own confirmation that arrives out of prediction order [4.56ms]
+(pass) KernelStore > drops an invalid grab while replaying a still-valid flip in order [11.53ms]
+(pass) KernelStore > rejects a locally invalid prediction without tracking it [2.92ms]
+(pass) KernelStore > clears predictions on snapshot replacement and room end [3.13ms]
+(pass) KernelStore > drops lost pending predictions and surfaces a visible rollback as a correction [3.40ms]
+(pass) KernelStore > revalidates predictions while applying a resume stream [3.25ms]
+(pass) KernelStore > simulates the mandatory Alice/Bob conflicting-grab timeline at sequences 501/502 [9.41ms]
+(pass) KernelStore > keeps confirmed hashes equal to clean replay across seeded randomized interleavings [765.02ms]
+
+apps/web/src/artwork/rasterSignal.test.ts:
+(pass) fully transparent output is rejected even when its hidden RGB values differ [0.46ms]
+(pass) uniform opaque and barely visible rasters are rejected as blank admission results [0.25ms]
+(pass) visible color structure can be admitted without claiming it is good artwork [0.06ms]
+
+apps/web/src/artwork/review.test.ts:
+(pass) only actual successful current-version checks rebind the review and retain playtest warnings [0.53ms]
+(pass) a reply for an earlier manifest cannot mark edited rules or artwork reviewed [0.15ms]
+(pass) an empty, failing or incomplete check response cannot clear an earlier stale review [0.24ms]
+(pass) quality errors keep a matching-hash draft unreviewed [0.07ms]
+
+apps/web/src/artwork/model.test.ts:
+(pass) legacy manually selected cover and distinct back remain selected when generation metadata is added [5.89ms]
+(pass) a prior image does not count as a finished replacement or stand in for missing selected bytes [1.51ms]
+
+apps/web/src/scene/cardBackImages.test.ts:
+(pass) a created game cannot inherit a demo cover by name or start a fake loading request [0.20ms]
+(pass) shared image loading retries a failed asset and drops late callbacks after its final consumer leaves [0.29ms]
+
+apps/web/src/scene/cardArtworkCanvas.test.ts:
+(pass) game back images retain the whole source and aspect ratio inside portrait or landscape windows [0.14ms]
+(pass) concealed bitmap backs use the stock mask without app-added tiny titles, counts or monograms [0.53ms]
+(pass) every nonempty pile and loose card share the exact full image window [0.32ms]
+
+apps/web/src/editor/state/EditorStore.test.ts:
+(pass) EditorStore > applies commands, undoes, redoes, and keeps snapshots stable between changes [2.92ms]
+(pass) EditorStore > caps deep-clone history and clears redo after a new command [61.95ms]
+(pass) EditorStore > background artwork status preserves the user's Undo and only reviews its checked manifest [2.66ms]
+(pass) EditorStore > coalesces begin, preview mutations, and commit into one history frame [2.66ms]
+(pass) EditorStore > autosaves once 2.5 seconds after the last change [2.74ms]
+
+ 120 pass
+ 0 fail
+ 1120 expect() calls
+Ran 120 tests across 11 files. [14.72s]
