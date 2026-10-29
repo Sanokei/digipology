@@ -1,0 +1,139 @@
+{
+  "retrievedAt": "2026-10-29T19:16:12.995378+00:00",
+  "licensing": "User-author-provided Merlin Economics materials; All Rights Reserved in linked rulebook. No public redistribution license asserted.",
+  "sources": [
+    {
+      "name": "golems",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1OZ1VNpAdI9pgCz3ABLtk_JlO-WIH3AVhC6CePLWlYdw/export?format=xlsx",
+      "retrievedAt": "2026-10-29T19:16:10.260561+00:00",
+      "scope": "User-linked original Sheets; normal complete-workbook download, no auth/network workaround.",
+      "status": 200,
+      "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "finalHost": "doc-0c-7k-sheets.googleusercontent.com",
+      "bytes": 10739,
+      "sha256": "d11ff36803933c29c88f80383316106b2f14d1feac324a0307d22723e92a0ef2",
+      "sheets": [
+        {
+          "name": "Sheet1",
+          "nonemptyRows": 9,
+          "cells": 45
+        }
+      ],
+      "completeWorkbookParsed": true
+    },
+    {
+      "name": "royal-guards",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1oR_GGQ7mE0Ifk6mvFQT2kStIF9xHH14KWQGaUUn0XQo/export?format=xlsx",
+      "retrievedAt": "2026-10-29T19:16:10.262649+00:00",
+      "scope": "User-linked original Sheets; normal complete-workbook download, no auth/network workaround.",
+      "status": 200,
+      "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "finalHost": "doc-00-7k-sheets.googleusercontent.com",
+      "bytes": 65631,
+      "sha256": "7d9d3d81b686b0a85c6947348e323bec639aaab667503af47ddd755c56c9e7fe",
+      "sheets": [
+        {
+          "name": "Sheet1",
+          "nonemptyRows": 5,
+          "cells": 25
+        }
+      ],
+      "completeWorkbookParsed": true
+    },
+    {
+      "name": "tea-leaves",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1mln7ndSg52FSPz6Z5Kf-UkgITCrnG1t0a4z5Ubkw8B8/export?format=xlsx",
+      "retrievedAt": "2026-10-29T19:16:10.263278+00:00",
+      "scope": "User-linked original Sheets; normal complete-workbook download, no auth/network workaround.",
+      "status": 200,
+      "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "finalHost": "doc-0g-7k-sheets.googleusercontent.com",
+      "bytes": 68888,
+      "sha256": "9e759e700010c53e60bde9f9d8f87751c5f7f944fcd5b7488d2ad898b88b6c83",
+      "sheets": [
+        {
+          "name": "Tea Leaves",
+          "nonemptyRows": 14,
+          "cells": 92
+        }
+      ],
+      "completeWorkbookParsed": true
+    },
+    {
+      "name": "crystal-ball",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1g9HAlmH1Eswke9tEnsAtYjEWmOQAgdGKqmTda7zncdY/export?format=xlsx",
+      "retrievedAt": "2026-10-29T19:16:11.179659+00:00",
+      "scope": "User-linked original Sheets; normal complete-workbook download, no auth/network workaround.",
+      "status": 200,
+      "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "finalHost": "doc-00-7k-sheets.googleusercontent.com",
+      "bytes": 22589,
+      "sha256": "e52e4c8acbd77809e931437e6b722d1601fcbe3dee72a9bd82a9560a58c9ea0c",
+      "sheets": [
+        {
+          "name": "Crystal Ball",
+          "nonemptyRows": 28,
+          "cells": 136
+        }
+      ],
+      "completeWorkbookParsed": true
+    },
+    {
+      "name": "spells",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1M5d9waSGGzukIwMvnTL5MiPquYq5DETy_wEPh_B6LJk/export?format=xlsx",
+      "retrievedAt": "2026-10-29T19:16:11.479709+00:00",
+      "scope": "User-linked original Sheets; normal complete-workbook download, no auth/network workaround.",
+      "status": 200,
+      "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "finalHost": "doc-10-7k-sheets.googleusercontent.com",
+      "bytes": 26696,
+      "sha256": "29bba31813c4398152ed7e9ec8814fe1389e3e2e1a492ab5be585b8a71fea73b",
+      "sheets": [
+        {
+          "name": "Spells",
+          "nonemptyRows": 19,
+          "cells": 147
+        }
+      ],
+      "completeWorkbookParsed": true
+    },
+    {
+      "name": "potions",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/18evShnnRvlaVsq7sUKmxrQkjo0443bS5MyTJtERJ55o/export?format=xlsx",
+      "retrievedAt": "2026-10-29T19:16:11.570895+00:00",
+      "scope": "User-linked original Sheets; normal complete-workbook download, no auth/network workaround.",
+      "status": 200,
+      "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "finalHost": "doc-0o-7k-sheets.googleusercontent.com",
+      "bytes": 32435,
+      "sha256": "5aeda45896ffbd9079a974b934d4171eb9c8083f6b455e6587adfe2b49a1af36",
+      "sheets": [
+        {
+          "name": "Potions",
+          "nonemptyRows": 77,
+          "cells": 157
+        }
+      ],
+      "completeWorkbookParsed": true
+    },
+    {
+      "name": "royal-decrees",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1uNEaoNqAAULFk0Fa7pxtpMfLCR0uX1N1TvsdwP6tnk4/export?format=xlsx",
+      "retrievedAt": "2026-10-29T19:16:12.178761+00:00",
+      "scope": "User-linked original Sheets; normal complete-workbook download, no auth/network workaround.",
+      "status": 200,
+      "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "finalHost": "doc-0k-7k-sheets.googleusercontent.com",
+      "bytes": 67242,
+      "sha256": "4bf6ca1972aaec8eff3c5c7fabe3c57e9ad7c041be38cd9086816949465cdae0",
+      "sheets": [
+        {
+          "name": "Sheet1",
+          "nonemptyRows": 15,
+          "cells": 30
+        }
+      ],
+      "completeWorkbookParsed": true
+    }
+  ]
+}

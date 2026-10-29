@@ -1,0 +1,44 @@
+$ bun run docs:sync && astro build && bun run check:links
+$ bun scripts/sync-docs.ts
+Synced 11 repository docs: actions.md, ai-features.md, bundle-format.md, creator-guide.md, lua-api.md, playing.md, upstream/babylon-lite/attach-control-touch-opt-out.md, upstream/babylon-lite/billboard-label-helper.md, upstream/babylon-lite/highlight-outline-facility.md, upstream/babylon-lite/main-scene-pointer-drag.md, upstream/babylon-lite/README.md
+19:36:06 [content] Syncing content
+19:36:06 [content] Synced content
+19:36:06 [types] Generated 636ms
+19:36:06 [build] output: "static"
+19:36:06 [build] mode: "static"
+19:36:06 [build] directory: /workspace/digipology/apps/site/dist/
+19:36:06 [build] Collecting build info...
+19:36:06 [build] ✓ Completed in 648ms.
+19:36:06 [build] Building static entrypoints...
+19:36:08 [vite] ✓ built in 1.25s
+19:36:08 [build] ✓ Completed in 1.30s.
+
+ generating static routes 
+19:36:08 ▶ src/pages/404.astro
+19:36:08   └─ /404.html (+26ms) 
+19:36:08 ▶ src/pages/docs/[...slug].astro
+19:36:08   ├─ /docs/architecture/index.html (+4ms) 
+19:36:08   ├─ /docs/getting-started/index.html (+4ms) 
+19:36:08   ├─ /docs/ai-features/index.html (+5ms) 
+19:36:08   ├─ /docs/creator-guide/index.html (+2ms) 
+19:36:08   ├─ /docs/playing/index.html (+2ms) 
+19:36:08   ├─ /docs/upstream/babylon-lite/readme/index.html (+2ms) 
+19:36:08   ├─ /docs/actions/index.html (+2ms) 
+19:36:08   ├─ /docs/upstream/babylon-lite/attach-control-touch-opt-out/index.html (+2ms) 
+19:36:08   ├─ /docs/bundle-format/index.html (+2ms) 
+19:36:08   ├─ /docs/lua-api/index.html (+4ms) 
+19:36:08   ├─ /docs/upstream/babylon-lite/billboard-label-helper/index.html (+4ms) 
+19:36:08   ├─ /docs/upstream/babylon-lite/highlight-outline-facility/index.html (+23ms) 
+19:36:08   └─ /docs/upstream/babylon-lite/main-scene-pointer-drag/index.html (+3ms) 
+19:36:08 ▶ src/pages/docs/index.astro
+19:36:08   └─ /docs/index.html (+4ms) 
+19:36:08 ▶ src/pages/docs/lua-preview.astro
+19:36:08   └─ /docs/lua-preview/index.html (+3ms) 
+19:36:08 ▶ src/pages/index.astro
+19:36:08   └─ /index.html (+3ms) 
+19:36:08 ✓ Completed in 122ms.
+
+19:36:08 [build] 17 page(s) built in 2.08s
+19:36:08 [build] Complete!
+$ bun scripts/check-links.ts
+Internal link check passed.

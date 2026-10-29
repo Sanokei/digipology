@@ -1,0 +1,8 @@
+{
+  "requestJsonBytes": 104318,
+  "requestJsonSha256": "918acc45a129e2f7c0f7b78a7bfb60147d3482ae223df0b9cddb1adc62f8f98e",
+  "sourceCount": 8,
+  "sourceBytes": 99651,
+  "fullRequestExcludedFromPublicPack": true,
+  "reason": "Author-owned complete source text remains private; the normal owner request download is byte/text-checked in the browser."
+}

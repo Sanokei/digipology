@@ -1,0 +1,30 @@
+{
+  "source": "e47ea33ffb3af17bd226a8abf256e7d258a41163",
+  "commandExit": 0,
+  "stats": {
+    "startTime": "2026-10-29T19:34:26.671Z",
+    "duration": 24513.488999999998,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "errors": [],
+  "tests": [
+    {
+      "title": "the complete pinned Merlin rulebook and seven real catalogs survive normal creation, retry and exact download",
+      "file": "merlin.benchmark.ts",
+      "line": 12,
+      "status": "expected",
+      "expectedStatus": "passed",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 7130,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    }
+  ]
+}

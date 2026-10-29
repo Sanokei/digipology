@@ -1,0 +1,103 @@
+{
+  "scope": "Original Google Sheets CSV exports. Single-tab coverage independently checked against complete XLSX workbooks; raw bytes retained, no card count correction. Source contents are author-owned, not publicly redistributed.",
+  "sources": [
+    {
+      "name": "golems",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1OZ1VNpAdI9pgCz3ABLtk_JlO-WIH3AVhC6CePLWlYdw/export?format=csv",
+      "retrievedAt": "2026-10-29T19:26:18.454019+00:00",
+      "workbookSha256": "d11ff36803933c29c88f80383316106b2f14d1feac324a0307d22723e92a0ef2",
+      "status": 200,
+      "contentType": "text/csv; charset=utf-8",
+      "finalHost": "doc-0c-7k-sheets.googleusercontent.com",
+      "bytes": 3870,
+      "sha256": "37b2f225c0259ef049455eba46100ebbb2bcab5f59a8171e97ae51dfc55fb90d",
+      "rows": 9,
+      "utf8Valid": true,
+      "workbookSingleTab": true
+    },
+    {
+      "name": "royal-guards",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1oR_GGQ7mE0Ifk6mvFQT2kStIF9xHH14KWQGaUUn0XQo/export?format=csv",
+      "retrievedAt": "2026-10-29T19:26:18.454903+00:00",
+      "workbookSha256": "7d9d3d81b686b0a85c6947348e323bec639aaab667503af47ddd755c56c9e7fe",
+      "status": 200,
+      "contentType": "text/csv; charset=utf-8",
+      "finalHost": "doc-00-7k-sheets.googleusercontent.com",
+      "bytes": 1868,
+      "sha256": "7552076e0e321a40614be8608cdb047abbbcba296590e0e772aed8927880fae3",
+      "rows": 5,
+      "utf8Valid": true,
+      "workbookSingleTab": true
+    },
+    {
+      "name": "tea-leaves",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1mln7ndSg52FSPz6Z5Kf-UkgITCrnG1t0a4z5Ubkw8B8/export?format=csv",
+      "retrievedAt": "2026-10-29T19:26:18.455542+00:00",
+      "workbookSha256": "9e759e700010c53e60bde9f9d8f87751c5f7f944fcd5b7488d2ad898b88b6c83",
+      "status": 200,
+      "contentType": "text/csv; charset=utf-8",
+      "finalHost": "doc-0g-7k-sheets.googleusercontent.com",
+      "bytes": 2905,
+      "sha256": "2fbbd21a824f483a820b7f65c077b33a1d401c14bdfee3a86bb1d0d9cf5d158e",
+      "rows": 14,
+      "utf8Valid": true,
+      "workbookSingleTab": true
+    },
+    {
+      "name": "crystal-ball",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1g9HAlmH1Eswke9tEnsAtYjEWmOQAgdGKqmTda7zncdY/export?format=csv",
+      "retrievedAt": "2026-10-29T19:26:19.373257+00:00",
+      "workbookSha256": "e52e4c8acbd77809e931437e6b722d1601fcbe3dee72a9bd82a9560a58c9ea0c",
+      "status": 200,
+      "contentType": "text/csv; charset=utf-8",
+      "finalHost": "doc-00-7k-sheets.googleusercontent.com",
+      "bytes": 5134,
+      "sha256": "4453c33fcb95bf2c64805acec98b0c854bdf94b204273ee0716e0510f9e6f9cb",
+      "rows": 28,
+      "utf8Valid": true,
+      "workbookSingleTab": true
+    },
+    {
+      "name": "spells",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1M5d9waSGGzukIwMvnTL5MiPquYq5DETy_wEPh_B6LJk/export?format=csv",
+      "retrievedAt": "2026-10-29T19:26:19.469643+00:00",
+      "workbookSha256": "29bba31813c4398152ed7e9ec8814fe1389e3e2e1a492ab5be585b8a71fea73b",
+      "status": 200,
+      "contentType": "text/csv; charset=utf-8",
+      "finalHost": "doc-10-7k-sheets.googleusercontent.com",
+      "bytes": 5191,
+      "sha256": "037d2702a3136c1691eeb7ee5a344eb63cb85d050bd2db3f4501ad16ce344412",
+      "rows": 19,
+      "utf8Valid": true,
+      "workbookSingleTab": true
+    },
+    {
+      "name": "potions",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/18evShnnRvlaVsq7sUKmxrQkjo0443bS5MyTJtERJ55o/export?format=csv",
+      "retrievedAt": "2026-10-29T19:26:19.593596+00:00",
+      "workbookSha256": "5aeda45896ffbd9079a974b934d4171eb9c8083f6b455e6587adfe2b49a1af36",
+      "status": 200,
+      "contentType": "text/csv; charset=utf-8",
+      "finalHost": "doc-0o-7k-sheets.googleusercontent.com",
+      "bytes": 8409,
+      "sha256": "7fe17c03c3dbab6439360bda8f81b7f4ae5f7f8a965fb27f57aa1bc03cd1b471",
+      "rows": 526,
+      "utf8Valid": true,
+      "workbookSingleTab": true
+    },
+    {
+      "name": "royal-decrees",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1uNEaoNqAAULFk0Fa7pxtpMfLCR0uX1N1TvsdwP6tnk4/export?format=csv",
+      "retrievedAt": "2026-10-29T19:26:20.135092+00:00",
+      "workbookSha256": "4bf6ca1972aaec8eff3c5c7fabe3c57e9ad7c041be38cd9086816949465cdae0",
+      "status": 200,
+      "contentType": "text/csv; charset=utf-8",
+      "finalHost": "doc-0k-7k-sheets.googleusercontent.com",
+      "bytes": 6400,
+      "sha256": "32b9eb0c6692b609ca57523c910c2d6f1a3befced4a7774ae4d5e7fc5d061991",
+      "rows": 15,
+      "utf8Valid": true,
+      "workbookSingleTab": true
+    }
+  ]
+}

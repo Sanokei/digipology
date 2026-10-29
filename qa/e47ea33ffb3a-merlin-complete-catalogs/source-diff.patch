@@ -1,0 +1,433 @@
+diff --git a/docs/runbooks/merlin-economics.md b/docs/runbooks/merlin-economics.md
+index 9abf50c..ca50257 100644
+--- a/docs/runbooks/merlin-economics.md
++++ b/docs/runbooks/merlin-economics.md
+@@ -13,13 +13,39 @@ Source repository: https://github.com/SidewaysTurtle/MerlinEconomics
+ - Source credits SidewaysTurtle / Kei Sano and says All Rights Reserved. Do not
+   relabel it CC0 or put the entire rulebook in the application's distribution.
+ 
+-Normal HTTPS Git access retrieved this source. A normal public CSV export of
+-the linked Royal Decrees sheet failed with `Tunnel connection failed: 403
+-Forbidden` in the onboarding environment. No connected Sheets tool is available.
+-That is an access restriction, not evidence about the sheet's contents. The cloud
+-allowlist needs `docs.google.com`; saving that request is not publication or
+-proof the destination is now reachable. Do not retry an unchanged denial or use
+-another host/proxy to bypass it.
++Normal HTTPS Git access retrieved this source. The earlier ordinary Royal
++Decrees export failed with CONNECT403; that was an access restriction, not
++evidence about its contents. After a fresh environment and a changed network
++draft, the same original URL returned200 on 2026-10-29. All seven original
++complete-workbook XLSX downloads and CSV exports now return200. Every workbook
++has one worksheet, so its original first-sheet CSV covers its tabular data.
++No alternate-host/proxy workaround or new account was used. This observed access
++does not by itself prove which environment draft was published.
++
++The captured CSV bytes are pinned in
++[`scripts/benchmarks/merlin-catalogs.ts`](../../scripts/benchmarks/merlin-catalogs.ts).
++They total33,777 bytes; with the rulebook the complete eight-document packet is
++**99,651 bytes**, within the existing128KiB input. Source contents stay outside
++the checkout/public QA; hashes, original links and analysis are shareable receipts.
++
++| Original catalog | Definitions | Declared copies | Listed copies |
++| --- | ---: | ---: | ---: |
++| Golems | 8 | Not declared as a total | Not inferred |
++| Royal Guards | 4 | Not declared as a total | Not inferred |
++| Tea Leaves | 12 | 30 | **42** |
++| Crystal Ball | 26 | 51 | **52** |
++| Spells | 17 | 62 | 62 |
++| Potions | 7 | 28 | 28 |
++| Royal Decrees | 14 | Not declared as a total | Not inferred |
++
++These are source findings, not silent corrections. Crystal Ball's XLSX A2
++formula is `SUM(A$4:A$999)`, excluding the first listed card at A3. Tea Leaves'
++declared30 remains30 in the raw source despite42 listed copies. Spells retains
++the zero-copy Transmutation definition. Potions retains all526 CSV records,
++including trailing/ingredient data, rather than extracting just seven card rows.
++Original Sheets are editable and have no asserted Git revision; the captured
++2026-10-29 hashes identify this exact input. A changed export must be inspected
++and deliberately repinned instead of silently entering the benchmark.
+ 
+ ## Source intake and alternatives
+ 
+@@ -56,30 +82,39 @@ successful response keeps the accepted source-bearing editable draft.
+ 
+ ## Reproduce the bounded source test
+ 
+-Use a local checkout containing the exact source commit above. This command reads
+-the pinned Git object, verifies its hash, and writes into a new directory:
++Use a local checkout containing the exact source commit and the seven captured
++CSV exports named `golems.csv`, `royal-guards.csv`, `tea-leaves.csv`,
++`crystal-ball.csv`, `spells.csv`, `potions.csv` and `royal-decrees.csv` in another
++directory. Export through each original `docs.google.com/spreadsheets/d/ID/export?format=csv`
++URL in the manifest. The script reads the pinned Git object, checks every CSV's
++byte length/hash, analyzes complete quoted/multiline CSV and writes a new packet:
+ 
+ ```bash
+-bun scripts/benchmarks/merlin-economics.ts /path/to/MerlinEconomics /tmp/merlin-input
++bun scripts/benchmarks/merlin-economics.ts /path/to/MerlinEconomics /tmp/merlin-input /path/to/pinned-csvs
+ ```
+ 
+-It produces the exact rulebook, a normal `merlin-economics.request.json` and an
+-acceptance receipt with all seven linked catalogs marked unread. Preparation
+-does not invoke a provider or generate a game. Keep these author-provided source
+-outputs outside the application checkout and public QA packs.
++It produces the exact rulebook/seven CSVs, a normal
++`merlin-economics.request.json` with all eight references and an acceptance receipt
++that reports the unresolved count/rule gaps. Missing or changed catalogs fail
++before packet output. The legacy two-argument command deliberately prepares a
++rules-only packet marked incomplete; the complete browser benchmark refuses it.
++Preparation does not invoke a provider or generate a game. Keep all author-owned
++source/request outputs outside the application checkout and public QA packs.
+ 
+ After building the web app, run the explicit real-source browser benchmark:
+ 
+ ```bash
+-MERLIN_ECONOMICS_SOURCE=/path/to/MerlinEconomics E2E_SKIP_BUILD=1 \
++MERLIN_ECONOMICS_INPUT=/tmp/merlin-input E2E_SKIP_BUILD=1 \
+   bun x playwright test --config e2e/merlin.config.ts
+ ```
+ 
+ This dedicated test uses the normal UI/API with an intentionally unconfigured
+-isolated server. It verifies the whole pinned source, invalid-file recovery,
+-desktop/390px/short controls, an actual `ai_unconfigured` response, identical retry
+-and request download, and no accepted/published substitute. It has its own match
+-pattern and does not silently skip or replace missing external input.
++isolated server. It verifies all eight pinned sources, invalid/ninth-file atomic
++recovery, desktop/390px/short controls, the actual `ai_unconfigured` response,
++identical retry and keyboard request download, and no accepted/published
++substitute. It has its own match pattern and does not skip or substitute a fixture
++when real input is missing. The separate actual normal-app attempt records its
++own provider result; an isolated configuration test is not evidence of live access.
+ 
+ `e2e/ruleSources.e2e.ts` separately uses the existing deterministic dice provider
+ fixture to exercise successful creation/repair, private play, editing, exact
+@@ -103,14 +138,18 @@ The generated game must support 4–6 players and preserve the actual source's:
+ 
+ The repository `Cards.sheet` contains seven potion definitions / 28 copies,
+ thirteen spell definitions / 48 copies, no Tea Leaves definitions and one Crystal
+-Ball definition with count zero. Treat it as a partial snapshot, never a silent
+-substitute for the unread external catalogs. The rulebook's Taxes, Indicators
+-and Bankruptcy cross-references, auction ties/rounding and exact climate/wheel
+-values need source confirmation. Record resolved versus unresolved items.
++Ball definition with count zero. It is a partial historical snapshot; the linked
++catalogs above contain substantially more data. Those catalog effects do not
++replace missing general Taxes, Indicators and Bankruptcy sections. Auction
++ties/rounding and exact climate/wheel values still need confirmation. Several
++Crystal Ball triggers/bonuses use placeholders such as “specific threshold”,
++“a certain amount” and “for example”; these are not exact executable rules.
++Retain these gaps and conflicting totals in the player guide rather than inventing
++values. Complete document intake is not source completeness or rules fidelity.
+ 
+ An existing source-bearing dice fixture, a structurally valid bundle, a renamed
+ game, or a scripted random playthrough cannot count as Merlin acceptance. Live
+-text/image provider access, the seven external catalogs, generated-game semantic
++text/image provider access, resolved source ambiguities, generated-game semantic
+ tests and real play/listening review remain prerequisites. Automated counts do
+ not establish faithful rules, polished art, balance, perceptual sound quality or
+ fun. Reused cover pictures and the old geometric SVG generator remain below the
+diff --git a/e2e/merlin.benchmark.ts b/e2e/merlin.benchmark.ts
+index e6e605b..47f30c6 100644
+--- a/e2e/merlin.benchmark.ts
++++ b/e2e/merlin.benchmark.ts
+@@ -2,75 +2,82 @@ import { test, expect } from "@playwright/test";
+ import { readFile, writeFile } from "node:fs/promises";
+ import { createHash } from "node:crypto";
+ import { join } from "node:path";
++import { MERLIN_CATALOGS, catalogUrl } from "../scripts/benchmarks/merlin-catalogs";
++import type { CreateAiGameRequest } from "../packages/protocol/src/http";
+ 
+ const SOURCE = "8bed07f5bfed67b89cf52b5c6ce3baa7bdd97260";
+ const HASH = "e79d0701f988e78458443e8e2b43b98d334d981baf748b46611074c059ef880b";
+-test("the full pinned Merlin rulebook survives normal creation, unavailable-provider retry and request download", async ({ page }, info) => {
+-  const repository = process.env.MERLIN_ECONOMICS_SOURCE;
+-  if (!repository) throw new Error("Set MERLIN_ECONOMICS_SOURCE to the existing local SidewaysTurtle/MerlinEconomics checkout; this benchmark never substitutes another game.");
+-  const file = join(repository, "Merlin Economics Obsidian/Rulebook.md"), bytes = await readFile(file);
+-  expect(createHash("sha256").update(bytes).digest("hex")).toBe(HASH);
+-  const text = bytes.toString("utf8"), sourceUrl = `https://github.com/SidewaysTurtle/MerlinEconomics/blob/${SOURCE}/Merlin%20Economics%20Obsidian/Rulebook.md`;
+-  const errors: string[] = [];
+-  page.on("pageerror", (error) => errors.push(error.message));
++const fingerprint = (text: string) => `sha256:${createHash("sha256").update(Buffer.from(text, "utf8")).digest("hex")}`;
++
++test("the complete pinned Merlin rulebook and seven real catalogs survive normal creation, retry and exact download", async ({ page }, info) => {
++  test.setTimeout(120_000);
++  const inputDirectory = process.env.MERLIN_ECONOMICS_INPUT;
++  if (!inputDirectory) throw new Error("Set MERLIN_ECONOMICS_INPUT to a new complete packet prepared by scripts/benchmarks/merlin-economics.ts with its pinned CSV directory. No source/model substitute is used.");
++  const packet = JSON.parse(await readFile(join(inputDirectory, "merlin-economics.request.json"), "utf8")) as CreateAiGameRequest;
++  const references = packet.references!;
++  expect(references).toHaveLength(8); expect(fingerprint(references[0]!.text)).toBe(`sha256:${HASH}`);
++  for (const [index, catalog] of MERLIN_CATALOGS.entries()) {
++    const source = references[index + 1]!;
++    expect(source.name).toBe(catalog.name); expect(source.sourceUrl).toBe(catalogUrl(catalog.document));
++    expect(fingerprint(source.text)).toBe(`sha256:${catalog.sha256}`);
++  }
++  expect(references.reduce((sum, source) => sum + Buffer.byteLength(source.text, "utf8"), 0)).toBe(99_651);
++  const errors: string[] = []; page.on("pageerror", (error) => errors.push(error.message));
+   await page.goto("/login");
+-  await page.getByLabel("Email address", { exact: true }).fill(`merlin-${Date.now()}@example.com`);
++  await page.getByLabel("Email address", { exact: true }).fill(`merlin-catalogs-${Date.now()}@example.com`);
+   await page.getByRole("button", { name: "Email me a link", exact: true }).click();
+   await expect(page.getByRole("heading", { name: "Check your email", exact: true })).toBeVisible();
+   const { link } = await (await page.request.get("/api/dev/last-magic-link")).json();
+   await page.goto(link); await page.goto("/create");
+-  const prompt = "Reproduce Merlin Economics v0.1.27b for 4–6 players. Use the complete attached rules; record unread linked Google Sheets and unresolved definitions. Create artwork for this game.";
+-  await page.getByLabel("Game description", { exact: true }).fill(prompt);
++  await page.getByLabel("Game description", { exact: true }).fill(packet.prompt);
+   const input = page.getByLabel("Attach rule or card files", { exact: true });
+-  await input.setInputFiles(file);
++  await input.setInputFiles(references.map((source) => ({ name: source.name, mimeType: source.name.endsWith(".csv") ? "text/csv" : "text/markdown", buffer: Buffer.from(source.text, "utf8") })));
+   const sources = page.getByRole("list", { name: "Attached source documents", exact: true });
+-  await expect(sources.locator("li")).toHaveCount(1);
+-  await expect(sources).toContainText("65,874 bytes");
+-  await sources.getByRole("textbox", { name: /Public source URL/ }).fill(sourceUrl);
+-  await sources.getByText("Source fingerprint", { exact: true }).click();
+-  await expect(sources.locator("code")).toHaveText(`sha256:${HASH}`);
+-  await page.screenshot({ path: info.outputPath("merlin-full-rules-desktop.png"), fullPage: true });
++  await expect(sources.locator("li")).toHaveCount(8);
++  for (const [index, source] of references.entries()) {
++    const row = sources.locator("li").nth(index);
++    await row.getByRole("textbox", { name: /Public source URL/ }).fill(source.sourceUrl!);
++    await row.getByText("Source fingerprint", { exact: true }).click();
++    await expect(row.locator("code")).toHaveText(fingerprint(source.text));
++  }
++  await page.screenshot({ path: info.outputPath("merlin-eight-sources-desktop.png"), fullPage: true });
+   await input.setInputFiles({ name: "Pixels.png", mimeType: "image/png", buffer: Buffer.from("binary") });
+   await expect(page.locator(".rule-sources [role=alert]")).toContainText("text, Markdown or CSV");
+-  await expect(sources.locator("li")).toHaveCount(1);
+-  await input.setInputFiles({ name: "Too-large.md", mimeType: "text/markdown", buffer: Buffer.alloc(131_073, 120) });
+-  await expect(page.locator(".rule-sources [role=alert]")).toContainText("128 KiB");
+-  await expect(sources.locator("code")).toHaveText(`sha256:${HASH}`);
++  await expect(sources.locator("li")).toHaveCount(8);
++  await input.setInputFiles({ name: "Ninth.md", mimeType: "text/markdown", buffer: Buffer.from("A ninth source must not replace the complete accepted set.") });
++  await expect(page.locator(".rule-sources [role=alert]")).toContainText("at most 8");
++  await expect(sources.locator("li")).toHaveCount(8);
+   await page.setViewportSize({ width: 390, height: 480 });
+-  const urlField = sources.getByRole("textbox", { name: /Public source URL/ });
++  const urlField = sources.locator("li").last().getByRole("textbox", { name: /Public source URL/ });
+   await urlField.focus(); await urlField.scrollIntoViewIfNeeded();
+   const box = await urlField.boundingBox();
+   expect(box?.y).toBeGreaterThanOrEqual(0); expect(box!.y + box!.height).toBeLessThanOrEqual(480);
+   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+-  await page.screenshot({ path: info.outputPath("merlin-source-short.png"), fullPage: false });
++  await page.screenshot({ path: info.outputPath("merlin-eighth-source-short.png"), fullPage: false });
+   await page.setViewportSize({ width: 390, height: 844 });
+   const submitted = page.waitForResponse((response) => response.url().endsWith("/api/ai/games") && response.request().method() === "POST");
+   await page.getByRole("button", { name: "Create & play", exact: true }).click();
+   const response = await submitted;
+-  expect(response.status()).toBe(503);
+-  expect(await response.json()).toMatchObject({ error: { code: "ai_unconfigured" } });
+-  const request = response.request().postDataJSON();
+-  expect(request).toEqual({ prompt, references: [{ name: "Rulebook.md", text, sourceUrl }] });
++  expect(response.status()).toBe(503); expect(await response.json()).toMatchObject({ error: { code: "ai_unconfigured" } });
++  const request = response.request().postDataJSON(); expect(request).toEqual(packet);
+   await expect(page.locator(".ai-state-unconfigured")).toContainText("isn't set up");
+-  await expect(page.getByLabel("Game description", { exact: true })).toHaveValue(prompt);
++  await expect(page.getByLabel("Game description", { exact: true })).toHaveValue(packet.prompt);
+   const retry = page.getByRole("button", { name: "Retry AI draft", exact: true });
+   await expect(retry).toBeEnabled(); await retry.scrollIntoViewIfNeeded();
+-  await page.screenshot({ path: info.outputPath("merlin-unconfigured-recovery-390.png"), fullPage: false });
++  await page.screenshot({ path: info.outputPath("merlin-eight-source-recovery-390.png"), fullPage: false });
+   const again = page.waitForResponse((r) => r.url().endsWith("/api/ai/games") && r.request().method() === "POST");
+   await retry.click(); const retryResponse = await again;
+-  expect(retryResponse.status()).toBe(503); expect(retryResponse.request().postDataJSON()).toEqual(request);
++  expect(retryResponse.status()).toBe(503); expect(retryResponse.request().postDataJSON()).toEqual(packet);
+   await retry.focus(); await page.keyboard.press("Tab");
+   await expect(page.getByRole("button", { name: "Download generation request", exact: true })).toBeFocused();
+   const downloading = page.waitForEvent("download"); await page.keyboard.press("Enter");
+-  const requestPath = info.outputPath("merlin-full-source.request.json"); await (await downloading).saveAs(requestPath);
+-  expect(JSON.parse(await readFile(requestPath, "utf8"))).toEqual(request);
++  const requestPath = info.outputPath("merlin-complete-source.request.json"); await (await downloading).saveAs(requestPath);
++  expect(JSON.parse(await readFile(requestPath, "utf8"))).toEqual(packet);
+   await expect(page).toHaveURL(/\/create$/);
+-  expect((await (await page.request.get("/api/games/mine")).json()).games).toHaveLength(0);
+-  expect(errors).toEqual([]);
+-  const catalogs = [...text.matchAll(/\[([^\]]+)\]\((https:\/\/docs\.google\.com\/spreadsheets\/d\/[^)]+)\)/g)].map((match) => ({ name: match[1], sourceUrl: match[2], read: false }));
+-  expect(catalogs).toHaveLength(7);
+-  await writeFile(info.outputPath("merlin-attempt-receipt.json"), JSON.stringify({ sourceCommit: SOURCE, sourceSha256: HASH, sourceBytes: bytes.length,
++  expect((await (await page.request.get("/api/games/mine")).json()).games).toHaveLength(0); expect(errors).toEqual([]);
++  await writeFile(info.outputPath("merlin-attempt-receipt.json"), JSON.stringify({ sourceCommit: SOURCE, rulebookSha256: HASH, sourceBytes: 99_651, sourceCount: 8,
++    sources: references.map((source) => ({ name: source.name, sourceUrl: source.sourceUrl, bytes: Buffer.byteLength(source.text, "utf8"), sha256: fingerprint(source.text), fullTextIncluded: true })),
+     normalFormAndApiUsed: true, exactSourceTextRetained: true, response: { status: 503, code: "ai_unconfigured" }, retryPreservedRequest: true,
+-    requestDownloadExact: true, externalCatalogs: catalogs, fixtureModelUsed: false, liveGenerationVerified: false, fullMerlinGameAccepted: false,
+-    scope: "Real pinned source intake/recovery with an intentionally unconfigured isolated server; no model output or game/fun/art-quality acceptance." }, null, 2));
++    requestDownloadExact: true, fixtureModelUsed: false, liveGenerationVerified: false, fullMerlinGameAccepted: false,
++    scope: "Eight real pinned sources through normal form/API on an intentionally unconfigured isolated server. No provider fixture, generated game, artwork/fun claim or silent count correction." }, null, 2));
+ });
+diff --git a/scripts/benchmarks/merlin-catalogs.test.ts b/scripts/benchmarks/merlin-catalogs.test.ts
+new file mode 100644
+index 0000000..95a22f8
+--- /dev/null
++++ b/scripts/benchmarks/merlin-catalogs.test.ts
+@@ -0,0 +1,27 @@
++import { expect, test } from "bun:test";
++import { mkdtemp, rm, writeFile } from "node:fs/promises";
++import { tmpdir } from "node:os";
++import { join } from "node:path";
++import { analyzeCatalog, csvRows, loadMerlinCatalogs, MERLIN_CATALOGS } from "./merlin-catalogs";
++
++test("quoted multiline CSV, BOM, CRLF and trailing empty cells are analyzed without modifying source text", () => {
++  const source = '\uFEFFName,Ability,Other\r\n"Mage, merchant","Pay ""one"" gold\r\nthen draw",\r\n,,\r\n';
++  expect(csvRows(source)).toEqual([["Name", "Ability", "Other"], ["Mage, merchant", 'Pay "one" gold\r\nthen draw', ""], ["", "", ""]]);
++  expect(source).toStartWith("\uFEFF"); expect(source).toEndWith(",,\r\n");
++  expect(() => csvRows('a,b\n"cut off')).toThrow("Unterminated");
++  expect(() => csvRows('a,b\n"value"junk,2')).toThrow("Malformed");
++});
++test("declared/listed conflicts and zero-copy definitions remain distinct instead of correcting the source", () => {
++  const source = "Copies,Odds,Name\r\n3,,\r\n2,,First\r\n2,,Second\r\n0,,Retained\r\n,,\r\n";
++  expect(analyzeCatalog(source, "copies")).toEqual({ rows: 6, definitions: 3, declaredCopies: 3, listedCopies: 4, countConflict: true, zeroCopyRows: [5] });
++  expect(analyzeCatalog("Name,Effect\nGuard,Defend\n,\n", "names")).toMatchObject({ definitions: 1, declaredCopies: null, listedCopies: null });
++  expect(source).toContain("3,,\r\n");
++});
++test("a missing or changed pinned catalog fails before a request packet can be accepted", async () => {
++  const directory = await mkdtemp(join(tmpdir(), "merlin-catalog-admission-"));
++  try {
++    await expect(loadMerlinCatalogs(directory)).rejects.toThrow();
++    await Promise.all(MERLIN_CATALOGS.map((catalog) => writeFile(join(directory, `${catalog.key}.csv`), Buffer.alloc(catalog.bytes, 32))));
++    await expect(loadMerlinCatalogs(directory)).rejects.toThrow("SHA-256 differs");
++  } finally { await rm(directory, { recursive: true, force: true }); }
++});
+diff --git a/scripts/benchmarks/merlin-catalogs.ts b/scripts/benchmarks/merlin-catalogs.ts
+new file mode 100644
+index 0000000..3d497d2
+--- /dev/null
++++ b/scripts/benchmarks/merlin-catalogs.ts
+@@ -0,0 +1,77 @@
++import { readFile, stat } from "node:fs/promises";
++import { join } from "node:path";
++import { createHash } from "node:crypto";
++import type { AiRuleSource } from "../../packages/protocol/src/ai-rule-sources";
++
++/** Author-linked single-tab CSV exports retrieved 2026-10-29. No source cells are redistributed here. */
++export const MERLIN_CATALOGS = [
++  { key: "golems", name: "Golems.csv", document: "1OZ1VNpAdI9pgCz3ABLtk_JlO-WIH3AVhC6CePLWlYdw", bytes: 3870, sha256: "37b2f225c0259ef049455eba46100ebbb2bcab5f59a8171e97ae51dfc55fb90d", layout: "names", definitions: 8 },
++  { key: "royal-guards", name: "Royal Guards.csv", document: "1oR_GGQ7mE0Ifk6mvFQT2kStIF9xHH14KWQGaUUn0XQo", bytes: 1868, sha256: "7552076e0e321a40614be8608cdb047abbbcba296590e0e772aed8927880fae3", layout: "names", definitions: 4 },
++  { key: "tea-leaves", name: "Tea Leaves.csv", document: "1mln7ndSg52FSPz6Z5Kf-UkgITCrnG1t0a4z5Ubkw8B8", bytes: 2905, sha256: "2fbbd21a824f483a820b7f65c077b33a1d401c14bdfee3a86bb1d0d9cf5d158e", layout: "copies", definitions: 12 },
++  { key: "crystal-ball", name: "Crystal Ball.csv", document: "1g9HAlmH1Eswke9tEnsAtYjEWmOQAgdGKqmTda7zncdY", bytes: 5134, sha256: "4453c33fcb95bf2c64805acec98b0c854bdf94b204273ee0716e0510f9e6f9cb", layout: "copies", definitions: 26 },
++  { key: "spells", name: "Spells.csv", document: "1M5d9waSGGzukIwMvnTL5MiPquYq5DETy_wEPh_B6LJk", bytes: 5191, sha256: "037d2702a3136c1691eeb7ee5a344eb63cb85d050bd2db3f4501ad16ce344412", layout: "copies", definitions: 17 },
++  { key: "potions", name: "Potions.csv", document: "18evShnnRvlaVsq7sUKmxrQkjo0443bS5MyTJtERJ55o", bytes: 8409, sha256: "7fe17c03c3dbab6439360bda8f81b7f4ae5f7f8a965fb27f57aa1bc03cd1b471", layout: "copies", definitions: 7 },
++  { key: "royal-decrees", name: "Royal Decrees.csv", document: "1uNEaoNqAAULFk0Fa7pxtpMfLCR0uX1N1TvsdwP6tnk4", bytes: 6400, sha256: "32b9eb0c6692b609ca57523c910c2d6f1a3befced4a7774ae4d5e7fc5d061991", layout: "names", definitions: 14 },
++] as const;
++export const catalogUrl = (document: string) => `https://docs.google.com/spreadsheets/d/${document}/export?format=csv`;
++export const sourceHash = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
++
++/** CSV analysis only: references always retain the original complete text. */
++export function csvRows(source: string): string[][] {
++  const text = source.startsWith("\uFEFF") ? source.slice(1) : source;
++  const rows: string[][] = []; let row: string[] = [], cell = "", quoted = false, closed = false;
++  const endCell = () => { row.push(cell); cell = ""; closed = false; };
++  const endRow = () => { endCell(); rows.push(row); row = []; };
++  for (let i = 0; i < text.length; i++) {
++    const c = text[i]!;
++    if (quoted) {
++      if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; }
++      else if (c === '"') { quoted = false; closed = true; }
++      else cell += c;
++    } else if (c === ",") endCell();
++    else if (c === "\r" || c === "\n") { endRow(); if (c === "\r" && text[i + 1] === "\n") i++; }
++    else if (c === '"' && !cell && !closed) quoted = true;
++    else {
++      if (closed || c === '"') throw new Error("Malformed CSV quoting; preserve and inspect the original export.");
++      cell += c;
++    }
++    if (row.length > 64 || rows.length > 10_000) throw new Error("CSV analysis exceeds its row/column budget.");
++  }
++  if (quoted) throw new Error("Unterminated CSV field; the source is incomplete.");
++  if (cell || row.length || closed) endRow();
++  return rows;
++}
++function count(value: string | undefined): number | null {
++  if (!value || !/^\d+(?:\.0+)?$/.test(value.trim())) return null;
++  const number = Number(value); return Number.isSafeInteger(number) ? number : null;
++}
++export function analyzeCatalog(text: string, layout: "copies" | "names") {
++  const rows = csvRows(text);
++  if (!rows.length) throw new Error("Empty catalog; never replace it with invented definitions.");
++  if (layout === "names") return { rows: rows.length, definitions: rows.slice(1).filter((row) => row[0]?.trim()).length,
++    declaredCopies: null, listedCopies: null, countConflict: false, zeroCopyRows: [] as number[] };
++  const entries = rows.slice(2).flatMap((row, index) => {
++    const copies = count(row[0]);
++    return row[2]?.trim() && copies !== null ? [{ copies, row: index + 3 }] : [];
++  });
++  const declaredCopies = count(rows[1]?.[0]);
++  if (declaredCopies === null || !entries.length) throw new Error("The catalog has no declared/card-copy counts; record the source gap.");
++  const listedCopies = entries.reduce((sum, entry) => sum + entry.copies, 0);
++  return { rows: rows.length, definitions: entries.length, declaredCopies, listedCopies,
++    countConflict: declaredCopies !== listedCopies, zeroCopyRows: entries.filter((entry) => entry.copies === 0).map((entry) => entry.row) };
++}
++
++export async function loadMerlinCatalogs(directory: string) {
++  return Promise.all(MERLIN_CATALOGS.map(async (catalog) => {
++    const path = join(directory, `${catalog.key}.csv`);
++    if ((await stat(path)).size !== catalog.bytes) throw new Error(`${catalog.name} byte length differs from the pinned export; do not silently use another version.`);
++    const bytes = await readFile(path), hash = sourceHash(bytes);
++    if (hash !== catalog.sha256) throw new Error(`${catalog.name} SHA-256 differs from the pinned export: ${hash}`);
++    const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
++    const analysis = analyzeCatalog(text, catalog.layout);
++    if (analysis.definitions !== catalog.definitions) throw new Error(`${catalog.name} definition analysis changed; inspect the source before generating.`);
++    const sourceUrl = catalogUrl(catalog.document);
++    return { reference: { name: catalog.name, text, sourceUrl } satisfies AiRuleSource,
++      receipt: { key: catalog.key, name: catalog.name, sourceUrl, bytes: bytes.length, sha256: hash, completeTextIncluded: true, ...analysis } };
++  }));
++}
+diff --git a/scripts/benchmarks/merlin-economics.ts b/scripts/benchmarks/merlin-economics.ts
+index 15480f6..30dc6ff 100644
+--- a/scripts/benchmarks/merlin-economics.ts
++++ b/scripts/benchmarks/merlin-economics.ts
+@@ -3,12 +3,13 @@ import { mkdir, writeFile } from "node:fs/promises";
+ import { resolve } from "node:path";
+ import { createHash } from "node:crypto";
+ import { validateCreateAiGameRequest } from "../../packages/protocol/src/http";
++import { loadMerlinCatalogs } from "./merlin-catalogs";
+ 
+ const SOURCE = "8bed07f5bfed67b89cf52b5c6ce3baa7bdd97260";
+ const RULE_PATH = "Merlin Economics Obsidian/Rulebook.md";
+ const EXPECTED = "e79d0701f988e78458443e8e2b43b98d334d981baf748b46611074c059ef880b";
+-const [repository, destination] = process.argv.slice(2);
+-if (!repository || !destination) throw new Error("Usage: bun scripts/benchmarks/merlin-economics.ts LOCAL_MERLIN_REPOSITORY NEW_OUTPUT_DIRECTORY");
++const [repository, destination, catalogDirectory] = process.argv.slice(2);
++if (!repository || !destination) throw new Error("Usage: bun scripts/benchmarks/merlin-economics.ts LOCAL_MERLIN_REPOSITORY NEW_OUTPUT_DIRECTORY [PINNED_CSV_DIRECTORY]");
+ const result = Bun.spawnSync(["git", "-C", resolve(repository), "show", `${SOURCE}:${RULE_PATH}`], { stdout: "pipe", stderr: "pipe" });
+ if (result.exitCode !== 0) throw new Error(`Cannot read pinned Merlin rulebook: ${new TextDecoder().decode(result.stderr)}`);
+ const bytes = result.stdout;
+@@ -16,14 +17,20 @@ const hash = createHash("sha256").update(bytes).digest("hex");
+ if (hash !== EXPECTED) throw new Error(`Pinned rulebook hash mismatch: ${hash}`);
+ const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
+ const url = `https://github.com/SidewaysTurtle/MerlinEconomics/blob/${SOURCE}/Merlin%20Economics%20Obsidian/Rulebook.md`;
++const included = catalogDirectory ? await loadMerlinCatalogs(resolve(catalogDirectory)) : [];
+ const request = {
+-  prompt: "Create Merlin Economics v0.1.27b for 4–6 players from the attached complete rulebook. Preserve its economy, private cards, dice production, investments, research, combat, seasons, contracts and both victory conditions. Use readable card fronts, game-specific raster backs, a coherent board and clear legal next actions. The seven linked Google Sheets are required external source material and have not been included in this packet. Record unresolved cards/rules and source gaps explicitly in the player guide; do not invent their definitions or replace this game with a simpler example. An incomplete source/game must remain labelled incomplete for acceptance.",
+-  references: [{ name: "Merlin Economics v0.1.27b · Rulebook.md", text, sourceUrl: url }],
++  prompt: "Create Merlin Economics v0.1.27b for 4–6 players from the attached complete rulebook. Preserve its economy, private cards, dice production, investments, research, combat, seasons, contracts and both victory conditions. Use readable card fronts, separate game-specific artwork for its decks, a coherent board and clear legal next actions. " +
++    (included.length ? "All seven original linked catalog CSVs are included in full. Retain zero-copy definitions. Tea Leaves declares30 cards but lists42 copies; Crystal Ball declares51 but lists52. Do not silently choose totals, turn example values into rules or invent unspecified climate/trigger thresholds. " : "The seven linked Google Sheets are required external source material and have not been included in this packet. ") +
++    "Record unresolved cards/rules and source gaps explicitly in the player guide; do not invent definitions or replace this game with a simpler example. An incomplete source/game must remain labelled incomplete for acceptance.",
++  references: [{ name: "Rulebook.md", text, sourceUrl: url }, ...included.map((item) => item.reference)],
+ };
+ const checked = validateCreateAiGameRequest(request);
+ if (!checked.ok) throw new Error(`Benchmark request rejected: ${checked.error.message}`);
+ const catalogs = [...text.matchAll(/\[([^\]]+)\]\((https:\/\/docs\.google\.com\/spreadsheets\/d\/[^)]+)\)/g)]
+-  .map((match) => ({ name: match[1], sourceUrl: match[2], status: "not included; must be read before complete-game acceptance" }));
++  .map((match) => {
++    const catalog = included.find((item) => match[2]!.includes(item.receipt.sourceUrl.split("/d/")[1]!.split("/")[0]!));
++    return { name: match[1], sourceUrl: match[2], status: catalog ? "complete pinned CSV included; semantics/gaps still require verification" : "not included; must be read before complete-game acceptance", ...(catalog ? { export: catalog.receipt } : {}) };
++  });
+ if (catalogs.length !== 7) throw new Error(`Expected all seven source catalogs, found ${catalogs.length}`);
+ const mechanics = [
+   "four- and six-player setup, ten starting gold, sealed-bid starting order",
+@@ -40,13 +47,16 @@ const mechanics = [
+ const output = resolve(destination);
+ await mkdir(output);
+ await writeFile(resolve(output, "Rulebook.md"), bytes);
++for (const item of included) await writeFile(resolve(output, item.reference.name), item.reference.text);
+ await writeFile(resolve(output, "merlin-economics.request.json"), JSON.stringify(checked.value, null, 2) + "\n");
+ const receipt = { benchmark: "Merlin Economics", version: "v0.1.27b", repository: "https://github.com/SidewaysTurtle/MerlinEconomics", sourceCommit: SOURCE,
+   rights: "Author-provided benchmark; source says All Rights Reserved, SidewaysTurtle / Kei Sano. No CC0 claim.",
+   rulebook: { path: RULE_PATH, sourceUrl: url, bytes: bytes.length, characters: text.length, sha256: hash, completeTextIncluded: true },
+   stage: "input prepared; generation not attempted by this command", liveGenerationVerified: false, fullGameAccepted: false,
+   externalCatalogs: catalogs, acceptance: mechanics.map((behavior) => ({ behavior, status: "pending actual generated-game verification" })),
+-  sourceQuestions: ["Rulebook references Taxes, Indicators and Bankruptcy sections absent from the repository rulebook; external catalogs remain unread.", "Auction tie/rounding behavior and precise season/climate wheel values require source confirmation.", "Repository Cards.sheet is a partial historical snapshot, not a substitute for unread linked Google Sheets."],
++  completeLinkedCatalogsIncluded: included.length === 7,
++  combinedSourceBytes: checked.value.references!.reduce((sum, reference) => sum + new TextEncoder().encode(reference.text).length, 0),
++  sourceQuestions: ["Rulebook references Taxes, Indicators and Bankruptcy sections absent from the repository rulebook; catalog card effects are not general definitions for those systems.", "Auction tie/rounding behavior, precise season/climate wheel values and card triggers with example/unspecified values remain source gaps.", included.length ? "Tea Leaves declared30/listed42 and Crystal Ball declared51/listed52 are retained as conflicts. The workbook Crystal Ball total formula excludes its first count. Do not silently choose counts or drop zero-copy definitions." : "Repository Cards.sheet is a partial historical snapshot, not a substitute for unread linked Google Sheets."],
+ };
+ await writeFile(resolve(output, "benchmark-receipt.json"), JSON.stringify(receipt, null, 2) + "\n");
+-console.log(JSON.stringify({ output, source: SOURCE, rulebookSha256: hash, bytes: bytes.length, linkedCatalogs: catalogs.length, liveGenerationVerified: false }));
++console.log(JSON.stringify({ output, source: SOURCE, rulebookSha256: hash, bytes: bytes.length, linkedCatalogs: catalogs.length, includedCatalogs: included.length, sourceBytes: receipt.combinedSourceBytes, liveGenerationVerified: false }));

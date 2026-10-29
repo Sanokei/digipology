@@ -1,0 +1,11 @@
+bun test v1.4.4 (38afee6c8)
+
+scripts/benchmarks/merlin-catalogs.test.ts:
+(pass) quoted multiline CSV, BOM, CRLF and trailing empty cells are analyzed without modifying source text [0.32ms]
+(pass) declared/listed conflicts and zero-copy definitions remain distinct instead of correcting the source [0.46ms]
+(pass) a missing or changed pinned catalog fails before a request packet can be accepted [2.76ms]
+
+ 3 pass
+ 0 fail
+ 10 expect() calls
+Ran 3 tests across 1 file. [16.00ms]

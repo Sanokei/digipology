@@ -1,0 +1,204 @@
+{
+  "benchmark": "Merlin Economics",
+  "version": "v0.1.27b",
+  "repository": "https://github.com/SidewaysTurtle/MerlinEconomics",
+  "sourceCommit": "8bed07f5bfed67b89cf52b5c6ce3baa7bdd97260",
+  "rights": "Author-provided benchmark; source says All Rights Reserved, SidewaysTurtle / Kei Sano. No CC0 claim.",
+  "rulebook": {
+    "path": "Merlin Economics Obsidian/Rulebook.md",
+    "sourceUrl": "https://github.com/SidewaysTurtle/MerlinEconomics/blob/8bed07f5bfed67b89cf52b5c6ce3baa7bdd97260/Merlin%20Economics%20Obsidian/Rulebook.md",
+    "bytes": 65874,
+    "characters": 65835,
+    "sha256": "e79d0701f988e78458443e8e2b43b98d334d981baf748b46611074c059ef880b",
+    "completeTextIncluded": true
+  },
+  "stage": "input prepared; generation not attempted by this command",
+  "liveGenerationVerified": false,
+  "fullGameAccepted": false,
+  "externalCatalogs": [
+    {
+      "name": "Golems",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1OZ1VNpAdI9pgCz3ABLtk_JlO-WIH3AVhC6CePLWlYdw/edit?usp=sharing",
+      "status": "complete pinned CSV included; semantics/gaps still require verification",
+      "export": {
+        "key": "golems",
+        "name": "Golems.csv",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/1OZ1VNpAdI9pgCz3ABLtk_JlO-WIH3AVhC6CePLWlYdw/export?format=csv",
+        "bytes": 3870,
+        "sha256": "37b2f225c0259ef049455eba46100ebbb2bcab5f59a8171e97ae51dfc55fb90d",
+        "completeTextIncluded": true,
+        "rows": 9,
+        "definitions": 8,
+        "declaredCopies": null,
+        "listedCopies": null,
+        "countConflict": false,
+        "zeroCopyRows": []
+      }
+    },
+    {
+      "name": "Royal Gaurds",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1oR_GGQ7mE0Ifk6mvFQT2kStIF9xHH14KWQGaUUn0XQo/edit?usp=sharing",
+      "status": "complete pinned CSV included; semantics/gaps still require verification",
+      "export": {
+        "key": "royal-guards",
+        "name": "Royal Guards.csv",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/1oR_GGQ7mE0Ifk6mvFQT2kStIF9xHH14KWQGaUUn0XQo/export?format=csv",
+        "bytes": 1868,
+        "sha256": "7552076e0e321a40614be8608cdb047abbbcba296590e0e772aed8927880fae3",
+        "completeTextIncluded": true,
+        "rows": 5,
+        "definitions": 4,
+        "declaredCopies": null,
+        "listedCopies": null,
+        "countConflict": false,
+        "zeroCopyRows": []
+      }
+    },
+    {
+      "name": "Tea Leaves",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1mln7ndSg52FSPz6Z5Kf-UkgITCrnG1t0a4z5Ubkw8B8/edit?usp=sharing",
+      "status": "complete pinned CSV included; semantics/gaps still require verification",
+      "export": {
+        "key": "tea-leaves",
+        "name": "Tea Leaves.csv",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/1mln7ndSg52FSPz6Z5Kf-UkgITCrnG1t0a4z5Ubkw8B8/export?format=csv",
+        "bytes": 2905,
+        "sha256": "2fbbd21a824f483a820b7f65c077b33a1d401c14bdfee3a86bb1d0d9cf5d158e",
+        "completeTextIncluded": true,
+        "rows": 14,
+        "definitions": 12,
+        "declaredCopies": 30,
+        "listedCopies": 42,
+        "countConflict": true,
+        "zeroCopyRows": []
+      }
+    },
+    {
+      "name": "Crystal Ball",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1g9HAlmH1Eswke9tEnsAtYjEWmOQAgdGKqmTda7zncdY/edit?usp=sharing",
+      "status": "complete pinned CSV included; semantics/gaps still require verification",
+      "export": {
+        "key": "crystal-ball",
+        "name": "Crystal Ball.csv",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/1g9HAlmH1Eswke9tEnsAtYjEWmOQAgdGKqmTda7zncdY/export?format=csv",
+        "bytes": 5134,
+        "sha256": "4453c33fcb95bf2c64805acec98b0c854bdf94b204273ee0716e0510f9e6f9cb",
+        "completeTextIncluded": true,
+        "rows": 28,
+        "definitions": 26,
+        "declaredCopies": 51,
+        "listedCopies": 52,
+        "countConflict": true,
+        "zeroCopyRows": []
+      }
+    },
+    {
+      "name": "Spells",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1M5d9waSGGzukIwMvnTL5MiPquYq5DETy_wEPh_B6LJk/edit?usp=sharing",
+      "status": "complete pinned CSV included; semantics/gaps still require verification",
+      "export": {
+        "key": "spells",
+        "name": "Spells.csv",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/1M5d9waSGGzukIwMvnTL5MiPquYq5DETy_wEPh_B6LJk/export?format=csv",
+        "bytes": 5191,
+        "sha256": "037d2702a3136c1691eeb7ee5a344eb63cb85d050bd2db3f4501ad16ce344412",
+        "completeTextIncluded": true,
+        "rows": 19,
+        "definitions": 17,
+        "declaredCopies": 62,
+        "listedCopies": 62,
+        "countConflict": false,
+        "zeroCopyRows": [
+          10
+        ]
+      }
+    },
+    {
+      "name": "Potions",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/18evShnnRvlaVsq7sUKmxrQkjo0443bS5MyTJtERJ55o/edit?usp=sharing",
+      "status": "complete pinned CSV included; semantics/gaps still require verification",
+      "export": {
+        "key": "potions",
+        "name": "Potions.csv",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/18evShnnRvlaVsq7sUKmxrQkjo0443bS5MyTJtERJ55o/export?format=csv",
+        "bytes": 8409,
+        "sha256": "7fe17c03c3dbab6439360bda8f81b7f4ae5f7f8a965fb27f57aa1bc03cd1b471",
+        "completeTextIncluded": true,
+        "rows": 526,
+        "definitions": 7,
+        "declaredCopies": 28,
+        "listedCopies": 28,
+        "countConflict": false,
+        "zeroCopyRows": []
+      }
+    },
+    {
+      "name": "Royal Decrees",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1uNEaoNqAAULFk0Fa7pxtpMfLCR0uX1N1TvsdwP6tnk4/edit?usp=sharing",
+      "status": "complete pinned CSV included; semantics/gaps still require verification",
+      "export": {
+        "key": "royal-decrees",
+        "name": "Royal Decrees.csv",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/1uNEaoNqAAULFk0Fa7pxtpMfLCR0uX1N1TvsdwP6tnk4/export?format=csv",
+        "bytes": 6400,
+        "sha256": "32b9eb0c6692b609ca57523c910c2d6f1a3befced4a7774ae4d5e7fc5d061991",
+        "completeTextIncluded": true,
+        "rows": 15,
+        "definitions": 14,
+        "declaredCopies": null,
+        "listedCopies": null,
+        "countConflict": false,
+        "zeroCopyRows": []
+      }
+    }
+  ],
+  "acceptance": [
+    {
+      "behavior": "four- and six-player setup, ten starting gold, sealed-bid starting order",
+      "status": "pending actual generated-game verification"
+    },
+    {
+      "behavior": "two-die production for every eligible player and public resource accounting",
+      "status": "pending actual generated-game verification"
+    },
+    {
+      "behavior": "properties, permits, investments, seven losses and Chauffeur protection",
+      "status": "pending actual generated-game verification"
+    },
+    {
+      "behavior": "research success and exact spell/potion catalogs and effects",
+      "status": "pending actual generated-game verification"
+    },
+    {
+      "behavior": "golem and Royal Guard generation, movement, timing and combat",
+      "status": "pending actual generated-game verification"
+    },
+    {
+      "behavior": "Royal Decrees, crowns, highest net worth and bankruptcy victory",
+      "status": "pending actual generated-game verification"
+    },
+    {
+      "behavior": "seasons, forecast cards, commodity transport and climate change",
+      "status": "pending actual generated-game verification"
+    },
+    {
+      "behavior": "covered order book, escrow, futures expiry/default and insurance",
+      "status": "pending actual generated-game verification"
+    },
+    {
+      "behavior": "replay/reload integrity and private-hand/hidden-action isolation",
+      "status": "pending actual generated-game verification"
+    },
+    {
+      "behavior": "readable desktop/phone card/deck/dice art, meaningful audio and usable actions",
+      "status": "pending actual generated-game verification"
+    }
+  ],
+  "completeLinkedCatalogsIncluded": true,
+  "combinedSourceBytes": 99651,
+  "sourceQuestions": [
+    "Rulebook references Taxes, Indicators and Bankruptcy sections absent from the repository rulebook; catalog card effects are not general definitions for those systems.",
+    "Auction tie/rounding behavior, precise season/climate wheel values and card triggers with example/unspecified values remain source gaps.",
+    "Tea Leaves declared30/listed42 and Crystal Ball declared51/listed52 are retained as conflicts. The workbook Crystal Ball total formula excludes its first count. Do not silently choose counts or drop zero-copy definitions."
+  ]
+}

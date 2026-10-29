@@ -1,0 +1,179 @@
+{
+  "applicationSource": "e47ea33ffb3af17bd226a8abf256e7d258a41163",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 6443,
+      "sha256": "d32495255ec93fef9a64dbf204f4d000b10e7add4e35842567acb88ae800a7ea",
+      "source": "e47ea33ffb3af17bd226a8abf256e7d258a41163"
+    },
+    {
+      "path": "actual-app/actual-app-eight-source-result-390.png",
+      "bytes": 48590,
+      "sha256": "895112d65803ffb9be1caaf6e3de2380873fe4d53d3a57ec97753bcaeac8e123",
+      "source": "e47ea33ffb3af17bd226a8abf256e7d258a41163"
+    },
+    {
+      "path": "actual-app/actual-app-eight-sources-desktop.png",
+      "bytes": 542039,
+      "sha256": "bc9fb2368b8540c937231256b6f7c90d894ee387e88a028536c163001cac0b7c",
+      "source": "e47ea33ffb3af17bd226a8abf256e7d258a41163"
+    },
+    {
+      "path": "actual-app/attempt.json",
+      "bytes": 2827,
+      "sha256": "172d6a21d668693f3861c3bb624958654ad5cf7e359fb0d4844cbf004ea5b9eb",
+      "source": "e47ea33ffb3af17bd226a8abf256e7d258a41163"
+    },
+    {
+      "path": "harnesses/actual-app-attempt.mjs",
+      "bytes": 3516,
+      "sha256": "549cbb8ef24ef277a391a359a91a7b494a02684ecddd26bf69c654914e803471",
+      "source": "e47ea33ffb3af17bd226a8abf256e7d258a41163"
+    },
+    {
+      "path": "harnesses/merlin-catalogs.test.ts",
+      "bytes": 1955,
+      "sha256": "bf021c1341928f1c71f2cb32c14f3774eec3c3717207f9b8ff0723ce3a9c3ba0",
+      "source": "e47ea33ffb3af17bd226a8abf256e7d258a41163"
+    },
+    {
+      "path": "harnesses/merlin-catalogs.ts",
+      "bytes": 5910,
+      "sha256": "62e0d69ad73c9f887a51f9729a727a632610202832d6b1fd76028ecf8e3474bd",
+      "source": "e47ea33ffb3af17bd226a8abf256e7d258a41163"
+    },
+    {
+      "path": "harnesses/merlin-economics.ts",
+      "bytes": 6452,
+      "sha256": "5d56ff7ee0dc40bd5372b4726aff2c76a55e5b8a03ff2a34678bcb1d752269a7",
+      "source": "e47ea33ffb3af17bd226a8abf256e7d258a41163"
+    },
+    {
+      "path": "harnesses/merlin.benchmark.ts",
+      "bytes": 7083,
+      "sha256": "e82fbe3d4b79070afaef15acac41200b3378b3ff4b12db3000b5f1f3f64365dc",
+      "source": "e47ea33ffb3af17bd226a8abf256e7d258a41163"
+    },
+    {
+      "path": "harnesses/merlin.config.ts",
+      "bytes": 590,
+      "sha256": "0a601703b1c0394af7ba4a5c9974590e865e3c200d00349ac655eb5d6e67a48f",
+      "source": "e47ea33ffb3af17bd226a8abf256e7d258a41163"
+    },
+    {
+      "path": "isolated-browser/merlin.benchmark.ts-the-co-c799b-on-retry-and-exact-download/merlin-attempt-receipt.json",
+      "bytes": 3239,
+      "sha256": "c0cbf37c6375052cf5a7faa10fb26c1a7938fe4ec9a9ea7a765ba399e9e1f518",
+      "source": "e47ea33ffb3af17bd226a8abf256e7d258a41163"
+    },
+    {
+      "path": "isolated-browser/merlin.benchmark.ts-the-co-c799b-on-retry-and-exact-download/merlin-eight-source-recovery-390.png",
+      "bytes": 54453,
+      "sha256": "3cf323e842c96d2cc0bcb69125d58ee15334701c7e44423c46bd1447564a5b19",
+      "source": "e47ea33ffb3af17bd226a8abf256e7d258a41163"
+    },
+    {
+      "path": "isolated-browser/merlin.benchmark.ts-the-co-c799b-on-retry-and-exact-download/merlin-eight-sources-desktop.png",
+      "bytes": 618974,
+      "sha256": "b93be0a443900d45a9b956af7faf0f30ce55cff42bceb0029656133630c38901",
+      "source": "e47ea33ffb3af17bd226a8abf256e7d258a41163"
+    },
+    {
+      "path": "isolated-browser/merlin.benchmark.ts-the-co-c799b-on-retry-and-exact-download/merlin-eighth-source-short.png",
+      "bytes": 40364,
+      "sha256": "094f3488f3ebb493365f7062bb70600e5721064afb119f5068261950e3147f76",
+      "source": "e47ea33ffb3af17bd226a8abf256e7d258a41163"
+    },
+    {
+      "path": "plans/merlin-economics.md",
+      "bytes": 9168,
+      "sha256": "d61e4697be93149ae8d71bb366d9685af7acc76ed310c4cdc5edd447848d982d",
+      "source": "e47ea33ffb3af17bd226a8abf256e7d258a41163"
+    },
+    {
+      "path": "plans/pre-implementation-acceptance.md",
+      "bytes": 2634,
+      "sha256": "30982eac96706b679beffae30cf9aee2ce7503315ad4125a29eb9b8f0c52a3ed",
+      "source": "Primary source audit/alternatives/acceptance before code"
+    },
+    {
+      "path": "source/benchmark-receipt.json",
+      "bytes": 8649,
+      "sha256": "830cf651b5521ca0b872820fe2cace68b0795775a8c05f6608c235c0c8e368c7",
+      "source": "e47ea33ffb3af17bd226a8abf256e7d258a41163"
+    },
+    {
+      "path": "source/packet-integrity.json",
+      "bytes": 350,
+      "sha256": "0fddeb7a83ce9eccb72b407543e35c11c06b6b0bb00ad78cb9ddcb2668ca911b",
+      "source": "e47ea33ffb3af17bd226a8abf256e7d258a41163"
+    },
+    {
+      "path": "source/primary-csv-receipts.json",
+      "bytes": 4618,
+      "sha256": "8b747e89ee78cf8efcc2eb88be7ddedfbc1cca7a1b4d1b6e7c48e529c9f23126",
+      "source": "Actual normal original Google Sheets CSV exports on2026-10-29, all raw bytes retained privately"
+    },
+    {
+      "path": "source/primary-workbook-receipts.json",
+      "bytes": 5658,
+      "sha256": "a182d92a9b10ac9672136dc9cf4e0a6495962f49b7b98098add5d1adc980736c",
+      "source": "Actual normal original Google Sheets XLSX exports on2026-10-29; no workbook cell contents redistributed"
+    },
+    {
+      "path": "source-diff.patch",
+      "bytes": 35185,
+      "sha256": "49db32f7b0331421cc323780f2b6f56dadebc906d1fe1eca836f3656a18a890c",
+      "source": "e47ea33ffb3af17bd226a8abf256e7d258a41163"
+    },
+    {
+      "path": "validation/browser-summary.json",
+      "bytes": 692,
+      "sha256": "e7360744b893fc9102c91588d51496b6ce8cdd891222aa20fdbc7a67f471d3c0",
+      "source": "e47ea33ffb3af17bd226a8abf256e7d258a41163"
+    },
+    {
+      "path": "validation/catalog-unit.log",
+      "bytes": 477,
+      "sha256": "2387158038280d4fe4d7a71c693efdd56340a5c83dcb3f61bbc5e11e1277e377",
+      "source": "e47ea33ffb3af17bd226a8abf256e7d258a41163"
+    },
+    {
+      "path": "validation/e2e-types.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "e47ea33ffb3af17bd226a8abf256e7d258a41163"
+    },
+    {
+      "path": "validation/frozen.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "e47ea33ffb3af17bd226a8abf256e7d258a41163"
+    },
+    {
+      "path": "validation/prepare-complete.log",
+      "bytes": 324,
+      "sha256": "d147e4b739d068d6bf1eed6608191ef42c95a637bfaba207da2a2cb97e6c419a",
+      "source": "e47ea33ffb3af17bd226a8abf256e7d258a41163"
+    },
+    {
+      "path": "validation/prepare-rules-only.log",
+      "bytes": 326,
+      "sha256": "850ba2457af35fdb4dde8788d8c07e4ac12bf06f527366897937985df5924bbe",
+      "source": "e47ea33ffb3af17bd226a8abf256e7d258a41163"
+    },
+    {
+      "path": "validation/scripts-types.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "e47ea33ffb3af17bd226a8abf256e7d258a41163"
+    },
+    {
+      "path": "validation/site-build.log",
+      "bytes": 2313,
+      "sha256": "de91e1f32fae254c2a337ce43de51692da0b944ef2bc27f75dad601cd6244190",
+      "source": "e47ea33ffb3af17bd226a8abf256e7d258a41163"
+    }
+  ]
+}
