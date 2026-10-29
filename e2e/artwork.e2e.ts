@@ -108,7 +108,7 @@ test("local alpha artwork survives private play, backup, owned publication, vers
   await expect(page.getByRole("alert")).toContainText("artwork could not be saved");
   await page.screenshot({ path: testInfo.outputPath("artwork-publication-recovery-desktop.png"), fullPage: true });
   await page.unroute("**/api/games/*/cover");
-  await page.getByRole("button", { name: "Retry opening table", exact: true }).click();
+  await page.getByRole("button", { name: "Retry artwork publication", exact: true }).click();
   await expect(page).toHaveURL(/\/table\//); await ready(page);
   const library = await (await page.request.get("/api/games/mine")).json() as { games: Array<{ slug: string; coverVersion: number; tagline: string }> };
   expect(library.games).toHaveLength(1);

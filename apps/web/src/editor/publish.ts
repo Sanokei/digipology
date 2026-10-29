@@ -1,15 +1,18 @@
-import { canonicalStringify } from "digipology-canonical-json";
+import { rebuildDraftIntegrity } from "./state/bundle";
+import { saveEditorDraft, serializeEditorDraft } from "./state/persistence";
+import type { EditorDraft, StorageLike } from "./state/types";
 
-import type { EditorCreateLocationState } from "../pages/createPrefill";
-import type { EditorDraft } from "./state";
+/** Rebuild the edited release, retaining all editor-only recovery metadata. */
+export function editableDraftBackup(draft: EditorDraft): string {
+  const current = structuredClone(draft);
+  rebuildDraftIntegrity(current);
+  return serializeEditorDraft(current);
+}
 
-export function draftToCreatePrefill(draft: EditorDraft): EditorCreateLocationState {
-  return { editorDraftPrefill: {
-    title: draft.title,
-    tagline: draft.tagline,
-    slug: draft.slug,
-    minPlayers: draft.minPlayers,
-    maxPlayers: draft.maxPlayers,
-    bundleText: canonicalStringify(draft.bundle),
-  } };
+/** Save synchronously before leaving the editor; autosave may still be pending. */
+export function saveDraftForReview(storage: StorageLike, draft: EditorDraft): string {
+  const current = structuredClone(draft);
+  rebuildDraftIntegrity(current);
+  saveEditorDraft(storage, current);
+  return `/playtest/${encodeURIComponent(current.id)}`;
 }

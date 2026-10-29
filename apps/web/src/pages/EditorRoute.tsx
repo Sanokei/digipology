@@ -12,7 +12,8 @@ export function EditorRoute() {
   const [desktop, setDesktop] = useState(isDesktopEditorEnvironment);
   useEffect(() => {
     const query = window.matchMedia(DESKTOP_EDITOR_QUERY);
-    const update = () => setDesktop(query.matches);
+    // Once opened, keep unsaved work and recovery controls alive on resize.
+    const update = () => { if (query.matches) setDesktop(true); };
     update(); query.addEventListener("change", update);
     return () => query.removeEventListener("change", update);
   }, []);

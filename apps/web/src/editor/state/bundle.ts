@@ -381,6 +381,10 @@ export function importBundleAsDraft(
   } catch {
     throw new TypeError("That file is not valid JSON.");
   }
+  if (isRecord(parsed) && "editorVersion" in parsed) {
+    const saved = normalizeEditorDraft(parsed);
+    return { ...saved, id, updatedAt: now };
+  }
   const bundle = normalizeReleaseBundle(parsed);
   return {
     editorVersion: 1,

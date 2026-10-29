@@ -8,7 +8,9 @@ import { MenuBar, type MenuAction } from "./menubar/MenuBar";
 import { OpenDraftDialog } from "./OpenDraftDialog";
 import { NewDraftDialog } from "./NewDraftDialog";
 import { CommitTextInput } from "./panels/common/PanelComponents";
-import { draftToCreatePrefill } from "./publish";
+import { editableDraftBackup, saveDraftForReview } from "./publish";
+import { downloadBlob } from "./state/artwork";
+import { ReadingDialog } from "../components/RulebookDialog";
 import {
   EditorStore,
   createEmptyEditorDraft,
@@ -33,7 +35,12 @@ function downloadBundle(store: EditorStore): void {
   anchor.download = `${draft.slug || draft.id}.json`;
   anchor.click();
   URL.revokeObjectURL(url);
-  store.log("Bundle exported.");
+  store.log("Release bundle exported. Use Download editable draft to include artwork and review notes.");
+}
+
+function downloadDraft(store: EditorStore): void {
+  const draft = store.getSnapshot().draft;
+  downloadBlob(new Blob([editableDraftBackup(draft)], { type: "application/json" }), `${draft.slug || draft.id}.editor.json`);
 }
 
 function randomDraftId(): string {
@@ -46,10 +53,12 @@ export function EditorPage() {
   const draftId = params.draftId?.trim() || "untitled";
   const navigate = useNavigate();
   const fileInput = useRef<HTMLInputElement>(null);
+  const publishButton = useRef<HTMLButtonElement>(null);
   const layoutApi = useRef<EditorLayoutApi | null>(null);
   const playtest = useMemo(() => new PlaytestController(), []);
   const playtestSnapshot = usePlaytestSnapshot(playtest);
   const [error, setError] = useState<string | null>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
   const [openDrafts, setOpenDrafts] = useState<ReturnType<typeof loadDraftIndex> | null>(null);
   const [newDraftOpen, setNewDraftOpen] = useState(landing);
   const store = useMemo(() => {
@@ -100,7 +109,10 @@ export function EditorPage() {
       store.log(`Import rejected: ${message}`, "warning");
     }
   };
-  const publish = useCallback(() => navigate("/create", { state: draftToCreatePrefill(store.getSnapshot().draft) }), [navigate, store]);
+  const publish = useCallback(() => {
+    try { const path = saveDraftForReview(localStorage, store.getSnapshot().draft); setReviewError(null); navigate(path); }
+    catch { setReviewError("This browser could not save the edited draft. Free storage and retry, or download an editable backup with your artwork and review notes."); }
+  }, [navigate, store]);
   const openDraft = useCallback(() => {
     setOpenDrafts([...loadDraftIndex(localStorage)].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)));
   }, []);
@@ -128,7 +140,7 @@ export function EditorPage() {
       if (target?.matches("input, textarea, select, [contenteditable=true]") === true) return;
       if (event.key.toLowerCase() === "n") { event.preventDefault(); newDraft(); }
       else if (event.key.toLowerCase() === "o") { event.preventDefault(); openDraft(); }
-      else if (event.key.toLowerCase() === "s") { event.preventDefault(); downloadBundle(store); }
+      else if (event.key.toLowerCase() === "s") { event.preventDefault(); downloadDraft(store); }
     };
     window.addEventListener("keydown", keydown, true);
     return () => window.removeEventListener("keydown", keydown, true);
@@ -139,10 +151,11 @@ export function EditorPage() {
       { kind: "action", label: "New draft", shortcut: "Ctrl+N", searchTerms: ["template blank card dice zone"], onSelect: newDraft },
       { kind: "action", label: "Open local draft…", shortcut: "Ctrl+O", onSelect: openDraft },
       { kind: "separator" },
-      { kind: "action", label: "Import bundle…", searchTerms: ["json file"], onSelect: () => fileInput.current?.click() },
-      { kind: "action", label: "Export bundle", shortcut: "Ctrl+S", searchTerms: ["download json"], onSelect: () => downloadBundle(store) },
+      { kind: "action", label: "Import draft or bundle…", searchTerms: ["json file artwork backup"], onSelect: () => fileInput.current?.click() },
+      { kind: "action", label: "Download editable draft", shortcut: "Ctrl+S", searchTerms: ["save backup json artwork credits review"], onSelect: () => downloadDraft(store) },
+      { kind: "action", label: "Export release bundle", searchTerms: ["gameplay only json without artwork review"], onSelect: () => downloadBundle(store) },
       { kind: "separator" },
-      { kind: "action", label: "Publish…", searchTerms: ["create upload release"], onSelect: publish },
+      { kind: "action", label: "Publish…", searchTerms: ["review private play upload release"], onSelect: publish },
     ],
     Edit: [
       { kind: "action", label: "Undo", shortcut: "Ctrl+Z", disabled: snapshot.past.length === 0, onSelect: () => store.undo() },
@@ -164,7 +177,7 @@ export function EditorPage() {
     ],
   }), [newDraft, openDraft, playtest, playtestSnapshot.status, publish, snapshot.future.length, snapshot.past.length, snapshot.selectedEntityId, store]);
   return <div className="editor-shell">
-    <MenuBar actions={menuActions} status={<><span className={`editor-save-status is-${snapshot.saveStatus}`}>{snapshot.saveStatus === "saved" ? <Save size={13} /> : null}{snapshot.saveStatus}</span><span>{snapshot.draft.title}</span>{playtestSnapshot.status === "playing" ? <><button type="button" className="editor-transport-button" onClick={() => playtest.tick()}><Pause size={13} />Tick {playtestSnapshot.tick}</button><button type="button" className="editor-transport-button" onClick={() => playtest.stop()}><Square size={12} />Stop</button></> : <button type="button" className="editor-transport-button" disabled={playtestSnapshot.status === "starting"} onClick={() => { void playtest.start(store.getSnapshot().draft); }}><Play size={13} />{playtestSnapshot.status === "starting" ? "Starting" : "Play"}</button>}<button type="button" className="editor-publish-button" onClick={publish}><CloudUpload size={14} />Publish</button></>} />
+    <MenuBar actions={menuActions} status={<><span className={`editor-save-status is-${snapshot.saveStatus}`}>{snapshot.saveStatus === "saved" ? <Save size={13} /> : null}{snapshot.saveStatus}</span><span>{snapshot.draft.title}</span>{playtestSnapshot.status === "playing" ? <><button type="button" className="editor-transport-button" onClick={() => playtest.tick()}><Pause size={13} />Tick {playtestSnapshot.tick}</button><button type="button" className="editor-transport-button" onClick={() => playtest.stop()}><Square size={12} />Stop</button></> : <button type="button" className="editor-transport-button" disabled={playtestSnapshot.status === "starting"} onClick={() => { void playtest.start(store.getSnapshot().draft); }}><Play size={13} />{playtestSnapshot.status === "starting" ? "Starting" : "Play"}</button>}<button ref={publishButton} type="button" className="editor-publish-button" onClick={publish}><CloudUpload size={14} />Publish</button></>} />
     <div className="editor-details-bar">
       <label>Title<CommitTextInput value={snapshot.draft.title} onCommit={(title) => store.updateDraftMetadata({ title })} /></label>
       <label>Tagline<CommitTextInput value={snapshot.draft.tagline} onCommit={(tagline) => store.updateDraftMetadata({ tagline })} /></label>
@@ -175,6 +188,9 @@ export function EditorPage() {
     <input ref={fileInput} className="editor-hidden-input" type="file" accept="application/json,.json" onChange={(event) => void importFile(event)} />
     {openDrafts === null ? null : <OpenDraftDialog drafts={openDrafts} onOpen={chooseDraft} onClose={() => setOpenDrafts(null)} />}
     {newDraftOpen ? <NewDraftDialog onChoose={chooseTemplate} onClose={closeTemplatePicker} /> : null}
+    {reviewError ? <ReadingDialog heading="Keep your edited draft" eyebrow="Browser storage" closeLabel="Close draft recovery" bodyLabel="Draft recovery options" returnFocusTo={publishButton} onClose={() => setReviewError(null)}>
+      <p role="alert">{reviewError}</p><div className="editor-recovery-actions"><button type="button" onClick={publish}>Retry opening review</button><button type="button" onClick={() => downloadDraft(store)}>Download editable draft</button></div>
+    </ReadingDialog> : null}
     <EditorLayoutHost store={store} playtest={playtest} onReady={onLayoutReady} />
   </div>;
 }

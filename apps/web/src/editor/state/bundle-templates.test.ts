@@ -3,7 +3,7 @@ import { canonicalStringify, hashValue } from "digipology-canonical-json";
 import type { CanonicalGameState } from "digipology-kernel";
 
 import { prevalidateRelease } from "../../releaseValidation";
-import { draftToCreatePrefill } from "../publish";
+import { editableDraftBackup } from "../publish";
 import { PlaytestRuntime, compileDraftForPlaytest } from "../playtest/runtime";
 import {
   createCardGameEditorDraft,
@@ -147,8 +147,7 @@ describe("executable editor templates", () => {
       const persisted = deserializeEditorDraft(serializeEditorDraft(saved[0]!));
       expect(persisted?.id).toBe(draft.id);
       expect(JSON.parse(exportBundleText(saved[0]!))).toEqual(saved[0]!.bundle);
-      expect(draftToCreatePrefill(saved[0]!).editorDraftPrefill.bundleText)
-        .toBe(canonicalStringify(saved[0]!.bundle));
+      expect(JSON.parse(editableDraftBackup(saved[0]!)).bundle).toEqual(saved[0]!.bundle);
     }
   });
 });

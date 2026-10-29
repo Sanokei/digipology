@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode, type RefObject } from "react";
 import type { GameRulebook } from "digipology-protocol";
 import "./rulebook.css";
 
@@ -28,9 +28,9 @@ export function rulebookBlocks(body: string): Block[] {
   return blocks;
 }
 
-/** A reading surface with two focus stops: close and the scrollable body. */
-export function ReadingDialog({ heading, eyebrow, closeLabel, bodyLabel, children, onClose }: {
-  heading: string; eyebrow: string; closeLabel: string; bodyLabel: string; children: ReactNode; onClose(): void;
+/** Keep keyboard focus within the reading surface, including recovery actions. */
+export function ReadingDialog({ heading, eyebrow, closeLabel, bodyLabel, children, onClose, returnFocusTo }: {
+  heading: string; eyebrow: string; closeLabel: string; bodyLabel: string; children: ReactNode; onClose(): void; returnFocusTo?: RefObject<HTMLElement>;
 }) {
   const close = useRef<HTMLButtonElement>(null);
   const body = useRef<HTMLDivElement>(null);
@@ -38,14 +38,16 @@ export function ReadingDialog({ heading, eyebrow, closeLabel, bodyLabel, childre
   useEffect(() => {
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     close.current?.focus();
-    return () => previous?.focus();
-  }, []);
+    return () => (returnFocusTo?.current ?? previous)?.focus();
+  }, [returnFocusTo]);
   return <div className="rulebook-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <section className="rulebook-dialog" role="dialog" aria-modal="true" aria-labelledby={headingId} onKeyDown={(event) => {
       if (event.key === "Escape") { event.preventDefault(); onClose(); }
       else if (event.key === "Tab") {
-        if (event.shiftKey && document.activeElement === close.current) { event.preventDefault(); body.current?.focus(); }
-        else if (!event.shiftKey && document.activeElement === body.current) { event.preventDefault(); close.current?.focus(); }
+        const stops = [...event.currentTarget.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]')].filter((element) => element.getClientRects().length > 0);
+        const first = stops[0], last = stops.at(-1);
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
       }
     }}>
       <header><div><p>{eyebrow}</p><h2 id={headingId}>{heading}</h2></div><button ref={close} type="button" aria-label={closeLabel} onClick={onClose}>×</button></header>

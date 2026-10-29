@@ -90,7 +90,7 @@ test("artwork upload retries a lost reply without opening a table early or dupli
     throw new Error(`Unexpected ${path}`);
   });
   const verify = async () => undefined; // Codec decoding is exercised by the browser suite.
-  expect(await publishDraftAndHost(client, draft, "https://example.com", verify)).toMatchObject({ ok: false, error: { message: expect.stringContaining("artwork could not be saved") } });
+  expect(await publishDraftAndHost(client, draft, "https://example.com", verify)).toMatchObject({ ok: false, stage: "artwork", error: { message: expect.stringContaining("artwork could not be saved") } });
   expect(rooms).toBe(0);
   expect((await publishDraftAndHost(client, draft, "https://example.com", verify)).ok).toBe(true);
   expect(uploads).toBe(1); expect(rooms).toBe(1);

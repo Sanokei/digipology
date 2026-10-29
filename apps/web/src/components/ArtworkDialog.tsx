@@ -8,6 +8,7 @@ export function ArtworkDialog({ title, artwork, onSave, onClose, onDownloadDraft
   onClose(): void; onDownloadDraft?(value: DraftArtwork | undefined): void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const scrollBody = useRef<HTMLDivElement>(null);
   const heading = useId();
   const operation = useRef(0);
   const [selected, setSelected] = useState<ReadyDraftArtwork | null>(artwork?.status === "ready" ? artwork : null);
@@ -19,6 +20,21 @@ export function ArtworkDialog({ title, artwork, onSave, onClose, onDownloadDraft
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const current = dialog.current!; current.showModal();
     return () => { operation.current += 1; current.close(); previous?.focus(); };
+  }, []);
+  useEffect(() => {
+    const current = scrollBody.current!;
+    let frame: number | null = null;
+    const revealFocus = () => {
+      if (frame !== null) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        frame = null;
+        const focused = document.activeElement;
+        if (focused instanceof HTMLElement && current.contains(focused)) focused.scrollIntoView({ block: "nearest", inline: "nearest" });
+      });
+    };
+    const observer = new ResizeObserver(revealFocus);
+    observer.observe(current); current.addEventListener("focusin", revealFocus);
+    return () => { observer.disconnect(); current.removeEventListener("focusin", revealFocus); if (frame !== null) cancelAnimationFrame(frame); };
   }, []);
   async function choose(file: File) {
     const id = ++operation.current;
@@ -60,7 +76,7 @@ export function ArtworkDialog({ title, artwork, onSave, onClose, onDownloadDraft
     {busy ? <p className="artwork-status" role="status">Preparing or saving artwork…</p> : null}
     {error ? <p className="artwork-error" role="alert">{error}</p> : null}
     <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
-      <div className="artwork-dialog__body">
+      <div ref={scrollBody} className="artwork-dialog__body">
       <div className="artwork-editor">
         <div className="artwork-preview">{selected ? <img src={selected.dataUrl} alt={`${title} artwork preview`} onError={() => { setDecodeFailed(true); setError("This saved image could not be decoded. Replace it, or remove it to publish."); }} /> : <p>Choose your cover image</p>}
           {selected ? <small>{selected.info.width} × {selected.info.height} · {selected.info.contentType.replace("image/", "").toUpperCase()}</small> : null}</div>

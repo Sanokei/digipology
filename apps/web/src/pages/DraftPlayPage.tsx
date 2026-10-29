@@ -18,7 +18,7 @@ import { gameProgress } from "./gameProgress";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/client";
 import { saveRoomSession } from "../utils/roomSession";
-import { publishDraftAndHost } from "./generatedDraft";
+import { publishDraftAndHost, type DraftPublicationStage } from "./generatedDraft";
 import { draftReview } from "./draftReview";
 import "./draftPlay.css";
 
@@ -36,6 +36,7 @@ export function DraftPlayPage() {
   const [artworkStatus, setArtworkStatus] = useState<"checking" | "ready" | "failed">("checking");
   const [publishing, setPublishing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [retryStage, setRetryStage] = useState<DraftPublicationStage>("publication");
   const [projector, setProjector] = useState<((x: number, y: number) => { x: number; y: number; z: number } | null) | undefined>();
   const audio = useTableAudio(controller.projection, runtime.status === "playing");
   const { user } = useAuth();
@@ -84,9 +85,9 @@ export function DraftPlayPage() {
     setPublishing(true); setNotice(null);
     const result = await publishDraftAndHost(api, withArtwork(artwork), window.location.origin);
     setPublishing(false);
-    if (!result.ok) { setNotice(result.error.message); return; }
+    if (!result.ok) { setRetryStage(result.stage); setNotice(result.error.message); return; }
     try { saveRoomSession(result.value); navigate(`/table/${encodeURIComponent(result.value.roomId)}`); }
-    catch { setNotice("Your game is published. This browser could not save its table session. Allow browser storage and retry to open it."); }
+    catch { setRetryStage("table"); setNotice("Your game is published. This browser could not save its table session. Allow browser storage and retry to open it."); }
   }
   const warning = runtime.logs.filter((entry) => entry.level !== "info").at(-1);
   return <TableScene store={controller.projection} client={controller} playerId={runtime.playerId} interactionsPaused={paused}
@@ -108,7 +109,7 @@ export function DraftPlayPage() {
         <ul>{review.suggestions.map((suggestion) => <li key={suggestion}>{suggestion}</li>)}</ul>
       </ReadingDialog> : null}
       <GameProgressPanel state={view.state} playerId={runtime.playerId} />
-      {notice ? <div className="draft-play-notice" role="alert">{notice}<button type="button" disabled={publishing} onClick={() => void publish()}>Retry opening table</button></div> : null}
+      {notice ? <div className="draft-play-notice" role="alert">{notice}<button type="button" disabled={publishing} onClick={() => void publish()}>{retryStage === "artwork" ? "Retry artwork publication" : retryStage === "table" ? "Retry opening table" : "Retry publication"}</button></div> : null}
       {warning ? <p className="draft-play-warning" role="status">{warning.message}</p> : null}
       <DiceControls dice={entities.filter((entity) => entity.components.die)} definitions={view.definitions} disabled={paused || wrongTurn} onRoll={(entityId) => controller.sendAction({ type: "die.roll", payload: { entityId } })} />
       {entities.some((entity) => entity.components.deck?.enabled) ? <aside className="card-controls dice-controls" aria-label="Card actions"><span>Cards</span>{entities.filter((entity) => entity.components.deck?.enabled).map((deck) => <div key={deck.id}><button type="button" disabled={paused || !handId || !deck.components.container?.items.length} onClick={() => controller.sendAction({ type: "deck.draw_to_container", payload: { deckId: deck.id, target: handId, count: 1 } })}>Draw card</button><button type="button" disabled={paused} onClick={() => controller.sendAction({ type: "deck.shuffle", payload: { deckId: deck.id } })}>Shuffle deck</button></div>)}</aside> : null}

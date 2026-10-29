@@ -11,9 +11,11 @@ Digipology's desktop browser editor keeps the table, components, Lua rules, diag
 
 Editor drafts are local to the current browser. Digipology stores the draft index, each draft, and the saved panel layout in `localStorage` under the `dgp.editor.` prefix; there is no account-backed draft sync.
 
-Use the **File** menu to create a new draft, open a local draft by ID, import a release bundle, export the open draft as JSON, or hand the draft off for publishing. The same commands are available from the command palette with **Ctrl+K** (or **Command+K** on macOS). New, open, and export also have the shortcuts shown in the File menu.
+Use the **File** menu to create a draft, open a local draft, import a draft or release bundle, or prepare it for publication. **Download editable draft** (**Ctrl+S**, or **Command+S** on macOS) keeps artwork, credits and review notes with your game. **Export release bundle** produces the gameplay bundle for release tooling. The same commands are available from the command palette with **Ctrl+K** (or **Command+K** on macOS).
 
 Edits autosave to local storage 2.5 seconds after the latest change. The status area reports whether the draft is saving, saved, or could not be saved. Export important work when you want a portable backup.
+
+Opening the workspace requires a desktop browser. Once open, narrowing the window keeps your editing session and recovery controls available so a resize cannot discard unsaved work.
 
 ### Choose a starting template
 
@@ -100,7 +102,7 @@ The frozen [v2 golden replay](https://github.com/Sanokei/digipology/blob/main/pa
 
 ## Publish through the validated create flow
 
-Choose **Publish** from the File menu or status bar. The editor passes the draft's title, tagline, player range, slug, and bundle JSON to the normal create page. Review the fields and validation report there, then use the regular publish action. Publishing never happens directly from the editor, and a guest is prompted to sign in when they attempt to publish.
+Choose **Publish** from the File menu or status bar. The editor saves your latest edits and opens a private playtest with your description, artwork, credits and review notes. If saving fails, you can download an editable backup or retry without leaving the editor. Changes to the checked game request a fresh playthrough under **Review your changes**. Try each seat, check the artwork and choose **Publish & invite** when ready; guests are prompted to sign in at that step. Artwork is saved before the table opens. A failed upload offers **Retry artwork publication** and reuses the same published game.
 
 For the JSON contract and the checks applied before anything is persisted, see the [release bundle format](./bundle-format.md).
 
