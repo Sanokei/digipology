@@ -1,0 +1,16 @@
+{
+  "source": "2c8aa9fe5eae0a9ef027d872531693d5aabc1ee9",
+  "command": [
+    "bun",
+    "test",
+    "apps/web/src/scene",
+    "apps/web/src/editor/state/cardBack.test.ts",
+    "apps/web/src/editor/state/artwork.test.ts",
+    "apps/web/src/state/kernelStore.test.ts",
+    "apps/web/src/pages/gameProgress.test.ts",
+    "apps/web/src/editor/playtest/PlaytestController.test.ts",
+    "apps/worker/src/first-deal-v2.test.ts"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 2.98
+}

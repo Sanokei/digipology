@@ -1,0 +1,13 @@
+{
+  "command": [
+    "node",
+    "/workspace/release-receipts/2026-10-29-themed-card-backs/touch-review.mjs",
+    "31762220ecfdbb058e40d79bc029901b529ef04b",
+    "touch-corrected-3176222"
+  ],
+  "started": "2026-10-29T17:31:57.406608+00:00",
+  "finished": "2026-10-29T17:32:12.795283+00:00",
+  "childExit": 0,
+  "sourceRef": "31762220ecfdbb058e40d79bc029901b529ef04b",
+  "scope": "Fresh normal guest host, native touch Players/hand/inspection/long-press release and explicit menu Play; Chromium mobile emulation, not physical hardware"
+}

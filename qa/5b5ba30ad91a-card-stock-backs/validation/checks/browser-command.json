@@ -1,0 +1,14 @@
+{
+  "source": "2c8aa9fe5eae0a9ef027d872531693d5aabc1ee9",
+  "command": [
+    "bun",
+    "run",
+    "test:e2e",
+    "e2e/cardBacks.e2e.ts",
+    "e2e/table.e2e.ts",
+    "--grep",
+    "different games retain|missing game-back|two people play Dice|named cards remain"
+  ],
+  "exitCode": 1,
+  "elapsedSeconds": 429.84
+}

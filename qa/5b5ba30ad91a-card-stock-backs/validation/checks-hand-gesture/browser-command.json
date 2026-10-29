@@ -1,0 +1,11 @@
+{
+  "source": "5b5ba30ad91a3a17bc18843ec756ffb7ffff1288",
+  "command": [
+    "bun",
+    "run",
+    "test:e2e",
+    "e2e/object-context-menu.e2e.ts"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 27.31
+}

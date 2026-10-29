@@ -1,0 +1,12 @@
+{
+  "command": [
+    "node",
+    "/workspace/release-receipts/2026-10-29-themed-card-backs/touch-activation-probe.mjs",
+    "before",
+    "40444523553057798243a2cafbcaf590d627c76b"
+  ],
+  "started": "2026-10-29T17:27:40.131378+00:00",
+  "finished": "2026-10-29T17:27:49.152678+00:00",
+  "childExit": 0,
+  "scope": "Diagnostic reproduction on frozen source; exit0 means real ghost activation confirmed, not product pass"
+}

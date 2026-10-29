@@ -1,0 +1,12 @@
+{
+  "sourceRef": "40444523553057798243a2cafbcaf590d627c76b",
+  "command": [
+    "node",
+    "/workspace/release-receipts/2026-10-29-themed-card-backs/lite-review.mjs",
+    "40444523553057798243a2cafbcaf590d627c76b"
+  ],
+  "startedAt": "2026-10-29T17:20:37.886200+00:00",
+  "log": "lite-capture.log",
+  "finishedAt": "2026-10-29T17:21:42.300295+00:00",
+  "exitCode": 0
+}

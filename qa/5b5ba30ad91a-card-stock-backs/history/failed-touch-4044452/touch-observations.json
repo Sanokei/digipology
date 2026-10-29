@@ -1,0 +1,29 @@
+{
+  "sourceRef": "40444523553057798243a2cafbcaf590d627c76b",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "input": "Chromium touch emulation; not physical phone hardware",
+  "errors": [],
+  "dock": {
+    "players": {
+      "x": 8,
+      "y": 471,
+      "width": 374,
+      "height": 163
+    },
+    "controls": {
+      "x": 8,
+      "y": 642,
+      "width": 374,
+      "height": 62
+    },
+    "hand": {
+      "x": 8,
+      "y": 712,
+      "width": 374,
+      "height": 124
+    }
+  }
+}

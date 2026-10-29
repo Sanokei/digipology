@@ -1,0 +1,2238 @@
+diff --git a/apps/web/src/components/ArtworkDialog.tsx b/apps/web/src/components/ArtworkDialog.tsx
+index 7c11f45..c36c978 100644
+--- a/apps/web/src/components/ArtworkDialog.tsx
++++ b/apps/web/src/components/ArtworkDialog.tsx
+@@ -1,11 +1,13 @@
+ import { useEffect, useId, useRef, useState } from "react";
+ import { normalizeArtworkCredits, type DraftArtwork, type ReadyDraftArtwork } from "digipology-protocol";
+ import { artworkPackage, downloadBlob, EMPTY_CREDITS, prepareArtwork, verifyArtwork } from "../editor/state/artwork";
++import { cardBackPackage } from "../scene/cardBack";
+ import "./artwork.css";
+ 
+-export function ArtworkDialog({ title, artwork, onSave, onClose, onDownloadDraft }: {
++export function ArtworkDialog({ title, artwork, onSave, onClose, onDownloadDraft, purpose = "cover", sourceArtwork }: {
+   title: string; artwork?: DraftArtwork; onSave(value: DraftArtwork | undefined): Promise<void>;
+   onClose(): void; onDownloadDraft?(value: DraftArtwork | undefined): void;
++  purpose?: "cover" | "card-back"; sourceArtwork?: ReadyDraftArtwork;
+ }) {
+   const dialog = useRef<HTMLDialogElement>(null);
+   const scrollBody = useRef<HTMLDivElement>(null);
+@@ -40,7 +42,7 @@ export function ArtworkDialog({ title, artwork, onSave, onClose, onDownloadDraft
+     const id = ++operation.current;
+     setBusy(true); setError(null);
+     try {
+-      const next = await prepareArtwork(file, credits);
++      const next = await prepareArtwork(file, credits, purpose === "card-back" ? "contain" : "cover");
+       if (id !== operation.current) return;
+       setSelected(next); setDecodeFailed(false);
+       // Raw image preparation must not overwrite credits edited while decoding.
+@@ -68,28 +70,30 @@ export function ArtworkDialog({ title, artwork, onSave, onClose, onDownloadDraft
+     try {
+       const next = selected ? candidate() : artwork;
+       if (onDownloadDraft) onDownloadDraft(next);
+-      else if (next?.status === "ready") downloadBlob(new Blob([artworkPackage(next)], { type: "application/json" }), "cover.artwork.json");
++      else if (next?.status === "ready") downloadBlob(new Blob([purpose === "card-back" ? cardBackPackage(next) : artworkPackage(next)], { type: "application/json" }), purpose === "card-back" ? "card-back.artwork.json" : "cover.artwork.json");
+     } catch (caught) { setError(caught instanceof Error ? caught.message : "The download could not be prepared."); }
+   }
+   return <dialog ref={dialog} className="artwork-dialog" aria-labelledby={heading} onCancel={(event) => { event.preventDefault(); onClose(); }} onPointerDown={(event) => { if (event.target === event.currentTarget) { const r = event.currentTarget.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) onClose(); } }}>
+-    <header><div><p>Make it yours</p><h2 id={heading}>Artwork for {title}</h2></div><button type="button" aria-label="Close artwork" autoFocus onClick={onClose}>×</button></header>
++    <header><div><p>Make it yours</p><h2 id={heading}>{purpose === "card-back" ? "Card backs for" : "Artwork for"} {title}</h2></div><button type="button" aria-label="Close artwork" autoFocus onClick={onClose}>×</button></header>
+     {busy ? <p className="artwork-status" role="status">Preparing or saving artwork…</p> : null}
+     {error ? <p className="artwork-error" role="alert">{error}</p> : null}
+     <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
+       <div ref={scrollBody} className="artwork-dialog__body">
++      {purpose === "card-back" ? <p>This picture appears on this game’s decks and concealed cards. Releases and editable backups include the image and credits. Changing it makes an earlier playtest review out of date.</p> : null}
+       <div className="artwork-editor">
+-        <div className="artwork-preview">{selected ? <img src={selected.dataUrl} alt={`${title} artwork preview`} onError={() => { setDecodeFailed(true); setError("This saved image could not be decoded. Replace it, or remove it to publish."); }} /> : <p>Choose your cover image</p>}
++        <div className="artwork-preview">{selected ? <img src={selected.dataUrl} alt={`${title} artwork preview`} onError={() => { setDecodeFailed(true); setError("This saved image could not be decoded. Replace it, or remove it to publish."); }} /> : <p>Choose your {purpose === "card-back" ? "card-back" : "cover"} image</p>}
+           {selected ? <small>{selected.info.width} × {selected.info.height} · {selected.info.contentType.replace("image/", "").toUpperCase()}</small> : null}</div>
+         <div className="artwork-fields">
++          {sourceArtwork ? <button type="button" disabled={busy} onClick={() => { setSelected(sourceArtwork); setCredits(sourceArtwork.info.credits); setDecodeFailed(false); setError(null); }}>Use game cover artwork</button> : null}
+           <label>Image or saved artwork<input type="file" accept="image/png,image/jpeg,image/webp,application/json,.json" disabled={busy} onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void choose(file); }} /></label>
+-          <p>Fits a portrait crop. Transparent areas use a cream background. PNG, JPEG or WebP, up to 8 MiB and 16 megapixels.</p>
++          <p>{purpose === "card-back" ? "Keeps the full image inside the card." : "Fits a portrait crop."} Transparent areas use a cream background. PNG, JPEG or WebP, up to 8 MiB and 16 megapixels.</p>
+           <label>Artist / credit<input maxLength={120} value={credits.artist} onChange={(event) => setCredits({ ...credits, artist: event.currentTarget.value })} /></label>
+           <label>License / usage note<input maxLength={80} value={credits.license} onChange={(event) => setCredits({ ...credits, license: event.currentTarget.value })} /></label>
+           <label>Public source page<input type="url" maxLength={512} placeholder="https://…" value={credits.sourceUrl} onChange={(event) => setCredits({ ...credits, sourceUrl: event.currentTarget.value })} /></label>
+         </div>
+       </div>
+       </div>
+-      <footer><button type="submit" disabled={busy || !selected || decodeFailed}>Save artwork</button>{onDownloadDraft && artwork ? <button type="button" disabled={busy} onClick={() => void save(true)}>Remove artwork</button> : null}<button type="button" disabled={busy || (!selected && !onDownloadDraft)} onClick={download}>{onDownloadDraft ? "Download draft" : "Save with credits"}</button></footer>
++      <footer><button type="submit" disabled={busy || !selected || decodeFailed}>{purpose === "card-back" ? "Use for card backs" : "Save artwork"}</button>{(onDownloadDraft || purpose === "card-back") && artwork ? <button type="button" disabled={busy} onClick={() => void save(true)}>Remove artwork</button> : null}<button type="button" disabled={busy || (!selected && !onDownloadDraft)} onClick={download}>{onDownloadDraft ? "Download draft" : "Save with credits"}</button></footer>
+     </form>
+   </dialog>;
+ }
+diff --git a/apps/web/src/components/CardBackStatus.tsx b/apps/web/src/components/CardBackStatus.tsx
+new file mode 100644
+index 0000000..b3dc0ae
+--- /dev/null
++++ b/apps/web/src/components/CardBackStatus.tsx
+@@ -0,0 +1,13 @@
++import { useEffect, useState } from "react";
++import type { CardBackDefinition } from "../scene/cardBack";
++import { retryCardBackImage, watchCardBackImage, type BackImageSnapshot } from "../scene/cardBackImages";
++
++export function CardBackStatus({ definition }: { definition: CardBackDefinition }) {
++  const [state, setState] = useState<BackImageSnapshot>({ status: "loading", image: null });
++  useEffect(() => watchCardBackImage(definition, setState), [definition.key, definition.src]);
++  const visible = Boolean(definition.issue) || state.status !== "ready";
++  return <aside className="table-back-status" data-card-back-state={state.status} data-card-back-key={definition.key} hidden={!visible} role={state.status === "failed" || definition.issue ? "alert" : "status"}>
++    {definition.issue ?? (state.status === "failed" ? "The card-back image could not load. A printed back keeps the game playable." : "Loading this game’s card artwork…")}
++    {state.status === "failed" ? <button type="button" onClick={() => retryCardBackImage(definition)}>Retry card artwork</button> : null}
++  </aside>;
++}
+diff --git a/apps/web/src/components/GameProgressPanel.tsx b/apps/web/src/components/GameProgressPanel.tsx
+index 6e90217..20a2c07 100644
+--- a/apps/web/src/components/GameProgressPanel.tsx
++++ b/apps/web/src/components/GameProgressPanel.tsx
+@@ -2,7 +2,7 @@ import type { CanonicalGameState } from "digipology-kernel";
+ import { gameProgress } from "../pages/gameProgress";
+ import "./tableFeedback.css";
+ 
+-export function GameProgressPanel({ state, playerId }: { state: CanonicalGameState | null; playerId: string }) {
++export function GameProgressPanel({ state, playerId, onPlayAgain, opening = false, continuationError, continuationHint = "A new table starts a fresh round. Share its new invite with your players." }: { state: CanonicalGameState | null; playerId: string; onPlayAgain?(): void; opening?: boolean; continuationError?: string | null; continuationHint?: string }) {
+   const progress = gameProgress(state);
+   if (progress.status === null && progress.scores.length === 0) return null;
+   return <aside className="game-progress" aria-label="Game progress">
+@@ -11,5 +11,6 @@ export function GameProgressPanel({ state, playerId }: { state: CanonicalGameSta
+     {progress.scores.length > 0 ? <ol aria-label="Scores">{progress.scores.map((score) => <li key={score.playerId} aria-current={progress.currentPlayerId === score.playerId ? "step" : undefined}>
+       <span>{score.name}{score.playerId === playerId ? " (you)" : ""}</span><strong>{score.value}</strong>
+     </li>)}</ol> : null}
++    {progress.winnerId && onPlayAgain ? <div className="game-progress__continuation"><button type="button" disabled={opening} onClick={onPlayAgain}>{opening ? "Opening new table…" : "Play again"}</button><a href="/">Choose another game</a><small>{continuationHint}</small>{continuationError ? <p role="alert">{continuationError}</p> : null}</div> : null}
+   </aside>;
+ }
+diff --git a/apps/web/src/components/HandStrip.tsx b/apps/web/src/components/HandStrip.tsx
+index 38e6354..9459de5 100644
+--- a/apps/web/src/components/HandStrip.tsx
++++ b/apps/web/src/components/HandStrip.tsx
+@@ -86,8 +86,10 @@ export function HandStrip({
+                 type="button"
+                 className="hand-card"
+                 style={{ "--card-color": item.color } as CSSProperties}
+-                onClick={() => {
+-                  if (suppressClickRef.current) { suppressClickRef.current = false; return; }
++                onClick={(event) => {
++                  const suppress = suppressClickRef.current;
++                  suppressClickRef.current = false;
++                  if (suppress && event.detail > 0) return;
+                   setInspected(item);
+                 }}
+                 onContextMenu={(event) => {
+@@ -96,6 +98,8 @@ export function HandStrip({
+                 }}
+                 onPointerDown={(event) => {
+                   if (interactionsPaused || event.button !== 0) return;
++                  // A new press starts its own gesture after a long-press menu.
++                  suppressClickRef.current = false;
+                   clearTimer();
+                   dragRef.current = { pointerId: event.pointerId, item, startX: event.clientX, startY: event.clientY, moved: false, longPressed: false };
+                   event.currentTarget.setPointerCapture(event.pointerId);
+diff --git a/apps/web/src/components/InspectOverlay.tsx b/apps/web/src/components/InspectOverlay.tsx
+index 631e9cc..9f23036 100644
+--- a/apps/web/src/components/InspectOverlay.tsx
++++ b/apps/web/src/components/InspectOverlay.tsx
+@@ -1,11 +1,12 @@
+ import { useEffect, useRef, type CSSProperties } from "react";
+ import { CustomCardFace, PlayingCardBack, PlayingCardFace, type PlayingCardIdentity } from "./PlayingCardFace";
++import type { CardBackDefinition } from "../scene/cardBack";
+ 
+ export interface InspectOverlayItem {
+   entityId: string;
+   label: string;
+   color: string;
+-  kind: "card" | "token";
++  kind: "card" | "deck" | "token";
+   hidden?: boolean;
+   heldBy?: string | null;
+   face?: PlayingCardIdentity;
+@@ -16,7 +17,7 @@ function focusableElements(root: HTMLElement): HTMLElement[] {
+     .filter((element) => !element.hasAttribute("disabled"));
+ }
+ 
+-export function InspectOverlay({ item, onDismiss }: { item: InspectOverlayItem; onDismiss(): void }) {
++export function InspectOverlay({ item, onDismiss, cardBack }: { item: InspectOverlayItem; onDismiss(): void; cardBack?: CardBackDefinition }) {
+   const dialogRef = useRef<HTMLElement>(null);
+   const previousFocusRef = useRef<HTMLElement | null>(null);
+ 
+@@ -54,12 +55,13 @@ export function InspectOverlay({ item, onDismiss }: { item: InspectOverlayItem;
+       <div
+         className={`inspect-overlay__preview inspect-overlay__preview--${item.kind}${item.hidden ? " inspect-overlay__preview--back" : ""}`}
+         style={item.hidden ? undefined : { "--inspect-color": item.color } as CSSProperties}
+-        aria-label={item.hidden ? "Face-down card back" : item.label}
++        aria-label={item.kind === "deck" ? "Deck back" : item.hidden ? "Face-down card back" : item.label}
+       >
+-        {item.kind !== "card" ? <span>{item.label}</span> : item.hidden ? <PlayingCardBack /> : item.face !== undefined ? <PlayingCardFace identity={item.face} /> : <CustomCardFace label={item.label} color={item.color} />}
++        {item.kind === "token" ? <span>{item.label}</span> : item.hidden || item.kind === "deck" ? <PlayingCardBack {...(cardBack ? { definition: cardBack } : {})} /> : item.face !== undefined ? <PlayingCardFace identity={item.face} /> : <CustomCardFace label={item.label} color={item.color} />}
+       </div>
+-      <strong>{item.hidden ? "Face-down card" : item.label}</strong>
+-      <small>{item.kind === "card" ? "Card" : "Table object"}</small>
++      <strong>{item.kind === "deck" ? item.label : item.hidden ? "Face-down card" : item.label}</strong>
++      <small>{item.kind === "deck" ? "Deck" : item.kind === "card" ? "Card" : "Table object"}</small>
++      {(item.hidden || item.kind === "deck") && cardBack?.credits ? <div className="inspect-card-credits"><small>Card-back artwork · {cardBack.credits.artist || "Creator supplied"} · {cardBack.credits.license || "See source"}</small>{cardBack.credits.sourceUrl ? <a href={cardBack.credits.sourceUrl} target="_blank" rel="noreferrer">Artwork source</a> : null}<a href={cardBack.src} download={`card-back.${cardBack.src.startsWith("data:image/png") ? "png" : cardBack.src.startsWith("data:image/jpeg") ? "jpg" : "webp"}`}>Download card-back image</a></div> : null}
+       {item.heldBy === null || item.heldBy === undefined ? null : <p>Held by {item.heldBy}</p>}
+     </article>
+   </div>;
+diff --git a/apps/web/src/components/ObjectContextMenu.tsx b/apps/web/src/components/ObjectContextMenu.tsx
+index 15b6052..7fd6e7c 100644
+--- a/apps/web/src/components/ObjectContextMenu.tsx
++++ b/apps/web/src/components/ObjectContextMenu.tsx
+@@ -24,6 +24,7 @@ export function ObjectContextMenu({
+ }) {
+   const menuRef = useRef<HTMLDivElement>(null);
+   const previousFocusRef = useRef<HTMLElement | null>(null);
++  const pressedButtonRef = useRef<HTMLButtonElement | null>(null);
+   const estimatedHeight = Math.min(64 + actions.length * 44, 520);
+   useEffect(() => {
+     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+@@ -52,6 +53,7 @@ export function ObjectContextMenu({
+           left: `clamp(calc(8px + env(safe-area-inset-left)), ${x}px, calc(100vw - 192px - env(safe-area-inset-right)))`,
+           top: `clamp(calc(8px + env(safe-area-inset-top)), ${y}px, calc(100dvh - ${estimatedHeight}px - 8px - env(safe-area-inset-bottom)))`,
+         }}
++        onPointerDownCapture={() => { pressedButtonRef.current = null; }}
+         onPointerDown={(event) => event.stopPropagation()}
+         onKeyDown={(event) => {
+           if (event.key === "Escape") { event.preventDefault(); onDismiss(); }
+@@ -69,7 +71,22 @@ export function ObjectContextMenu({
+             type="button"
+             role="menuitem"
+             disabled={action.disabled}
+-            onClick={() => { action.run(); onDismiss(); }}
++            onPointerDown={(event) => {
++              if (event.button === 0) pressedButtonRef.current = event.currentTarget;
++            }}
++            onPointerCancel={() => { pressedButtonRef.current = null; }}
++            onPointerLeave={(event) => {
++              if (event.buttons !== 0) pressedButtonRef.current = null;
++            }}
++            onClick={(event) => {
++              const pressed = pressedButtonRef.current === event.currentTarget;
++              pressedButtonRef.current = null;
++              // A long press can insert this button under the finger before its
++              // compatibility click. Only a new press may activate a pointer click.
++              if (event.detail > 0 && !pressed) return;
++              action.run();
++              onDismiss();
++            }}
+           >
+             {action.label}
+           </button>
+diff --git a/apps/web/src/components/PlayingCardFace.tsx b/apps/web/src/components/PlayingCardFace.tsx
+index 746c2de..7cb7702 100644
+--- a/apps/web/src/components/PlayingCardFace.tsx
++++ b/apps/web/src/components/PlayingCardFace.tsx
+@@ -1,6 +1,8 @@
+ import { useEffect, useMemo, useRef, useState } from "react";
+ import type { PieceArtwork } from "../scene/pieceArtwork";
+ import { drawPieceArtwork } from "../scene/pieceArtworkCanvas";
++import type { CardBackDefinition } from "../scene/cardBack";
++import { watchCardBackImage } from "../scene/cardBackImages";
+ import "./playingCard.css";
+ import type { PlayingCardIdentity } from "./playingCardIdentity";
+ export type { PlayingCardIdentity } from "./playingCardIdentity";
+@@ -8,7 +10,7 @@ export type { PlayingCardIdentity } from "./playingCardIdentity";
+ type CardArtwork = Extract<PieceArtwork, { kind: "card-back" | "standard-card" | "custom-card" }>;
+ 
+ /** The hand, inspection view and physical table use the same raster face. */
+-function RasterCardFace({ artwork, fallback, compact = false }: { artwork: CardArtwork; fallback: string; compact?: boolean }) {
++function RasterCardFace({ artwork, fallback, compact = false, back }: { artwork: CardArtwork; fallback: string; compact?: boolean; back?: CardBackDefinition }) {
+   const canvasRef = useRef<HTMLCanvasElement>(null);
+   const [painted, setPainted] = useState(false);
+   useEffect(() => {
+@@ -16,16 +18,18 @@ function RasterCardFace({ artwork, fallback, compact = false }: { artwork: CardA
+     const ctx = canvas?.getContext("2d");
+     if (ctx === null || ctx === undefined) { setPainted(false); return; }
+     let active = true;
++    let backImage: HTMLImageElement | undefined;
+     const paint = () => {
+       if (!active) return;
+-      try { drawPieceArtwork(ctx, 512, 736, artwork); setPainted(true); }
++      try { drawPieceArtwork(ctx, 512, 736, artwork, backImage ? { backImage } : {}); setPainted(true); }
+       catch { setPainted(false); }
+     };
+     paint();
++    const release = back ? watchCardBackImage(back, (state) => { backImage = state.image ?? undefined; paint(); }) : undefined;
+     // Repaint once fonts settle, including a late first visit to the table.
+     void document.fonts?.ready.then(paint);
+-    return () => { active = false; };
+-  }, [artwork]);
++    return () => { active = false; release?.(); };
++  }, [artwork, back?.key]);
+   return <span className={`playing-card${compact ? " playing-card--compact" : ""}`} aria-hidden="true" data-card-face={artwork.kind}>
+     <canvas ref={canvasRef} width={512} height={736} hidden={!painted} />
+     {painted ? null : <span className="playing-card__fallback">{fallback}</span>}
+@@ -43,7 +47,7 @@ export function CustomCardFace({ label, color, compact = false }: { label: strin
+ }
+ 
+ /** No definition, label or face data reaches a concealed card's painter. */
+-export function PlayingCardBack() {
+-  const artwork = useMemo<CardArtwork>(() => ({ kind: "card-back" }), []);
+-  return <RasterCardFace artwork={artwork} fallback="Face-down card" />;
++export function PlayingCardBack({ definition }: { definition?: CardBackDefinition }) {
++  const artwork = useMemo<CardArtwork>(() => ({ kind: "card-back", ...(definition ? { gameTitle: definition.title } : {}) }), [definition?.title]);
++  return <RasterCardFace artwork={artwork} fallback="Face-down card" {...(definition ? { back: definition } : {})} />;
+ }
+diff --git a/apps/web/src/components/TableHints.tsx b/apps/web/src/components/TableHints.tsx
+index a578983..0590bea 100644
+--- a/apps/web/src/components/TableHints.tsx
++++ b/apps/web/src/components/TableHints.tsx
+@@ -55,7 +55,7 @@ export function TableHints({ event, initialCompleted = [] }: { event: TableHintE
+         primary: "RMB orbit · MMB pan · wheel zoom · Space reset",
+         actions: "Right-click an object for actions",
+       };
+-  return <aside className="table-hints" aria-live="polite">
++  return <aside className={`table-hints${touch ? " table-hints--touch" : ""}`} aria-live="polite">
+     <span>{copy[current]}</span>
+     <button type="button" aria-label="Dismiss table hint" onClick={() => {
+       const next = new Set(completed).add(current);
+diff --git a/apps/web/src/components/playingCard.css b/apps/web/src/components/playingCard.css
+index cc4df00..4f2a1da 100644
+--- a/apps/web/src/components/playingCard.css
++++ b/apps/web/src/components/playingCard.css
+@@ -1,10 +1,14 @@
+-.playing-card { position:absolute; inset:0; display:block; overflow:hidden; border-radius:inherit; background:#fff9eb; color:#203b35; font-family:Georgia,"Times New Roman",serif; text-align:center; }
++.playing-card { position:absolute; inset:0; display:block; overflow:visible; border-radius:0; background:transparent; color:#203b35; font-family:Georgia,"Times New Roman",serif; text-align:center; }
+ .playing-card canvas { display:block; width:100%; height:100%; pointer-events:none; }
+ .playing-card canvas[hidden] { display:none; }
+ .playing-card__fallback { display:grid; position:absolute; inset:12%; place-items:center; font-weight:700; overflow-wrap:anywhere; }
+-.inspect-overlay__preview:has(.playing-card) { position:relative; overflow:hidden; padding:0; border:0; aspect-ratio:512 / 736; background:transparent; }
+-.hand-card:has(.playing-card) { position:relative; display:flex; flex-direction:column; padding:0; box-shadow:0 2px 0 #c5b89b,0 4px 8px #0004; }
++.inspect-overlay__preview:has(.playing-card) { position:relative; overflow:visible; padding:0; border:0; border-radius:0; aspect-ratio:512 / 736; background:transparent; }
++.hand-card:has(.playing-card) { position:relative; display:flex; flex-direction:column; padding:0; overflow:visible; border:0; border-radius:0; background:transparent; box-shadow:none; }
++.hand-card .playing-card canvas { filter:drop-shadow(0 2px 1px #0004); }
+ .hand-card:has(.playing-card) > i { display:none; }
+ .hand-card:has(.playing-card) > .hand-card__name { position:absolute; z-index:1; right:0; bottom:0; left:0; max-width:100%; padding:4px 2px; color:#274039; background:#fffcf2f2; border-radius:0 0 6px 6px; font-size:8px; line-height:1.2; opacity:0; pointer-events:none; }
+ .hand-card:has(.playing-card):hover > .hand-card__name,
+ .hand-card:has(.playing-card):focus-visible > .hand-card__name { opacity:1; }
++.inspect-overlay article { max-height:calc(100dvh - 32px); overflow-y:auto; grid-auto-rows:max-content; overscroll-behavior:contain; }
++.inspect-card-credits { display:grid; gap:8px; max-width:100%; padding:8px 0; font-size:.72rem; line-height:1.5; overflow-wrap:anywhere; }
++.inspect-card-credits a { color:#f3dfb2; }
+diff --git a/apps/web/src/components/tableFeedback.css b/apps/web/src/components/tableFeedback.css
+index f6f4519..c3a636e 100644
+--- a/apps/web/src/components/tableFeedback.css
++++ b/apps/web/src/components/tableFeedback.css
+@@ -29,3 +29,24 @@
+ .dice-controls output { font-size:.8rem; font-variant-numeric:tabular-nums; color:var(--accent,#f2bb69); }
+ .dice-controls__die { display:flex; gap:10px; align-items:center; }
+ @media(max-width:768px) { .game-progress { top:84px; left:10px; width:min(240px,calc(100vw - 20px)); padding:12px; } .game-progress__status { font-size:.8rem; } .game-progress ol { margin-top:8px; gap:4px; } .game-progress li { padding:5px 8px; font-size:.72rem; } .table-audio summary span { display:none; } }
++.game-progress__continuation { display:grid; gap:9px; margin-top:14px; }
++.game-progress__continuation button { min-height:44px; padding:10px 14px; border:1px solid #ffe5a2; border-radius:8px; background:#f3cf7b; color:#182d24; font-weight:750; cursor:pointer; }
++.game-progress__continuation button:disabled { opacity:.65; cursor:wait; }
++.game-progress__continuation a { color:#f3dfb2; font-size:.78rem; }
++.game-progress__continuation small { color:#c7d3c9; font-size:.7rem; line-height:1.45; }
++.game-progress__continuation [role=alert] { margin:0; color:#ffd0ba; font-size:.75rem; }
++.table-bottom-dock { display:contents; }
++@media(max-width:768px) {
++ .table-bottom-dock { position:absolute; z-index:3; inset:auto 8px calc(8px + env(safe-area-inset-bottom)); display:flex; flex-direction:column; gap:8px; pointer-events:none; }
++ .table-bottom-dock > .players-panel, .table-bottom-dock > .dice-controls, .table-bottom-dock > .hand-strip { position:relative; inset:auto; translate:none; width:100%; max-width:100%; margin:0; pointer-events:auto; }
++ .table-bottom-dock > .players-panel { max-height:min(180px,24dvh); overflow-y:auto; overscroll-behavior:contain; }
++ .table-bottom-dock > .players-panel .panel-heading { position:sticky; top:0; z-index:1; background:#0a1511; }
++ .table-bottom-dock > .players-panel .panel-heading button { min-width:44px; min-height:44px; }
++ .table-bottom-dock > .dice-controls { min-height:56px; }
++ .table-bottom-dock > .hand-strip:not(.hand-strip--empty) { height:124px; }
++ .table-bottom-dock > .hand-strip--empty { height:48px; }
++ .table-bottom-dock > .object-menu-backdrop, .table-bottom-dock > .inspect-overlay { position:fixed; inset:0; pointer-events:auto; }
++ .inspect-overlay { position:fixed; }
++}
++@media(max-width:768px) and (max-height:600px) { .game-progress ol { display:none; } .table-bottom-dock > .players-panel { max-height:100px; } }
++@media(max-width:768px) { .table-scene:has(.players-panel) .table-hints { display:none; } }
+diff --git a/apps/web/src/editor/CardBackDialog.tsx b/apps/web/src/editor/CardBackDialog.tsx
+new file mode 100644
+index 0000000..437330e
+--- /dev/null
++++ b/apps/web/src/editor/CardBackDialog.tsx
+@@ -0,0 +1,14 @@
++import type { DraftArtwork, ReadyDraftArtwork } from "digipology-protocol";
++import { ArtworkDialog } from "../components/ArtworkDialog";
++import { CARD_BACK_PATH, readCardBackArtwork } from "../scene/cardBack";
++import type { EditorDraft } from "./state";
++
++export function CardBackDialog({ draft, onSave, onClose }: { draft: EditorDraft; onSave(artwork: ReadyDraftArtwork | undefined): void; onClose(): void }) {
++  const content = draft.bundle.files.find((file) => file.path === CARD_BACK_PATH)?.content;
++  let artwork: DraftArtwork | undefined;
++  if (content) { try { artwork = readCardBackArtwork(content); } catch { artwork = { status: "unavailable" }; } }
++  return <ArtworkDialog title={draft.title} purpose="card-back" {...(artwork ? { artwork } : {})} {...(draft.artwork?.status === "ready" ? { sourceArtwork: draft.artwork } : {})} onClose={onClose} onSave={async (next) => {
++    if (next && next.status !== "ready") throw new Error("Choose a complete card-back image.");
++    onSave(next);
++  }} />;
++}
+diff --git a/apps/web/src/editor/EditorPage.tsx b/apps/web/src/editor/EditorPage.tsx
+index 4f04005..3d2a763 100644
+--- a/apps/web/src/editor/EditorPage.tsx
++++ b/apps/web/src/editor/EditorPage.tsx
+@@ -9,6 +9,8 @@ import { OpenDraftDialog } from "./OpenDraftDialog";
+ import { NewDraftDialog } from "./NewDraftDialog";
+ import { SoundBundleDialog } from "./SoundBundleDialog";
+ import { attachSoundBundle } from "./state/sounds";
++import { CardBackDialog } from "./CardBackDialog";
++import { attachCardBack } from "./state/cardBack";
+ import { CommitTextInput } from "./panels/common/PanelComponents";
+ import { editableDraftBackup, saveDraftForReview } from "./publish";
+ import { downloadBlob } from "./state/artwork";
+@@ -37,7 +39,7 @@ function downloadBundle(store: EditorStore): void {
+   anchor.download = `${draft.slug || draft.id}.json`;
+   anchor.click();
+   URL.revokeObjectURL(url);
+-  store.log("Release bundle exported, including any pinned presentation sound file. Use Download editable draft to include artwork and review notes.");
++  store.log("Release bundle exported, including pinned card backs and sounds. Use Download editable draft for the cover and review notes.");
+ }
+ 
+ function downloadDraft(store: EditorStore): void {
+@@ -64,6 +66,7 @@ export function EditorPage() {
+   const [openDrafts, setOpenDrafts] = useState<ReturnType<typeof loadDraftIndex> | null>(null);
+   const [newDraftOpen, setNewDraftOpen] = useState(landing);
+   const [soundsOpen, setSoundsOpen] = useState(false);
++  const [backsOpen, setBacksOpen] = useState(false);
+   const store = useMemo(() => {
+     const loaded = landing ? null : loadEditorDraft(localStorage, draftId);
+     const draft = loaded ?? createEmptyEditorDraft(draftId);
+@@ -80,7 +83,7 @@ export function EditorPage() {
+   useEffect(() => {
+     const keydown = (event: KeyboardEvent) => {
+       const target = event.target as HTMLElement | null;
+-      if (target?.closest('[role="dialog"]')) return;
++      if (target?.closest('[role="dialog"], dialog')) return;
+       const typing = target?.matches("input, textarea, select, [contenteditable=true]") === true;
+       if (typing) return;
+       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
+@@ -158,8 +161,9 @@ export function EditorPage() {
+       { kind: "separator" },
+       { kind: "action", label: "Import draft or bundle…", searchTerms: ["json file artwork backup"], onSelect: () => fileInput.current?.click() },
+       { kind: "action", label: "Add sound bundle…", searchTerms: ["audio clips credits mastered import"], disabled: playtestSnapshot.status !== "stopped", onSelect: () => setSoundsOpen(true) },
++      { kind: "action", label: "Card backs…", searchTerms: ["deck image theme artwork credits"], disabled: playtestSnapshot.status !== "stopped", onSelect: () => setBacksOpen(true) },
+       { kind: "action", label: "Download editable draft", shortcut: "Ctrl+S", searchTerms: ["save backup json artwork credits review"], onSelect: () => downloadDraft(store) },
+-      { kind: "action", label: "Export release bundle", searchTerms: ["gameplay presentation sounds json without artwork review"], onSelect: () => downloadBundle(store) },
++      { kind: "action", label: "Export release bundle", searchTerms: ["gameplay presentation card backs sounds json without cover review"], onSelect: () => downloadBundle(store) },
+       { kind: "separator" },
+       { kind: "action", label: "Publish…", searchTerms: ["review private play upload release"], onSelect: publish },
+     ],
+@@ -198,6 +202,10 @@ export function EditorPage() {
+       <p role="alert">{reviewError}</p><div className="editor-recovery-actions"><button type="button" onClick={publish}>Retry opening review</button><button type="button" onClick={() => downloadDraft(store)}>Download editable draft</button></div>
+     </ReadingDialog> : null}
+     <EditorLayoutHost store={store} playtest={playtest} onReady={onLayoutReady} />
++    {backsOpen ? <CardBackDialog draft={snapshot.draft} onClose={() => setBacksOpen(false)} onSave={(artwork) => {
++      const ok = store.applySceneCommand("Updated this game’s card backs", (draft) => attachCardBack(draft, artwork));
++      if (!ok) throw new Error(store.getSnapshot().logs.at(-1)?.message ?? "The card back could not be attached.");
++    }} /> : null}
+     {soundsOpen ? <SoundBundleDialog onClose={() => setSoundsOpen(false)} onSave={(content) => {
+       const ok = store.applySceneCommand("Pinned mastered sound bundle", (draft) => attachSoundBundle(draft, content));
+       if (!ok) throw new Error(store.getSnapshot().logs.at(-1)?.message ?? "The sound bundle could not be attached.");
+diff --git a/apps/web/src/editor/state/artwork.ts b/apps/web/src/editor/state/artwork.ts
+index 649630a..458e9ca 100644
+--- a/apps/web/src/editor/state/artwork.ts
++++ b/apps/web/src/editor/state/artwork.ts
+@@ -1,48 +1,12 @@
+-import { sha256 } from "digipology-canonical-json";
+ import {
+-  inspectRasterImage, normalizeArtworkCredits, normalizeRasterArtworkInfo,
++  inspectRasterImage,
+   RASTER_COVER_HEIGHT, RASTER_COVER_MAX_BYTES, RASTER_COVER_WIDTH,
+   type ArtworkCredits, type DraftArtwork, type ReadyDraftArtwork, type RasterArtworkInfo,
+ } from "digipology-protocol";
+ 
+-const SOURCE_LIMIT = 8 * 1024 * 1024;
++import { SOURCE_LIMIT, artworkBytes, artworkDataUrl, artworkHash, normalizeDraftArtwork } from "./artworkData";
++export { artworkBytes, artworkDataUrl, artworkHash, normalizeDraftArtwork, EMPTY_CREDITS } from "./artworkData";
+ export const ARTWORK_MATTE = "#faf7ee";
+-export const EMPTY_CREDITS: ArtworkCredits = { artist: "", license: "", sourceUrl: "" };
+-export const artworkHash = (bytes: Uint8Array) => `sha256:${Array.from(sha256(bytes), (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+-
+-export function artworkDataUrl(bytes: Uint8Array, type: string): string {
+-  let binary = "";
+-  for (let offset = 0; offset < bytes.length; offset += 4096) binary += String.fromCharCode(...bytes.subarray(offset, offset + 4096));
+-  return `data:${type};base64,${btoa(binary)}`;
+-}
+-
+-export function artworkBytes(artwork: ReadyDraftArtwork): Uint8Array {
+-  const match = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/]+={0,2})$/.exec(artwork.dataUrl);
+-  if (!match || match[1] !== artwork.info.contentType || artwork.dataUrl.length > RASTER_COVER_MAX_BYTES * 4 / 3 + 128) throw new Error("The saved artwork could not be read.");
+-  const binary = atob(match[2]!);
+-  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+-  const image = inspectRasterImage(bytes);
+-  if (bytes.length > RASTER_COVER_MAX_BYTES || !image || image.contentType !== artwork.info.contentType || image.width !== artwork.info.width || image.height !== artwork.info.height || artworkHash(bytes) !== artwork.info.sha256) throw new Error("The saved artwork is incomplete or changed.");
+-  return bytes;
+-}
+-
+-export function normalizeDraftArtwork(value: unknown): DraftArtwork | undefined {
+-  if (value === undefined) return undefined;
+-  const raw = typeof value === "object" && value !== null ? value as Record<string, unknown> : {};
+-  const info = normalizeRasterArtworkInfo(raw.info);
+-  const rawInfo = raw.info && typeof raw.info === "object" ? raw.info as Record<string, unknown> : null;
+-  const credits = info?.credits ?? normalizeArtworkCredits(rawInfo?.credits ?? raw.credits) ?? undefined;
+-  const unavailable: DraftArtwork = { status: "unavailable", ...(credits ? { credits } : {}) };
+-  if (raw.status !== "ready" || !info || typeof raw.dataUrl !== "string") return unavailable;
+-  const ready: ReadyDraftArtwork = { status: "ready", info, dataUrl: raw.dataUrl };
+-  try { artworkBytes(ready); } catch { return unavailable; }
+-  const source = raw.source as Record<string, unknown> | undefined;
+-  if (source && typeof source.name === "string" && source.name.length <= 180 && Number.isSafeInteger(source.width) && Number.isSafeInteger(source.height) && Number.isSafeInteger(source.bytes) &&
+-    (source.width as number) > 0 && (source.height as number) > 0 && (source.width as number) <= 8192 && (source.height as number) <= 8192 && (source.bytes as number) > 0 && (source.bytes as number) <= SOURCE_LIMIT) {
+-    ready.source = { name: source.name.split(/[/\\]/).at(-1)!, width: source.width as number, height: source.height as number, bytes: source.bytes as number };
+-  }
+-  return ready;
+-}
+ 
+ export function artworkBlob(artwork: ReadyDraftArtwork): Blob {
+   return new Blob([new Uint8Array(artworkBytes(artwork)).buffer], { type: artwork.info.contentType });
+@@ -56,12 +20,12 @@ export async function verifyArtwork(artwork: ReadyDraftArtwork): Promise<void> {
+   finally { bitmap.close(); }
+ }
+ 
+-export async function prepareArtwork(file: File, credits: ArtworkCredits): Promise<ReadyDraftArtwork> {
++export async function prepareArtwork(file: File, credits: ArtworkCredits, fit: "cover" | "contain" = "cover"): Promise<ReadyDraftArtwork> {
+   if (!file.size || file.size > SOURCE_LIMIT) throw new Error("Choose an image or saved artwork file smaller than 8 MiB.");
+   if (file.name.toLowerCase().endsWith(".json") || file.type === "application/json") {
+     let parsed: Record<string, unknown>;
+     try { parsed = JSON.parse(await file.text()); } catch { throw new Error("This saved artwork file could not be read."); }
+-    const saved = parsed?.kind === "digipology-cover" && parsed.version === 1 ? normalizeDraftArtwork(parsed.artwork) : undefined;
++    const saved = (parsed?.kind === "digipology-cover" || parsed?.kind === "digipology-card-back") && parsed.version === 1 ? normalizeDraftArtwork(parsed.artwork) : undefined;
+     if (saved?.status !== "ready") throw new Error("The saved artwork is incomplete. Choose the original image instead.");
+     await verifyArtwork(saved);
+     return saved;
+@@ -79,9 +43,15 @@ export async function prepareArtwork(file: File, credits: ArtworkCredits): Promi
+     const context = canvas.getContext("2d");
+     if (!context) throw new Error("Image editing is unavailable in this browser.");
+     context.fillStyle = ARTWORK_MATTE; context.fillRect(0, 0, canvas.width, canvas.height);
+-    const scale = Math.max(canvas.width / bitmap.width, canvas.height / bitmap.height);
+-    const width = canvas.width / scale, height = canvas.height / scale;
+-    context.drawImage(bitmap, (bitmap.width - width) / 2, (bitmap.height - height) / 2, width, height, 0, 0, canvas.width, canvas.height);
++    if (fit === "contain") {
++      const scale = Math.min(canvas.width / bitmap.width, canvas.height / bitmap.height);
++      const width = bitmap.width * scale, height = bitmap.height * scale;
++      context.drawImage(bitmap, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
++    } else {
++      const scale = Math.max(canvas.width / bitmap.width, canvas.height / bitmap.height);
++      const width = canvas.width / scale, height = canvas.height / scale;
++      context.drawImage(bitmap, (bitmap.width - width) / 2, (bitmap.height - height) / 2, width, height, 0, 0, canvas.width, canvas.height);
++    }
+     const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((output) => output ? resolve(output) : reject(new Error("The image could not be prepared.")), "image/webp", 0.9));
+     const bytes = new Uint8Array(await blob.arrayBuffer());
+     const output = inspectRasterImage(bytes);
+diff --git a/apps/web/src/editor/state/artworkData.ts b/apps/web/src/editor/state/artworkData.ts
+new file mode 100644
+index 0000000..927e87b
+--- /dev/null
++++ b/apps/web/src/editor/state/artworkData.ts
+@@ -0,0 +1,40 @@
++import { sha256 } from "digipology-canonical-json";
++import { inspectRasterImage, normalizeArtworkCredits, normalizeRasterArtworkInfo, RASTER_COVER_MAX_BYTES, type ArtworkCredits, type DraftArtwork, type ReadyDraftArtwork } from "digipology-protocol";
++
++export const SOURCE_LIMIT = 8 * 1024 * 1024;
++export const EMPTY_CREDITS: ArtworkCredits = { artist: "", license: "", sourceUrl: "" };
++export const artworkHash = (bytes: Uint8Array) => `sha256:${Array.from(sha256(bytes), (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
++
++export function artworkDataUrl(bytes: Uint8Array, type: string): string {
++  let binary = "";
++  for (let offset = 0; offset < bytes.length; offset += 4096) binary += String.fromCharCode(...bytes.subarray(offset, offset + 4096));
++  return `data:${type};base64,${btoa(binary)}`;
++}
++
++export function artworkBytes(artwork: ReadyDraftArtwork): Uint8Array {
++  const match = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/]+={0,2})$/.exec(artwork.dataUrl);
++  if (!match || match[1] !== artwork.info.contentType || artwork.dataUrl.length > RASTER_COVER_MAX_BYTES * 4 / 3 + 128) throw new Error("The saved artwork could not be read.");
++  const binary = atob(match[2]!);
++  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
++  const image = inspectRasterImage(bytes);
++  if (bytes.length > RASTER_COVER_MAX_BYTES || !image || image.contentType !== artwork.info.contentType || image.width !== artwork.info.width || image.height !== artwork.info.height || artworkHash(bytes) !== artwork.info.sha256) throw new Error("The saved artwork is incomplete or changed.");
++  return bytes;
++}
++
++export function normalizeDraftArtwork(value: unknown): DraftArtwork | undefined {
++  if (value === undefined) return undefined;
++  const raw = typeof value === "object" && value !== null ? value as Record<string, unknown> : {};
++  const info = normalizeRasterArtworkInfo(raw.info);
++  const rawInfo = raw.info && typeof raw.info === "object" ? raw.info as Record<string, unknown> : null;
++  const credits = info?.credits ?? normalizeArtworkCredits(rawInfo?.credits ?? raw.credits) ?? undefined;
++  const unavailable: DraftArtwork = { status: "unavailable", ...(credits ? { credits } : {}) };
++  if (raw.status !== "ready" || !info || typeof raw.dataUrl !== "string") return unavailable;
++  const ready: ReadyDraftArtwork = { status: "ready", info, dataUrl: raw.dataUrl };
++  try { artworkBytes(ready); } catch { return unavailable; }
++  const source = raw.source as Record<string, unknown> | undefined;
++  if (source && typeof source.name === "string" && source.name.length <= 180 && Number.isSafeInteger(source.width) && Number.isSafeInteger(source.height) && Number.isSafeInteger(source.bytes) &&
++    (source.width as number) > 0 && (source.height as number) > 0 && (source.width as number) <= 8192 && (source.height as number) <= 8192 && (source.bytes as number) > 0 && (source.bytes as number) <= SOURCE_LIMIT) {
++    ready.source = { name: source.name.split(/[/\\]/).at(-1)!, width: source.width as number, height: source.height as number, bytes: source.bytes as number };
++  }
++  return ready;
++}
+diff --git a/apps/web/src/editor/state/cardBack.test.ts b/apps/web/src/editor/state/cardBack.test.ts
+new file mode 100644
+index 0000000..3b8b02d
+--- /dev/null
++++ b/apps/web/src/editor/state/cardBack.test.ts
+@@ -0,0 +1,51 @@
++import { expect, test } from "bun:test";
++import { UPLOAD_BODY_LIMIT } from "digipology-protocol/http";
++import { EditorStore } from "./EditorStore";
++import { attachCardBack } from "./cardBack";
++import { exportBundleText, importBundleAsDraft, normalizeEditorDraft } from "./bundle";
++import { deserializeEditorDraft, serializeEditorDraft } from "./persistence";
++import { CARD_BACK_PATH, cardBackForGame, readCardBackArtwork } from "../../scene/cardBack";
++import { KernelStore } from "../../state/kernelStore";
++
++const backup = await Bun.file(new URL("../../../../../e2e/fixtures/raster-draft.editor.json", import.meta.url)).json();
++
++test("a game-specific raster back survives release/backup round trips and undo without changing rules, cover or canonical state", () => {
++  const original = normalizeEditorDraft(backup), artwork = original.artwork;
++  if (artwork?.status !== "ready") throw new Error("Raster fixture missing");
++  const store = new EditorStore(original, { saveDraft: () => {} });
++  expect(store.applySceneCommand("Card back", (draft) => attachCardBack(draft, artwork))).toBe(true);
++  const edited = store.getSnapshot().draft, file = edited.bundle.files.find((file) => file.path === CARD_BACK_PATH)!;
++  expect(edited.bundle.initialSnapshot).toEqual(original.bundle.initialSnapshot);
++  expect(edited.bundle.files.filter((f) => f.path !== CARD_BACK_PATH)).toEqual(original.bundle.files);
++  expect(edited.bundle.integrity.manifestHash).not.toBe(original.bundle.integrity.manifestHash);
++  expect(edited.artwork).toEqual(original.artwork); expect(edited.generationReview).toEqual(original.generationReview);
++  const publicBack = readCardBackArtwork(file.content);
++  expect(publicBack.dataUrl).toBe(artwork.dataUrl); expect(publicBack.info).toEqual(artwork.info); expect(publicBack.source).toBeUndefined();
++  const restored = deserializeEditorDraft(serializeEditorDraft(edited))!;
++  expect(restored.bundle).toEqual(edited.bundle);
++  const exported = exportBundleText(edited), imported = importBundleAsDraft(exported, "back-roundtrip");
++  expect(JSON.parse(exported).artwork).toBeUndefined();
++  expect(imported.bundle.files.find((f) => f.path === CARD_BACK_PATH)?.content).toBe(file.content);
++  const projection = new KernelStore(); projection.loadRelease(imported.bundle);
++  expect(projection.getSnapshot().cardBackBundle).toBe(file.content);
++  expect(projection.confirmedSnapshot() as unknown).toEqual(original.bundle.initialSnapshot);
++  store.undo(); expect(store.getSnapshot().bundle.files.some((f) => f.path === CARD_BACK_PATH)).toBe(false);
++  store.redo(); expect(store.getSnapshot().bundle.files.find((f) => f.path === CARD_BACK_PATH)?.content).toBe(file.content);
++  const damaged = JSON.parse(file.content); damaged.artwork.info.sha256 = `sha256:${"0".repeat(64)}`;
++  expect(() => readCardBackArtwork(JSON.stringify(damaged))).toThrow("damaged");
++  expect(cardBackForGame(edited.title, JSON.stringify(damaged))).toMatchObject({ issue: expect.stringContaining("damaged") });
++  expect(cardBackForGame("First Deal").src).not.toBe(cardBackForGame("Dice Dash").src);
++  expect(cardBackForGame(edited.title, file.content).src).toBe(artwork.dataUrl);
++  store.dispose(); projection.dispose();
++});
++
++test("combined budget failure preserves a valid draft before replacing its back", () => {
++  const draft = normalizeEditorDraft(backup), artwork = draft.artwork;
++  if (artwork?.status !== "ready") throw new Error("Raster fixture missing");
++  const available = UPLOAD_BODY_LIMIT - new TextEncoder().encode(JSON.stringify({ bundle: draft.bundle })).length - 2000;
++  draft.bundle.files.push({ path: "runtime/large.json", content: "x".repeat(available), byteLength: available, contentHash: "sha256:" + "0".repeat(64) });
++  expect(new TextEncoder().encode(JSON.stringify({ bundle: draft.bundle })).length).toBeLessThan(UPLOAD_BODY_LIMIT);
++  const before = structuredClone(draft);
++  expect(() => attachCardBack(draft, artwork)).toThrow("1 MiB");
++  expect(draft).toEqual(before);
++});
+diff --git a/apps/web/src/editor/state/cardBack.ts b/apps/web/src/editor/state/cardBack.ts
+new file mode 100644
+index 0000000..67064ef
+--- /dev/null
++++ b/apps/web/src/editor/state/cardBack.ts
+@@ -0,0 +1,16 @@
++import { sha256 } from "digipology-canonical-json";
++import type { ReadyDraftArtwork } from "digipology-protocol";
++import { rawContentHash, UPLOAD_BODY_LIMIT } from "digipology-protocol/http";
++import { CARD_BACK_PATH, cardBackPackage } from "../../scene/cardBack";
++import type { EditorDraft } from "./types";
++
++export function attachCardBack(draft: EditorDraft, artwork: ReadyDraftArtwork | undefined): void {
++  const files = [...draft.bundle.files], existing = files.findIndex((file) => file.path === CARD_BACK_PATH);
++  if (artwork) {
++    const content = cardBackPackage(artwork);
++    const file = { path: CARD_BACK_PATH, content, contentHash: rawContentHash(content, sha256), byteLength: new TextEncoder().encode(content).length };
++    if (existing < 0) files.push(file); else files[existing] = file;
++  } else if (existing >= 0) files.splice(existing, 1);
++  if (new TextEncoder().encode(JSON.stringify({ bundle: { ...draft.bundle, files } })).length > UPLOAD_BODY_LIMIT) throw new Error("This card back would exceed the 1 MiB game budget. Choose a smaller image; your game is preserved.");
++  draft.bundle.files = files;
++}
+diff --git a/apps/web/src/pages/DraftPlayPage.tsx b/apps/web/src/pages/DraftPlayPage.tsx
+index 88f7ba6..f7a35b3 100644
+--- a/apps/web/src/pages/DraftPlayPage.tsx
++++ b/apps/web/src/pages/DraftPlayPage.tsx
+@@ -108,14 +108,17 @@ export function DraftPlayPage() {
+         <p>{review.stale ? "The rules or setup changed after the automated playtest. Give your changes a fresh playthrough." : "Some checks still need a playthrough. Try these before you invite friends."}</p>
+         <ul>{review.suggestions.map((suggestion) => <li key={suggestion}>{suggestion}</li>)}</ul>
+       </ReadingDialog> : null}
+-      <GameProgressPanel state={view.state} playerId={runtime.playerId} />
++      <GameProgressPanel state={view.state} playerId={runtime.playerId} onPlayAgain={restart} continuationHint="Starts a fresh private playtest with the same game and players." />
+       {notice ? <div className="draft-play-notice" role="alert">{notice}<button type="button" disabled={publishing} onClick={() => void publish()}>{retryStage === "artwork" ? "Retry artwork publication" : retryStage === "table" ? "Retry opening table" : "Retry publication"}</button></div> : null}
+       {warning ? <p className="draft-play-warning" role="status">{warning.message}</p> : null}
+-      <DiceControls dice={entities.filter((entity) => entity.components.die)} definitions={view.definitions} disabled={paused || wrongTurn} onRoll={(entityId) => controller.sendAction({ type: "die.roll", payload: { entityId } })} />
+-      {entities.some((entity) => entity.components.deck?.enabled) ? <aside className="card-controls dice-controls" aria-label="Card actions"><span>Cards</span>{entities.filter((entity) => entity.components.deck?.enabled).map((deck) => <div key={deck.id}><button type="button" disabled={paused || !handId || !deck.components.container?.items.length} onClick={() => controller.sendAction({ type: "deck.draw_to_container", payload: { deckId: deck.id, target: handId, count: 1 } })}>Draw card</button><button type="button" disabled={paused} onClick={() => controller.sendAction({ type: "deck.shuffle", payload: { deckId: deck.id } })}>Shuffle deck</button></div>)}</aside> : null}
+-      {entities.some((entity) => entity.components.button) ? <aside className="draft-action-buttons" aria-label="Game actions">{entities.filter((entity) => entity.components.button).map((entity) => <button type="button" key={entity.id} disabled={paused || !entity.components.button?.enabled} onClick={() => controller.sendAction({ type: "button.press", payload: { entityId: entity.id } })}>{entity.components.button?.label || "Choose"}</button>)}</aside> : null}
+-      {openPromptsForPlayer(view.state, runtime.playerId).map((prompt) => <PromptPanel key={prompt.id} prompt={prompt} disabled={paused} respond={(response) => controller.sendAction({ type: "prompt.respond", payload: { promptId: prompt.id, response } })} />)}
+-      <HandStrip key={`${draftId}:${runtime.playerId}`} items={hand} roomId={`draft-${draftId}`} client={controller} interactionsPaused={paused} {...(projector ? { projectToTable: projector } : {})} />
++      <div className="table-bottom-dock">
++      {progress.winnerId === null ? <DiceControls dice={entities.filter((entity) => entity.components.die)} definitions={view.definitions} disabled={paused || wrongTurn} onRoll={(entityId) => controller.sendAction({ type: "die.roll", payload: { entityId } })} /> : null}
++      {progress.winnerId === null && entities.some((entity) => entity.components.deck?.enabled) ? <aside className="card-controls dice-controls" aria-label="Card actions"><span>Cards</span>{entities.filter((entity) => entity.components.deck?.enabled).map((deck) => <div key={deck.id}><button type="button" disabled={paused || !handId || !deck.components.container?.items.length} onClick={() => controller.sendAction({ type: "deck.draw_to_container", payload: { deckId: deck.id, target: handId, count: 1 } })}>Draw card</button><button type="button" disabled={paused} onClick={() => controller.sendAction({ type: "deck.shuffle", payload: { deckId: deck.id } })}>Shuffle deck</button></div>)}</aside> : null}
++      {handId ? <HandStrip key={`${draftId}:${runtime.playerId}`} items={hand} roomId={`draft-${draftId}`} client={controller} interactionsPaused={paused} {...(projector ? { projectToTable: projector } : {})} /> : null}
++      </div>
++      {progress.winnerId === null && entities.some((entity) => entity.components.button) ? <aside className="draft-action-buttons" aria-label="Game actions">{entities.filter((entity) => entity.components.button).map((entity) => <button type="button" key={entity.id} disabled={paused || !entity.components.button?.enabled} onClick={() => controller.sendAction({ type: "button.press", payload: { entityId: entity.id } })}>{entity.components.button?.label || "Choose"}</button>)}</aside> : null}
++      {(progress.winnerId === null ? openPromptsForPlayer(view.state, runtime.playerId) : []).map((prompt) => <PromptPanel key={prompt.id} prompt={prompt} disabled={paused} respond={(response) => controller.sendAction({ type: "prompt.respond", payload: { promptId: prompt.id, response } })} />)}
++
+     </>}
+     overlay={runtime.error ? <div className="connection-overlay"><div className="reconnect-card" role="alert"><h2>The playtest could not start</h2><p>{runtime.error}</p><button type="button" onClick={restart}>Retry playtest</button><Link to={`/edit/${encodeURIComponent(draft.id)}`}>Edit this draft</Link></div></div>
+       : runtime.status === "starting" ? <div className="connection-overlay"><div className="reconnect-card" role="status">Preparing your game…</div></div> : null}
+diff --git a/apps/web/src/pages/TablePage.tsx b/apps/web/src/pages/TablePage.tsx
+index f298392..9bf8234 100644
+--- a/apps/web/src/pages/TablePage.tsx
++++ b/apps/web/src/pages/TablePage.tsx
+@@ -1,5 +1,5 @@
+-import { useEffect, useMemo, useState } from "react";
+-import { Link, useParams } from "react-router-dom";
++import { useEffect, useMemo, useRef, useState } from "react";
++import { Link, useNavigate, useParams } from "react-router-dom";
+ 
+ import { HandStrip } from "../components/HandStrip";
+ import { ConnectionOverlay } from "../components/ConnectionOverlay";
+@@ -10,6 +10,7 @@ import { GameProgressPanel } from "../components/GameProgressPanel";
+ import { RulebookDialog } from "../components/RulebookDialog";
+ import { useTableAudio } from "../audio/useTableAudio";
+ import type { GameSnapshotDto } from "digipology-protocol/http";
++import { api } from "../api/client";
+ import { RoomClient, type RoomClientStatus } from "../net/roomClient";
+ import { TableScene } from "../scene/TableScene";
+ import {
+@@ -19,7 +20,7 @@ import {
+ } from "../scene/rendererPolicy";
+ import { KernelStore } from "../state/kernelStore";
+ import { useKernelStore } from "../state/useKernelStore";
+-import { loadRoomSession } from "../utils/roomSession";
++import { loadRoomSession, saveRoomSession, type SavedRoomSession } from "../utils/roomSession";
+ import { localHandId, localHandItems } from "./tableHandModel";
+ import { gameProgress } from "./gameProgress";
+ import { inviteUrlForCode } from "../utils/inviteUrl";
+@@ -106,6 +107,7 @@ export function PromptPanel({
+ 
+ export function TablePage() {
+   const { roomId = "" } = useParams();
++  const navigate = useNavigate();
+   const session = useMemo(() => loadRoomSession(roomId), [roomId]);
+   const [clientGeneration, setClientGeneration] = useState(0);
+   const store = useMemo(() => new KernelStore(), [clientGeneration, roomId]);
+@@ -120,6 +122,9 @@ export function TablePage() {
+   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
+   const [rulesOpen, setRulesOpen] = useState(false);
+   const [rendererStatus, setRendererStatus] = useState<RendererStatus | null>(null);
++  const [openingRound, setOpeningRound] = useState(false);
++  const [roundError, setRoundError] = useState<string | null>(null);
++  const pendingRound = useRef<SavedRoomSession | null>(null);
+   const rendererOverrideActive = typeof window !== "undefined"
+     && rendererOverrideFromSearch(window.location.search) !== null;
+ 
+@@ -144,6 +149,24 @@ export function TablePage() {
+   const turnDisabled = progress.winnerId !== null || (progress.currentPlayerId !== null && progress.currentPlayerId !== session.playerId);
+   const handId = localHandId(view.state, session.playerId);
+   const decks = Object.values(view.state?.entities ?? {}).filter((entity) => entity.components.deck?.enabled);
++  const hasHands = Object.values(view.state?.entities ?? {}).some((entity) => entity.components.hand);
++  async function playAgain() {
++    if (!session || openingRound) return;
++    setOpeningRound(true); setRoundError(null);
++    try {
++      if (!pendingRound.current) {
++        const result = await api.createRoom({ releaseSlugOrId: session.releaseId, visibility: "private", displayName: view.players.find((player) => player.playerId === session.playerId)?.displayName ?? "Player" });
++        if (!result.ok) throw new Error(result.error.message);
++        pendingRound.current = { ...result.value, releaseId: session.releaseId, gameTitle };
++      }
++      const next = pendingRound.current;
++      saveRoomSession(next);
++      setStatus(INITIAL_STATUS);
++      navigate(`/table/${encodeURIComponent(next.roomId)}`);
++      pendingRound.current = null;
++    } catch (error) { setRoundError(pendingRound.current ? "Your new table is ready, but this browser could not save its session. Allow storage and choose Play again to reopen that same table." : error instanceof Error ? error.message : "The new table could not open. Your finished game is preserved."); }
++    finally { setOpeningRound(false); }
++  }
+ 
+   return <TableScene
+     store={store} client={client} playerId={session.playerId} interactionsPaused={status.state !== "connected"}
+@@ -152,22 +175,26 @@ export function TablePage() {
+     topBar={<TableTopBar gameTitle={gameTitle} playerCount={view.players.length} joinCode={session.joinCode} inviteUrl={inviteUrl} onPlayers={() => setPlayersOpen((value) => !value)} onDiagnostics={() => setDiagnosticsOpen((value) => !value)} menu={<><button className="table-rules-button" type="button" aria-label="How to play" aria-haspopup="dialog" onClick={() => setRulesOpen(true)}><span aria-hidden="true">?</span><span className="table-rules-button__label">Rules</span></button><AudioControls {...audio} /><TableMenu roomId={roomId} roomToken={session.roomToken} isHost={view.players.find((player) => player.playerId === session.playerId)?.host === true} scripted={store.requiresScripts()} confirmedSnapshot={() => store.confirmedSnapshot() as GameSnapshotDto | null} onDiagnostics={() => setDiagnosticsOpen((value) => !value)} /></>} />}
+     panels={<>
+       {rulesOpen ? <RulebookDialog title={gameTitle} rulebook={view.rulebook} onClose={() => setRulesOpen(false)} /> : null}
+-      <GameProgressPanel state={view.state} playerId={session.playerId} />
++      <GameProgressPanel state={view.state} playerId={session.playerId} onPlayAgain={() => void playAgain()} opening={openingRound} continuationError={roundError} />
+       {view.correction === null ? null : <div key={view.correction.id} className="prediction-correction" role="status">{view.correction.message}</div>}
++
++      <div className="table-bottom-dock">
+       {playersOpen ? <aside className="players-panel table-sheet" aria-label="Players"><div className="panel-heading"><span>Players</span><button type="button" aria-label="Close players" onClick={() => setPlayersOpen(false)}>×</button></div>{view.players.map((player) => <div className="player-row" key={player.playerId}><span className={player.connected ? "connection-dot connection-dot--online" : "connection-dot"} /><span><strong>{player.displayName}</strong><small>{player.seatId ?? "No seat"}</small></span><em>{player.connected ? "Connected" : "Away"}</em></div>)}</aside> : null}
+-      <DiceControls dice={dice} definitions={view.definitions} disabled={status.state !== "connected" || turnDisabled} onRoll={(entityId) => {
++      {progress.winnerId === null ? <DiceControls dice={dice} definitions={view.definitions} disabled={status.state !== "connected" || turnDisabled} onRoll={(entityId) => {
+         client.sendAction({ type: "die.roll", payload: { entityId } });
+-      }} />
+-      {decks.length === 0 ? null : <aside className="dice-controls card-controls" aria-label="Card actions"><span>Cards</span>{decks.map((deck) => <div className="dice-controls__die" key={deck.id}>
++      }} /> : null}
++      {decks.length === 0 || progress.winnerId !== null ? null : <aside className="dice-controls card-controls" aria-label="Card actions"><span>Cards</span>{decks.map((deck) => <div className="dice-controls__die" key={deck.id}>
+         <button type="button" disabled={status.state !== "connected" || handId === null || (deck.components.container?.items.length ?? 0) === 0} onClick={() => client.sendAction({ type: "deck.draw_to_container", payload: { deckId: deck.id, target: handId, count: 1 } })}>Draw card</button>
+         <button type="button" disabled={status.state !== "connected"} onClick={() => client.sendAction({ type: "deck.shuffle", payload: { deckId: deck.id } })}>Shuffle deck</button>
+         <output aria-label="Cards remaining">{deck.components.container?.items.length ?? 0}</output>
+       </div>)}</aside>}
+-      {prompts.map((prompt) => <PromptPanel key={prompt.id} prompt={prompt} disabled={status.state !== "connected"} respond={(response) => {
++
++      {hasHands ? <HandStrip key={roomId} items={handItems} roomId={roomId} client={client} interactionsPaused={status.state !== "connected"} {...(projectToTable === undefined ? {} : { projectToTable })} /> : null}
++      </div>
++      {(progress.winnerId === null ? prompts : []).map((prompt) => <PromptPanel key={prompt.id} prompt={prompt} disabled={status.state !== "connected"} respond={(response) => {
+         client.sendAction({ type: "prompt.respond", payload: { promptId: prompt.id, response } });
+       }} />)}
+       {diagnosticsOpen ? <aside className="diagnostics-panel table-sheet" aria-label="Diagnostics"><div className="panel-heading"><span>Diagnostics</span><button type="button" aria-label="Close diagnostics" onClick={() => setDiagnosticsOpen(false)}>×</button></div><dl><dt>Sequence</dt><dd>{view.state?.sequence ?? "—"}</dd><dt>State hash</dt><dd>{view.stateHash ?? "—"}</dd><dt>Pending</dt><dd>{view.pendingRequestIds.size}</dd><dt>Transport</dt><dd>{status.state}</dd><RendererDiagnostics status={rendererStatus} /></dl><p>{view.diagnostic ?? "No diagnostics yet."}</p></aside> : null}
+-      <HandStrip key={roomId} items={handItems} roomId={roomId} client={client} interactionsPaused={status.state !== "connected"} {...(projectToTable === undefined ? {} : { projectToTable })} />
+     </>}
+     overlay={status.state === "connected" ? null : <ConnectionOverlay status={status} onReload={() => {
+       client.stop();
+diff --git a/apps/web/src/scene/TableScene.tsx b/apps/web/src/scene/TableScene.tsx
+index 245dc6c..50e15ee 100644
+--- a/apps/web/src/scene/TableScene.tsx
++++ b/apps/web/src/scene/TableScene.tsx
+@@ -15,6 +15,8 @@ import type { KernelStore } from "../state/kernelStore";
+ import { useKernelStore } from "../state/useKernelStore";
+ import { useBabylonScene, type TableHoverRequest } from "./useBabylonScene";
+ import type { RendererStatus } from "./rendererPolicy";
++import { cardBackForGame } from "./cardBack";
++import { CardBackStatus } from "../components/CardBackStatus";
+ 
+ export interface TableActionSender {
+   sendAction(action: { type: string; payload: unknown }): unknown;
+@@ -51,6 +53,7 @@ export function TableScene({
+ }: TableSceneProps) {
+   const canvasRef = useRef<HTMLCanvasElement>(null);
+   const view = useKernelStore(store);
++  const cardBack = useMemo(() => cardBackForGame(view.gameTitle, view.cardBackBundle), [view.gameTitle, view.cardBackBundle]);
+   const [contextMenu, setContextMenu] = useState<{ entityId: string; x: number; y: number } | null>(null);
+   const [inspectedId, setInspectedId] = useState<string | null>(null);
+   const [hover, setHover] = useState<TableHoverRequest | null>(null);
+@@ -104,7 +107,7 @@ export function TableScene({
+       label,
+       ...(face === null ? {} : { face }),
+       color: definitionId === undefined ? "#d7b26d" : view.definitions[definitionId]?.color ?? "#e7dfc8",
+-      kind: entity.components.card === undefined ? "token" : "card",
++      kind: entity.components.deck !== undefined ? "deck" : entity.components.card === undefined ? "token" : "card",
+       hidden,
+       heldBy: heldByDisplayName(entity, playerId, view.players),
+     };
+@@ -138,6 +141,7 @@ export function TableScene({
+     {rendererOverrideActive && rendererStatus?.mounted != null ? <span className="renderer-override-chip">Renderer: {rendererStatus.mounted} (override)</span> : null}
+     {hover !== null && hoverText !== null ? <div className="table-object-tooltip" style={{ left: hover.x + 12, top: hover.y + 12 }} role="status">{hoverText}</div> : null}
+     {panels}{overlay}
++    {Object.values(state?.entities ?? {}).some((entity) => entity.components.card || entity.components.deck) ? <CardBackStatus definition={cardBack} /> : null}
+     {contextMenu === null || contextEntity === undefined || contextActions.length === 0 ? null : <ObjectContextMenu
+       x={contextMenu.x}
+       y={contextMenu.y}
+@@ -146,6 +150,6 @@ export function TableScene({
+       actions={contextActions}
+       onDismiss={() => setContextMenu(null)}
+     />}
+-    {inspectItem === null ? null : <InspectOverlay item={inspectItem} onDismiss={() => setInspectedId(null)} />}
++    {inspectItem === null ? null : <InspectOverlay item={inspectItem} cardBack={cardBack} onDismiss={() => setInspectedId(null)} />}
+   </main>;
+ }
+diff --git a/apps/web/src/scene/cardArtworkCanvas.test.ts b/apps/web/src/scene/cardArtworkCanvas.test.ts
+new file mode 100644
+index 0000000..142de13
+--- /dev/null
++++ b/apps/web/src/scene/cardArtworkCanvas.test.ts
+@@ -0,0 +1,57 @@
++import { expect, test } from "bun:test";
++import { cardStockProfile } from "./cardStock";
++import { containCardBackImage, drawPieceArtwork } from "./pieceArtworkCanvas";
++
++test("game back images retain the whole source and aspect ratio inside portrait or landscape windows", () => {
++  const window = { x: 18, y: 18, width: 476, height: 580 };
++  for (const [width, height] of [[1024, 1536], [1600, 900], [512, 736]]) {
++    const contained = containCardBackImage(width!, height!, window);
++    expect(contained.x).toBeGreaterThanOrEqual(window.x - 1e-8);
++    expect(contained.y).toBeGreaterThanOrEqual(window.y - 1e-8);
++    expect(contained.x + contained.width).toBeLessThanOrEqual(window.x + window.width + 1e-8);
++    expect(contained.y + contained.height).toBeLessThanOrEqual(window.y + window.height + 1e-8);
++    expect(contained.width / contained.height).toBeCloseTo(width! / height!, 8);
++  }
++});
++
++function recorder() {
++  const text: string[] = []; const images: unknown[][] = []; const clips: unknown[][] = []; let latestPath: unknown[] = [];
++  const target: Record<string, unknown> = {
++    createLinearGradient: () => ({ addColorStop() {} }),
++    measureText: (value: string) => ({ width: value.length * 10 }),
++    roundRect: (...values: unknown[]) => { latestPath = values; }, clip: () => clips.push(latestPath),
++    drawImage: (...values: unknown[]) => images.push(values), fillText: (value: string) => text.push(value),
++  };
++  const context = new Proxy(target, { get: (object, key) => object[String(key)] ?? (() => undefined) }) as unknown as CanvasRenderingContext2D;
++  return { context, text, images, clips };
++}
++
++test("concealed bitmap backs use the stock mask and carry no count or generic monogram", () => {
++  const image = { width: 1024, height: 1536 } as unknown as CanvasImageSource;
++  const shape = cardStockProfile(0.98, 0.012, 1.4).paperShape;
++  const drawing = recorder();
++  drawPieceArtwork(drawing.context, 512, 1024, { kind: "card-back", gameTitle: "First Deal" }, { paperShape: shape, backImage: image });
++  expect(drawing.images).toHaveLength(1);
++  expect(drawing.images[0]?.[0]).toBe(image);
++  expect(drawing.images[0]).toHaveLength(5); // whole image; no source-crop rectangle
++  expect(drawing.text).toEqual(["First Deal"]);
++  expect(drawing.clips[0]).toEqual([0, 0, 512, 736, { x: 512 * shape.radiusX, y: 736 * shape.radiusY }]);
++});
++
++test("every nonempty pile and loose card share the same image window and public title", () => {
++  const image = { width: 1024, height: 1536 } as unknown as CanvasImageSource;
++  const bounds: unknown[][] = [];
++  for (const count of [52, 1, undefined]) {
++    const drawing = recorder();
++    drawPieceArtwork(drawing.context, 512, 736, { kind: "card-back", gameTitle: "First Deal", ...(count === undefined ? {} : { count }), enabled: true }, { backImage: image });
++    const rect = drawing.images[0]!;
++    expect(rect[0]).toBe(image);
++    bounds.push(rect);
++    expect(drawing.text).toEqual(["First Deal"]);
++  }
++  expect(bounds[0]).toEqual(bounds[1]); expect(bounds[1]).toEqual(bounds[2]);
++  const empty = recorder();
++  drawPieceArtwork(empty.context, 512, 736, { kind: "card-back", gameTitle: "First Deal", count: 0 }, { backImage: image });
++  expect(empty.images[0]).toEqual(bounds[0]);
++  expect(empty.text).toEqual(["First Deal", "EMPTY"]);
++});
+diff --git a/apps/web/src/scene/cardBack.ts b/apps/web/src/scene/cardBack.ts
+new file mode 100644
+index 0000000..34452b3
+--- /dev/null
++++ b/apps/web/src/scene/cardBack.ts
+@@ -0,0 +1,52 @@
++import type { ArtworkCredits, ReadyDraftArtwork } from "digipology-protocol";
++import { artworkBytes, normalizeDraftArtwork } from "../editor/state/artworkData";
++
++export const CARD_BACK_PATH = "runtime/presentation/card-back.json";
++export interface CardBackDefinition {
++  readonly key: string;
++  readonly title: string;
++  readonly src: string;
++  readonly width: number;
++  readonly height: number;
++  readonly credits?: ArtworkCredits;
++  readonly issue?: string;
++}
++const parsed = new Map<string, ReadyDraftArtwork>();
++
++export function readCardBackArtwork(content: string): ReadyDraftArtwork {
++  const cached = parsed.get(content);
++  if (cached) return cached;
++  if (content.length > 720_000) throw new Error("This card-back file is too large.");
++  let value: unknown;
++  try { value = JSON.parse(content); } catch { throw new Error("This card-back file could not be read."); }
++  const raw = value as { kind?: unknown; version?: unknown; artwork?: unknown } | null;
++  const artwork = raw?.kind === "digipology-card-back" && raw.version === 1 ? normalizeDraftArtwork(raw.artwork) : undefined;
++  if (artwork?.status !== "ready") throw new Error("The saved card-back image is damaged. Replace it with a complete raster image.");
++  // Back packages are public release assets; never retain a private upload filename.
++  const clean: ReadyDraftArtwork = { status: "ready", info: artwork.info, dataUrl: artwork.dataUrl };
++  if (parsed.size >= 6) parsed.delete(parsed.keys().next().value!);
++  parsed.set(content, clean);
++  return clean;
++}
++
++export function cardBackPackage(artwork: ReadyDraftArtwork): string {
++  artworkBytes(artwork);
++  const content = JSON.stringify({ kind: "digipology-card-back", version: 1, artwork: { status: "ready", info: artwork.info, dataUrl: artwork.dataUrl } }, null, 2);
++  readCardBackArtwork(content);
++  return content;
++}
++
++/** Public game branding only; this selection never sees a concealed card's identity. */
++export function cardBackForGame(title: string | null, content?: string | null): CardBackDefinition {
++  const name = title?.trim() || "Your game";
++  let issue: string | undefined;
++  if (content) {
++    try {
++      const art = readCardBackArtwork(content);
++      return { key: art.info.sha256, title: name, src: art.dataUrl, width: art.info.width, height: art.info.height, credits: art.info.credits };
++    } catch (error) { issue = error instanceof Error ? error.message : "The card-back image could not be read."; }
++  }
++  const known: Record<string, string> = { "first deal": "first-deal", "dice dash": "dice-dash", "zone runner": "zone-runner" };
++  const art = known[name.toLowerCase()] ?? "tabletop-world";
++  return { key: `builtin-back:${art}:1`, title: name, src: `/art/${art}.webp`, width: art === "tabletop-world" ? 1672 : 1024, height: art === "tabletop-world" ? 941 : 1536, ...(issue ? { issue } : {}) };
++}
+diff --git a/apps/web/src/scene/cardBackImages.test.ts b/apps/web/src/scene/cardBackImages.test.ts
+new file mode 100644
+index 0000000..34035ed
+--- /dev/null
++++ b/apps/web/src/scene/cardBackImages.test.ts
+@@ -0,0 +1,33 @@
++import { expect, test } from "bun:test";
++import { cardBackForGame } from "./cardBack";
++import { retryCardBackImage, watchCardBackImage } from "./cardBackImages";
++
++test("shared image loading retries a failed asset and drops late callbacks after its final consumer leaves", () => {
++  const original = Object.getOwnPropertyDescriptor(globalThis, "Image");
++  const created: FakeImage[] = [];
++  class FakeImage {
++    naturalWidth = 1024; naturalHeight = 1536; decoding = ""; src = "";
++    onload: (() => void) | null = null; onerror: (() => void) | null = null;
++    constructor() { created.push(this); }
++  }
++  Object.defineProperty(globalThis, "Image", { configurable: true, value: FakeImage });
++  const first: string[] = [], second: string[] = [];
++  let a: (() => void) | undefined, b: (() => void) | undefined;
++  try {
++    const back = cardBackForGame("First Deal");
++    a = watchCardBackImage(back, (state) => first.push(state.status));
++    b = watchCardBackImage(back, (state) => second.push(state.status));
++    expect(created).toHaveLength(1); created[0]!.onerror!();
++    expect(first.at(-1)).toBe("failed"); expect(second.at(-1)).toBe("failed");
++    retryCardBackImage(back); expect(created).toHaveLength(2);
++    expect(first.at(-1)).toBe("loading"); created[1]!.onload!();
++    expect(first.at(-1)).toBe("ready"); expect(second.at(-1)).toBe("ready");
++    const late = created[1]!.onload!; a(); a = undefined; b(); b = undefined;
++    const count = first.length + second.length; late();
++    expect(first.length + second.length).toBe(count);
++    a = watchCardBackImage(back, () => {}); expect(created).toHaveLength(3);
++  } finally {
++    a?.(); b?.();
++    if (original) Object.defineProperty(globalThis, "Image", original); else Reflect.deleteProperty(globalThis, "Image");
++  }
++});
+diff --git a/apps/web/src/scene/cardBackImages.ts b/apps/web/src/scene/cardBackImages.ts
+new file mode 100644
+index 0000000..3c3c115
+--- /dev/null
++++ b/apps/web/src/scene/cardBackImages.ts
+@@ -0,0 +1,48 @@
++import type { CardBackDefinition } from "./cardBack";
++
++export interface BackImageSnapshot { status: "loading" | "ready" | "failed"; image: HTMLImageElement | null }
++type Listener = (snapshot: BackImageSnapshot) => void;
++interface Entry { definition: CardBackDefinition; listeners: Set<Listener>; snapshot: BackImageSnapshot; source: HTMLImageElement | null; generation: number }
++const entries = new Map<string, Entry>();
++
++function start(entry: Entry) {
++  const generation = ++entry.generation;
++  entry.snapshot = { status: "loading", image: null };
++  for (const listener of entry.listeners) listener(entry.snapshot);
++  const image = new Image(); entry.source = image; image.decoding = "async";
++  image.onload = () => {
++    if (entry.generation !== generation) return;
++    const good = image.naturalWidth === entry.definition.width && image.naturalHeight === entry.definition.height;
++    entry.snapshot = good ? { status: "ready", image } : { status: "failed", image: null };
++    for (const listener of entry.listeners) listener(entry.snapshot);
++  };
++  image.onerror = () => {
++    if (entry.generation !== generation) return;
++    entry.snapshot = { status: "failed", image: null };
++    for (const listener of entry.listeners) listener(entry.snapshot);
++  };
++  image.src = entry.definition.src;
++}
++
++/** One decoded image per game asset, shared by decks, concealed cards and inspection. */
++export function watchCardBackImage(definition: CardBackDefinition, listener: Listener): () => void {
++  let entry = entries.get(definition.key);
++  if (!entry) {
++    entry = { definition, listeners: new Set(), snapshot: { status: "loading", image: null }, source: null, generation: 0 };
++    entries.set(definition.key, entry); start(entry);
++  }
++  entry.listeners.add(listener); listener(entry.snapshot);
++  return () => {
++    entry!.listeners.delete(listener);
++    if (entry!.listeners.size === 0) {
++      entry!.generation++;
++      if (entry!.source) { entry!.source.onload = null; entry!.source.onerror = null; }
++      entries.delete(definition.key);
++    }
++  };
++}
++
++export function retryCardBackImage(definition: CardBackDefinition): void {
++  const entry = entries.get(definition.key);
++  if (entry && entry.snapshot.status === "failed") start(entry);
++}
+diff --git a/apps/web/src/scene/cardPhysical.test.ts b/apps/web/src/scene/cardPhysical.test.ts
+new file mode 100644
+index 0000000..3ce904d
+--- /dev/null
++++ b/apps/web/src/scene/cardPhysical.test.ts
+@@ -0,0 +1,14 @@
++import { expect, test } from "bun:test";
++import { canonicalPieceY, physicalPieceY } from "./cardPhysical";
++
++test("thin stock rests on felt while preserving canonical drops and authored elevated pieces", () => {
++  expect(physicalPieceY(.045, .006, true)).toBe(.006);
++  expect(canonicalPieceY(.006, .006, true)).toBe(.045);
++  expect(physicalPieceY(.045, .012, true)).toBe(.012);
++  expect(canonicalPieceY(.012, .012, true)).toBe(.045);
++  expect(physicalPieceY(2, .006, true)).toBe(2);
++  expect(canonicalPieceY(2, .006, true)).toBe(2);
++  // A one-card deck shares the physical height, not the legacy loose-card offset.
++  expect(physicalPieceY(.045, .006, false)).toBe(.045);
++  expect(canonicalPieceY(.006, .006, false)).toBe(.006);
++});
+diff --git a/apps/web/src/scene/cardPhysical.ts b/apps/web/src/scene/cardPhysical.ts
+new file mode 100644
+index 0000000..9f96724
+--- /dev/null
++++ b/apps/web/src/scene/cardPhysical.ts
+@@ -0,0 +1,12 @@
++import { TABLE_SURFACE_Y } from "./tableDimensions";
++
++/** Old cards used a .045 center offset. Thin printed stock still rests on felt. */
++export function physicalPieceY(authoredY: number, restingY: number, thinCard = false): number {
++  if (thinCard && authoredY >= TABLE_SURFACE_Y && authoredY <= TABLE_SURFACE_Y + 0.045 + 1e-8) return restingY;
++  return Math.max(authoredY, restingY);
++}
++
++/** Presentation stock thickness must not alter the existing canonical drop convention. */
++export function canonicalPieceY(physicalY: number, restingY: number, thinCard = false): number {
++  return thinCard && physicalY <= restingY + 1e-8 ? TABLE_SURFACE_Y + 0.045 : physicalY;
++}
+diff --git a/apps/web/src/scene/cardStock.test.ts b/apps/web/src/scene/cardStock.test.ts
+new file mode 100644
+index 0000000..728db3e
+--- /dev/null
++++ b/apps/web/src/scene/cardStock.test.ts
+@@ -0,0 +1,47 @@
++import { expect, test } from "bun:test";
++import { CARD_STOCK, cardStockProfile } from "./cardStock";
++import { roundedCardGeometry } from "./pieceGeometry";
++
++test("printed corner masks coincide with the actual stock top contour for a card and a deck", () => {
++  for (const [width, height, depth] of [[0.98, CARD_STOCK.singleCardHeight, 1.4], [1.06, 0.312, 1.52], [1.06, 0.012, 1.52], [1.06, 0.004, 1.52]]) {
++    const profile = cardStockProfile(width!, height!, depth!);
++    const geometry = roundedCardGeometry(width!, height!, depth!);
++    const corners: Array<readonly [number, number]> = [];
++    for (let vertex = 0; vertex < geometry.positions.length; vertex += 3) {
++      const x = Math.abs(geometry.positions[vertex]!); const y = geometry.positions[vertex + 1]!; const z = Math.abs(geometry.positions[vertex + 2]!);
++      if (Math.abs(y - height! / 2) < 1e-7 && x >= width! / 2 - profile.radius - 1e-6 && z >= depth! / 2 - profile.radius - 1e-6) corners.push([x, z]);
++    }
++    expect(corners.length).toBeGreaterThan(20);
++    const radiusX = profile.paperShape.radiusX * profile.faceWidth;
++    const radiusZ = profile.paperShape.radiusY * profile.faceDepth;
++    for (const [x, z] of corners) {
++      const maskX = (x - (profile.faceWidth / 2 - radiusX)) / radiusX;
++      const maskZ = (z - (profile.faceDepth / 2 - radiusZ)) / radiusZ;
++      expect(Math.hypot(maskX, maskZ)).toBeCloseTo(1, 4);
++    }
++  }
++});
++
++test("deck walls stay vertical instead of shading as one inflated bevel across the pile", () => {
++  const width = 1.06; const height = 0.312; const depth = 1.52;
++  const profile = cardStockProfile(width, height, depth);
++  const geometry = roundedCardGeometry(width, height, depth);
++  let wallVertices = 0;
++  for (let vertex = 0; vertex < geometry.positions.length; vertex += 3) {
++    const y = geometry.positions[vertex + 1]!;
++    if (Math.abs(y) <= height / 2 - profile.bevel + 1e-7) {
++      wallVertices++;
++      expect(geometry.normals[vertex + 1]).toBeCloseTo(0, 7);
++      expect(Math.hypot(geometry.normals[vertex]!, geometry.normals[vertex + 2]!)).toBeCloseTo(1, 6);
++    }
++  }
++  expect(wallVertices).toBeGreaterThan(20);
++});
++
++test("paper strips stop before the stock corners and outside the short bevel", () => {
++  const width = 1.06; const height = 0.312; const depth = 1.52;
++  const profile = cardStockProfile(width, height, depth);
++  expect(profile.edgeWidth / 2).toBeLessThan(width / 2 - profile.radius);
++  expect(profile.edgeDepth / 2).toBeLessThan(depth / 2 - profile.radius);
++  expect(profile.edgeHeight / 2).toBeCloseTo(height / 2 - profile.bevel, 8);
++});
+diff --git a/apps/web/src/scene/cardStock.ts b/apps/web/src/scene/cardStock.ts
+new file mode 100644
+index 0000000..4dfec8d
+--- /dev/null
++++ b/apps/web/src/scene/cardStock.ts
+@@ -0,0 +1,47 @@
++/** One physical stock profile for the body, printed face and rounded artwork clip. */
++export const CARD_STOCK = {
++  cornerRadiusRatio: 3 / 63,
++  bevelWidthRatio: 0.003,
++  singleCardHeight: 0.012,
++  surfaceLift: 0.0006,
++} as const;
++
++/** Corner radii normalized to the width and height of the printed face. */
++export interface CardPaperShape {
++  readonly radiusX: number;
++  readonly radiusY: number;
++}
++
++export interface CardStockProfile {
++  readonly radius: number;
++  readonly bevel: number;
++  readonly faceWidth: number;
++  readonly faceDepth: number;
++  readonly paperShape: CardPaperShape;
++  readonly edgeWidth: number;
++  readonly edgeDepth: number;
++  readonly edgeHeight: number;
++}
++
++export function cardStockProfile(width: number, height: number, depth: number): CardStockProfile {
++  if (![width, height, depth].every((value) => Number.isFinite(value) && value > 0)) {
++    throw new RangeError("Card stock dimensions must be finite and positive");
++  }
++  const radius = Math.min(width, depth) * CARD_STOCK.cornerRadiusRatio;
++  const bevel = Math.min(width * CARD_STOCK.bevelWidthRatio, height / 4, radius / 3);
++  const faceWidth = width - 2 * bevel;
++  const faceDepth = depth - 2 * bevel;
++  const faceRadius = radius - bevel;
++  // Printed paper-edge strips stop before the curved corners, including a small
++  // inset against texture antialiasing. They never form rectangular corner ears.
++  const edgeGuard = width * 0.0015;
++  return {
++    radius, bevel, faceWidth, faceDepth,
++    paperShape: { radiusX: faceRadius / faceWidth, radiusY: faceRadius / faceDepth },
++    edgeWidth: Math.max(0, width - 2 * (radius + edgeGuard)),
++    edgeDepth: Math.max(0, depth - 2 * (radius + edgeGuard)),
++    edgeHeight: height - 2 * bevel,
++  };
++}
++
++export const DEFAULT_CARD_PAPER_SHAPE: CardPaperShape = cardStockProfile(0.98, CARD_STOCK.singleCardHeight, 1.4).paperShape;
+diff --git a/apps/web/src/scene/liteSceneAdapter.ts b/apps/web/src/scene/liteSceneAdapter.ts
+index c4fc612..31fb682 100644
+--- a/apps/web/src/scene/liteSceneAdapter.ts
++++ b/apps/web/src/scene/liteSceneAdapter.ts
+@@ -54,6 +54,10 @@ import { TABLE_DEPTH, TABLE_SURFACE_Y, TABLE_WIDTH } from "./tableDimensions";
+ import { hasSpatialPresentation, piecePresentation, piecePresentationSignature, pieceSurfaceLayout } from "./piecePresentation";
+ import { artworkSize, type PieceArtwork } from "./pieceArtwork";
+ import { createArtworkCanvas } from "./pieceArtworkCanvas";
++import { cardBackForGame, type CardBackDefinition } from "./cardBack";
++import { watchCardBackImage } from "./cardBackImages";
++import { CARD_STOCK, type CardPaperShape } from "./cardStock";
++import { canonicalPieceY, physicalPieceY } from "./cardPhysical";
+ import { roundedBoxGeometry, roundedCardGeometry } from "./pieceGeometry";
+ import { MAX_CAMERA_RADIUS, MIN_CAMERA_RADIUS, pieceFramingBounds, TABLE_CAMERA_BETA, TableFramingController } from "./tableCameraFraming";
+ import { horizontalShadowRotation, LITE_CONTACT_SHADOW } from "./liteContactShadow";
+@@ -132,9 +136,12 @@ function transformSignature(transform: TransformComponent | undefined, restingY:
+   return `${position.x}:${position.y}:${position.z}:${rotation.x}:${rotation.y}:${rotation.z}:${rotation.w}:${scale.x}:${scale.y}:${scale.z}`;
+ }
+ 
++function isCardStock(mesh: Mesh): boolean { return (mesh.metadata as { thinCard?: boolean } | undefined)?.thinCard === true; }
++
+ function transformTarget(
+   transform: TransformComponent | undefined,
+   restingY: number,
++  thinCard = false,
+ ): {
+   position: [number, number, number];
+   scaling: [number, number, number];
+@@ -143,14 +150,14 @@ function transformTarget(
+   return transform === undefined
+     ? { position: [0, restingY, 0], scaling: [1, 1, 1], rotation: [0, 0, 0, 1] }
+     : {
+-        position: [transform.position.x, Math.max(transform.position.y, restingY), transform.position.z],
++        position: [transform.position.x, physicalPieceY(transform.position.y, restingY, thinCard), transform.position.z],
+         scaling: [transform.scale.x, transform.scale.y, transform.scale.z],
+         rotation: [transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w],
+       };
+ }
+ 
+ function applyTransform(mesh: Mesh, transform: TransformComponent | undefined, restingY: number): void {
+-  const target = transformTarget(transform, restingY);
++  const target = transformTarget(transform, restingY, isCardStock(mesh));
+   mesh.position.set(...target.position);
+   mesh.scaling.set(...target.scaling);
+   mesh.rotationQuaternion.set(...target.rotation);
+@@ -211,7 +218,7 @@ function startCorrection(
+   piece: PieceGraph,
+   transform: TransformComponent | undefined,
+ ): void {
+-  const target = transformTarget(transform, piece.restingY);
++  const target = transformTarget(transform, piece.restingY, isCardStock(piece.mesh));
+   piece.correction = {
+     elapsed: 0,
+     fromPosition: [piece.mesh.position.x, piece.mesh.position.y, piece.mesh.position.z],
+@@ -381,6 +388,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies):
+   const staticTextures: DynamicTexture2D[] = [];
+   const framing = new TableFramingController();
+   let introFinished = false;
++  let lastBackSignature = "";
+ 
+   function requireMounted() {
+     if (canvas === null || engine === null || scene === null || cameraGraph === null) {
+@@ -430,7 +438,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies):
+     if (piece.labelTexture !== undefined) textures.push(piece.labelTexture);
+     // The creator owns one texture reference. Material/render-task references
+     // retire through removeFromScene after submitted GPU work has completed.
+-    for (const texture of textures) releaseTexture(texture);
++    for (const texture of textures) { artworkReleases.get(texture)?.(); artworkReleases.delete(texture); releaseTexture(texture); }
+     removeFromScene(scene, piece.mesh);
+   }
+ 
+@@ -445,11 +453,15 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies):
+     return result;
+   }
+ 
+-  function makeArtworkTexture(artwork: PieceArtwork): DynamicTexture2D {
++  const artworkReleases = new WeakMap<DynamicTexture2D, () => void>();
++
++  function makeArtworkTexture(artwork: PieceArtwork, back?: CardBackDefinition, paperShape?: CardPaperShape): DynamicTexture2D {
+     const mounted = requireMounted();
+     const [width, height] = artworkSize(artwork);
+     const texture = createDynamicTexture(mounted.engine, width, height, { srgb: true, mipMaps: true });
+-    updateDynamicTexture(mounted.engine, texture, createArtworkCanvas(artwork));
++    const paint = (backImage?: HTMLImageElement) => updateDynamicTexture(mounted.engine, texture, createArtworkCanvas(artwork, { ...(paperShape ? { paperShape } : {}), ...(backImage ? { backImage } : {}) }));
++    paint();
++    if (artwork.kind === "card-back" && back && typeof Image !== "undefined") artworkReleases.set(texture, watchCardBackImage(back, (state) => paint(state.image ?? undefined)));
+     return texture;
+   }
+ 
+@@ -458,7 +470,9 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies):
+   } {
+     const mounted = requireMounted(); const surfaceMeshes: Mesh[] = []; const surfaceTextures: DynamicTexture2D[] = [];
+     for (const surface of pieceSurfaceLayout(entity, appearance, definition)) {
+-      const texture = makeArtworkTexture(surface.artwork); surfaceTextures.push(texture);
++      const back = cardBackForGame(currentView?.gameTitle ?? null, currentView?.cardBackBundle);
++      const artwork = surface.artwork.kind === "card-back" ? { ...surface.artwork, gameTitle: back.title } : surface.artwork;
++      const texture = makeArtworkTexture(artwork, back, surface.paperShape); surfaceTextures.push(texture);
+       const mat = createStandardMaterial(); mat.diffuseTexture = texture; mat.diffuseColor = [1, 1, 1];
+       mat.ambientColor = [0.15, 0.15, 0.15]; mat.emissiveColor = [0.035, 0.035, 0.035];
+       mat.specularColor = hexColor(appearance.kind === "die" ? "#82765d" : "#393327", "#393327");
+@@ -482,7 +496,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies):
+   function updateContactShadow(piece: PieceGraph): void {
+     if (piece.shadowMesh === undefined) return;
+     const shadow = piece.shadowMesh; const source = piece.mesh;
+-    shadow.position.set(source.position.x, TABLE_SURFACE_Y + 0.004, source.position.z);
++    shadow.position.set(source.position.x, TABLE_SURFACE_Y + CARD_STOCK.surfaceLift, source.position.z);
+     shadow.scaling.set(Math.abs(source.scaling.x), Math.abs(source.scaling.z), 1);
+     const q = source.rotationQuaternion;
+     const yaw = Math.atan2(2 * (q.w * q.y + q.x * q.z), 1 - 2 * (q.x * q.x + q.y * q.y));
+@@ -527,7 +541,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies):
+     const definitionId = components.card?.definitionId ?? components.die?.definitionId;
+     const definition = definitionId === undefined ? undefined : currentView?.definitions[definitionId];
+     const appearance = piecePresentation(entity, definition);
+-    const restingY = TABLE_SURFACE_Y + appearance.height / 2;
++    const restingY = TABLE_SURFACE_Y + appearance.height * (appearance.kind === "card" ? Math.abs(components.transform?.scale.y ?? 1) : 1) / 2;
+     const geometry = appearance.kind === "die"
+       ? roundedBoxGeometry(appearance.width, appearance.height, appearance.depth, 0.105)
+       : appearance.kind === "card" || appearance.kind === "deck"
+@@ -552,7 +566,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies):
+           height: appearance.height,
+         });
+     mesh.name = `entity-${entity.id}`;
+-    mesh.metadata = { entityId: entity.id, displayLabel: appearance.label };
++    mesh.metadata = { entityId: entity.id, displayLabel: appearance.label, thinCard: appearance.kind === "card" };
+     mesh.pickable = true;
+     const pieceMaterial = makeMaterial(appearance);
+     mesh.material = pieceMaterial;
+@@ -609,7 +623,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies):
+       }
+       drag.callbacks.onDrop({
+         x: piece.mesh.position.x,
+-        y: piece.mesh.position.y,
++        y: canonicalPieceY(piece.mesh.position.y, piece.restingY, isCardStock(piece.mesh)),
+         z: piece.mesh.position.z,
+       }, {
+         x: piece.mesh.rotationQuaternion.x,
+@@ -751,9 +765,13 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies):
+     syncEntities(view: KernelStoreSnapshot): void {
+       currentView = view;
+       const state = view.displayedState;
++      const back = cardBackForGame(view.gameTitle, view.cardBackBundle);
++      const backSignature = `${back.key}:${back.title}`;
++      const backChanged = backSignature !== lastBackSignature;
+       const correctionId = view.correction?.id ?? null;
+       if (state === null) return;
+-      if (state === lastDisplayedState && view.definitions === lastDefinitions && correctionId === lastCorrectionId) return;
++      if (!backChanged && state === lastDisplayedState && view.definitions === lastDefinitions && correctionId === lastCorrectionId) return;
++      if (backChanged) { for (const piece of pieces.values()) destroyPiece(piece); pieces.clear(); lastBackSignature = backSignature; }
+       lastDisplayedState = state;
+       lastDefinitions = view.definitions;
+       lastCorrectionId = correctionId;
+diff --git a/apps/web/src/scene/pieceArtwork.ts b/apps/web/src/scene/pieceArtwork.ts
+index 2d19679..353f5dd 100644
+--- a/apps/web/src/scene/pieceArtwork.ts
++++ b/apps/web/src/scene/pieceArtwork.ts
+@@ -3,7 +3,7 @@ import { playingCardIdentity, type PlayingCardIdentity } from "../components/pla
+ 
+ /** Presentation data only. A hidden card never carries its definition into artwork. */
+ export type PieceArtwork =
+-  | { readonly kind: "card-back"; readonly count?: number; readonly enabled?: boolean }
++  | { readonly kind: "card-back"; readonly count?: number; readonly enabled?: boolean; readonly gameTitle?: string }
+   | { readonly kind: "standard-card"; readonly identity: PlayingCardIdentity }
+   | { readonly kind: "custom-card"; readonly label: string; readonly accent: string }
+   | { readonly kind: "die-face"; readonly value: number | string; readonly pips: boolean }
+diff --git a/apps/web/src/scene/pieceArtworkCanvas.ts b/apps/web/src/scene/pieceArtworkCanvas.ts
+index aa0d768..4cda097 100644
+--- a/apps/web/src/scene/pieceArtworkCanvas.ts
++++ b/apps/web/src/scene/pieceArtworkCanvas.ts
+@@ -1,24 +1,42 @@
+ import type { PlayingCardIdentity } from "../components/playingCardIdentity";
+ import { artworkSize, CARD_PIPS, DIE_PIPS, type PieceArtwork } from "./pieceArtwork";
++import { DEFAULT_CARD_PAPER_SHAPE, type CardPaperShape } from "./cardStock";
+ 
+ const SUITS = { clubs: "♣", diamonds: "♦", hearts: "♥", spades: "♠" } as const;
+ const INK = "#203b35";
+ const PAPER = "#fff9eb";
+ 
+-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number): void {
++export interface ArtworkPaintOptions {
++  readonly paperShape?: CardPaperShape;
++  readonly backImage?: CanvasImageSource;
++}
++
++function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number | { x: number; y: number }): void {
+   ctx.beginPath();
+   ctx.roundRect(x, y, width, height, radius);
+ }
+ 
+-function paper(ctx: CanvasRenderingContext2D, width: number, height: number): void {
++function cardPaperPath(ctx: CanvasRenderingContext2D, width: number, height: number, shape: CardPaperShape, inset = 0): void {
++  roundRect(ctx, inset, inset, width - 2 * inset, height - 2 * inset, {
++    x: Math.max(0, width * shape.radiusX - inset),
++    y: Math.max(0, height * shape.radiusY - inset),
++  });
++}
++
++/** The same top contour as the physical stock; all image/ink stays inside it. */
++export function clipCardPaper(ctx: CanvasRenderingContext2D, width: number, height: number, shape: CardPaperShape = DEFAULT_CARD_PAPER_SHAPE): void {
++  cardPaperPath(ctx, width, height, shape); ctx.clip();
++}
++
++export function paintCardPaper(ctx: CanvasRenderingContext2D, width: number, height: number, shape: CardPaperShape = DEFAULT_CARD_PAPER_SHAPE): void {
++  ctx.save();
+   const gradient = ctx.createLinearGradient(0, 0, width, height);
+-  gradient.addColorStop(0, "#fffdf5"); gradient.addColorStop(0.6, PAPER); gradient.addColorStop(1, "#eee2c9");
++  gradient.addColorStop(0, "#fffdf5"); gradient.addColorStop(0.6, PAPER); gradient.addColorStop(1, "#f7edd9");
+   ctx.fillStyle = gradient;
+-  roundRect(ctx, 2, 2, width - 4, height - 4, 38); ctx.fill();
+-  ctx.strokeStyle = "#cbbf9f"; ctx.lineWidth = 2; ctx.stroke();
+-  ctx.strokeStyle = "rgba(111, 96, 65, .22)";
+-  ctx.lineWidth = 1;
+-  roundRect(ctx, 16, 16, width - 32, height - 32, 29); ctx.stroke();
++  cardPaperPath(ctx, width, height, shape); ctx.fill();
++  ctx.strokeStyle = "#d8ccb2"; ctx.lineWidth = 1.4;
++  cardPaperPath(ctx, width, height, shape, 0.7); ctx.stroke();
++  ctx.restore();
+ }
+ 
+ function diamond(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height = width): void {
+@@ -26,35 +44,57 @@ function diamond(ctx: CanvasRenderingContext2D, x: number, y: number, width: num
+   ctx.lineTo(x, y + height / 2); ctx.lineTo(x - width / 2, y); ctx.closePath();
+ }
+ 
+-function drawCardBack(ctx: CanvasRenderingContext2D, width: number, height: number, artwork: Extract<PieceArtwork, { kind: "card-back" }>): void {
+-  paper(ctx, width, height);
++export interface ArtworkRectangle { readonly x: number; readonly y: number; readonly width: number; readonly height: number }
++
++/** Uses the whole source image, including any printed title; never crops or stretches it. */
++export function containCardBackImage(sourceWidth: number, sourceHeight: number, window: ArtworkRectangle): ArtworkRectangle {
++  const scale = Math.min(window.width / sourceWidth, window.height / sourceHeight);
++  const width = sourceWidth * scale; const height = sourceHeight * scale;
++  return { x: window.x + (window.width - width) / 2, y: window.y + (window.height - height) / 2, width, height };
++}
++
++function rasterSize(image: CanvasImageSource): readonly [number, number] | null {
++  const source = image as unknown as Record<string, unknown>;
++  const dimension = (...keys: string[]) => keys.map((key) => source[key]).find((value): value is number => typeof value === "number" && Number.isFinite(value) && value > 0);
++  const width = dimension("naturalWidth", "videoWidth", "displayWidth", "width");
++  const height = dimension("naturalHeight", "videoHeight", "displayHeight", "height");
++  return width === undefined || height === undefined ? null : [width, height];
++}
++
++function drawCardBack(ctx: CanvasRenderingContext2D, width: number, height: number, artwork: Extract<PieceArtwork, { kind: "card-back" }>, options: ArtworkPaintOptions): void {
++  paintCardPaper(ctx, width, height, options.paperShape);
+   const empty = artwork.count === 0;
+-  ctx.fillStyle = empty ? "#ded7c5" : artwork.enabled === false ? "#586c64" : "#12584f";
+-  roundRect(ctx, 24, 24, width - 48, height - 48, 24); ctx.fill();
+-  ctx.save(); roundRect(ctx, 32, 32, width - 64, height - 64, 19); ctx.clip();
+-  ctx.lineWidth = 2; ctx.strokeStyle = empty ? "rgba(71, 86, 72, .14)" : "rgba(225, 207, 144, .25)";
+-  for (let offset = -height; offset < width + height; offset += 28) {
+-    ctx.beginPath(); ctx.moveTo(offset, 0); ctx.lineTo(offset + height, height); ctx.stroke();
+-    ctx.beginPath(); ctx.moveTo(offset, 0); ctx.lineTo(offset - height, height); ctx.stroke();
++  const rim = width * 0.035;
++  const title = artwork.gameTitle?.trim() ?? "";
++  ctx.font = "600 19px Manrope, sans-serif";
++  const caption = title.length > 0 && ctx.measureText(title).width <= width - rim * 2 ? title : "";
++  // A deck's top card is the same printed back as every loose card. Counts
++  // belong in the table controls/metadata and must never resize the artwork.
++  const footer = caption ? 34 : 0;
++  const window = { x: rim, y: rim, width: width - 2 * rim, height: height - 2 * rim - footer };
++  const size = options.backImage === undefined ? null : rasterSize(options.backImage);
++  if (options.backImage !== undefined && size !== null) {
++    const image = containCardBackImage(size[0], size[1], window);
++    ctx.save(); clipCardPaper(ctx, width, height, options.paperShape);
++    ctx.globalAlpha = empty ? 0.4 : 1;
++    ctx.drawImage(options.backImage, image.x, image.y, image.width, image.height);
++    ctx.restore();
++  } else {
++    // Brief printed fallback while the game's authored bitmap loads.
++    ctx.fillStyle = "#dfe5dc"; ctx.fillRect(window.x, window.y, window.width, window.height);
++    ctx.strokeStyle = "#9ea998"; ctx.lineWidth = 1.5;
++    roundRect(ctx, window.x + 5, window.y + 5, window.width - 10, window.height - 10, 5); ctx.stroke();
+   }
+-  ctx.restore();
+-  ctx.strokeStyle = empty ? "#b7b09c" : "#dfc889"; ctx.lineWidth = 3;
+-  roundRect(ctx, 37, 37, width - 74, height - 74, 15); ctx.stroke();
+-  roundRect(ctx, 47, 47, width - 94, height - 94, 10); ctx.lineWidth = 1; ctx.stroke();
+-  ctx.fillStyle = empty ? "#ded7c5" : "#124f47";
+-  diamond(ctx, width / 2, height / 2, 274, 348); ctx.fill(); ctx.lineWidth = 4; ctx.stroke();
+-  diamond(ctx, width / 2, height / 2, 248, 316); ctx.lineWidth = 1; ctx.stroke();
+-  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+-  ctx.fillStyle = empty ? "#65715f" : "#f2dfab";
+-  ctx.font = "bold 106px Georgia, 'DejaVu Serif', serif";
+-  ctx.fillText(empty ? "—" : "D", width / 2, height / 2 + 3);
+-  for (const y of [height / 2 - 107, height / 2 + 107]) { diamond(ctx, width / 2, y, 15); ctx.fill(); }
+-  if (artwork.count !== undefined) {
+-    const text = artwork.count === 0 ? "EMPTY" : String(artwork.count);
+-    ctx.fillStyle = "#fff6de"; roundRect(ctx, width / 2 - 87, height - 166, 174, 98, 49); ctx.fill();
+-    ctx.strokeStyle = "#c5a86a"; ctx.lineWidth = 3; ctx.stroke();
+-    ctx.fillStyle = INK; ctx.font = `bold ${artwork.count === 0 ? 31 : 53}px Manrope, sans-serif`;
+-    ctx.fillText(text, width / 2, height - 115);
++  ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#41574b";
++  if (caption) {
++    ctx.font = "600 19px Manrope, sans-serif";
++    ctx.fillText(caption, width / 2, height - 30);
++  }
++  if (empty) {
++    ctx.fillStyle = "#fff9eb"; roundRect(ctx, width / 2 - 84, height - 124, 168, 64, 30); ctx.fill();
++    ctx.strokeStyle = "#c8b995"; ctx.lineWidth = 1.5; ctx.stroke();
++    ctx.fillStyle = INK; ctx.font = "bold 28px Manrope, sans-serif";
++    ctx.fillText("EMPTY", width / 2, height - 90);
+   }
+ }
+ 
+@@ -143,8 +183,8 @@ function drawCourtFigure(ctx: CanvasRenderingContext2D, rank: string, symbol: st
+   ctx.beginPath(); ctx.moveTo(132, 368); ctx.lineTo(380, 368); ctx.stroke(); ctx.restore();
+ }
+ 
+-function drawStandardCard(ctx: CanvasRenderingContext2D, width: number, height: number, identity: PlayingCardIdentity): void {
+-  paper(ctx, width, height);
++function drawStandardCard(ctx: CanvasRenderingContext2D, width: number, height: number, identity: PlayingCardIdentity, shape?: CardPaperShape): void {
++  paintCardPaper(ctx, width, height, shape);
+   const symbol = SUITS[identity.suit];
+   const ink = identity.suit === "hearts" || identity.suit === "diamonds" ? "#b13a32" : "#203b35";
+   ctx.fillStyle = ink; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+@@ -181,8 +221,8 @@ function wrappedLabel(ctx: CanvasRenderingContext2D, label: string, width: numbe
+   return lines;
+ }
+ 
+-function drawCustomCard(ctx: CanvasRenderingContext2D, width: number, height: number, artwork: Extract<PieceArtwork, { kind: "custom-card" }>): void {
+-  paper(ctx, width, height);
++function drawCustomCard(ctx: CanvasRenderingContext2D, width: number, height: number, artwork: Extract<PieceArtwork, { kind: "custom-card" }>, shape?: CardPaperShape): void {
++  paintCardPaper(ctx, width, height, shape);
+   ctx.fillStyle = /^#[0-9a-f]{6}$/i.test(artwork.accent) ? artwork.accent : "#277267";
+   roundRect(ctx, 30, 30, width - 60, 116, 18); ctx.fill();
+   ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = 2;
+@@ -240,15 +280,16 @@ function drawCounter(ctx: CanvasRenderingContext2D, width: number, height: numbe
+ }
+ 
+ /** Paints an actual raster texture; it never reads canonical state or hidden definitions. */
+-export function drawPieceArtwork(ctx: CanvasRenderingContext2D, width: number, height: number, artwork: PieceArtwork): void {
++export function drawPieceArtwork(ctx: CanvasRenderingContext2D, width: number, height: number, artwork: PieceArtwork, options: ArtworkPaintOptions = {}): void {
+   ctx.save(); ctx.clearRect(0, 0, width, height);
+   const [designWidth, designHeight] = artworkSize(artwork);
+   ctx.scale(width / designWidth, height / designHeight);
+   width = designWidth; height = designHeight;
++  if (artwork.kind === "card-back" || artwork.kind === "standard-card" || artwork.kind === "custom-card") clipCardPaper(ctx, width, height, options.paperShape);
+   switch (artwork.kind) {
+-    case "card-back": drawCardBack(ctx, width, height, artwork); break;
+-    case "standard-card": drawStandardCard(ctx, width, height, artwork.identity); break;
+-    case "custom-card": drawCustomCard(ctx, width, height, artwork); break;
++    case "card-back": drawCardBack(ctx, width, height, artwork, options); break;
++    case "standard-card": drawStandardCard(ctx, width, height, artwork.identity, options.paperShape); break;
++    case "custom-card": drawCustomCard(ctx, width, height, artwork, options.paperShape); break;
+     case "die-face": drawDie(ctx, width, height, artwork); break;
+     case "counter-face": drawCounter(ctx, width, height, artwork.value, artwork.color); break;
+     case "paper-edge": {
+@@ -291,10 +332,10 @@ export function drawPieceArtwork(ctx: CanvasRenderingContext2D, width: number, h
+   ctx.restore();
+ }
+ 
+-export function createArtworkCanvas(artwork: PieceArtwork): HTMLCanvasElement {
++export function createArtworkCanvas(artwork: PieceArtwork, options: ArtworkPaintOptions = {}): HTMLCanvasElement {
+   const canvas = document.createElement("canvas");
+   [canvas.width, canvas.height] = artworkSize(artwork);
+   const context = canvas.getContext("2d");
+-  if (context !== null) drawPieceArtwork(context, canvas.width, canvas.height, artwork);
++  if (context !== null) drawPieceArtwork(context, canvas.width, canvas.height, artwork, options);
+   return canvas;
+ }
+diff --git a/apps/web/src/scene/pieceGeometry.test.ts b/apps/web/src/scene/pieceGeometry.test.ts
+index 5f93a67..6ff0cfe 100644
+--- a/apps/web/src/scene/pieceGeometry.test.ts
++++ b/apps/web/src/scene/pieceGeometry.test.ts
+@@ -47,6 +47,8 @@ test("rounded dice retain dimensions, smooth outward normals and a closed visibl
+ });
+ 
+ test("thin cards and full decks retain rounded paper corners without inverted faces", () => {
++  checkGeometry(roundedCardGeometry(0.98, 0.012, 1.4), 0.98, 0.012, 1.4);
++  checkGeometry(roundedCardGeometry(1.06, 0.004, 1.52), 1.06, 0.004, 1.52);
+   checkGeometry(roundedCardGeometry(0.98, 0.09, 1.4), 0.98, 0.09, 1.4);
+   checkGeometry(roundedCardGeometry(1.06, 0.402, 1.52), 1.06, 0.402, 1.52);
+ });
+diff --git a/apps/web/src/scene/pieceGeometry.ts b/apps/web/src/scene/pieceGeometry.ts
+index 156d5e1..963bd75 100644
+--- a/apps/web/src/scene/pieceGeometry.ts
++++ b/apps/web/src/scene/pieceGeometry.ts
+@@ -1,3 +1,5 @@
++import { cardStockProfile } from "./cardStock";
++
+ /** Shared geometry keeps the same silhouette, dimensions and hit target in both renderers. */
+ export interface PieceGeometry {
+   readonly positions: Float32Array;
+@@ -51,23 +53,25 @@ export function roundedBoxGeometry(width: number, height: number, depth: number,
+ }
+ 
+ /** Thin stock with rounded plan-view corners and a small bevel along its paper edge. */
+-export function roundedCardGeometry(width: number, height: number, depth: number, radius = 0.075): PieceGeometry {
++export function roundedCardGeometry(width: number, height: number, depth: number): PieceGeometry {
+   const positions: number[] = []; const normals: number[] = []; const indices: number[] = []; const uvs: number[] = [];
+   const outline: Array<readonly [number, number, number, number]> = [];
+-  const bevel = Math.min(0.008, height / 5);
++  const { radius, bevel } = cardStockProfile(width, height, depth);
+   for (let corner = 0; corner < 4; corner++) {
+     const angle = corner * Math.PI / 2;
+     const cx = (corner === 0 || corner === 3 ? 1 : -1) * (width / 2 - radius);
+     const cz = (corner < 2 ? 1 : -1) * (depth / 2 - radius);
+-    for (let step = 0; step <= 6; step++) {
+-      const a = angle + step * Math.PI / 12; const nx = Math.cos(a); const nz = Math.sin(a);
++    for (let step = 0; step <= 10; step++) {
++      const a = angle + step * Math.PI / 20; const nx = Math.cos(a); const nz = Math.sin(a);
+       outline.push([cx + radius * nx, cz + radius * nz, nx, nz]);
+     }
+   }
+   const rings = [
+     { y: height / 2, inset: bevel, ny: 1, side: 0 },
+-    { y: height / 2 - bevel, inset: 0, ny: 0.65, side: 0.76 },
+-    { y: -height / 2 + bevel, inset: 0, ny: -0.65, side: 0.76 },
++    { y: height / 2 - bevel * (1 - Math.SQRT1_2), inset: bevel * (1 - Math.SQRT1_2), ny: Math.SQRT1_2, side: Math.SQRT1_2 },
++    { y: height / 2 - bevel, inset: 0, ny: 0, side: 1 },
++    { y: -height / 2 + bevel, inset: 0, ny: 0, side: 1 },
++    { y: -height / 2 + bevel * (1 - Math.SQRT1_2), inset: bevel * (1 - Math.SQRT1_2), ny: -Math.SQRT1_2, side: Math.SQRT1_2 },
+     { y: -height / 2, inset: bevel, ny: -1, side: 0 },
+   ];
+   for (const ring of rings) for (const [x, z, nx, nz] of outline) {
+@@ -82,7 +86,8 @@ export function roundedCardGeometry(width: number, height: number, depth: number
+   const top = positions.length / 3; positions.push(0, height / 2, 0); normals.push(0, 1, 0); uvs.push(0.5, 0.5);
+   const bottom = positions.length / 3; positions.push(0, -height / 2, 0); normals.push(0, -1, 0); uvs.push(0.5, 0.5);
+   for (let point = 0; point < count; point++) {
+-    const next = (point + 1) % count; indices.push(top, next, point, bottom, 3 * count + point, 3 * count + next);
++    const lastRing = (rings.length - 1) * count;
++    const next = (point + 1) % count; indices.push(top, next, point, bottom, lastRing + point, lastRing + next);
+   }
+   return result(positions, normals, indices, uvs);
+ }
+diff --git a/apps/web/src/scene/piecePresentation.ts b/apps/web/src/scene/piecePresentation.ts
+index 7e0565c..810a960 100644
+--- a/apps/web/src/scene/piecePresentation.ts
++++ b/apps/web/src/scene/piecePresentation.ts
+@@ -1,5 +1,6 @@
+ import type { EntityRecord } from "digipology-kernel";
+ import { cardArtwork, dieArtworkFaces, type PieceArtwork } from "./pieceArtwork";
++import { CARD_STOCK, cardStockProfile, type CardPaperShape } from "./cardStock";
+ 
+ export type PieceShape = "box" | "cylinder" | "ring";
+ 
+@@ -72,7 +73,7 @@ export function piecePresentation(
+       kind: "deck",
+       width: 1.06,
+       depth: 1.52,
+-      height: count === 0 ? 0.045 : 0.09 + Math.min(count, 52) * 0.006,
++      height: count === 0 ? 0.004 : CARD_STOCK.singleCardHeight + (Math.min(count, 52) - 1) * 0.006,
+       label: `Deck · ${count}`,
+       color: "#eee3c9",
+       labelColor: "#fff5df",
+@@ -86,7 +87,7 @@ export function piecePresentation(
+       kind: "card",
+       width: 0.98,
+       depth: 1.4,
+-      height: 0.09,
++      height: CARD_STOCK.singleCardHeight,
+       label: faceUp ? definition?.label ?? "Card" : "Face-down card",
+       color: "#f6edda",
+       labelColor: faceUp ? "#17211d" : "#fff2d5",
+@@ -218,6 +219,7 @@ export interface PieceSurface {
+   readonly height: number;
+   readonly position: readonly [number, number, number];
+   readonly rotation: readonly [number, number, number];
++  readonly paperShape?: CardPaperShape;
+ }
+ 
+ /** Decorative surfaces never replace the entity's pickable mesh. */
+@@ -225,22 +227,24 @@ export function pieceSurfaceLayout(entity: EntityRecord, appearance: PiecePresen
+   const { width, depth, height, kind } = appearance;
+   const y = height / 2 + 0.002;
+   if (kind === "card" || kind === "deck") {
++    const stock = cardStockProfile(width, height, depth);
++    const paperY = height / 2 + CARD_STOCK.surfaceLift;
+     const count = entity.components.container?.items.length ?? 0;
+     const top: PieceArtwork = kind === "deck"
+       ? { kind: "card-back", count, enabled: entity.components.deck?.enabled ?? false }
+       : cardArtwork(entity, definition);
+     const surfaces: PieceSurface[] = [
+-      { name: "face", artwork: top, width: width * 0.995, height: depth * 0.995, position: [0, y, 0], rotation: [Math.PI / 2, 0, 0] },
+-      { name: "reverse", artwork: { kind: "card-back" }, width: width * 0.995, height: depth * 0.995, position: [0, -y, 0], rotation: [-Math.PI / 2, 0, 0] },
++      { name: "face", artwork: top, width: stock.faceWidth, height: stock.faceDepth, paperShape: stock.paperShape, position: [0, paperY, 0], rotation: [Math.PI / 2, 0, 0] },
++      { name: "reverse", artwork: { kind: "card-back" }, width: stock.faceWidth, height: stock.faceDepth, paperShape: stock.paperShape, position: [0, -paperY, 0], rotation: [-Math.PI / 2, 0, 0] },
+     ];
+     if (kind === "deck" && count > 1) {
+       const artwork: PieceArtwork = { kind: "paper-edge", count };
+-      const h = height - 0.018;
++      const h = stock.edgeHeight;
+       surfaces.push(
+-        { name: "paper-near", artwork, width: width - 0.13, height: h, position: [0, 0, -depth / 2 - 0.001], rotation: [0, 0, 0] },
+-        { name: "paper-far", artwork, width: width - 0.13, height: h, position: [0, 0, depth / 2 + 0.001], rotation: [0, Math.PI, 0] },
+-        { name: "paper-right", artwork, width: depth - 0.13, height: h, position: [width / 2 + 0.001, 0, 0], rotation: [0, -Math.PI / 2, 0] },
+-        { name: "paper-left", artwork, width: depth - 0.13, height: h, position: [-width / 2 - 0.001, 0, 0], rotation: [0, Math.PI / 2, 0] },
++        { name: "paper-near", artwork, width: stock.edgeWidth, height: h, position: [0, 0, -depth / 2 - CARD_STOCK.surfaceLift], rotation: [0, 0, 0] },
++        { name: "paper-far", artwork, width: stock.edgeWidth, height: h, position: [0, 0, depth / 2 + CARD_STOCK.surfaceLift], rotation: [0, Math.PI, 0] },
++        { name: "paper-right", artwork, width: stock.edgeDepth, height: h, position: [width / 2 + CARD_STOCK.surfaceLift, 0, 0], rotation: [0, -Math.PI / 2, 0] },
++        { name: "paper-left", artwork, width: stock.edgeDepth, height: h, position: [-width / 2 - CARD_STOCK.surfaceLift, 0, 0], rotation: [0, Math.PI / 2, 0] },
+       );
+     }
+     return surfaces;
+diff --git a/apps/web/src/scene/sceneAdapter.contract.test.ts b/apps/web/src/scene/sceneAdapter.contract.test.ts
+index b7a9bd8..3c33d1a 100644
+--- a/apps/web/src/scene/sceneAdapter.contract.test.ts
++++ b/apps/web/src/scene/sceneAdapter.contract.test.ts
+@@ -537,7 +537,7 @@ describe("real Lite SceneAdapter contract through a thin engine mock", () => {
+       return plane;
+     };
+     const cardFace = faceFor("card-1"); const dieFace = faceFor("die-1"); const scoreFace = faceFor("counter-1");
+-    expect(cardFace.position.y).toBeCloseTo(0.047, 3);
++    expect(cardFace.position.y).toBeCloseTo(0.0066, 4);
+     expect(dieFace.position.y).toBeCloseTo(0.402, 3);
+     expect(scoreFace.position.y).toBeCloseTo(0.092, 3);
+     expect(scoreFace.name).toBe("entity-counter-1-surface-score");
+diff --git a/apps/web/src/scene/webglSceneAdapter.ts b/apps/web/src/scene/webglSceneAdapter.ts
+index 560bcba..747bd07 100644
+--- a/apps/web/src/scene/webglSceneAdapter.ts
++++ b/apps/web/src/scene/webglSceneAdapter.ts
+@@ -42,6 +42,10 @@ import {
+ import { hasSpatialPresentation, piecePresentation, piecePresentationSignature, pieceSurfaceLayout } from "./piecePresentation";
+ import { artworkSize, type PieceArtwork } from "./pieceArtwork";
+ import { drawPieceArtwork } from "./pieceArtworkCanvas";
++import { cardBackForGame, type CardBackDefinition } from "./cardBack";
++import { watchCardBackImage } from "./cardBackImages";
++import { CARD_STOCK, type CardPaperShape } from "./cardStock";
++import { canonicalPieceY, physicalPieceY } from "./cardPhysical";
+ import { roundedBoxGeometry, roundedCardGeometry, type PieceGeometry } from "./pieceGeometry";
+ import { MAX_CAMERA_RADIUS, MIN_CAMERA_RADIUS, pieceFramingBounds, TABLE_CAMERA_BETA, TableFramingController } from "./tableCameraFraming";
+ 
+@@ -113,18 +117,25 @@ function readableHighlight(scene: Scene): HighlightLayer {
+   return layer;
+ }
+ 
++const artworkReleases = new WeakMap<DynamicTexture, () => void>();
++
+ function artworkTexture(
+   scene: Scene, name: string, artwork: PieceArtwork,
+   createTexture?: WebglSceneAdapterDependencies["createLabelTexture"],
++  back?: CardBackDefinition, paperShape?: CardPaperShape,
+ ): DynamicTexture {
+   const [width, height] = artworkSize(artwork);
+   const texture = createTexture?.(name, scene)
+     ?? new DynamicTexture(name, { width, height }, scene, true);
+   texture.hasAlpha = true;
+   if (typeof texture.getContext === "function") {
+-    const size = texture.getSize();
+-    drawPieceArtwork(texture.getContext() as unknown as CanvasRenderingContext2D, size.width, size.height, artwork);
+-    texture.update(true);
++    const paint = (backImage?: HTMLImageElement) => {
++      const size = texture.getSize();
++      drawPieceArtwork(texture.getContext() as unknown as CanvasRenderingContext2D, size.width, size.height, artwork, { ...(paperShape ? { paperShape } : {}), ...(backImage ? { backImage } : {}) });
++      texture.update(true);
++    };
++    paint();
++    if (artwork.kind === "card-back" && back && typeof Image !== "undefined") artworkReleases.set(texture, watchCardBackImage(back, (state) => paint(state.image ?? undefined)));
+   } else {
+     // The injected NullEngine texture seam intentionally has no browser canvas.
+     texture.drawText(artwork.kind === "custom-card" ? artwork.label : "", null, 150, "bold 54px Manrope", "#203b35", "#fff9eb", true, true);
+@@ -134,12 +145,13 @@ function artworkTexture(
+ 
+ function addPieceSurfaces(
+   scene: Scene, parent: Mesh, entity: EntityRecord, appearance: ReturnType<typeof piecePresentation>,
+-  definition: Parameters<typeof piecePresentation>[1], createTexture?: WebglSceneAdapterDependencies["createLabelTexture"],
++  definition: Parameters<typeof piecePresentation>[1], createTexture?: WebglSceneAdapterDependencies["createLabelTexture"], back?: CardBackDefinition,
+ ): DynamicTexture[] {
+   const textures: DynamicTexture[] = [];
+   for (const surface of pieceSurfaceLayout(entity, appearance, definition)) {
+     const name = `${parent.name}-surface-${surface.name}`;
+-    const texture = artworkTexture(scene, name, surface.artwork, createTexture);
++    const artwork = surface.artwork.kind === "card-back" && back ? { ...surface.artwork, gameTitle: back.title } : surface.artwork;
++    const texture = artworkTexture(scene, name, artwork, createTexture, back, surface.paperShape);
+     textures.push(texture);
+     const mat = new StandardMaterial(`${name}-material`, scene);
+     mat.diffuseTexture = texture; mat.useAlphaFromDiffuseTexture = true;
+@@ -174,7 +186,7 @@ function addContactShadow(
+ function updateContactShadow(piece: PieceGraph): void {
+   if (piece.shadow === undefined) return;
+   const shadow = piece.shadow.mesh; const source = piece.mesh;
+-  shadow.position.set(source.position.x, TABLE_SURFACE_Y + 0.004, source.position.z);
++  shadow.position.set(source.position.x, TABLE_SURFACE_Y + CARD_STOCK.surfaceLift, source.position.z);
+   shadow.scaling.set(Math.abs(source.scaling.x), Math.abs(source.scaling.z), 1);
+   const q = source.rotationQuaternion;
+   if (q !== null) shadow.rotation.y = Math.atan2(2 * (q.w * q.y + q.x * q.z), 1 - 2 * (q.x * q.x + q.y * q.y));
+@@ -225,18 +237,20 @@ function transformSignature(transform: TransformComponent | undefined, restingY:
+   return `${position.x}:${position.y}:${position.z}:${rotation.x}:${rotation.y}:${rotation.z}:${rotation.w}:${scale.x}:${scale.y}:${scale.z}`;
+ }
+ 
+-function transformTarget(transform: TransformComponent | undefined, restingY: number) {
++function isCardStock(mesh: Mesh): boolean { return (mesh.metadata as { thinCard?: boolean } | undefined)?.thinCard === true; }
++
++function transformTarget(transform: TransformComponent | undefined, restingY: number, thinCard = false) {
+   return transform === undefined
+     ? { position: new Vector3(0, restingY, 0), scaling: Vector3.One(), rotation: Quaternion.Identity() }
+     : {
+-        position: new Vector3(transform.position.x, Math.max(transform.position.y, restingY), transform.position.z),
++        position: new Vector3(transform.position.x, physicalPieceY(transform.position.y, restingY, thinCard), transform.position.z),
+         scaling: new Vector3(transform.scale.x, transform.scale.y, transform.scale.z),
+         rotation: new Quaternion(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
+       };
+ }
+ 
+ function applyTransform(mesh: Mesh, transform: TransformComponent | undefined, restingY: number): void {
+-  const target = transformTarget(transform, restingY);
++  const target = transformTarget(transform, restingY, isCardStock(mesh));
+   mesh.position.copyFrom(target.position);
+   mesh.scaling.copyFrom(target.scaling);
+   mesh.rotationQuaternion ??= Quaternion.Identity();
+@@ -252,7 +266,7 @@ function animateTransform(
+   const fromPosition = mesh.position.clone();
+   const fromScaling = mesh.scaling.clone();
+   const fromRotation = mesh.rotationQuaternion?.clone() ?? Quaternion.Identity();
+-  const target = transformTarget(transform, restingY);
++  const target = transformTarget(transform, restingY, isCardStock(mesh));
+   mesh.rotationQuaternion ??= Quaternion.Identity();
+   let elapsed = 0;
+   const observer = scene.onBeforeRenderObservable.add(() => {
+@@ -320,6 +334,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
+   const pieces = new Map<string, PieceGraph>();
+   const framing = new TableFramingController();
+   let introFinished = false;
++  let lastBackSignature = "";
+   const highlights = {
+     hover: null as string | null,
+     selected: null as string | null,
+@@ -378,6 +393,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
+   function holdCamera(): void { framing.hold(); introFinished = true; }
+ 
+   function destroyPiece(piece: PieceGraph): void {
++    for (const texture of piece.surfaces ?? []) { artworkReleases.get(texture)?.(); artworkReleases.delete(texture); }
+     piece.drag?.dispose();
+     piece.cancelCorrection?.();
+     piece.label?.dispose();
+@@ -412,7 +428,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
+       onDrop(position, rotation) {
+         piece.cancelMotion?.();
+         piece.cancelMotion = animateLanding(mounted.scene, piece.mesh);
+-        actionCallbacks.onDrop(position, rotation);
++        actionCallbacks.onDrop({ ...position, y: canonicalPieceY(position.y, piece.restingY, isCardStock(piece.mesh)) }, rotation);
+       },
+     });
+   }
+@@ -433,7 +449,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
+     const definitionId = components.card?.definitionId ?? components.die?.definitionId;
+     const definition = definitionId === undefined ? undefined : currentView?.definitions[definitionId];
+     const appearance = piecePresentation(entity, definition);
+-    const restingY = TABLE_SURFACE_Y + appearance.height / 2;
++    const restingY = TABLE_SURFACE_Y + appearance.height * (appearance.kind === "card" ? Math.abs(components.transform?.scale.y ?? 1) : 1) / 2;
+     const mesh = appearance.kind === "die"
+       ? roundedMesh(`entity-${entity.id}`, roundedBoxGeometry(appearance.width, appearance.height, appearance.depth, 0.105), mounted.scene)
+       : appearance.kind === "card" || appearance.kind === "deck"
+@@ -455,7 +471,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
+           depth: appearance.depth,
+           height: appearance.height,
+         }, mounted.scene);
+-    mesh.metadata = { entityId: entity.id, displayLabel: appearance.label };
++    mesh.metadata = { entityId: entity.id, displayLabel: appearance.label, thinCard: appearance.kind === "card" };
+     mesh.isPickable = true;
+     mesh.material = material(mounted.scene, entity.id, appearance);
+     applyTransform(mesh, components.transform, restingY);
+@@ -467,7 +483,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
+       restingY,
+       ...(appearance.kind !== "token"
+         ? {
+-            surfaces: addPieceSurfaces(mounted.scene, mesh, entity, appearance, definition, dependencies.createLabelTexture),
++            surfaces: addPieceSurfaces(mounted.scene, mesh, entity, appearance, definition, dependencies.createLabelTexture, cardBackForGame(currentView?.gameTitle ?? null, currentView?.cardBackBundle)),
+             shadow: addContactShadow(mounted.scene, mesh, appearance, dependencies.createLabelTexture),
+           }
+         : appearance.label
+@@ -563,9 +579,13 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
+     syncEntities(view: KernelStoreSnapshot): void {
+       currentView = view;
+       const state = view.displayedState;
++      const back = cardBackForGame(view.gameTitle, view.cardBackBundle);
++      const backSignature = `${back.key}:${back.title}`;
++      const backChanged = backSignature !== lastBackSignature;
+       const correctionId = view.correction?.id ?? null;
+       if (state === null) return;
+-      if (state === lastDisplayedState && view.definitions === lastDefinitions && correctionId === lastCorrectionId) return;
++      if (!backChanged && state === lastDisplayedState && view.definitions === lastDefinitions && correctionId === lastCorrectionId) return;
++      if (backChanged) { for (const piece of pieces.values()) destroyPiece(piece); pieces.clear(); lastBackSignature = backSignature; }
+       lastDisplayedState = state;
+       lastDefinitions = view.definitions;
+       lastCorrectionId = correctionId;
+diff --git a/apps/web/src/state/kernelStore.ts b/apps/web/src/state/kernelStore.ts
+index 4a8c4b0..37131e6 100644
+--- a/apps/web/src/state/kernelStore.ts
++++ b/apps/web/src/state/kernelStore.ts
+@@ -56,6 +56,8 @@ export interface KernelStoreSnapshot {
+   rulebook: GameRulebook | null;
+   /** Immutable presentation file; never part of canonical state or prediction. */
+   soundBundle: string | null;
++  /** Optional game-wide raster back, outside canonical/predicted state. */
++  cardBackBundle?: string | null;
+ }
+ 
+ export type ApplyStreamResult = { ok: true } | { ok: false; expected: number; actual: number };
+@@ -112,7 +114,7 @@ export class KernelStore {
+   private current: KernelStoreSnapshot = {
+     state: null, displayedState: null, events: [], players: [], pendingRequestIds: new Set(),
+     predictionLedger: [], correction: null, endedReason: null, stateHash: null,
+-    diagnostic: null, definitions: {}, gameTitle: null, rulebook: null, soundBundle: null,
++    diagnostic: null, definitions: {}, gameTitle: null, rulebook: null, soundBundle: null, cardBackBundle: null,
+   };
+   private readonly listeners = new Set<() => void>();
+   private initialSnapshot: GameSnapshot | null = null;
+@@ -147,6 +149,7 @@ export class KernelStore {
+       gameTitle: bundle.title ?? null,
+       rulebook: readRulebook(bundle),
+       soundBundle: Array.isArray(bundle.files) ? bundle.files.find((file) => file.path === TABLE_SOUND_PATH)?.content ?? null : null,
++      cardBackBundle: Array.isArray(bundle.files) ? bundle.files.find((file) => file.path === "runtime/presentation/card-back.json")?.content ?? null : null,
+     });
+   }
+ 
+diff --git a/apps/web/src/styles.css b/apps/web/src/styles.css
+index b79e1d8..a7b2198 100644
+--- a/apps/web/src/styles.css
++++ b/apps/web/src/styles.css
+@@ -1408,3 +1408,8 @@ button.action-card { width: 100%; border-right: 0; border-left: 0; text-align: l
+ .game-hero__pick strong, .play-app .play-room-list strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+ .play-app .play-account__menu summary { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+ @media (max-width: 700px) { .play-app .play-account__menu summary { max-width: 80px; } }
++
++.table-back-status { position:absolute; z-index:4; right:16px; bottom:calc(210px + env(safe-area-inset-bottom)); width:min(320px,calc(100vw - 32px)); padding:12px 16px; border:1px solid #d4bc7c55; border-radius:10px; background:#10221ef5; color:#f0e4c5; font-size:.78rem; line-height:1.5; }
++.table-back-status[hidden] { display:none; }
++.table-back-status button { display:block; margin-top:8px; padding:8px 12px; border:1px solid #e8dba955; border-radius:7px; background:#22483d; color:#fff9eb; cursor:pointer; }
++@media(max-width:600px) { .table-scene__hint:not(.table-scene__hint--readonly), .table-hints:not(.table-hints--touch) { display:none; } .table-hints--touch { bottom:224px; } }
+diff --git a/docs/runbooks/themed-card-backs.md b/docs/runbooks/themed-card-backs.md
+new file mode 100644
+index 0000000..8f9c2da
+--- /dev/null
++++ b/docs/runbooks/themed-card-backs.md
+@@ -0,0 +1,36 @@
++# Card stock corners and game-specific backs
++
++The user reported incorrect corners and requested different back images for
++different games after the fbc1d4b renderer checkpoint. Preserve that source and
++its a3f4935 QA pack; it is not the acceptance source for this follow-up.
++
++The corner audit found inconsistent painted/physical radii and face margins,
++deck walls shaded like pillows, paper strips extending into rounded corners,
++and a single-card body almost one quarter as thick as a full deck. Use one
++width-relative poker-stock profile, vertical wall normals, shallow bevels,
++thin stock and an exact shared raster clip. Preserve authored transforms and
++canonical rules; map legacy near-table card center offsets in presentation only.
++
++Back images must be shared by decks, face-down cards and concealed inspection.
++Use existing raster game illustrations for built-in defaults, plus an explicit
++creator-owned back image/credit file in runtime/presentation/card-back.json.
++Normal File → Card backs lets a creator use the current cover or upload raster
++artwork. This is deliberately pinned release presentation, separate from the
++editor-only cover/review; export text must say so. Validate full bytes, hash,
++dimensions and actual browser decoding before replacement; enforce the combined
++release budget before mutating. This single shared back does not multiply image
++bytes by the number of cards. Do not silently inject cover bytes into exports.
++
++Images load asynchronously with a readable loading/fallback/failure/retry state.
++Callbacks must not update disposed GPU resources or a different game's texture.
++Both renderers and the 2D inspector use the same image and contour. Back models
++contain public game branding only, never the concealed card's rank/definition.
++
++Acceptance: inspect stock/front/back/deck corners at normal and enlarged scale;
++actual two games with different raster backs, desktop/390/short inspection,
++normal editor save/import/export/private/public/reload/guest flow and exact
++asset/credit preservation. Check missing/decode/retry, source switch/disposal,
++hidden-hand presentation and picking/flip in actual WebGL and WebGPU. Keep
++source-by-frame scopes and captured command exits. Only affected checks are
++needed. Live original art generation, perceptual sound/fun and production remain
++outside this local fixture/authoring verification.
+diff --git a/e2e/cardBacks.e2e.ts b/e2e/cardBacks.e2e.ts
+new file mode 100644
+index 0000000..a486bc3
+--- /dev/null
++++ b/e2e/cardBacks.e2e.ts
+@@ -0,0 +1,150 @@
++import { test, expect, type Page, type TestInfo } from "@playwright/test";
++import { readFile, writeFile } from "node:fs/promises";
++import { fileURLToPath } from "node:url";
++import { createHash } from "node:crypto";
++import { rasterPng } from "../packages/protocol/src/raster.fixture";
++import { crc32 } from "../packages/protocol/src/raster";
++
++const fixture = fileURLToPath(new URL("./fixtures/raster-draft.editor.json", import.meta.url));
++const path = "runtime/presentation/card-back.json";
++type PaintedWindow = Window & { paintedBacks: string[] };
++async function monitor(page: Page) {
++  await page.addInitScript(() => {
++    const target = window as unknown as PaintedWindow; target.paintedBacks = [];
++    const draw = CanvasRenderingContext2D.prototype.drawImage;
++    CanvasRenderingContext2D.prototype.drawImage = function(image: CanvasImageSource, ...coordinates: number[]) {
++      if (image instanceof HTMLImageElement && image.src.startsWith("data:image/")) target.paintedBacks.push(image.src);
++      Reflect.apply(draw, this, [image, ...coordinates]);
++    };
++  });
++}
++async function menu(page: Page, action: string) {
++  await page.locator(".editor-menu-dropdown > summary").filter({ hasText: /^File$/ }).click();
++  await page.locator(".editor-menu-dropdown[open]").getByRole("button", { name: action }).click();
++}
++async function download(page: Page, info: TestInfo, name: string, trigger: () => Promise<void>) {
++  const waiting = page.waitForEvent("download"); await trigger(); const dest = info.outputPath(name);
++  await (await waiting).saveAs(dest); return { path: dest, value: JSON.parse(await readFile(dest, "utf8")) };
++}
++async function ready(page: Page) {
++  await page.bringToFront();
++  await expect(page.getByRole("img", { name: "Live synchronized 3D tabletop", exact: true })).toHaveAttribute("data-render-state", "ready", { timeout: 30_000 });
++  await expect(page.locator(".table-render-status")).toHaveCount(0);
++  await expect(page.locator("[data-card-back-state]")).toHaveAttribute("data-card-back-state", "ready");
++}
++async function importEditor(page: Page, value: object, id: string) {
++  await page.goto(`/edit/${id}`); const choosing = page.waitForEvent("filechooser"); await menu(page, "Import draft or bundle…");
++  await (await choosing).setFiles({ name: "existing-card-game.editor.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(value)) });
++  await expect(page.locator(".editor-details-bar").getByLabel("Title", { exact: true })).toHaveValue((value as { title: string }).title);
++}
++async function centerInspect(page: Page) {
++  await page.bringToFront();
++  const canvas = page.getByRole("img", { name: "Live synchronized 3D tabletop", exact: true }), box = await canvas.boundingBox();
++  if (!box) throw new Error("No table canvas");
++  await canvas.click({ button: "right", position: { x: box.width / 2, y: box.height / 2 } });
++  await page.getByRole("menuitem", { name: "Inspect", exact: true }).click();
++}
++
++test("different games retain their own raster backs through editor, private play, publication, guest inspection and backup", async ({ page, browser }, info) => {
++  test.setTimeout(240_000); await monitor(page);
++  await page.goto("/login"); await page.getByLabel("Email address", { exact: true }).fill(`backs-${Date.now()}@example.com`);
++  await page.getByRole("button", { name: "Email me a link", exact: true }).click(); await expect(page.getByRole("heading", { name: "Check your email", exact: true })).toBeVisible();
++  const { link } = await (await page.request.get("/api/dev/last-magic-link")).json(); await page.goto(link);
++  const original = JSON.parse(await readFile(fixture, "utf8"));
++  const cards = await (await page.request.get("/api/releases/builtin_first_deal_2/bundle")).json();
++  // Existing authored First Deal rules + an existing raster fixture, not model output.
++  const authored = { ...original, id: `card-back-${Date.now()}`, title: "Card Back Workshop", slug: "card-back-workshop", bundle: { ...cards, title: "Card Back Workshop" } };
++  await importEditor(page, authored, authored.id);
++  const baseline = await download(page, info, "before-back.editor.json", () => menu(page, "Download editable draft"));
++  await menu(page, "Card backs…"); let dialog = page.getByRole("dialog", { name: "Card backs for Card Back Workshop", exact: true });
++  await dialog.getByRole("button", { name: "Use game cover artwork", exact: true }).click();
++  await page.setViewportSize({ width: 390, height: 480 });
++  await dialog.getByLabel("Public source page", { exact: true }).focus();
++  await expect.poll(async () => {
++    const field = await dialog.getByLabel("Public source page", { exact: true }).boundingBox(), footer = await dialog.locator("footer").boundingBox();
++    return field !== null && footer !== null && field.y + field.height <= footer.y;
++  }).toBe(true);
++  await page.screenshot({ path: info.outputPath("back-editor-short.png"), fullPage: false });
++  await dialog.getByRole("button", { name: "Use for card backs", exact: true }).click();
++  await page.setViewportSize({ width: 1440, height: 960 });
++  const saved = await download(page, info, "with-back.editor.json", () => menu(page, "Download editable draft"));
++  const release = await download(page, info, "with-back.release.json", () => menu(page, "Export release bundle"));
++  const asset = saved.value.bundle.files.find((file: { path: string }) => file.path === path), back = JSON.parse(asset.content);
++  expect(back.artwork.dataUrl).toBe(original.artwork.dataUrl); expect(back.artwork.info).toEqual(original.artwork.info); expect(back.artwork.source).toBeUndefined();
++  expect(saved.value.bundle.initialSnapshot).toEqual(baseline.value.bundle.initialSnapshot);
++  expect(saved.value.bundle.files.filter((file: { path: string }) => file.path !== path)).toEqual(baseline.value.bundle.files);
++  expect(release.value.files.find((file: { path: string }) => file.path === path)).toEqual(asset);
++  expect(release.value.artwork).toBeUndefined(); expect(saved.value.artwork).toEqual(original.artwork);
++  await menu(page, "Card backs…"); dialog = page.getByRole("dialog", { name: "Card backs for Card Back Workshop", exact: true });
++  const broken = rasterPng(768, 1152), view = new DataView(broken.buffer), n = view.getUint32(33);
++  broken[41] = 0; broken[42] = 0; view.setUint32(41 + n, crc32(broken.subarray(37, 41 + n)));
++  await dialog.getByLabel("Image or saved artwork", { exact: true }).setInputFiles({ name: "invalid-pixels.png", mimeType: "image/png", buffer: Buffer.from(broken) });
++  await expect(dialog.getByRole("alert")).toContainText("could not be decoded");
++  await page.screenshot({ path: info.outputPath("back-decode-recovery.png"), fullPage: false }); await page.keyboard.press("Escape");
++  await menu(page, "Publish…"); await expect(page).toHaveURL(/\/playtest\//); await ready(page);
++  await expect(page.locator("[data-card-back-key]")).toHaveAttribute("data-card-back-key", back.artwork.info.sha256);
++  await expect.poll(() => page.evaluate((src) => (window as unknown as PaintedWindow).paintedBacks.includes(src), back.artwork.dataUrl)).toBe(true);
++  await page.getByRole("button", { name: "Shuffle deck", exact: true }).click(); await page.getByRole("button", { name: "Draw card", exact: true }).click();
++  const hand = page.getByRole("button", { name: /^Inspect / }); await expect(hand).toHaveCount(1);
++  await hand.click({ button: "right" }); await page.getByRole("menuitem", { name: "Play to table", exact: true }).click();
++  await page.setViewportSize({ width: 390, height: 844 }); await ready(page);
++  await page.screenshot({ path: info.outputPath("private-themed-back-390.png"), fullPage: false });
++  await page.evaluate(() => { (window as unknown as PaintedWindow).paintedBacks = []; });
++  await page.getByRole("button", { name: "Publish & invite", exact: true }).click(); await expect(page).toHaveURL(/\/table\//); await ready(page);
++  await expect.poll(() => page.evaluate((src) => (window as unknown as PaintedWindow).paintedBacks.includes(src), back.artwork.dataUrl)).toBe(true);
++  const library = await (await page.request.get("/api/games/mine")).json(), game = library.games.find((g: { title: string }) => g.title === authored.title);
++  const actual = await (await page.request.get(`/api/releases/${game.latestReleaseId}/bundle`)).json();
++  expect(actual.files.find((file: { path: string }) => file.path === path).content).toBe(asset.content);
++  await page.reload(); await ready(page); await expect(page.locator("[data-card-back-key]")).toHaveAttribute("data-card-back-key", back.artwork.info.sha256);
++  const invite = await page.getByRole("button", { name: "Copy invite link", exact: true }).getAttribute("title");
++  const guestContext = await browser.newContext({ baseURL: "http://127.0.0.1:8797", viewport: { width: 390, height: 844 } });
++  try {
++    const guest = await guestContext.newPage(); await monitor(guest); await guest.goto(invite!); await guest.getByLabel("Display name", { exact: true }).fill("Artwork guest"); await guest.getByRole("button", { name: "Join table", exact: true }).click(); await ready(guest);
++    await expect(guest.locator("[data-card-back-key]")).toHaveAttribute("data-card-back-key", back.artwork.info.sha256);
++    await page.bringToFront(); await page.getByRole("button", { name: "Shuffle deck", exact: true }).click(); await page.getByRole("button", { name: "Draw card", exact: true }).click();
++    await expect(page.getByRole("button", { name: /^Inspect / })).toHaveCount(1); await expect(guest.getByRole("button", { name: /^Inspect / })).toHaveCount(0);
++    await page.getByRole("button", { name: /^Inspect / }).click({ button: "right" }); await page.getByRole("menuitem", { name: "Play to table", exact: true }).click();
++    // Desktop framing keeps the ordinary center-pick action independent of phone framing.
++    await guest.setViewportSize({ width: 1440, height: 960 }); await ready(guest); await centerInspect(guest);
++    await expect(guest.getByRole("dialog", { name: "Inspecting Face-down card", exact: true })).toBeVisible();
++    await expect(guest.locator(".inspect-overlay__preview [data-card-face='card-back'] canvas")).toBeVisible();
++    await expect(guest.locator(".inspect-overlay__preview [data-card-face='standard-card']")).toHaveCount(0);
++    await expect(guest.locator(".inspect-card-credits")).toContainText(back.artwork.info.credits.artist);
++    const pending = guest.waitForEvent("download"); await guest.getByRole("link", { name: "Download card-back image", exact: true }).click();
++    const image = info.outputPath("published-back.png"); await (await pending).saveAs(image);
++    expect(`sha256:${createHash("sha256").update(await readFile(image)).digest("hex")}`).toBe(back.artwork.info.sha256);
++    await guest.screenshot({ path: info.outputPath("guest-themed-inspection-desktop.png"), fullPage: false });
++    await guest.setViewportSize({ width: 390, height: 844 }); await guest.screenshot({ path: info.outputPath("guest-themed-inspection-390.png"), fullPage: false });
++  } finally { await guestContext.close(); }
++  await page.setViewportSize({ width: 1440, height: 960 }); await importEditor(page, saved.value, `reopened-back-${Date.now()}`);
++  const reopened = await download(page, info, "reopened-back.editor.json", () => menu(page, "Download editable draft"));
++  expect(reopened.value.bundle).toEqual(saved.value.bundle);
++  const another = { ...saved.value, id: `night-cards-${Date.now()}`, title: "Night Card Workshop", slug: `night-cards-${Date.now()}`, bundle: { ...saved.value.bundle, title: "Night Card Workshop" } };
++  await importEditor(page, another, another.id);
++  await menu(page, "Card backs…"); dialog = page.getByRole("dialog", { name: "Card backs for Night Card Workshop", exact: true });
++  await dialog.getByLabel("Image or saved artwork", { exact: true }).setInputFiles("apps/web/public/art/zone-runner.webp");
++  await expect(dialog.getByRole("alert")).toHaveCount(0); await dialog.getByRole("button", { name: "Use for card backs", exact: true }).click();
++  const second = await download(page, info, "different-back.editor.json", () => menu(page, "Download editable draft"));
++  const secondBack = JSON.parse(second.value.bundle.files.find((file: { path: string }) => file.path === path).content);
++  expect(secondBack.artwork.info.sha256).not.toBe(back.artwork.info.sha256);
++  await menu(page, "Publish…"); await expect(page).toHaveURL(/\/playtest\//); await ready(page);
++  await expect(page.locator("[data-card-back-key]")).toHaveAttribute("data-card-back-key", secondBack.artwork.info.sha256);
++  await page.getByRole("button", { name: "Publish & invite", exact: true }).click(); await expect(page).toHaveURL(/\/table\//); await ready(page);
++  await expect(page.locator("[data-card-back-key]")).toHaveAttribute("data-card-back-key", secondBack.artwork.info.sha256);
++  await page.screenshot({ path: info.outputPath("different-themed-back-desktop.png"), fullPage: false });
++  const secondLibrary = await (await page.request.get("/api/games/mine")).json(); expect(secondLibrary.games).toHaveLength(2);
++  const firstAgain = await (await page.request.get(`/api/releases/${game.latestReleaseId}/bundle`)).json();
++  expect(firstAgain.files.find((file: { path: string }) => file.path === path).content).toBe(asset.content);
++  await writeFile(info.outputPath("back-roundtrip.json"), JSON.stringify({ firstHash: back.artwork.info.sha256, secondHash: secondBack.artwork.info.sha256, originalCoverRetained: true, canonicalInitialStateUnchanged: true, exactPublishedAsset: true, exactDownloadedImage: true, actualRasterDrawObserved: true, fixtureScope: "Existing First Deal rules + local raster fixtures, no model generation" }, null, 2));
++});
++
++test("missing game-back images show a playable fallback and recover through retry", async ({ page }, info) => {
++  await page.route("**/art/first-deal.webp", (route) => route.fulfill({ status: 503, body: "controlled missing image" }));
++  await page.goto("/"); await page.getByRole("button", { name: /host a room/i }).first().click(); await page.getByLabel("Game", { exact: true }).selectOption("first-deal"); await page.getByLabel("Display name", { exact: true }).fill("Back recovery"); await page.getByRole("button", { name: "Create table", exact: true }).click(); await page.getByRole("button", { name: "Enter table", exact: true }).click();
++  await expect(page.getByRole("img", { name: "Live synchronized 3D tabletop", exact: true })).toHaveAttribute("data-render-state", "ready", { timeout: 30_000 });
++  await expect(page.locator("[data-card-back-state]")).toHaveAttribute("data-card-back-state", "failed");
++  await page.getByRole("button", { name: "Draw card", exact: true }).click(); await expect(page.getByRole("button", { name: /^Inspect / })).toHaveCount(1);
++  await page.screenshot({ path: info.outputPath("missing-back-desktop.png"), fullPage: false });
++  await page.unroute("**/art/first-deal.webp"); await page.getByRole("button", { name: "Retry card artwork", exact: true }).click(); await ready(page);
++  await page.setViewportSize({ width: 390, height: 844 }); await page.screenshot({ path: info.outputPath("back-recovered-390.png"), fullPage: false });
++});
+diff --git a/e2e/object-context-menu.e2e.ts b/e2e/object-context-menu.e2e.ts
+new file mode 100644
+index 0000000..ddec1f7
+--- /dev/null
++++ b/e2e/object-context-menu.e2e.ts
+@@ -0,0 +1,105 @@
++import { test, expect, type Page } from "@playwright/test";
++
++async function hostCards(page: Page) {
++  await page.goto("/");
++  await page.getByRole("button", { name: /host a room/i }).first().click();
++  await page.getByLabel("Game", { exact: true }).selectOption("first-deal");
++  await page.getByLabel("Display name", { exact: true }).fill("Menu player");
++  await page.getByRole("button", { name: "Create table", exact: true }).click();
++  await page.getByRole("button", { name: "Enter table", exact: true }).click();
++  await expect(page.getByRole("img", { name: "Live synchronized 3D tabletop", exact: true })).toHaveAttribute("data-render-state", "ready", { timeout: 30_000 });
++  await expect(page.getByRole("button", { name: "Show 1 player", exact: true })).toBeVisible();
++  await page.getByRole("button", { name: "Shuffle deck", exact: true }).click();
++  await page.getByRole("button", { name: "Draw card", exact: true }).click();
++  await expect(page.getByRole("button", { name: "Inspect 7 of Diamonds", exact: true })).toBeVisible();
++}
++
++test.describe("native touch menu activation", () => {
++  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
++
++  test("releasing a hand long press keeps the card private until a fresh menu tap", async ({ page, context }, info) => {
++    const errors: string[] = [];
++    const actions: string[] = [];
++    let watchActions = false;
++    page.on("pageerror", (error) => errors.push(error.message));
++    // Observe only action types; the transport and game remain unmodified.
++    page.on("websocket", (socket) => socket.on("framesent", (frame) => {
++      if (!watchActions) return;
++      const message = JSON.parse(String(frame.payload)) as { type?: string; action?: { type: string } };
++      if (message.type === "action_request" && message.action) actions.push(message.action.type);
++    }));
++    await hostCards(page);
++    await page.getByRole("button", { name: "Draw card", exact: true }).click();
++    const queen = page.getByRole("button", { name: "Inspect Queen of Clubs", exact: true });
++    await expect(queen).toBeVisible();
++    await page.getByRole("button", { name: "Show 1 player", exact: true }).tap();
++    await expect(page.getByRole("complementary", { name: "Players", exact: true })).toBeVisible();
++    watchActions = true;
++    const cardBox = await queen.boundingBox();
++    if (!cardBox) throw new Error("Queen has no touch target");
++    const point = { x: cardBox.x + cardBox.width / 2, y: cardBox.y + cardBox.height / 2 };
++    const cdp = await context.newCDPSession(page);
++    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ ...point, id: 0, radiusX: 5, radiusY: 5, force: 1 }] });
++    await page.waitForTimeout(650);
++    const menu = page.getByRole("menu", { name: "Object actions", exact: true });
++    const play = menu.getByRole("menuitem", { name: "Play to table", exact: true });
++    await expect(play).toBeVisible();
++    // This is the dangerous real layout: the newly opened action is underneath
++    // the original finger, rather than an artificial click dispatched by a test.
++    expect(await play.evaluate((button, finger) => {
++      const hit = document.elementFromPoint(finger.x, finger.y);
++      return hit === button || (hit !== null && button.contains(hit));
++    }, point)).toBe(true);
++    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
++    await page.waitForTimeout(250);
++    await expect(menu).toBeVisible();
++    await expect(queen).toBeVisible();
++    await expect(page.locator(".hand-card")).toHaveCount(2);
++    expect(actions).toEqual([]);
++    await page.screenshot({ path: info.outputPath("long-press-release-keeps-hand.png"), fullPage: false });
++    await play.tap();
++    await expect(menu).toHaveCount(0);
++    await expect(queen).toHaveCount(0);
++    await expect(page.locator(".hand-card")).toHaveCount(1);
++    await expect.poll(() => actions).toEqual(["entity.grab", "entity.drop"]);
++    const seven = page.getByRole("button", { name: "Inspect 7 of Diamonds", exact: true });
++    await seven.tap();
++    await expect(page.getByRole("dialog", { name: "Inspecting 7 of Diamonds", exact: true })).toBeVisible();
++    await page.getByRole("button", { name: "Close inspect", exact: true }).tap();
++    const remainingBox = await seven.boundingBox();
++    if (!remainingBox) throw new Error("Remaining card has no touch target");
++    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: remainingBox.x + remainingBox.width / 2, y: remainingBox.y + remainingBox.height / 2, id: 0, radiusX: 5, radiusY: 5, force: 1 }] });
++    await page.waitForTimeout(650);
++    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
++    await expect(menu).toBeVisible();
++    await page.keyboard.press("Escape");
++    await seven.focus();
++    await page.keyboard.press("Enter");
++    await expect(page.getByRole("dialog", { name: "Inspecting 7 of Diamonds", exact: true })).toBeVisible();
++    expect(actions).toEqual(["entity.grab", "entity.drop"]);
++    expect(errors).toEqual([]);
++    await page.screenshot({ path: info.outputPath("fresh-menu-tap-plays-card.png"), fullPage: false });
++  });
++});
++
++test("menu actions still accept a fresh mouse click and keyboard activation", async ({ page }) => {
++  await hostCards(page);
++  const seven = page.getByRole("button", { name: "Inspect 7 of Diamonds", exact: true });
++  await seven.click({ button: "right" });
++  await page.getByRole("menuitem", { name: "Play to table", exact: true }).click();
++  await expect(seven).toHaveCount(0);
++  await page.getByRole("button", { name: "Draw card", exact: true }).click();
++  const queen = page.getByRole("button", { name: "Inspect Queen of Clubs", exact: true });
++  await expect(queen).toBeVisible();
++  await queen.click({ button: "right" });
++  await expect(page.getByRole("menuitem", { name: "Inspect", exact: true })).toBeFocused();
++  await page.keyboard.press("Enter");
++  await expect(page.getByRole("dialog", { name: "Inspecting Queen of Clubs", exact: true })).toBeVisible();
++  await page.keyboard.press("Escape");
++  await queen.click({ button: "right" });
++  await page.keyboard.press("ArrowDown");
++  await expect(page.getByRole("menuitem", { name: "Play to table", exact: true })).toBeFocused();
++  await page.keyboard.press("Enter");
++  await expect(queen).toHaveCount(0);
++  await expect(page.getByRole("menu", { name: "Object actions", exact: true })).toHaveCount(0);
++});
+diff --git a/e2e/table.e2e.ts b/e2e/table.e2e.ts
+index 0285e42..2d7c760 100644
+--- a/e2e/table.e2e.ts
++++ b/e2e/table.e2e.ts
+@@ -75,7 +75,8 @@ test("two people play Dice Dash to a winner, hear feedback, and retain the finis
+     expect(turns).toBeGreaterThan(1);
+     expect(turns).toBeLessThan(40);
+     await expect(panels[0]!.getByRole("status")).toContainText("wins Dice Dash!");
+-    await expect(page.getByRole("button", { name: "Roll Die", exact: true })).toBeDisabled();
++    await expect(page.getByRole("button", { name: "Roll Die", exact: true })).toHaveCount(0);
++    await expect(page.getByRole("button", { name: "Play again", exact: true })).toBeVisible();
+     expect(await page.evaluate(() => (window as unknown as { __audioStarts: number[] }).__audioStarts.filter((length) => length > 0).length)).toBeGreaterThan(0);
+     await page.getByLabel("Sound settings", { exact: true }).click();
+     await page.getByRole("button", { name: "Mute sound", exact: true }).click();
+@@ -88,9 +89,25 @@ test("two people play Dice Dash to a winner, hear feedback, and retain the finis
+     await page.screenshot({ path: testInfo.outputPath("finished-game-restored.png"), fullPage: true });
+     await page.getByLabel("Sound settings", { exact: true }).click();
+     await expect(page.getByRole("button", { name: "Unmute sound", exact: true })).toHaveAttribute("aria-pressed", "true");
++    await page.getByLabel("Sound settings", { exact: true }).click();
+     expect(errors).toEqual([]);
+     expect(wasmHosts.length).toBeGreaterThan(0);
+     expect(wasmHosts.every((host) => host === "127.0.0.1:8797")).toBe(true);
++    const finishedUrl = page.url();
++    await page.route("**/api/rooms", (route) => route.request().method() === "POST" ? route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { code: "temporary", message: "Controlled new-table outage" } }) }) : route.continue());
++    await page.getByRole("button", { name: "Play again", exact: true }).click();
++    await expect(panels[0]!.getByRole("alert")).toContainText("Controlled new-table outage");
++    expect(page.url()).toBe(finishedUrl);
++    await expect(panels[0]!.getByRole("status")).toContainText("wins Dice Dash!");
++    await page.setViewportSize({ width: 390, height: 844 });
++    await page.screenshot({ path: testInfo.outputPath("winner-continuation-retry-390.png"), fullPage: false });
++    await page.unroute("**/api/rooms");
++    await page.getByRole("button", { name: "Play again", exact: true }).click();
++    await expect(page).not.toHaveURL(finishedUrl); await renderedTable(page);
++    await expect(page.getByRole("button", { name: "Roll Die", exact: true })).toBeEnabled();
++    await expect(page.getByRole("complementary", { name: "Game progress" }).locator("li strong")).toHaveText(["0"]);
++    await expect(other.page.getByRole("complementary", { name: "Game progress" }).getByRole("status")).toContainText("wins Dice Dash!");
++    await page.screenshot({ path: testInfo.outputPath("fresh-round-390.png"), fullPage: false });
+   } finally { await other.context.close(); }
+ });
+ 

@@ -1,0 +1,10 @@
+{
+  "firstHash": "sha256:7e2c3f7ec1366c6e89f4d035c33604f3939b35d3aad66ece4f2f3ccb30522bd0",
+  "secondHash": "sha256:776266de73130ef84ca7c7bc3b822fde930fa5f523d096966954e45bbbc48f96",
+  "originalCoverRetained": true,
+  "canonicalInitialStateUnchanged": true,
+  "exactPublishedAsset": true,
+  "exactDownloadedImage": true,
+  "actualRasterDrawObserved": true,
+  "fixtureScope": "Existing First Deal rules + local raster fixtures, no model generation"
+}

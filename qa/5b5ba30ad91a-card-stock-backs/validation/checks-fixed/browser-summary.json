@@ -1,0 +1,45 @@
+{
+  "source": "40444523553057798243a2cafbcaf590d627c76b",
+  "stats": {
+    "startTime": "2026-10-29T17:14:13.554Z",
+    "duration": 129108.909,
+    "expected": 2,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "errors": [],
+  "tests": [
+    {
+      "title": "different games retain their own raster backs through editor, private play, publication, guest inspection and backup",
+      "file": "cardBacks.e2e.ts",
+      "line": 48,
+      "status": "expected",
+      "expectedStatus": "passed",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 53246,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "two people play Dice Dash to a winner, hear feedback, and retain the finished game after reload",
+      "file": "table.e2e.ts",
+      "line": 35,
+      "status": "expected",
+      "expectedStatus": "passed",
+      "results": [
+        {
+          "status": "passed",
+          "duration": 67923,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    }
+  ],
+  "scope": "Raw auth-bearing browser stdout and traces excluded. Failures retained at original source; later corrections have separate child-exit receipts."
+}
