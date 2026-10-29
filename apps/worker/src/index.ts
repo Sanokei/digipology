@@ -11,6 +11,7 @@ import {
   loadSnapshot,
   snapshot,
   snapshotRequiresScripts,
+  seedInitialRoster,
   type GameSnapshot,
 } from "digipology-kernel";
 import type { CheckpointAttestationRequest, GameSnapshotDto, ReleaseBundleDto } from "digipology-protocol/http";
@@ -977,7 +978,15 @@ export class RoomDO extends DurableObject<Env> {
       }
       if (baseSnapshot.releaseId !== room.release_id) throw new Error("Room release snapshot mismatch");
       if (baseSnapshot.sequence !== 0) throw new Error("Room initial snapshot must start at sequence 0");
-      const initialState = loadSnapshot(baseSnapshot);
+      // Uploaded games use the same sequence-zero roster contract as builtins
+      // and the playtest harness. Read it after the R2 await, inside the same
+      // transaction, so a join during loading cannot disappear from startup.
+      const initialState = !resumed && builtinState === null
+        ? seedInitialRoster(loadSnapshot(baseSnapshot), this.playerRows().map((player) => ({
+          playerId: player.player_id, name: player.display_name, seatId: player.seat_id,
+        })))
+        : loadSnapshot(baseSnapshot);
+      const roomBaseSnapshot = !resumed && builtinState === null ? snapshot(initialState) : baseSnapshot;
       const core = this.loadCore(room);
       if (!resumed) {
         const started = core.sequenceSystem(
@@ -989,26 +998,11 @@ export class RoomDO extends DurableObject<Env> {
         const resumedAction = sequenceGameResume(core, initialState, roster);
         this.persistSystemAction(resumedAction.orderedAction);
       }
-      if (builtinState === null && !resumed) {
-        for (let index = 0; index < roster.length; index += 1) {
-          const player = roster[index]!;
-          const joined = core.sequenceSystem(
-            { type: "system.player_joined", payload: { playerId: player.playerId, name: player.displayName } },
-            `player_joined_${player.playerId}`,
-          );
-          this.persistSystemAction(joined.orderedAction);
-          const seated = core.sequenceSystem(
-            { type: "system.seat_assign", payload: { playerId: player.playerId, seatId: `seat_${index + 1}` } },
-            `seat_assign_${player.playerId}`,
-          );
-          this.persistSystemAction(seated.orderedAction);
-        }
-      }
       this.ctx.storage.sql.exec(
         `UPDATE room
          SET started = 1, initial_snapshot = ?, last_sequence = ?, scripted = ?
          WHERE singleton = 1`,
-        JSON.stringify(baseSnapshot),
+        JSON.stringify(roomBaseSnapshot),
         core.state.lastSequence,
         snapshotRequiresScripts(baseSnapshot) ? 1 : 0,
       );

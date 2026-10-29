@@ -47,7 +47,7 @@ export function reduceAiCreator(state: AiCreatorState, event: AiCreatorEvent): A
       return {
         phase: "prefilled",
         report: event.response.validationReport,
-        message: "Draft ready. Review it in the normal upload form before publishing.",
+        message: "Draft ready. Opening your private playtest…",
       };
     case "failed": {
       const phase = event.code === "ai_unconfigured"

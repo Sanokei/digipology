@@ -2,14 +2,19 @@ import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 import { randomBytes } from "node:crypto";
+import { startQualityServer } from "./quality-server";
+import { startGenerationFixture } from "./e2e-generation-fixture";
 
 const root = resolve(import.meta.dir, "..");
 const temporary = await mkdtemp(join(tmpdir(), "digipology-e2e-"));
 const configPath = join(temporary, "wrangler.json");
+const quality = startQualityServer({ port: 8796 });
+const modelFixture = startGenerationFixture();
+console.log("E2E uses a deterministic model fixture and real Lua quality/repair service; no external model is contacted.");
 const config = {
   name: "digipology-e2e", main: join(root, "apps/worker/src/index.ts"),
   compatibility_date: "2026-08-13", compatibility_flags: ["nodejs_compat"],
-  vars: { PUBLIC_ORIGIN: "http://127.0.0.1:8797", AI_BASE_URL: "", EMAIL_FROM: "local@example.invalid" },
+  vars: { PUBLIC_ORIGIN: "http://127.0.0.1:8797", AI_BASE_URL: "http://127.0.0.1:8795/v1", AI_MODEL: "deterministic-test-fixture", AI_QUALITY_BASE_URL: "http://127.0.0.1:8796", EMAIL_FROM: "local@example.invalid" },
   d1_databases: [{ binding: "DB", database_name: "digipology", database_id: "00000000-0000-0000-0000-000000000001", migrations_dir: join(root, "apps/worker/migrations") }],
   r2_buckets: [{ binding: "RELEASES", bucket_name: "digipology-e2e" }],
   durable_objects: { bindings: [{ name: "ROOM", class_name: "RoomDO" }] },
@@ -31,5 +36,7 @@ try {
   const stop = () => server.kill("SIGTERM");
   process.on("SIGTERM", stop);
   process.on("SIGINT", stop);
-  process.exitCode = await server.exited;
-} finally { await rm(temporary, { recursive: true, force: true }); }
+  const exitCode = await server.exited;
+  console.log(`Isolated E2E Worker exited: code=${exitCode}, signal=${server.signalCode ?? "none"}`);
+  process.exitCode = exitCode;
+} finally { await quality.stop(true); await modelFixture.stop(true); await rm(temporary, { recursive: true, force: true }); }

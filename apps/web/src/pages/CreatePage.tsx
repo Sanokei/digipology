@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useReducer,
+  useRef,
   useState,
 } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -27,6 +28,8 @@ import {
   type AiCreatorState,
 } from "./creatorModel";
 import { CoverPicker } from "./CoverPicker";
+import { DraftStorageError, saveGeneratedDraft } from "./generatedDraft";
+import type { AiGameDraftResponse } from "digipology-protocol/http";
 
 export function ValidationReport({ report }: { report: UploadValidationReportItem[] }) {
   return <ul className="validation-report" aria-label="Upload validation report">
@@ -53,6 +56,9 @@ export function CreatePage() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [aiPrompt, setAiPrompt] = useState("");
+  const [pendingPlaytest, setPendingPlaytest] = useState<AiGameDraftResponse | null>(null);
+  const [playtestMessage, setPlaytestMessage] = useState<string | null>(null);
+  const pendingDraftId = useRef<string | null>(null);
   const [aiState, dispatchAi] = useReducer(reduceAiCreator, initialAiCreatorState);
   const [editInstructions, setEditInstructions] = useState<Record<string, string>>({});
   const [editStates, setEditStates] = useState<Record<string, AiCreatorState>>({});
@@ -82,6 +88,9 @@ export function CreatePage() {
     if (intent === "sign_in") { signIn(); return; }
     if (intent === "ignore") return;
     dispatchAi({ type: "requested" });
+    setPendingPlaytest(null);
+    setPlaytestMessage(null);
+    pendingDraftId.current = null;
     const result = await api.createAiGame(aiPrompt.trim());
     if (!result.ok) {
       dispatchAi({
@@ -101,7 +110,27 @@ export function CreatePage() {
     setMaxPlayers(prefill.maxPlayers);
     setBundleText(prefill.bundleText);
     setReport(result.value.validationReport);
-    setMessage("AI draft loaded below. Review every field, then publish through the normal upload flow.");
+    openPlaytest(result.value);
+  }
+
+  function openPlaytest(response: AiGameDraftResponse) {
+    setPendingPlaytest(response);
+    setPlaytestMessage(null);
+    try {
+      pendingDraftId.current ??= crypto.randomUUID();
+      const draft = saveGeneratedDraft(localStorage, response, aiPrompt, pendingDraftId.current);
+      navigate(`/playtest/${encodeURIComponent(draft.id)}`);
+    } catch (error) {
+      setPlaytestMessage(error instanceof DraftStorageError
+        ? "Your draft is ready, but browser storage is unavailable or full. Download it, or free storage and retry opening the playtest. Retrying here does not generate it again."
+        : `The returned draft could not open: ${error instanceof Error ? error.message : "unreadable draft"}.`);
+    }
+  }
+
+  function downloadDraft(response: AiGameDraftResponse) {
+    const url = URL.createObjectURL(new Blob([JSON.stringify(response.draft, null, 2)], { type: "application/json" }));
+    const link = document.createElement("a"); link.href = url; link.download = "game-draft.json"; link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   async function publish(event: FormEvent) {
@@ -205,23 +234,26 @@ export function CreatePage() {
 
   return <div className="site-page"><SiteHeader /><main className="creator-page">
     <section className="creator-panel ai-creator-panel" aria-labelledby="ai-create-title">
-      <p className="eyebrow">AI draft studio</p><h2 id="ai-create-title">Describe your game</h2>
-      <p>Turn an idea into a reviewable release draft. AI never publishes; the draft still uses the normal upload checks and publish button.</p>
+      <p className="eyebrow">AI draft studio</p><h1 id="ai-create-title">Describe your game</h1>
+      <p>Describe the game you want to play. We check its rules and repair problems, then open a private playtest. Publishing is your choice.</p>
       <form className="stack-form" onSubmit={(event) => void generateWithAi(event)}>
         <label htmlFor="ai-game-prompt">Game description</label>
-        <textarea id="ai-game-prompt" rows={6} maxLength={8000} required value={aiPrompt}
+        <textarea id="ai-game-prompt" rows={6} maxLength={8000} required disabled={aiState.phase === "busy"} value={aiPrompt}
           placeholder="A cooperative two-player dice game about repairing a moon base…"
-          onChange={(event) => { setAiPrompt(event.currentTarget.value); if (aiState.phase !== "busy") dispatchAi({ type: "reset" }); }} />
+          onChange={(event) => { setAiPrompt(event.currentTarget.value); setPendingPlaytest(null); if (aiState.phase !== "busy") dispatchAi({ type: "reset" }); }} />
         <button className="primary-button" type="submit" disabled={aiState.phase === "busy"}>
-          {aiState.phase === "busy" ? "Creating and validating…" : aiState.phase === "failed" ? "Retry AI draft" : "Create draft with AI"}
+          {aiState.phase === "busy" ? "Creating and playtesting…" : aiState.phase === "failed" ? "Retry AI draft" : "Create & play"}
         </button>
       </form>
-      {aiState.message === null ? null : <p className={`form-notice ai-state-${aiState.phase}`} role="status">{aiState.message}</p>}
+      {aiState.message === null || playtestMessage !== null ? null : <p className={`form-notice ai-state-${aiState.phase}`} role="status">{aiState.message}</p>}
+      {playtestMessage ? <p className="form-notice" role="alert">{playtestMessage}</p> : null}
       {aiState.report.length === 0 ? null : <ValidationReport report={aiState.report} />}
+      {pendingPlaytest ? <div className="button-row"><button type="button" className="secondary-button" onClick={() => openPlaytest(pendingPlaytest)}>Retry opening playtest</button><button type="button" className="secondary-button" onClick={() => downloadDraft(pendingPlaytest)}>Download draft</button></div> : null}
     </section>
 
     <section className="creator-panel">
-      <p className="eyebrow">Creator upload</p><h1>Publish a game</h1>
+      <details open={editorPrefill !== null || undefined}><summary>Upload an existing game · advanced</summary>
+      <p className="eyebrow">Creator upload</p><h2>Publish a game</h2>
       <p>Choose a release JSON file or paste the same JSON below. Validation runs locally before upload.</p>
       <form className="stack-form" onSubmit={(event) => void publish(event)}>
         <label htmlFor="game-title">Title</label><input id="game-title" maxLength={80} required value={title} onChange={(event) => setTitle(event.currentTarget.value)} />
@@ -234,6 +266,7 @@ export function CreatePage() {
       </form>
       {message === null ? null : <p className="form-notice" role="status">{message}</p>}
       {report.length === 0 ? null : <ValidationReport report={report} />}
+      </details>
     </section>
 
     <section className="creator-panel" id="my-games" aria-labelledby="my-games-title">

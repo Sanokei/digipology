@@ -9,6 +9,7 @@ import { createEmptyEditorDraft, rebuildDraftIntegrity } from "../state/bundle";
 import { updateScript } from "../state/scripts";
 import { editorTestDraft } from "../state/testFixtures";
 import { compileDraftForPlaytest, PLAYTEST_INTERACTION_ACTIONS, PlaytestRuntime } from "./runtime";
+import { createDiceGameEditorDraft } from "../state/bundle";
 
 const IDENTITY = {
   position: { x: 0, y: 0, z: 0 },
@@ -17,6 +18,42 @@ const IDENTITY = {
 };
 
 describe("in-tab playtest runtime", () => {
+  test("a generated draft starts with all requested seats and accepts each actual actor through victory", async () => {
+    const draft = createDiceGameEditorDraft("two-seat-runtime", "2026-01-01T00:00:00.000Z");
+    updateScript(draft, "scripts/game.lua", `
+function on_start(ctx)
+  for _, player in ipairs(players:list()) do scores:set(player, 0) end
+  turns:start()
+end
+function on_roll(ctx)
+  if not turns:is_current(ctx.player) then error("Wrong player") end
+  scores:add(ctx.player, ctx.value)
+  if scores:get(ctx.player) >= 10 then state.winner_id = ctx.player.id; turns:stop()
+  else turns:next() end
+end
+`);
+    rebuildDraftIntegrity(draft);
+    const bundle = compileDraftForPlaytest(draft);
+    const before = canonicalStringify(bundle);
+    const logs: Array<{ level: string; message: string }> = [];
+    const runtime = await PlaytestRuntime.create(bundle, (entry) => logs.push(entry), { playerCount: 2 });
+    try {
+      let turns = 0;
+      for (; turns < 40; turns++) {
+        const script = runtime.getState().scriptState as { winner_id?: string; __stdlib: { turns: { order: string[]; index: number } } };
+        if (script.winner_id) break;
+        const playerId = script.__stdlib.turns.order[script.__stdlib.turns.index - 1]!;
+        await runtime.dispatchInteraction("die.roll", { entityId: "die" }, playerId);
+      }
+      expect(turns).toBeGreaterThan(1);
+      expect(turns).toBeLessThan(40);
+      expect(logs.filter((entry) => entry.level !== "info")).toEqual([]);
+      expect(runtime.getEvents().some((event) => event.type === "die.rolled")).toBe(true);
+      expect(canonicalStringify(bundle)).toBe(before);
+      await expect(runtime.dispatchInteraction("die.roll", { entityId: "die" }, "not-seated")).rejects.toThrow("seated");
+    } finally { runtime.close(); }
+  });
+
   test("allows every post-tabletop player action registered by the kernel", () => {
     const playerActions = builtInActions
       .filter((definition) => definition.sources.includes("player"))

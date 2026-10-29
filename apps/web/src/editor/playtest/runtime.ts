@@ -4,11 +4,13 @@ import {
   builtInActions,
   loadSnapshot,
   snapshot,
+  seedInitialRoster,
   type ActionActor,
   type ApplyOrderedResult,
   type CanonicalGameState,
   type JsonValue,
   type OrderedActionInput,
+  type KernelEvent,
 } from "digipology-kernel";
 import {
   createCreatorScriptRuntime,
@@ -38,6 +40,8 @@ export interface PlaytestLog {
   readonly message: string;
 }
 
+export interface PlaytestOptions { playerCount?: number }
+
 export function compileDraftForPlaytest(draft: EditorDraft): ReleaseBundleDto {
   const candidate = structuredClone(draft);
   rebuildDraftIntegrity(candidate);
@@ -56,38 +60,58 @@ export class PlaytestRuntime {
   private tickNumber = 0;
   private readonly dueTimers = new Map<string, number>();
   private closed = false;
+  private events: KernelEvent[] = [];
+  private readonly seeded: boolean;
 
   private constructor(
     bundle: ReleaseBundleDto,
     runtime: CreatorScriptRuntime,
     onLog: (entry: PlaytestLog) => void,
+    options: PlaytestOptions,
   ) {
     this.state = loadSnapshot(bundle.initialSnapshot as never);
+    this.seeded = options.playerCount !== undefined;
+    if (options.playerCount !== undefined) {
+      const count = options.playerCount;
+      if (!Number.isSafeInteger(count) || count < bundle.minPlayers || count > bundle.maxPlayers || count > 64) {
+        throw new TypeError("Choose a player count supported by this game");
+      }
+      this.state = seedInitialRoster(this.state, Array.from({ length: count }, (_, index) => ({
+        playerId: index === 0 ? PLAYTEST_PLAYER_ID : `${PLAYTEST_PLAYER_ID}-${index + 1}`,
+        name: `Player ${index + 1}`, seatId: `seat_${index + 1}`,
+      })));
+    }
     this.runtime = runtime;
     this.onLog = onLog;
   }
 
-  static async create(bundle: ReleaseBundleDto, onLog: (entry: PlaytestLog) => void): Promise<PlaytestRuntime> {
+  static async create(bundle: ReleaseBundleDto, onLog: (entry: PlaytestLog) => void, options: PlaytestOptions = {}): Promise<PlaytestRuntime> {
     const entityRefs = Object.fromEntries(Object.keys(
       (bundle.initialSnapshot.state as CanonicalGameState).entities,
     ).sort().map((id) => [id, id]));
-    const runtime = new PlaytestRuntime(bundle, await createCreatorScriptRuntime({
+    const creator = await createCreatorScriptRuntime({
       scripts: scriptsFromReleaseFiles(bundle.files),
       refs: { ...entityRefs, ...(bundle.refs ?? {}) },
       definitions: bundle.definitions ?? {},
       instructionBudget: PLAYTEST_INSTRUCTION_BUDGET,
       memoryBudgetBytes: PLAYTEST_MEMORY_BUDGET_BYTES,
-    }), onLog);
-    await runtime.boot();
-    return runtime;
+    });
+    let runtime: PlaytestRuntime | null = null;
+    try {
+      runtime = new PlaytestRuntime(bundle, creator, onLog, options);
+      await runtime.boot();
+      return runtime;
+    } catch (error) { creator.close(); throw error; }
   }
 
   getState(): CanonicalGameState { return this.state; }
   getSnapshot() { return snapshot(this.state); }
+  getEvents(): KernelEvent[] { return this.events; }
 
-  async dispatchInteraction(type: string, payload: JsonValue): Promise<void> {
+  async dispatchInteraction(type: string, payload: JsonValue, playerId = Object.keys(this.state.players).sort()[0] ?? PLAYTEST_PLAYER_ID): Promise<void> {
     if (!PLAYTEST_INTERACTION_ACTIONS.has(type)) throw new TypeError(`Playtest interaction is not registered: ${type}`);
-    await this.apply(type, payload, { type: "player", playerId: PLAYTEST_PLAYER_ID });
+    if (!Object.hasOwn(this.state.players, playerId)) throw new TypeError("Choose a seated playtester");
+    await this.apply(type, payload, { type: "player", playerId });
   }
 
   async tick(): Promise<void> {
@@ -111,8 +135,10 @@ export class PlaytestRuntime {
   }
 
   private async boot(): Promise<void> {
-    await this.apply("system.game_start", { settings: this.state.settings }, { type: "system" });
-    if (Object.keys(this.state.players).length === 0) {
+    if (!await this.apply("system.game_start", { settings: this.state.settings }, { type: "system" })) {
+      throw new Error("The game's setup rules failed. Edit the draft or retry the playtest.");
+    }
+    if (!this.seeded && Object.keys(this.state.players).length === 0) {
       await this.apply("system.player_joined", { playerId: PLAYTEST_PLAYER_ID, name: "Playtester" }, { type: "system" });
       await this.apply("system.seat_assign", { playerId: PLAYTEST_PLAYER_ID, seatId: PLAYTEST_SEAT_ID }, { type: "system" });
     }
@@ -132,6 +158,7 @@ export class PlaytestRuntime {
     };
     const result = await applyOrderedWithScripts(this.state, ordered, { runtime: this.runtime });
     this.state = result.state;
+    this.events = result.events;
     this.recordEvents(result);
     if (result.rejection !== undefined) {
       this.onLog({ level: "warning", message: `Rejected ${type}: ${result.rejection.reason}` });

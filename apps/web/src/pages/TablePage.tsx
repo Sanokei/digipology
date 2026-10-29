@@ -78,7 +78,7 @@ export function DiceControls({
   >Roll {labels.get(entity.id) ?? "Die"}</button><output aria-label={`${labels.get(entity.id) ?? "Die"} result`}>{String(entity.components.die?.value ?? "—")}</output></div>)}</aside>;
 }
 
-function PromptPanel({
+export function PromptPanel({
   prompt,
   disabled,
   respond,

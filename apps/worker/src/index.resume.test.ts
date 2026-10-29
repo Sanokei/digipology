@@ -1,10 +1,13 @@
 import { Database, type SQLQueryBindings } from "bun:sqlite";
 import { expect, mock, test } from "bun:test";
-import { applyOrdered, applyOrderedWithScripts, createInitialState, snapshot, type OrderedActionInput } from "digipology-kernel";
+import { applyOrdered, applyOrderedWithScripts, createInitialState, loadSnapshot, snapshot, type OrderedActionInput } from "digipology-kernel";
 import { getBuiltinRelease } from "digipology-demo-games";
 import { createCreatorScriptRuntime, scriptsFromReleaseFiles } from "../../../packages/lua/src/creator-runtime";
 import { createBuiltinInitialState } from "./initial-state";
 import type { PlayerInfo, ServerMessage } from "digipology-protocol";
+import type { ReleaseBundleDto } from "digipology-protocol/http";
+import { builtinCatalog } from "./catalog";
+import { assembleAiGameDraft, authoringFromBundle } from "./ai-games";
 
 mock.module("cloudflare:workers", () => ({
   DurableObject: class {
@@ -15,7 +18,7 @@ const { RoomDO } = await import("./index");
 
 // Exercise the actual DO methods and migration SQL, with an in-memory SQLite
 // adapter. Network lifecycle/hibernation still needs the local Wrangler smoke.
-function harness(db = new Database(":memory:")) {
+function harness(db = new Database(":memory:"), readRelease?: () => Promise<ReleaseBundleDto>) {
   const sockets: WebSocket[] = [];
   const ctx = {
     storage: {
@@ -36,9 +39,43 @@ function harness(db = new Database(":memory:")) {
     getWebSockets: () => sockets, waitUntil: (_promise: Promise<unknown>) => {},
   };
   const statement = { bind: (..._args: unknown[]) => statement, run: async () => ({}) };
-  const room = new RoomDO(ctx as unknown as DurableObjectState, { DB: { prepare: () => statement } } as unknown as Env);
+  const room = new RoomDO(ctx as unknown as DurableObjectState, { DB: { prepare: () => statement },
+    ...(readRelease ? { RELEASES: { get: async () => { const release = await readRelease(); return { json: async () => structuredClone(release) }; } } } : {}),
+  } as unknown as Env);
   return { db, room, sockets };
 }
+
+test("uploaded games start with the current seated roster even when someone joins during release loading", async () => {
+  const source = builtinCatalog.getRelease("builtin_dice_dash_3")!.bundle;
+  const bundle = assembleAiGameDraft(authoringFromBundle(source)).draft!;
+  let finishRead: (bundle: ReleaseBundleDto) => void = () => {};
+  const waiting = new Promise<ReleaseBundleDto>((resolve) => { finishRead = resolve; });
+  const { db, room } = harness(undefined, () => waiting);
+  let runtime;
+  try {
+    room.init("uploaded-roster", "UPLOADED", bundle.releaseId, 4);
+    const host = await join(room, "Host");
+    const starting = internals(room).startIfNeeded();
+    const guest = await join(room, "Guest during load");
+    finishRead(bundle);
+    await starting;
+    const stored = db.query("SELECT initial_snapshot FROM room").get() as { initial_snapshot: string };
+    const initial = loadSnapshot(JSON.parse(stored.initial_snapshot));
+    expect(Object.keys(initial.players).sort()).toEqual([host.playerId, guest.playerId].sort());
+    expect(initial.seats.seat_1?.playerId).toBe(host.playerId);
+    expect(initial.seats.seat_2?.playerId).toBe(guest.playerId);
+    const actions = db.query("SELECT body FROM actions ORDER BY sequence").all() as { body: string }[];
+    expect(actions).toHaveLength(1);
+    runtime = await createCreatorScriptRuntime({ scripts: scriptsFromReleaseFiles(bundle.files), refs: bundle.refs ?? {}, definitions: bundle.definitions ?? {}, instructionBudget: 50_000 });
+    const started = await applyOrderedWithScripts(initial, JSON.parse(actions[0]!.body), { runtime });
+    expect(started.rejection).toBeUndefined();
+    expect(started.events.some((event) => event.type === "script.error")).toBe(false);
+    const stdlib = started.state.scriptState as { __stdlib: { turns: { order: string[] }; scores: Record<string, number> } };
+    expect(stdlib.__stdlib.turns.order.sort()).toEqual([host.playerId, guest.playerId].sort());
+    expect(stdlib.__stdlib.scores[host.playerId]).toBe(0);
+    expect((bundle.initialSnapshot.state as { players: object }).players).toEqual({});
+  } finally { runtime?.close(); db.close(); }
+});
 
 async function join(room: InstanceType<typeof RoomDO>, name: string) {
   const result = await room.join(name);

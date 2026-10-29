@@ -9,6 +9,7 @@ const JoinPage = lazy(async () => ({ default: (await import("./pages/JoinPage"))
 const GamesPage = lazy(async () => ({ default: (await import("./pages/GamesPage")).GamesPage }));
 const GameDetailPage = lazy(async () => ({ default: (await import("./pages/GameDetailPage")).GameDetailPage }));
 const CreatePage = lazy(async () => ({ default: (await import("./pages/CreatePage")).CreatePage }));
+const DraftPlayPage = lazy(async () => ({ default: (await import("./pages/DraftPlayPage")).DraftPlayPage }));
 const SavesPage = lazy(async () => ({ default: (await import("./pages/SavesPage")).SavesPage }));
 const LoginPage = lazy(async () => ({ default: (await import("./pages/LoginPage")).LoginPage }));
 
@@ -35,6 +36,7 @@ export function AppRoutes() {
         <Route path="/games" element={<GamesPage />} />
         <Route path="/games/:slug" element={<GameDetailPage />} />
         <Route path="/create" element={<CreatePage />} />
+        <Route path="/playtest/:draftId" element={<DraftPlayPage />} />
         <Route path="/saves" element={<SavesPage />} />
         <Route
           path="/edit"

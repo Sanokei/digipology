@@ -20,5 +20,5 @@
     ],
     "types": ["bun"]
   },
-  "include": ["smoke-play.ts", "smoke-quickplay.ts", "smoke-saves.ts", "smoke-zone-runner.ts", "e2e-server.ts", "product-loop.ts", "product-loop.test.ts", "media.ts", "media/*.ts", "quality-server.ts"]
+  "include": ["smoke-play.ts", "smoke-quickplay.ts", "smoke-saves.ts", "smoke-zone-runner.ts", "e2e-server.ts", "e2e-generation-fixture.ts", "product-loop.ts", "product-loop.test.ts", "media.ts", "media/*.ts", "quality-server.ts"]
 }

@@ -105,3 +105,4 @@ export type {
   ZoneComponent,
 } from "./types";
 export type { Rng, RngState } from "digipology-prng";
+export { seedInitialRoster, type InitialSessionPlayer } from "./session-roster";

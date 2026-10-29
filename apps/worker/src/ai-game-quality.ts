@@ -8,7 +8,7 @@ import {
 } from "digipology-ai";
 import {
   applyOrderedWithScripts,
-  createInitialState,
+  seedInitialRoster,
   loadSnapshot,
   type CanonicalGameState,
   type GameSnapshot,
@@ -687,8 +687,7 @@ export async function simulateDraft(
   const runtime = await createCreatorScriptRuntime({ scripts, instructionBudget, memoryBudgetBytes: 512 * 1024, refs: draft.refs ?? {}, definitions: draft.definitions ?? {} });
   try {
     const initial = loadSnapshot(draft.initialSnapshot as unknown as GameSnapshot);
-    const players: CanonicalGameState["players"] = {};
-    const seats = structuredClone(initial.seats);
+    const roster = [];
 
     const playerCount = Math.min(Math.max(draft.minPlayers, 1), 4);
     const playerIds: string[] = [];
@@ -696,13 +695,11 @@ export async function simulateDraft(
     for (let index = 1; index <= playerCount; index += 1) {
       const playerId = `sim_player_${index}`;
       playerIds.push(playerId);
-      players[playerId] = { id: playerId, name: `Player ${index}` };
-      const seatId = Object.keys(seats).sort()[index - 1] ?? `seat_${index}`;
-      seats[seatId] = { ...seats[seatId], id: seatId, playerId };
+      roster.push({ playerId, name: `Player ${index}`, seatId: `seat_${index}` });
     }
     // Live rooms place their initial roster in the sequence-zero snapshot,
     // then run game_start once. Joining first would make game_start invalid.
-    let state = createInitialState({ ...initial, players, seats });
+    let state = seedInitialRoster(initial, roster);
     const started = await applyOrderedWithScripts(state, nextAction(1, "sim-start", "system.game_start", { type: "system" }, {}), { runtime });
     state = started.state;
     let sequence = state.sequence;

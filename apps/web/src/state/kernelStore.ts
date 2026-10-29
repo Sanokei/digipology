@@ -187,13 +187,13 @@ export class KernelStore {
     this.replaceSnapshot(this.initialSnapshot);
   }
 
-  replaceSnapshot(value: GameSnapshot): void {
+  replaceSnapshot(value: GameSnapshot, events: KernelEvent[] = []): void {
     const state = loadSnapshot(value);
     this.publish({
       ...this.current,
       state,
       displayedState: state,
-      events: [],
+      events,
       pendingRequestIds: new Set(),
       predictionLedger: [],
       correction: null,
