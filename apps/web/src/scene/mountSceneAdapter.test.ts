@@ -107,3 +107,15 @@ test("a stalled fallback renderer is disposed and surfaced instead of leaving an
   )).rejects.toThrow("initialization timed out");
   expect(disposed).toEqual(["lite", "webgl"]);
 });
+
+test("a stalled lazy import falls back within the same renderer budget and its late adapter never mounts", async () => {
+  let release!: (adapter: SceneAdapter) => void, lateMounts = 0, lateDisposals = 0;
+  const stalled = new Promise<SceneAdapter>((resolve) => { release = resolve; });
+  const late = { mount: async () => { lateMounts++; }, dispose: () => { lateDisposals++; } } as unknown as SceneAdapter;
+  const fallback = { mount: async () => {}, dispose: () => {} } as unknown as SceneAdapter;
+  const result = await mountSceneAdapter({ renderer: "lite", requestedLiteFallback: false, reason: "webgpu" }, async (renderer) => renderer === "lite" ? stalled : fallback, {} as HTMLCanvasElement, "default", () => {}, 5);
+  expect(result).toBe(fallback); release(late); await Promise.resolve(); await Promise.resolve(); expect(lateMounts).toBe(0); expect(lateDisposals).toBeGreaterThan(0);
+});
+test("a stalled fallback import rejects instead of leaving the table in perpetual loading", async () => {
+  await expect(mountSceneAdapter({ renderer: "lite", requestedLiteFallback: false, reason: "webgpu" }, async () => new Promise<SceneAdapter>(() => {}), {} as HTMLCanvasElement, "default", () => {}, 5)).rejects.toThrow("initialization timed out");
+});
