@@ -7,6 +7,8 @@ import { EDITOR_PANELS } from "./layout";
 import { MenuBar, type MenuAction } from "./menubar/MenuBar";
 import { OpenDraftDialog } from "./OpenDraftDialog";
 import { NewDraftDialog } from "./NewDraftDialog";
+import { SoundBundleDialog } from "./SoundBundleDialog";
+import { attachSoundBundle } from "./state/sounds";
 import { CommitTextInput } from "./panels/common/PanelComponents";
 import { editableDraftBackup, saveDraftForReview } from "./publish";
 import { downloadBlob } from "./state/artwork";
@@ -35,7 +37,7 @@ function downloadBundle(store: EditorStore): void {
   anchor.download = `${draft.slug || draft.id}.json`;
   anchor.click();
   URL.revokeObjectURL(url);
-  store.log("Release bundle exported. Use Download editable draft to include artwork and review notes.");
+  store.log("Release bundle exported, including any pinned presentation sound file. Use Download editable draft to include artwork and review notes.");
 }
 
 function downloadDraft(store: EditorStore): void {
@@ -61,6 +63,7 @@ export function EditorPage() {
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [openDrafts, setOpenDrafts] = useState<ReturnType<typeof loadDraftIndex> | null>(null);
   const [newDraftOpen, setNewDraftOpen] = useState(landing);
+  const [soundsOpen, setSoundsOpen] = useState(false);
   const store = useMemo(() => {
     const loaded = landing ? null : loadEditorDraft(localStorage, draftId);
     const draft = loaded ?? createEmptyEditorDraft(draftId);
@@ -77,6 +80,7 @@ export function EditorPage() {
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
+      if (target?.closest('[role="dialog"]')) return;
       const typing = target?.matches("input, textarea, select, [contenteditable=true]") === true;
       if (typing) return;
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
@@ -137,6 +141,7 @@ export function EditorPage() {
     const keydown = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey)) return;
       const target = event.target as HTMLElement | null;
+      if (target?.closest('[role="dialog"]')) return;
       if (target?.matches("input, textarea, select, [contenteditable=true]") === true) return;
       if (event.key.toLowerCase() === "n") { event.preventDefault(); newDraft(); }
       else if (event.key.toLowerCase() === "o") { event.preventDefault(); openDraft(); }
@@ -152,8 +157,9 @@ export function EditorPage() {
       { kind: "action", label: "Open local draft…", shortcut: "Ctrl+O", onSelect: openDraft },
       { kind: "separator" },
       { kind: "action", label: "Import draft or bundle…", searchTerms: ["json file artwork backup"], onSelect: () => fileInput.current?.click() },
+      { kind: "action", label: "Add sound bundle…", searchTerms: ["audio clips credits mastered import"], disabled: playtestSnapshot.status !== "stopped", onSelect: () => setSoundsOpen(true) },
       { kind: "action", label: "Download editable draft", shortcut: "Ctrl+S", searchTerms: ["save backup json artwork credits review"], onSelect: () => downloadDraft(store) },
-      { kind: "action", label: "Export release bundle", searchTerms: ["gameplay only json without artwork review"], onSelect: () => downloadBundle(store) },
+      { kind: "action", label: "Export release bundle", searchTerms: ["gameplay presentation sounds json without artwork review"], onSelect: () => downloadBundle(store) },
       { kind: "separator" },
       { kind: "action", label: "Publish…", searchTerms: ["review private play upload release"], onSelect: publish },
     ],
@@ -192,5 +198,10 @@ export function EditorPage() {
       <p role="alert">{reviewError}</p><div className="editor-recovery-actions"><button type="button" onClick={publish}>Retry opening review</button><button type="button" onClick={() => downloadDraft(store)}>Download editable draft</button></div>
     </ReadingDialog> : null}
     <EditorLayoutHost store={store} playtest={playtest} onReady={onLayoutReady} />
+    {soundsOpen ? <SoundBundleDialog onClose={() => setSoundsOpen(false)} onSave={(content) => {
+      const ok = store.applySceneCommand("Pinned mastered sound bundle", (draft) => attachSoundBundle(draft, content));
+      if (!ok) throw new Error(store.getSnapshot().logs.at(-1)?.message ?? "The sound bundle could not be attached.");
+      return true;
+    }} /> : null}
   </div>;
 }

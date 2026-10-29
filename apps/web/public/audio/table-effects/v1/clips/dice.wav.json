@@ -1,0 +1,31 @@
+{
+  "profile": "effect",
+  "loop": false,
+  "normalization": "ebu-r128",
+  "targetLufs": -20,
+  "truePeakCeilingDb": -1.5,
+  "input": {
+    "duration": 0.900896,
+    "sampleRate": 48000,
+    "channels": 2
+  },
+  "output": {
+    "duration": 0.723521,
+    "sampleRate": 48000,
+    "channels": 1
+  },
+  "measured": {
+    "input_i": "-42.67",
+    "input_tp": "-16.08",
+    "input_lra": "0.00",
+    "input_thresh": "-52.67",
+    "output_i": "-28.09",
+    "output_tp": "-1.50",
+    "output_lra": "0.00",
+    "output_thresh": "-38.09",
+    "normalization_type": "linear",
+    "target_offset": "8.09"
+  },
+  "sourceHash": "e4043660b7bc15bd1ec208c4193838da5a2618bde6f35e3d76654557268aa221",
+  "outputHash": "ad3c60d3104e37551df1ce461fadbd9dbcf4381790f1000ec03f7c781a334fa8"
+}

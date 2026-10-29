@@ -113,7 +113,7 @@ export function TablePage() {
   const client = useMemo(() => session === null ? null : new RoomClient(session, store, setStatus), [clientGeneration, session, store]);
   const [projectToTable, setProjectToTable] = useState<((clientX: number, clientY: number) => { x: number; y: number; z: number } | null) | undefined>();
   const view = useKernelStore(store);
-  const audio = useTableAudio(store, status.state === "connected");
+  const audio = useTableAudio(store, status.state === "connected", session?.playerId ?? "");
   const [playersOpen, setPlayersOpen] = useState(() => playersPanelOpenByDefault(
     typeof window !== "undefined" && window.matchMedia("(min-width: 769px)").matches,
   ));

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { command, masterAudio } from "./audio";
 import { fetchAsset } from "./assets";
+import { inspectSoundWave } from "digipology-protocol";
 
 test("FFmpeg masters a real clip with measured loudness, 48kHz output and peak headroom", async () => {
   const dir = await mkdtemp(join(tmpdir(), "digipology-audio-test-"));
@@ -21,6 +22,22 @@ test("FFmpeg masters a real clip with measured loudness, 48kHz output and peak h
     expect(Number.isFinite(peak)).toBe(true);
     expect(peak).toBeLessThanOrEqual(-1.4);
     await expect(masterAudio(input, output, "music")).rejects.toThrow("overwrite");
+  } finally { await rm(dir, { recursive: true, force: true }); }
+}, 20_000);
+
+test("effect edge trimming preserves separated attacks and their interior pause, and rejects silence", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "digipology-edges-test-"));
+  try {
+    const input = join(dir, "two-attacks.wav"), output = join(dir, "master.wav");
+    await command(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "anullsrc=r=48000:cl=mono:d=0.1", "-f", "lavfi", "-i", "sine=frequency=440:duration=0.15:sample_rate=48000", "-f", "lavfi", "-i", "anullsrc=r=48000:cl=mono:d=0.2", "-f", "lavfi", "-i", "sine=frequency=880:duration=0.15:sample_rate=48000", "-f", "lavfi", "-i", "anullsrc=r=48000:cl=mono:d=0.1", "-filter_complex", "[0:a][1:a][2:a][3:a][4:a]concat=n=5:v=0:a=1[out]", "-map", "[out]", input]);
+    await masterAudio(input, output, "effect");
+    const bytes = new Uint8Array(await Bun.file(output).arrayBuffer()), stats = inspectSoundWave(bytes);
+    expect(stats.duration).toBeGreaterThan(.45); expect(stats.duration).toBeLessThan(.6);
+    const start = Buffer.from(bytes).indexOf("data") + 8, view = new DataView(bytes.buffer);
+    const energy = (from: number, to: number) => { let sum = 0, n = 0; for (let i = Math.floor(from * 48000); i < Math.floor(to * 48000); i++) { sum += (view.getInt16(start + i * 2, true) / 32768) ** 2; n++; } return Math.sqrt(sum / n); };
+    expect(energy(.04, .1)).toBeGreaterThan(.01); expect(energy(.24, .29)).toBeLessThan(.001); expect(energy(stats.duration - .1, stats.duration - .04)).toBeGreaterThan(.01);
+    const silence = join(dir, "silence.wav"); await command(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "anullsrc=r=48000:cl=mono:d=0.2", silence]);
+    await expect(masterAudio(silence, join(dir, "empty.wav"), "effect")).rejects.toThrow();
   } finally { await rm(dir, { recursive: true, force: true }); }
 }, 20_000);
 

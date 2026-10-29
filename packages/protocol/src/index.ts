@@ -868,6 +868,7 @@ function readJsonString(
 }
 
 export { authoredRules, readRulebook, type GameRulebook } from "./rulebook";
+export { TABLE_SOUND_PATH, SOUND_BUNDLE_LIMIT, SOUND_CUES, soundHash, soundBytes, inspectSoundWave, parseSoundBundle, type SoundCue, type SoundClip, type SoundBundle, type WaveStats } from "./sound-bundle";
 
 function decodeSimpleEscape(value: string): string | undefined {
   switch (value) {

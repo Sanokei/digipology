@@ -1,13 +1,40 @@
-import type { KernelEvent } from "digipology-kernel";
+import { canPlayerViewContainer, type CanonicalGameState, type KernelEvent } from "digipology-kernel";
+import type { SoundCue } from "digipology-protocol";
+export type { SoundCue } from "digipology-protocol";
 
-export type SoundCue = "dice" | "card" | "shuffle" | "place" | "choice" | "victory";
 const EVENT_CUES: Readonly<Record<string, SoundCue>> = {
   "die.rolled": "dice", "entity.flipped": "card", "deck.drawn": "card",
   "deck.shuffled": "shuffle", "entity.dropped": "place", "snap.attached": "place", "prompt.created": "choice",
 };
 
-export function cuesForEvents(events: readonly KernelEvent[]): SoundCue[] {
-  return [...new Set(events.map((event) => EVENT_CUES[event.type]).filter((cue): cue is SoundCue => cue !== undefined))].slice(0, 3);
+export interface SoundAudience { before: CanonicalGameState | null; after: CanonicalGameState | null; playerId: string }
+
+function visibleEntity(state: CanonicalGameState, id: string, playerId: string, visited = new Set<string>()): boolean {
+  const entity = state.entities[id];
+  if (!entity || visited.has(id)) return false;
+  visited.add(id);
+  if (entity.components.container && !canPlayerViewContainer(state, id, playerId)) return false;
+  const owner = entity.components.hand?.owner;
+  if (owner && owner !== playerId && state.seats[owner]?.playerId !== playerId) return false;
+  for (const parent of Object.values(state.entities)) {
+    if (parent.components.container?.items.includes(id) && (!canPlayerViewContainer(state, parent.id, playerId) || !visibleEntity(state, parent.id, playerId, new Set(visited)))) return false;
+  }
+  return true;
+}
+
+/** Fail closed for missing context, private destinations, membership and prompt recipients. */
+export function cuesForEvents(events: readonly KernelEvent[], audience?: SoundAudience): SoundCue[] {
+  if (!audience?.before || !audience.after || !audience.playerId) return [];
+  const { before, after, playerId } = audience;
+  const visible = (id: unknown) => typeof id === "string" && visibleEntity(before, id, playerId) && visibleEntity(after, id, playerId);
+  const allowed = (event: KernelEvent): boolean => {
+    if (event.type === "prompt.created") return event.data.playerId === playerId && typeof event.data.id === "string" && after.prompts[event.data.id]?.playerId === playerId;
+    if (event.type === "deck.drawn") return visible(event.data.deckId) && visible(event.data.target) && Array.isArray(event.data.items) && event.data.items.length > 0 && event.data.items.every(visible);
+    if (event.type === "deck.shuffled") return visible(event.data.deckId);
+    if (event.type === "snap.attached") return visible(event.data.entityId) && visible(event.data.snapPointId);
+    return visible(event.data.entityId);
+  };
+  return [...new Set(events.filter((event) => EVENT_CUES[event.type] && allowed(event)).map((event) => EVENT_CUES[event.type]!))].slice(0, 3);
 }
 
 /** Small, bounded fallback Foley. Imported mastered clips can replace these without touching gameplay. */

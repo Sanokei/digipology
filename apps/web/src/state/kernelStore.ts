@@ -16,7 +16,7 @@ import {
   type CreatorScriptRuntime,
 } from "digipology-lua";
 import type { OrderedAction, PlayerInfo, ResumeMessage, RoomEndedMessage } from "digipology-protocol";
-import { readRulebook, type GameRulebook } from "digipology-protocol";
+import { readRulebook, TABLE_SOUND_PATH, type GameRulebook } from "digipology-protocol";
 
 import type { ReleaseBundleDto } from "digipology-protocol/http";
 
@@ -54,6 +54,8 @@ export interface KernelStoreSnapshot {
   definitions: Readonly<Record<string, { label?: string; color?: string }>>;
   gameTitle: string | null;
   rulebook: GameRulebook | null;
+  /** Immutable presentation file; never part of canonical state or prediction. */
+  soundBundle: string | null;
 }
 
 export type ApplyStreamResult = { ok: true } | { ok: false; expected: number; actual: number };
@@ -110,7 +112,7 @@ export class KernelStore {
   private current: KernelStoreSnapshot = {
     state: null, displayedState: null, events: [], players: [], pendingRequestIds: new Set(),
     predictionLedger: [], correction: null, endedReason: null, stateHash: null,
-    diagnostic: null, definitions: {}, gameTitle: null, rulebook: null,
+    diagnostic: null, definitions: {}, gameTitle: null, rulebook: null, soundBundle: null,
   };
   private readonly listeners = new Set<() => void>();
   private initialSnapshot: GameSnapshot | null = null;
@@ -144,6 +146,7 @@ export class KernelStore {
       definitions: bundle.definitions ?? {},
       gameTitle: bundle.title ?? null,
       rulebook: readRulebook(bundle),
+      soundBundle: Array.isArray(bundle.files) ? bundle.files.find((file) => file.path === TABLE_SOUND_PATH)?.content ?? null : null,
     });
   }
 

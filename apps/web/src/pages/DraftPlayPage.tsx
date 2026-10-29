@@ -38,7 +38,7 @@ export function DraftPlayPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [retryStage, setRetryStage] = useState<DraftPublicationStage>("publication");
   const [projector, setProjector] = useState<((x: number, y: number) => { x: number; y: number; z: number } | null) | undefined>();
-  const audio = useTableAudio(controller.projection, runtime.status === "playing");
+  const audio = useTableAudio(controller.projection, runtime.status === "playing", runtime.playerId);
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();

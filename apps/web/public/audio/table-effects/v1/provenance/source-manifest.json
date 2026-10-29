@@ -1,0 +1,19 @@
+{
+  "id": "kenney-table-effects",
+  "version": 1,
+  "title": "Kenney table effects",
+  "repository": "https://github.com/KenneyNL/Starter-Kit-3D-Platformer.git",
+  "commit": "3fa8a04b1c01ab23db43123d4ce814a34c3fc7f0",
+  "creator": "Kenney",
+  "license": "CC0-1.0",
+  "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "evidence": [
+    { "path": "README.md", "sha256": "sha256:d8f51d172d58e62d289105a5a1561e02e54cccc4c6d1215472169bc50ff2f91f" },
+    { "path": "LICENSE.md", "sha256": "sha256:f755bf8f21002f8d5baedaf75564141d363971f3f7bc8c4062956b0b15a6f04f" }
+  ],
+  "clips": [
+    { "cue": "card", "title": "Short placement tap", "path": "sounds/land.ogg", "sha256": "sha256:145a1c17125dc4d344ac135bc5073e35ea12e19700ca30ee6e1e477010b4dca0" },
+    { "cue": "dice", "title": "Dice impact sequence", "path": "sounds/walking.ogg", "sha256": "sha256:e4043660b7bc15bd1ec208c4193838da5a2618bde6f35e3d76654557268aa221" },
+    { "cue": "choice", "title": "Choice notification", "path": "sounds/coin.ogg", "sha256": "sha256:df55e931e6b78e5aecc015922e873a0e8bfa4e97cfb19abc64149d54afe89216" }
+  ]
+}

@@ -1,10 +1,12 @@
 import { expect, test } from "bun:test";
 import { cuesForEvents, renderCue, type SoundCue } from "./cues";
 import type { KernelEvent } from "digipology-kernel";
+import { createInitialState } from "digipology-kernel";
 
 test("action events produce bounded cues without sounding for unrelated game updates", () => {
-  const events = ["die.rolled", "die.rolled", "counter.changed", "entity.flipped"].map((type) => ({ type, sequence: 1, actionId: "one", data: {} }) satisfies KernelEvent);
-  expect(cuesForEvents(events)).toEqual(["dice", "card"]);
+  const state = createInitialState({ releaseId: "cues", rng: { algorithm: "sfc32-v1", state: [1, 2, 3, 4], draws: 0 }, entities: { public: { id: "public", components: {} } } });
+  const events = ["die.rolled", "die.rolled", "counter.changed", "entity.flipped"].map((type) => ({ type, sequence: 1, actionId: "one", data: { entityId: "public" } }) satisfies KernelEvent);
+  expect(cuesForEvents(events, { before: state, after: state, playerId: "alice" })).toEqual(["dice", "card"]);
   expect(cuesForEvents([{ type: "script.error", sequence: 2, actionId: "error", data: {} }])).toEqual([]);
 });
 
