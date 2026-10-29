@@ -1,0 +1,266 @@
+{
+  "source": {
+    "repository": "Sanokei/digipology",
+    "commit": "e453fd466d60268ad357da6eaf72754a6be91479",
+    "branch": "feat/local-raster-covers",
+    "mainRefVerifiedInReceipt": true
+  },
+  "checks": {
+    "bunTests": 859,
+    "testFiles": 117,
+    "fullTypecheck": true,
+    "browser": {
+      "startTime": "2026-10-29T11:30:09.777Z",
+      "duration": 266813.559,
+      "expected": 16,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "productionWebBuild": true,
+    "sitePages": 17,
+    "internalLinks": true,
+    "isolatedRendererChunks": true,
+    "frozenReplayGuardBase": "194dbac54647c4474d3ab11934843cbf30356fd0"
+  },
+  "draftMetadata": {
+    "title": "Dice Dash",
+    "tagline": "A longer dice race for a test playthrough.",
+    "generationReview": {
+      "manifestHash": "sha256:7f15a42448293341dbf61fe5cf5635431b8e997c99846fbf580f9683b3990a28",
+      "warnings": [
+        {
+          "code": "game_win_unobserved",
+          "message": "The draft has a target-like setting (\"targetScore\") but no winner was declared within 96 simulated action attempts. The condition may need a longer or different strategy; this is not proof it is unreachable. [together-2-first]"
+        }
+      ]
+    },
+    "artwork": {
+      "contentType": "image/webp",
+      "credits": {
+        "artist": "Digipology · local QA fixture",
+        "license": "Original repository illustration, alpha test edit",
+        "sourceUrl": "https://github.com/Sanokei/digipology/tree/194dbac54647c4474d3ab11934843cbf30356fd0/apps/web/public/art"
+      },
+      "formatVersion": 1,
+      "height": 1152,
+      "sha256": "sha256:7e2c3f7ec1366c6e89f4d035c33604f3939b35d3aad66ece4f2f3ccb30522bd0",
+      "width": 768
+    },
+    "privateSourceFilenameIncludedInDraftOnly": "alpha-local-fixture.png"
+  },
+  "acceptance": {
+    "decodedAlphaMatte": "opaque cream #faf7ee within 5 RGB levels after actual WebP encoding",
+    "preparedDimensions": [
+      768,
+      1152
+    ],
+    "replacementFailurePreservesPreviousImage": true,
+    "storageQuotaDownloadRecovery": true,
+    "artworkSavePreservesScores": true,
+    "editorBackupReimport": true,
+    "publicationRetryReusesGame": true,
+    "oldCoverVersionBytesStable": true,
+    "publishedCreditsAndPackageReimport": true,
+    "missingImageActualDecodeRecovery": true,
+    "corruptArtworkBlocksSilentPublish": true,
+    "settledWinner": "renderer ready, loading overlay absent; readable HUD, 390x844 winner frame",
+    "emptyHand": "no Sort control"
+  },
+  "boundaries": {
+    "generation": "explicit deterministic provider fixture plus real Lua/HTTP/browser execution; no live creative generation",
+    "artwork": "existing original repository raster and browser-created transparent-corner fixture, no online search/provider",
+    "privacy": "official-client presentation privacy, shared state is not cryptographic hidden information",
+    "remote": "no public preview, remote deployment/migration/CI or scheduled-loop run is claimed",
+    "prerequisites": [
+      "production D1 migration 0008",
+      "live model endpoint/model/key",
+      "publish saved cloud network draft",
+      "verify Actions key/permissions/execution"
+    ],
+    "nextObservedLocalGap": "desktop editor File→Publish/export still hands off release bundles; integrate optional artwork/editor metadata into that alternative path"
+  },
+  "artifacts": [
+    {
+      "path": "private-artwork-desktop.png",
+      "sha256": "41c151a6585b7b90c80e2acde2d2fd39133a91f294bd7f9f514505160124d1c6",
+      "bytes": 70314,
+      "sourceRef": "e453fd466d60268ad357da6eaf72754a6be91479",
+      "originalPath": "test-results/artwork.e2e.ts-local-alpha-5d43a--reload-and-credit-download/artwork-private-play-desktop.png",
+      "dimensions": [
+        1440,
+        960
+      ]
+    },
+    {
+      "path": "private-artwork-narrow.png",
+      "sha256": "010e36231d46f9e40e15efbe7eda4eec6c615d04a56820566fbd23f71f160d5f",
+      "bytes": 51189,
+      "sourceRef": "e453fd466d60268ad357da6eaf72754a6be91479",
+      "originalPath": "test-results/artwork.e2e.ts-local-alpha-5d43a--reload-and-credit-download/artwork-private-play-narrow.png",
+      "dimensions": [
+        390,
+        844
+      ]
+    },
+    {
+      "path": "artwork-dialog-narrow.png",
+      "sha256": "c01d1ec2edc9dc76f14c52855fff3f9804d9f85448f2de9fa42b64eecc4c9073",
+      "bytes": 131165,
+      "sourceRef": "e453fd466d60268ad357da6eaf72754a6be91479",
+      "originalPath": "test-results/artwork.e2e.ts-local-alpha-5d43a--reload-and-credit-download/artwork-restored-editor-narrow.png",
+      "dimensions": [
+        390,
+        844
+      ]
+    },
+    {
+      "path": "published-artwork-desktop.png",
+      "sha256": "38482f77669e16e28d096b9d76f84449bdc8127dfea9a9f63f40eba79e4fa271",
+      "bytes": 446995,
+      "sourceRef": "e453fd466d60268ad357da6eaf72754a6be91479",
+      "originalPath": "test-results/artwork.e2e.ts-local-alpha-5d43a--reload-and-credit-download/artwork-published-desktop.png",
+      "dimensions": [
+        1440,
+        960
+      ]
+    },
+    {
+      "path": "published-artwork-narrow.png",
+      "sha256": "d349db20322a079b20b13b3bc21aa0ac7870698ebdfd548bb1f7e870f29c1763",
+      "bytes": 417664,
+      "sourceRef": "e453fd466d60268ad357da6eaf72754a6be91479",
+      "originalPath": "test-results/artwork.e2e.ts-local-alpha-5d43a--reload-and-credit-download/artwork-published-narrow.png",
+      "dimensions": [
+        390,
+        1418
+      ]
+    },
+    {
+      "path": "settled-winner-desktop.png",
+      "sha256": "97dcd1a58c879e86b673876281da08a78306f0e0384ae89f34e60c372c8c4982",
+      "bytes": 65697,
+      "sourceRef": "e453fd466d60268ad357da6eaf72754a6be91479",
+      "originalPath": "test-results/generation.e2e.ts-fixture--63b4a-publication-and-multiplayer/fixture-private-draft-winner.png",
+      "dimensions": [
+        1440,
+        960
+      ]
+    },
+    {
+      "path": "settled-winner-narrow.png",
+      "sha256": "f3abc82420446657b4e2186c703563eb5457b7fb2d68684ac53936b0f84d0a39",
+      "bytes": 43843,
+      "sourceRef": "e453fd466d60268ad357da6eaf72754a6be91479",
+      "originalPath": "test-results/generation.e2e.ts-fixture--63b4a-publication-and-multiplayer/fixture-private-draft-winner-mobile.png",
+      "dimensions": [
+        390,
+        844
+      ]
+    },
+    {
+      "path": "publication-retry-desktop.png",
+      "sha256": "b46a3e8ba95b91bcd60e54ba7a77fadface1f3d9c38aaeb8c85eb20d6ea7f6e3",
+      "bytes": 82312,
+      "sourceRef": "e453fd466d60268ad357da6eaf72754a6be91479",
+      "originalPath": "test-results/artwork.e2e.ts-local-alpha-5d43a--reload-and-credit-download/artwork-publication-recovery-desktop.png",
+      "dimensions": [
+        1440,
+        960
+      ]
+    },
+    {
+      "path": "missing-image-desktop.png",
+      "sha256": "fe50a2b2dc51301cdb23f676a59151f293205a008429d386bd6a8f29a69ad0d0",
+      "bytes": 174296,
+      "sourceRef": "e453fd466d60268ad357da6eaf72754a6be91479",
+      "originalPath": "test-results/artwork.e2e.ts-local-alpha-5d43a--reload-and-credit-download/artwork-missing-image-recovery.png",
+      "dimensions": [
+        1440,
+        1026
+      ]
+    },
+    {
+      "path": "recovered-image-desktop.png",
+      "sha256": "909a090b6b361377e1947b90293a108ea10b2dc0bf3be5f9ff4a0db25c104640",
+      "bytes": 445770,
+      "sourceRef": "e453fd466d60268ad357da6eaf72754a6be91479",
+      "originalPath": "test-results/artwork.e2e.ts-local-alpha-5d43a--reload-and-credit-download/artwork-recovered-image-desktop.png",
+      "dimensions": [
+        1440,
+        960
+      ]
+    },
+    {
+      "path": "corrupt-backup-narrow.png",
+      "sha256": "329172a849c619a156293ec08e753a4c4cfd57c27ed84b7466f62caf7d03ca45",
+      "bytes": 43817,
+      "sourceRef": "e453fd466d60268ad357da6eaf72754a6be91479",
+      "originalPath": "test-results/artwork.e2e.ts-damaged-sav-7ceda-nd-never-silently-publishes/artwork-corrupt-backup-recovery-narrow.png",
+      "dimensions": [
+        390,
+        844
+      ]
+    },
+    {
+      "path": "guest-hand-desktop.png",
+      "sha256": "d3a2393919e95669b6fbc0521988e277214c501163b1f7556d820e6bcd8ffe59",
+      "bytes": 46173,
+      "sourceRef": "e453fd466d60268ad357da6eaf72754a6be91479",
+      "originalPath": "test-results/table.e2e.ts-named-cards-r-06f8c-e-reveal-and-survive-reload/card-hand-guest-private.png",
+      "dimensions": [
+        1280,
+        900
+      ]
+    },
+    {
+      "path": "table-recovered-desktop.png",
+      "sha256": "535d3fc174cd71b80563da247ee09fc2802bbeb2a565831a592f75acbcddbdbf",
+      "bytes": 49526,
+      "sourceRef": "e453fd466d60268ad357da6eaf72754a6be91479",
+      "originalPath": "test-results/table.e2e.ts-a-failed-tabl-8cb4f-s-the-existing-private-hand/table-view-recovered.png",
+      "dimensions": [
+        1440,
+        960
+      ]
+    },
+    {
+      "path": "accepted-draft.editor.json",
+      "sha256": "505dedb92576ccfc9617ea76a2ec99f6836fa75694fd483d80c55d009369e874",
+      "bytes": 370775,
+      "sourceRef": "e453fd466d60268ad357da6eaf72754a6be91479",
+      "originalPath": "test-results/artwork.e2e.ts-local-alpha-5d43a--reload-and-credit-download/artwork-draft.editor.json"
+    },
+    {
+      "path": "published.artwork.json",
+      "sha256": "3f9b0a2ed6b38b10e412e29378fee2661dc3cee584c29b9b1896af23b04624f0",
+      "bytes": 364409,
+      "sourceRef": "e453fd466d60268ad357da6eaf72754a6be91479",
+      "originalPath": "test-results/artwork.e2e.ts-local-alpha-5d43a--reload-and-credit-download/published.artwork.json"
+    },
+    {
+      "path": "before-header-overflow.png",
+      "sha256": "aae824afded24859660024a57dbba1135b36ec350a85c3e173d2400ec26777f7",
+      "bytes": 421290,
+      "dimensions": [
+        426,
+        1430
+      ],
+      "sourceRef": null,
+      "baseRef": "194dbac54647c4474d3ab11934843cbf30356fd0",
+      "status": "earlier uncommitted working tree; retained failure, not a final-source pass"
+    },
+    {
+      "path": "before-credit-loss.png",
+      "sha256": "623f9c9c87e86533109dd56a87cd815c5c408258bab2382d3b120fadb986958d",
+      "bytes": 442566,
+      "dimensions": [
+        1440,
+        960
+      ],
+      "sourceRef": null,
+      "baseRef": "194dbac54647c4474d3ab11934843cbf30356fd0",
+      "status": "earlier uncommitted working tree; retained failure, not a final-source pass"
+    }
+  ]
+}
