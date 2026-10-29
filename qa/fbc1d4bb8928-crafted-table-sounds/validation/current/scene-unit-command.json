@@ -1,0 +1,10 @@
+{
+  "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc",
+  "command": [
+    "bun",
+    "test",
+    "apps/web/src/scene"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 0.35
+}

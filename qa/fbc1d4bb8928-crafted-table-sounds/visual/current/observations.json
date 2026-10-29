@@ -1,0 +1,203 @@
+{
+  "phase": "final",
+  "sourceRef": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc",
+  "origin": "http://127.0.0.1:8787",
+  "views": [
+    {
+      "name": "cards-guest-private-desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "canvas": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 960
+      },
+      "overflow": false,
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    {
+      "name": "cards-back-desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "canvas": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 960
+      },
+      "overflow": false,
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    {
+      "name": "cards-back-narrow",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "canvas": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    {
+      "name": "cards-front-desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "canvas": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 960
+      },
+      "overflow": false,
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    {
+      "name": "cards-front-tablet",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "canvas": {
+        "x": 0,
+        "y": 0,
+        "width": 768,
+        "height": 1024
+      },
+      "overflow": false,
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    {
+      "name": "cards-front-narrow",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "canvas": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    {
+      "name": "cards-private-hand-owner-desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "canvas": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 960
+      },
+      "overflow": false,
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    {
+      "name": "cards-private-hand-owner-narrow",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "canvas": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    {
+      "name": "queen-court-inspection-desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "canvas": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 960
+      },
+      "overflow": false,
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    {
+      "name": "queen-court-inspection-narrow",
+      "viewport": {
+        "width": 390,
+        "height": 480
+      },
+      "canvas": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 480
+      },
+      "overflow": false,
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    {
+      "name": "cards-guest-private-desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "canvas": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 960
+      },
+      "overflow": false,
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    {
+      "name": "dice-desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "canvas": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 960
+      },
+      "overflow": false,
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    {
+      "name": "dice-narrow",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "canvas": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    }
+  ],
+  "errors": []
+}

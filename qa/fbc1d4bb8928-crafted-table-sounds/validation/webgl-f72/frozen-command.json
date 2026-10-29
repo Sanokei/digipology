@@ -1,0 +1,10 @@
+{
+  "source": "f72af1d637e3a112950be58bce5aca5558d4a731",
+  "command": [
+    "bash",
+    "scripts/check-frozen-fixtures.sh",
+    "502bd124d33bb5dc9fd496c00c5774da36e121fd"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 0.01
+}

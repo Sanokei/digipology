@@ -1,0 +1,74 @@
+{
+  "command": [
+    "bun",
+    "scripts/media.ts",
+    "build-table-sounds",
+    "scripts/media/table-sounds.sources.json",
+    "/workspace/release-receipts/2026-10-29-sound-bundle/reproduced-pack"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 8.78,
+  "method": "second fresh normal HTTPS Git acquisition",
+  "allFilesByteIdentical": [
+    {
+      "path": "bundle.json",
+      "sha256": "75ff158b7671fa3e7203ad8eace4d8dbd4bb4c91b8df4bc8ff7912e7694abcb5"
+    },
+    {
+      "path": "originals/choice.ogg",
+      "sha256": "df55e931e6b78e5aecc015922e873a0e8bfa4e97cfb19abc64149d54afe89216"
+    },
+    {
+      "path": "originals/dice.ogg",
+      "sha256": "e4043660b7bc15bd1ec208c4193838da5a2618bde6f35e3d76654557268aa221"
+    },
+    {
+      "path": "originals/card.ogg",
+      "sha256": "145a1c17125dc4d344ac135bc5073e35ea12e19700ca30ee6e1e477010b4dca0"
+    },
+    {
+      "path": "provenance/toolchain.txt",
+      "sha256": "dd897e9cb02edac6a394f671c0b2004abcd0ec841c9b960ebd0cce4149731e5d"
+    },
+    {
+      "path": "provenance/source-manifest.json",
+      "sha256": "b8ffee8e78d131f891a19d6660c2e65d434cc06577eb9220287b921ba2c102d2"
+    },
+    {
+      "path": "provenance/acquisition.json",
+      "sha256": "ff42a6ca96ac0e72494c018d42c3be67aa17258d2db9f9c7942b3ccc0bae9221"
+    },
+    {
+      "path": "provenance/README.md",
+      "sha256": "d8f51d172d58e62d289105a5a1561e02e54cccc4c6d1215472169bc50ff2f91f"
+    },
+    {
+      "path": "provenance/LICENSE.md",
+      "sha256": "f755bf8f21002f8d5baedaf75564141d363971f3f7bc8c4062956b0b15a6f04f"
+    },
+    {
+      "path": "clips/card.wav",
+      "sha256": "6b3bf45ed1f6e7a8f06951221f1510e0e43c54bfee0c178802bf6c2c57bf05db"
+    },
+    {
+      "path": "clips/dice.wav",
+      "sha256": "ad3c60d3104e37551df1ce461fadbd9dbcf4381790f1000ec03f7c781a334fa8"
+    },
+    {
+      "path": "clips/dice.wav.json",
+      "sha256": "a50030a8fbd6f3478442932360a8aec33ad6224193428dfa3818bab7416a5c84"
+    },
+    {
+      "path": "clips/card.wav.json",
+      "sha256": "aeeabfd3723595befa548480193d515a84b86004be7c566485f17f7b7e844d0c"
+    },
+    {
+      "path": "clips/choice.wav.json",
+      "sha256": "4ce377f1a5f4f1dd6e8e94007ca523456ad498cecbd2d1ba1e474c3ba9d7d773"
+    },
+    {
+      "path": "clips/choice.wav",
+      "sha256": "24cb96600ea34c437480b9e2b6fa2cc4051fab0a344560d85c952f0bbd1bb72c"
+    }
+  ]
+}

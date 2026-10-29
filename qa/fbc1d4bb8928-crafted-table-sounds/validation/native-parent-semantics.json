@@ -1,0 +1,23 @@
+{
+  "library": "@babylonjs/lite 1.21.0",
+  "api": "actual createTransformNode/setParent; no GPU or mocks",
+  "spawnScale": 0.72,
+  "afterNativeParenting": {
+    "position": [
+      3.055555582046509,
+      -0.277777761220932,
+      0
+    ],
+    "scale": [
+      1.3888888359069824,
+      1.3888888359069824,
+      1.3888888359069824
+    ]
+  },
+  "explicitLocalScale": [
+    1,
+    1,
+    1
+  ],
+  "expectedInverseScale": 1.3888888888888888
+}

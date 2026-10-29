@@ -1,0 +1,12 @@
+{
+  "sourceRef": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc",
+  "command": [
+    "node",
+    "/workspace/release-receipts/2026-10-29-crafted-table/lite-review.mjs",
+    "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+  ],
+  "startedAt": "2026-10-29T16:06:16.383979+00:00",
+  "log": "lite-capture.log",
+  "finishedAt": "2026-10-29T16:07:20.354529+00:00",
+  "exitCode": 0
+}

@@ -1,0 +1,811 @@
+{
+  "applicationCommit": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc",
+  "qaParentMustBeApplicationCommit": true,
+  "scope": "Selected original review artifacts; all21 current frames retained; historical source/frame scopes explicit; no raw auth logs/traces",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 8196,
+      "sha256": "6e6d1de61d8f61032d9a707cc7c0a6b5e1811214f254fbde2eb16619a8bc5eda",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc; index identifies all earlier source scopes explicitly"
+    },
+    {
+      "path": "audio/v1/bundle.json",
+      "bytes": 120080,
+      "sha256": "75ff158b7671fa3e7203ad8eace4d8dbd4bb4c91b8df4bc8ff7912e7694abcb5",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "audio/v1/clips/card.wav",
+      "bytes": 5156,
+      "sha256": "6b3bf45ed1f6e7a8f06951221f1510e0e43c54bfee0c178802bf6c2c57bf05db",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "audio/v1/clips/card.wav.json",
+      "bytes": 493,
+      "sha256": "aeeabfd3723595befa548480193d515a84b86004be7c566485f17f7b7e844d0c",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "audio/v1/clips/choice.wav",
+      "bytes": 11706,
+      "sha256": "24cb96600ea34c437480b9e2b6fa2cc4051fab0a344560d85c952f0bbd1bb72c",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "audio/v1/clips/choice.wav.json",
+      "bytes": 493,
+      "sha256": "4ce377f1a5f4f1dd6e8e94007ca523456ad498cecbd2d1ba1e474c3ba9d7d773",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "audio/v1/clips/dice.wav",
+      "bytes": 69536,
+      "sha256": "ad3c60d3104e37551df1ce461fadbd9dbcf4381790f1000ec03f7c781a334fa8",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "audio/v1/clips/dice.wav.json",
+      "bytes": 767,
+      "sha256": "a50030a8fbd6f3478442932360a8aec33ad6224193428dfa3818bab7416a5c84",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "audio/v1/originals/card.ogg",
+      "bytes": 5885,
+      "sha256": "145a1c17125dc4d344ac135bc5073e35ea12e19700ca30ee6e1e477010b4dca0",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "audio/v1/originals/choice.ogg",
+      "bytes": 6620,
+      "sha256": "df55e931e6b78e5aecc015922e873a0e8bfa4e97cfb19abc64149d54afe89216",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "audio/v1/originals/dice.ogg",
+      "bytes": 10929,
+      "sha256": "e4043660b7bc15bd1ec208c4193838da5a2618bde6f35e3d76654557268aa221",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "audio/v1/provenance/LICENSE.md",
+      "bytes": 1062,
+      "sha256": "f755bf8f21002f8d5baedaf75564141d363971f3f7bc8c4062956b0b15a6f04f",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "audio/v1/provenance/README.md",
+      "bytes": 1688,
+      "sha256": "d8f51d172d58e62d289105a5a1561e02e54cccc4c6d1215472169bc50ff2f91f",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "audio/v1/provenance/acquisition.json",
+      "bytes": 372,
+      "sha256": "ff42a6ca96ac0e72494c018d42c3be67aa17258d2db9f9c7942b3ccc0bae9221",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "audio/v1/provenance/source-manifest.json",
+      "bytes": 1109,
+      "sha256": "b8ffee8e78d131f891a19d6660c2e65d434cc06577eb9220287b921ba2c102d2",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "audio/v1/provenance/toolchain.txt",
+      "bytes": 3746,
+      "sha256": "dd897e9cb02edac6a394f671c0b2004abcd0ec841c9b960ebd0cce4149731e5d",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "browser/sound-integration-11cd/sounds.e2e.ts-a-real-maste-986da-t-download-and-guest-reload/guest-source-sounds-390.png",
+      "bytes": 56008,
+      "sha256": "4776456471f65f02681f5a78bd6536237d69b834c91d6dbd36044addf18c7653",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2; five functional passes, separate die visual failure retained"
+    },
+    {
+      "path": "browser/sound-integration-11cd/sounds.e2e.ts-a-real-maste-986da-t-download-and-guest-reload/private-first-cue.json",
+      "bytes": 10839,
+      "sha256": "037e52d84da636597e755c330620c142ad75184ef6f9c775f35ddaa5428b0c78",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2; five functional passes, separate die visual failure retained"
+    },
+    {
+      "path": "browser/sound-integration-11cd/sounds.e2e.ts-a-real-maste-986da-t-download-and-guest-reload/private-source-sounds-390.png",
+      "bytes": 69369,
+      "sha256": "d9fd1982b20a5d68a238a47363f0094afbd3a161084286320201c5ca0b823c36",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2; five functional passes, separate die visual failure retained"
+    },
+    {
+      "path": "browser/sound-integration-11cd/sounds.e2e.ts-a-real-maste-986da-t-download-and-guest-reload/published-sound-credits-390.png",
+      "bytes": 60645,
+      "sha256": "72c9b2d4108d10307cce7204551d16a5309dab0a40f17b7005bad302e1c05929",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2; five functional passes, separate die visual failure retained"
+    },
+    {
+      "path": "browser/sound-integration-11cd/sounds.e2e.ts-a-real-maste-986da-t-download-and-guest-reload/published.sounds.json",
+      "bytes": 120080,
+      "sha256": "75ff158b7671fa3e7203ad8eace4d8dbd4bb4c91b8df4bc8ff7912e7694abcb5",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2; five functional passes, separate die visual failure retained"
+    },
+    {
+      "path": "browser/sound-integration-11cd/sounds.e2e.ts-a-real-maste-986da-t-download-and-guest-reload/reopened-sounds.editor.json",
+      "bytes": 491690,
+      "sha256": "c46dcf5fe0f7720cda88a86ca9dad3a147a7b12be34b5e02c80c85cfad99f5b1",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2; five functional passes, separate die visual failure retained"
+    },
+    {
+      "path": "browser/sound-integration-11cd/sounds.e2e.ts-a-real-maste-986da-t-download-and-guest-reload/sound-import-damaged-390.png",
+      "bytes": 62890,
+      "sha256": "b595191519eca76caa7e5a8f3afa4ba8599fd65a28253f8fb7e3d024e944d311",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2; five functional passes, separate die visual failure retained"
+    },
+    {
+      "path": "browser/sound-integration-11cd/sounds.e2e.ts-a-real-maste-986da-t-download-and-guest-reload/sound-import-damaged-desktop.png",
+      "bytes": 134273,
+      "sha256": "5eb0dc2c988d12a163c00b899b2e8aeee028f85164847459ee0e529be20140b4",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2; five functional passes, separate die visual failure retained"
+    },
+    {
+      "path": "browser/sound-integration-11cd/sounds.e2e.ts-a-real-maste-986da-t-download-and-guest-reload/sound-playback.json",
+      "bytes": 14361,
+      "sha256": "69b2221e9664df73d838294334eefdf82f9f3f74cd43282218f41f61bb6cfd36",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2; five functional passes, separate die visual failure retained"
+    },
+    {
+      "path": "browser/sound-integration-11cd/sounds.e2e.ts-a-real-maste-986da-t-download-and-guest-reload/with-sounds.editor.json",
+      "bytes": 491688,
+      "sha256": "1d0e0e1f85a5d5019444460718ba2cd1bc8e6a67c258a4ef207aee52791715c3",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2; five functional passes, separate die visual failure retained"
+    },
+    {
+      "path": "browser/sound-integration-11cd/sounds.e2e.ts-a-real-maste-986da-t-download-and-guest-reload/with-sounds.release.json",
+      "bytes": 126704,
+      "sha256": "7ebeb4c43afbf73df3bf7eaaa523b829bd68912ad667fc50baead5ab1e6020be",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2; five functional passes, separate die visual failure retained"
+    },
+    {
+      "path": "browser/sound-integration-11cd/sounds.e2e.ts-normal-card--4fc6c--card-events-remain-audible/other-seat-draw-silent.png",
+      "bytes": 386425,
+      "sha256": "a41c47bb8bb74941057e783d9a7746ce6862e5207e2d8b3316157f24e01af073",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2; five functional passes, separate die visual failure retained"
+    },
+    {
+      "path": "browser/sound-integration-11cd/sounds.e2e.ts-normal-card--4fc6c--card-events-remain-audible/private-sound-scope.json",
+      "bytes": 16200,
+      "sha256": "b96cc197bcad75336def9ffa61e86ffd9d1f94df2d9964eb7959474d45b139c4",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2; five functional passes, separate die visual failure retained"
+    },
+    {
+      "path": "browser/sound-integration-11cd/sounds.e2e.ts-source-fetch-57e9b-ver-to-exact-decoded-assets/decode-failure-390.png",
+      "bytes": 55026,
+      "sha256": "d51e2629f6ef3f1501fc3f0280110fe940426da183a9e8bec509557f5fa40770",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2; five functional passes, separate die visual failure retained"
+    },
+    {
+      "path": "browser/sound-integration-11cd/sounds.e2e.ts-source-fetch-57e9b-ver-to-exact-decoded-assets/recovery-playback.json",
+      "bytes": 14058,
+      "sha256": "641b127acbb1d3a399d3b228e3bcfea7e7fe565b6dc3caf747d1ccab43078af8",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2; five functional passes, separate die visual failure retained"
+    },
+    {
+      "path": "browser/sound-integration-11cd/sounds.e2e.ts-source-fetch-57e9b-ver-to-exact-decoded-assets/source-outage-desktop.png",
+      "bytes": 354188,
+      "sha256": "836b39f38e6086f944ff50db443fffb6c76f1e4a9626ab858deea7480ed4a2f6",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2; five functional passes, separate die visual failure retained"
+    },
+    {
+      "path": "browser/sound-integration-11cd/sounds.e2e.ts-source-fetch-57e9b-ver-to-exact-decoded-assets/source-recovered-390.png",
+      "bytes": 58359,
+      "sha256": "28b1ade533d85c20e8492c0c00f5f7f92eada1503beed83a5b58e6dace46ce6e",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2; five functional passes, separate die visual failure retained"
+    },
+    {
+      "path": "browser/webgl-f72/table.e2e.ts-two-people-pl-c84f0--finished-game-after-reload/finished-game-restored.png",
+      "bytes": 528285,
+      "sha256": "c087d7ebc389c954ad959ee18ce8dc1b63c37e34eeb9ce3eaa20405538bf0ebc",
+      "source": "f72af1d637e3a112950be58bce5aca5558d4a731"
+    },
+    {
+      "path": "listening/listen.html",
+      "bytes": 151275,
+      "sha256": "a65264af1afda512d1ed8305df10169c364b3c3b77b92a2d53efd2f7f0a3368e",
+      "source": "Exact original/processed v1 bytes; perceptual listening pending"
+    },
+    {
+      "path": "listening/waveforms.png",
+      "bytes": 173513,
+      "sha256": "6404c0b655511e8b1be3bd545a6da28ea654c964314db9255704c4617e27ae75",
+      "source": "Exact original/processed v1 bytes; perceptual listening pending"
+    },
+    {
+      "path": "plans/crafted-table.md",
+      "bytes": 3379,
+      "sha256": "a63b07a4d0c1258e2d040ac442b5d831ebea4e12937e517d527a965ecc781ad8",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "plans/mastered-table-sounds.md",
+      "bytes": 7548,
+      "sha256": "96ba3245d561d91246835a6917b1c7e75e8f577069b3244771b75e61165eb159",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "source-diff.patch",
+      "bytes": 460903,
+      "sha256": "ff1d2a62a9d6a71fea149ee62999ff9210bd44a2f065a2fca8d17edc02fc9740",
+      "source": "Exact application diff from 502bd124d33bb5dc9fd496c00c5774da36e121fd to fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "validation/current/chunks-command.json",
+      "bytes": 192,
+      "sha256": "9807753e801a9efb2bf891320587140b604489b4982cc964b2ff3db838437e5e",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "validation/current/chunks.log",
+      "bytes": 203,
+      "sha256": "aa44aeb3f8b30c94ec21f49a728624019badf99cda9864fa81764836d3fc4dc4",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "validation/current/frozen-command.json",
+      "bytes": 221,
+      "sha256": "3ccf32d9c3630139e0ff7544f849d566b0857d7e94bf9e4b6b818cabad446f10",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "validation/current/frozen.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "validation/current/scene-unit-command.json",
+      "bytes": 170,
+      "sha256": "afd7bf5d4956cc3541e7f13e339accd43f9d59467e95bce6c4d2fb693c368ef9",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "validation/current/scene-unit.log",
+      "bytes": 12438,
+      "sha256": "a8a264bade208e172d4b56d7dd6e805c3142e354e1cbd11f804faaec3c9acddb",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "validation/current/web-build-command.json",
+      "bytes": 186,
+      "sha256": "d874e033fba0bbe566fe2fd38d47f7ea10f53ad333524e75bbad3821e75cdc31",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "validation/current/web-build.log",
+      "bytes": 5312,
+      "sha256": "dade513b5554f99c3358746cd44e5eb9d2d4229361149fad34044fb739e76e72",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "validation/history/activation-queue-command.json",
+      "bytes": 107,
+      "sha256": "f4128429cc582737759cda017b276c9f80f3aa521c38121dec83559cd1777988",
+      "source": "Historical working-source diagnosis/reproduction; see README scopes"
+    },
+    {
+      "path": "validation/history/activation-queue.log",
+      "bytes": 334,
+      "sha256": "138b954c4162da8fc5f5f49c62a14aebde0e695317194dca605707aacec826f9",
+      "source": "Historical working-source diagnosis/reproduction; see README scopes"
+    },
+    {
+      "path": "validation/history/before-activation-queue-command.json",
+      "bytes": 190,
+      "sha256": "084e4612490ffa8abc2d39a80c771a77671b062a26c915419ef4df95f09923b9",
+      "source": "Historical working-source diagnosis/reproduction; see README scopes"
+    },
+    {
+      "path": "validation/history/before-activation-queue.log",
+      "bytes": 1172,
+      "sha256": "4ec21400e8aa07e4a0671bc34266573f7e5f1dbfa0a07d27a0d3180a1306ba1f",
+      "source": "Historical working-source diagnosis/reproduction; see README scopes"
+    },
+    {
+      "path": "validation/history/first-build-failure.txt",
+      "bytes": 351,
+      "sha256": "a012e38db46f89cec0201144e7d06185983284a26d48f35ebe5a9d794f1ba642",
+      "source": "Historical working-source diagnosis/reproduction; see README scopes"
+    },
+    {
+      "path": "validation/history/online-build-command.json",
+      "bytes": 288,
+      "sha256": "54864b6f292f3eff630fcac8b22e7d53b25e9e1ade8e385b7c689aa9bdf49cb3",
+      "source": "Historical working-source diagnosis/reproduction; see README scopes"
+    },
+    {
+      "path": "validation/history/reproduce-command.json",
+      "bytes": 2341,
+      "sha256": "c1752f4ee5c3c487c1a7a5a97592dd2451d3f9d4580ac87d87406bc2d9d337b0",
+      "source": "Historical working-source diagnosis/reproduction; see README scopes"
+    },
+    {
+      "path": "validation/native-builder-winding.json",
+      "bytes": 1204,
+      "sha256": "4e20df223b747b4fa8406f578d7e158784fe836ff22961e47ec0bdc058e17853",
+      "source": "Actual installed Core7.54.3 and Lite1.21.0 builders, no renderer mocks"
+    },
+    {
+      "path": "validation/native-lite-parenting.json",
+      "bytes": 323,
+      "sha256": "5b5083fa5a0d0a8f4331eb278ad0a1c6c8b583441a0190681de7654cf64d4b89",
+      "source": "Actual installed Lite1.21.0 public scene-node parenting API, no GPU or mocks"
+    },
+    {
+      "path": "validation/native-parent-semantics.json",
+      "bytes": 442,
+      "sha256": "b701e13cd1aa29becc1ec1c7c3736c061fca4f9a3d21736ceaf3b32d0a023567",
+      "source": "Actual installed Lite1.21.0 public scene-node parenting API, no GPU or mocks"
+    },
+    {
+      "path": "validation/sound-integration-11cd/browser-command.json",
+      "bytes": 379,
+      "sha256": "22697db242523d6bf729c19487ba6adc62861a8149ccb71bb1d804068843d81c",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2"
+    },
+    {
+      "path": "validation/sound-integration-11cd/browser-summary.json",
+      "bytes": 2381,
+      "sha256": "bda71b7f4e54a3ba8734178a10d634437aff9e4c155c7fa328fe75726d2a3f3e",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2"
+    },
+    {
+      "path": "validation/sound-integration-11cd/chunks-command.json",
+      "bytes": 192,
+      "sha256": "e097f4543f4fb0d944b83d98d94fa79b31a9afb1c41050a04b00e95aaa639c2f",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2"
+    },
+    {
+      "path": "validation/sound-integration-11cd/chunks.log",
+      "bytes": 203,
+      "sha256": "93ebec041ca3b9ab04a82e6b315a668bc3c8d6693c18d36e273435b790171b6c",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2"
+    },
+    {
+      "path": "validation/sound-integration-11cd/e2e-types-command.json",
+      "bytes": 173,
+      "sha256": "54fd035cf12566d08b0c20baea4963d943644d247e46985352af4fd89642ce8e",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2"
+    },
+    {
+      "path": "validation/sound-integration-11cd/e2e-types.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2"
+    },
+    {
+      "path": "validation/sound-integration-11cd/focused-unit-command.json",
+      "bytes": 469,
+      "sha256": "ff6ff8337ba69b7ba682e5b2728f504faf8fc82b81b0e5f51b5d59d898396c41",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2"
+    },
+    {
+      "path": "validation/sound-integration-11cd/focused-unit.log",
+      "bytes": 17068,
+      "sha256": "80ac68f5a96c46bc046a125e79ff78f9125af531db5a9227fc6e703d65fda122",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2"
+    },
+    {
+      "path": "validation/sound-integration-11cd/frozen-command.json",
+      "bytes": 221,
+      "sha256": "d29a9aff4e0276e806030cb3997cccebaa72a8e8544b7a2d75628e9a932ddf30",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2"
+    },
+    {
+      "path": "validation/sound-integration-11cd/frozen.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2"
+    },
+    {
+      "path": "validation/sound-integration-11cd/protocol-types-command.json",
+      "bytes": 198,
+      "sha256": "c13f06e0746398e4f1b6f2c31a13bc5741137dda83637266ca5a2365b355b5a7",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2"
+    },
+    {
+      "path": "validation/sound-integration-11cd/protocol-types.log",
+      "bytes": 15,
+      "sha256": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2"
+    },
+    {
+      "path": "validation/sound-integration-11cd/scripts-types-command.json",
+      "bytes": 177,
+      "sha256": "3a186127518ea0dfa57caa1182569ec820391ff9edcad9051d1174a27ac3b985",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2"
+    },
+    {
+      "path": "validation/sound-integration-11cd/scripts-types.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2"
+    },
+    {
+      "path": "validation/sound-integration-11cd/web-build-command.json",
+      "bytes": 186,
+      "sha256": "4a9b5b97284f9ccd92e51a8bac657d0c2d2839832643a2b179c2870695d216ba",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2"
+    },
+    {
+      "path": "validation/sound-integration-11cd/web-build.log",
+      "bytes": 5312,
+      "sha256": "2e270b9729833012a12c57f4dd8cea0d4253e9260f016f1f303bd0346092e77e",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2"
+    },
+    {
+      "path": "validation/sound-integration-11cd/worker-types-command.json",
+      "bytes": 192,
+      "sha256": "60d1c6a8d54393ea8c67663978562ce94f4bfaa6981d3740cd0643a8b4b9de13",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2"
+    },
+    {
+      "path": "validation/sound-integration-11cd/worker-types.log",
+      "bytes": 15,
+      "sha256": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2"
+    },
+    {
+      "path": "validation/webgl-f72/browser-command.json",
+      "bytes": 265,
+      "sha256": "f91b27cf9476fe925f1c9f82e65431fc82d6f575c41ebb79cf55a7f207c5b051",
+      "source": "f72af1d637e3a112950be58bce5aca5558d4a731"
+    },
+    {
+      "path": "validation/webgl-f72/browser-summary.json",
+      "bytes": 1504,
+      "sha256": "62cf18761ce826e2e688107310ca45cb121af3b3f742707c26b28017568b57d2",
+      "source": "f72af1d637e3a112950be58bce5aca5558d4a731"
+    },
+    {
+      "path": "validation/webgl-f72/chunks-command.json",
+      "bytes": 192,
+      "sha256": "efc864742ffd1c5d7e22f6bfa23687f9802c67270861f1fa640af31643d2ecb4",
+      "source": "f72af1d637e3a112950be58bce5aca5558d4a731"
+    },
+    {
+      "path": "validation/webgl-f72/chunks.log",
+      "bytes": 203,
+      "sha256": "7da4af7f1e663fab7eea0e8270e690553fb211ae2eb908741ee3fb2976aad6ba",
+      "source": "f72af1d637e3a112950be58bce5aca5558d4a731"
+    },
+    {
+      "path": "validation/webgl-f72/e2e-types-command.json",
+      "bytes": 173,
+      "sha256": "2895995502008996f8bac139742f1c9f04c6cad37b2552cdc6db70e8e95a7778",
+      "source": "f72af1d637e3a112950be58bce5aca5558d4a731"
+    },
+    {
+      "path": "validation/webgl-f72/e2e-types.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "f72af1d637e3a112950be58bce5aca5558d4a731"
+    },
+    {
+      "path": "validation/webgl-f72/focused-unit-command.json",
+      "bytes": 264,
+      "sha256": "6c85fcd07bebee8e8f2e4bc1a4501133f2e45d9ec49ce8e0daa0bcb18ae5e903",
+      "source": "f72af1d637e3a112950be58bce5aca5558d4a731"
+    },
+    {
+      "path": "validation/webgl-f72/focused-unit.log",
+      "bytes": 12964,
+      "sha256": "2a03b812287bc215e782cbd8d195cdc51f0463de182a1f54e218432eb777a1c8",
+      "source": "f72af1d637e3a112950be58bce5aca5558d4a731"
+    },
+    {
+      "path": "validation/webgl-f72/frozen-command.json",
+      "bytes": 221,
+      "sha256": "4d8e0147d2a4b0ef8b32e3106dbf7463d1fac6a8024038a36659ecf1e58846a9",
+      "source": "f72af1d637e3a112950be58bce5aca5558d4a731"
+    },
+    {
+      "path": "validation/webgl-f72/frozen.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "f72af1d637e3a112950be58bce5aca5558d4a731"
+    },
+    {
+      "path": "validation/webgl-f72/web-build-command.json",
+      "bytes": 186,
+      "sha256": "2f5c4205ed502c2aadf4d0542ee7a50b8d78bb59d11d4b00614316a0f23be556",
+      "source": "f72af1d637e3a112950be58bce5aca5558d4a731"
+    },
+    {
+      "path": "validation/webgl-f72/web-build.log",
+      "bytes": 5312,
+      "sha256": "7367382cd08da995e1d7d2c4c9e6e01c2928681d1da48bbf0ea52a0771abedac",
+      "source": "f72af1d637e3a112950be58bce5aca5558d4a731"
+    },
+    {
+      "path": "validation/webgl-f72/worker-types-command.json",
+      "bytes": 192,
+      "sha256": "321110e3280964d8ea8e8e1227615db5cca21b044be6fdab10a06c1d6dc101b3",
+      "source": "f72af1d637e3a112950be58bce5aca5558d4a731"
+    },
+    {
+      "path": "validation/webgl-f72/worker-types.log",
+      "bytes": 15,
+      "sha256": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92",
+      "source": "f72af1d637e3a112950be58bce5aca5558d4a731"
+    },
+    {
+      "path": "visual/before/cards-front-desktop.png",
+      "bytes": 48749,
+      "sha256": "ac850e92a46226b3d1f43319e5cfec6a07e23212349eaff968881750c17552f9",
+      "source": "renderer 502bd124d33bb5dc9fd496c00c5774da36e121fd; full static app includes earlier audio working changes before activation fix, not exact full-app main"
+    },
+    {
+      "path": "visual/before/cards-front-narrow.png",
+      "bytes": 27355,
+      "sha256": "c854f8fa7fa57c9b3d9fd292469948f46d0b79703c5cefd4ea0484d42d557425",
+      "source": "renderer 502bd124d33bb5dc9fd496c00c5774da36e121fd; full static app includes earlier audio working changes before activation fix, not exact full-app main"
+    },
+    {
+      "path": "visual/before/dice-desktop.png",
+      "bytes": 54210,
+      "sha256": "83095bdea9d201db2252835c8589df56ecbb17a08cd451e4e2721cb70185fad3",
+      "source": "renderer 502bd124d33bb5dc9fd496c00c5774da36e121fd; full static app includes earlier audio working changes before activation fix, not exact full-app main"
+    },
+    {
+      "path": "visual/before/dice-narrow.png",
+      "bytes": 27148,
+      "sha256": "3aefa89c3ac05b01a391921df3eef30c5815bb62144cb8de32dfb623f24c299c",
+      "source": "renderer 502bd124d33bb5dc9fd496c00c5774da36e121fd; full static app includes earlier audio working changes before activation fix, not exact full-app main"
+    },
+    {
+      "path": "visual/before/observations.json",
+      "bytes": 1843,
+      "sha256": "d9a952f38653871524d462f136f7814973f096707914d77026ca40e921742c8b",
+      "source": "renderer 502bd124d33bb5dc9fd496c00c5774da36e121fd; full static app includes earlier audio working changes before activation fix, not exact full-app main"
+    },
+    {
+      "path": "visual/current/capture.mjs",
+      "bytes": 7633,
+      "sha256": "2edbc00280a4f7e4b308e6880f29896c7df5499f4bce36de385cb103fc4b7b77",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/cards-back-desktop.png",
+      "bytes": 530318,
+      "sha256": "f192fdb8ae7ebc4b745008f29662596f136255aba4ab923b37e5e5ffd1a00295",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/cards-back-narrow.png",
+      "bytes": 150364,
+      "sha256": "f4f532ac48e98ec095e348e36e6bab0e6185b0dbef011a5015a3c0d37769c7a9",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/cards-front-desktop.png",
+      "bytes": 522196,
+      "sha256": "2c89a042d2af5a44b5fb35279bd9e56244c6b4ff3e2390915c245a3741dba1a3",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/cards-front-narrow.png",
+      "bytes": 146135,
+      "sha256": "8f82eccfa6d99bba912079ad7e033e0a4cb1d42b3a9e429644d3c31091ffcf43",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/cards-front-tablet.png",
+      "bytes": 310787,
+      "sha256": "e988856c6b6ca5a787682e37b51f75844d736ca4ddac45d8d13a6422480abda5",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/cards-guest-private-desktop.png",
+      "bytes": 522312,
+      "sha256": "5278b0a1585b2b6ea22933df18450c770501c93e1d91ebb82147c4073b094438",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/cards-private-hand-owner-desktop.png",
+      "bytes": 527221,
+      "sha256": "178a50ec61fd0ca4459b58fdce8bcf9c2452ee9e8bed81b2654cca43cd20c623",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/cards-private-hand-owner-narrow.png",
+      "bytes": 148907,
+      "sha256": "e99b496303b5e0ccb8a854846f42e2c72a64ac1e3d96e890a974178ff57a0a1a",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/dice-desktop.png",
+      "bytes": 523830,
+      "sha256": "1d5561cb103bba607ab89dbe10bfb53d7df56197c4a9337a81c4ebf248145c06",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/dice-narrow.png",
+      "bytes": 101743,
+      "sha256": "838762844e14317c76993acda1b3625ac4f9c04405e94ba0d54171ed58b5abb0",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/lite-capture-command.json",
+      "bytes": 366,
+      "sha256": "d8891a84f1e30fcbb52b5ca905b895e5b8649172ac7cb002159a1d7744181798",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/lite-capture.log",
+      "bytes": 660,
+      "sha256": "f1969b5e9d7be8dd483003188e535014672b71b269d7e27b49723dc4570b20cc",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/lite-cards-back-narrow.png",
+      "bytes": 92296,
+      "sha256": "148e5f81bd7a3dc59145217ab9e90e3d6a929d0640b13a28d531e8ca08371b7d",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/lite-cards-desktop.png",
+      "bytes": 277410,
+      "sha256": "2657d9cdbdcba85d65f8ff7fb56a473e4cec60b87861d5d3590de8e88e50846b",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/lite-cards-narrow.png",
+      "bytes": 89163,
+      "sha256": "0e7757e9ede2f50e35c0e6b38bea78ae1581bbdbcd77d2c34afb1d77fbd29dd3",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/lite-concealed-card-inspection.png",
+      "bytes": 211200,
+      "sha256": "7fc1a871d45f63b8b6689ccc4f96268eebe42a6cceecea1f3f6193ad38ae5b59",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/lite-dice-desktop.png",
+      "bytes": 281309,
+      "sha256": "a7e0cdbe41041998aa19f0e455317c6244193c87e1c7c5cf25195492f3a52acd",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/lite-dice-narrow.png",
+      "bytes": 64083,
+      "sha256": "b5caf1b158358ea52ebff9ad19e487ceb69c505862ab4d2d7a1045ffef3cb3f0",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/lite-guest-private.png",
+      "bytes": 276156,
+      "sha256": "00c4ec28745ce49a7cbe89f0c5d93c2ca9fe302d66c10651748917b59571a740",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/lite-observations.json",
+      "bytes": 941,
+      "sha256": "097dc3a6bc898f48e988fd6758df997b7f6a297e20e41a0ae94b603458473138",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/lite-review.mjs",
+      "bytes": 7779,
+      "sha256": "15d97e7aeae4d50b684b164ceb69a988ff6b8573b03c3d615437c5b58fe82961",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/lite-winner-desktop.png",
+      "bytes": 283096,
+      "sha256": "32a8e2dc200ae91889373f02c46cd29e4a85f20bd72fcecaeb748dedcb4eecae",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/lite-winner-narrow.png",
+      "bytes": 65555,
+      "sha256": "39b16a58a095aa44c053a3297f7ad86146e5b57ab1a2243d8d5d104de03bb64a",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/native-builder-winding.json",
+      "bytes": 1204,
+      "sha256": "4e20df223b747b4fa8406f578d7e158784fe836ff22961e47ec0bdc058e17853",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/native-lite-parenting.json",
+      "bytes": 323,
+      "sha256": "5b5083fa5a0d0a8f4331eb278ad0a1c6c8b583441a0190681de7654cf64d4b89",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/observations.json",
+      "bytes": 4941,
+      "sha256": "ecf4f5e2687882b79313a6b9b9f3b15e1b64eb36df6428c1d7b91061b9051e4d",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/queen-court-inspection-desktop.png",
+      "bytes": 323707,
+      "sha256": "42b70810085c3ff45146b065be7b647de92cbc579b0f00b0df40682edfa536e4",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/queen-court-inspection-narrow.png",
+      "bytes": 58032,
+      "sha256": "b32ab9e2e19fc756a7859530df2fba7daa5892ca956cd92e9735457f66ea1035",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/visual-notes.md",
+      "bytes": 1544,
+      "sha256": "551b89a327b9c7c742a8736b9a7b344524ab0e33cacf63f35f2a5207d20ced23",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/webgl-capture-command.json",
+      "bytes": 376,
+      "sha256": "63bbe2662439e49aa1b2892d429f773d158ec1bf99d85b5d02f44b35e9875eb7",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/current/webgl-capture.log",
+      "bytes": 3273,
+      "sha256": "df6ce7e88220f140e901c4ca85c1c49692092e2b643b45b334d4393464802ed1",
+      "source": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+    },
+    {
+      "path": "visual/failed-dice-11cd/README.md",
+      "bytes": 689,
+      "sha256": "25c5c34b5f58640a6be54e1f7a77a8a56e8ea8901205a45698ad82f42131e3f3",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2; retained actual FAILED die visual review despite passing functional cases"
+    },
+    {
+      "path": "visual/failed-dice-11cd/failed-dice-continuity.png",
+      "bytes": 357845,
+      "sha256": "0570b058d4af7d74ab60016e0ef28378756b381739507a767d5a1ba9e232368f",
+      "source": "11cd877e6fb6c39771cf77562c7199d2cba0ece2; retained actual FAILED die visual review despite passing functional cases"
+    },
+    {
+      "path": "visual/failed-lite-f72/lite-cards-desktop.png",
+      "bytes": 295030,
+      "sha256": "492f90043419e30c1134ae14401ace7debaa0bacf18e5d4217bce6b08df0c3c3",
+      "source": "f72af1d637e3a112950be58bce5aca5558d4a731; retained actual Lite material/parenting failures"
+    },
+    {
+      "path": "visual/failed-lite-f72/lite-cards-narrow.png",
+      "bytes": 96793,
+      "sha256": "c360f76efe511732ec38080f4980de7007dbc31310a05020266ed1e733ab83a2",
+      "source": "f72af1d637e3a112950be58bce5aca5558d4a731; retained actual Lite material/parenting failures"
+    },
+    {
+      "path": "visual/failed-lite-f72/lite-observations.json",
+      "bytes": 1926,
+      "sha256": "52fc1a99b368e8c596a423cdd6b1e22b1211a8301ba784a675a3eee0e5f32187",
+      "source": "f72af1d637e3a112950be58bce5aca5558d4a731; retained actual Lite material/parenting failures"
+    },
+    {
+      "path": "visual/intermediate-ab213/cards-front-desktop.png",
+      "bytes": 374759,
+      "sha256": "59d481abf512c1e714246ff68e1ecfb10c27cf906ce3abc3ab9d54130c61a61c",
+      "source": "ab2132810d98911cf145b376ddd2ed60861b19db; retained FAILED intermediate visual review, not current passing evidence"
+    },
+    {
+      "path": "visual/intermediate-ab213/dice-narrow.png",
+      "bytes": 81040,
+      "sha256": "c8903b43f6124be86601e192e8f2c249a282523b5a31732881ff7eef6c71bd0f",
+      "source": "ab2132810d98911cf145b376ddd2ed60861b19db; retained FAILED intermediate visual review, not current passing evidence"
+    },
+    {
+      "path": "visual/intermediate-ab213/observations.json",
+      "bytes": 3769,
+      "sha256": "79b350c6caa9a01968f85e2f602b190be1fe1d1dbc077d548bab0e068ac1b581",
+      "source": "ab2132810d98911cf145b376ddd2ed60861b19db; retained FAILED intermediate visual review, not current passing evidence"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "command": [
+    "bun",
+    "test",
+    "apps/web/src/audio/TableAudio.test.ts"
+  ],
+  "exitCode": 1,
+  "scope": "new regression against the existing engine before the activation fix"
+}

@@ -1,0 +1,13 @@
+{
+  "sourceRef": "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc",
+  "command": [
+    "node",
+    "/workspace/release-receipts/2026-10-29-crafted-table/capture.mjs",
+    "final",
+    "fbc1d4bb8928bd7513af8d82dc8dcdddc2c19fdc"
+  ],
+  "startedAt": "2026-10-29T16:04:58.446615+00:00",
+  "log": "webgl-capture.log",
+  "finishedAt": "2026-10-29T16:06:16.382472+00:00",
+  "exitCode": 0
+}
