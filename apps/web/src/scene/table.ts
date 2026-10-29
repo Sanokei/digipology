@@ -13,7 +13,8 @@ import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import type { Scene } from "@babylonjs/core/scene";
 
 import { TABLE_DEPTH, TABLE_SURFACE_Y, TABLE_WIDTH } from "./tableDimensions";
-import { createArtworkCanvas } from "./pieceArtwork";
+import { createArtworkCanvas } from "./pieceArtworkCanvas";
+import { DEFAULT_CAMERA_RADIUS, MAX_CAMERA_RADIUS, MIN_CAMERA_RADIUS, TABLE_CAMERA_BETA } from "./tableCameraFraming";
 
 export { GRABBABLE_SIZE, TABLE_DEPTH, TABLE_SURFACE_Y, TABLE_WIDTH } from "./tableDimensions";
 
@@ -133,16 +134,16 @@ export function buildCamera(scene: Scene): ArcRotateCamera {
   const camera = new ArcRotateCamera(
     "table-camera",
     -Math.PI / 2,
-    0.92,
-    11.8,
+    TABLE_CAMERA_BETA,
+    DEFAULT_CAMERA_RADIUS,
     new Vector3(0, 0, 0),
     scene,
   );
 
   camera.lowerBetaLimit = 0.38;
   camera.upperBetaLimit = 1.32;
-  camera.lowerRadiusLimit = 7.3;
-  camera.upperRadiusLimit = 16;
+  camera.lowerRadiusLimit = MIN_CAMERA_RADIUS;
+  camera.upperRadiusLimit = MAX_CAMERA_RADIUS;
   camera.panningDistanceLimit = 3.25;
   camera.panningSensibility = 175;
   camera.wheelPrecision = 42;

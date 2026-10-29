@@ -4,6 +4,7 @@
  */
 import { beforeEach, expect, test } from "bun:test";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine";
+import { CreatePickingRayToRef } from "@babylonjs/core/Culling/ray.core";
 import type { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
 import type { Color3 } from "@babylonjs/core/Maths/math.color";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh";
@@ -179,11 +180,9 @@ runSceneAdapterContract({
         )) ?? null;
       return { pickedMesh };
     }) as unknown as Scene["pick"];
-    const createPickingRayToRef: Scene["createPickingRayToRef"] = (_x, _y, _world, ray) => {
-      ray.origin.set(0, 10, 0);
-      ray.direction.set((_x - 50) / 10, -1, (_y - 50) / 10);
-      return mountedScene;
-    };
+    const createPickingRayToRef: Scene["createPickingRayToRef"] = (x, y, world, ray, camera, cameraViewSpace, distant) => (
+      CreatePickingRayToRef(mountedScene, x, y, world, ray, camera ?? mountedScene.activeCamera, cameraViewSpace, distant)
+    );
     mountedScene.createPickingRayToRef = createPickingRayToRef;
     const camera = mountedScene.activeCamera;
     if (camera === null) throw new Error("WebGL camera was not created");

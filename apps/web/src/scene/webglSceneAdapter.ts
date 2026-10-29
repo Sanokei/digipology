@@ -38,9 +38,11 @@ import {
   buildLighting,
   buildTableSurface,
 } from "./table";
-import { piecePresentation, piecePresentationSignature, pieceSurfaceLayout } from "./piecePresentation";
-import { artworkSize, drawPieceArtwork, type PieceArtwork } from "./pieceArtwork";
+import { hasSpatialPresentation, piecePresentation, piecePresentationSignature, pieceSurfaceLayout } from "./piecePresentation";
+import { artworkSize, type PieceArtwork } from "./pieceArtwork";
+import { drawPieceArtwork } from "./pieceArtworkCanvas";
 import { roundedBoxGeometry, roundedCardGeometry, type PieceGeometry } from "./pieceGeometry";
+import { MAX_CAMERA_RADIUS, MIN_CAMERA_RADIUS, pieceFramingBounds, TABLE_CAMERA_BETA, TableFramingController } from "./tableCameraFraming";
 
 type PieceDragBounds = Parameters<typeof attachDragBehavior>[0]["bounds"];
 
@@ -101,6 +103,12 @@ function roundedMesh(name: string, geometry: PieceGeometry, scene: Scene): Mesh 
   data.indices = geometry.indices; data.uvs = geometry.uvs;
   data.applyToMesh(mesh);
   return mesh;
+}
+
+function readableHighlight(scene: Scene): HighlightLayer {
+  const layer = new HighlightLayer("piece-highlight", scene, { blurHorizontalSize: 0.5, blurVerticalSize: 0.5 });
+  layer.innerGlow = false;
+  return layer;
 }
 
 function artworkTexture(
@@ -307,6 +315,8 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
   let lastCorrectionId: number | null = null;
   let dprQuery: MediaQueryList | null = null;
   const pieces = new Map<string, PieceGraph>();
+  const framing = new TableFramingController();
+  let introFinished = false;
   const highlights = {
     hover: null as string | null,
     selected: null as string | null,
@@ -350,6 +360,20 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
     return { canvas, engine, scene, camera: cameraGraph };
   }
 
+  function updateAutomaticFrame(): void {
+    if (canvas === null || cameraGraph === null) return;
+    const bounds = [...pieces.keys()].flatMap((id) => {
+      const entity = currentView?.displayedState?.entities[id];
+      const bound = entity === undefined ? null : pieceFramingBounds(entity);
+      return bound === null ? [] : [bound];
+    });
+    const frame = framing.update(canvas.clientWidth, canvas.clientHeight, bounds);
+    if (frame === null) return;
+    cameraGraph.target.set(frame.x, 0, frame.z); cameraGraph.radius = frame.radius;
+  }
+
+  function holdCamera(): void { framing.hold(); introFinished = true; }
+
   function destroyPiece(piece: PieceGraph): void {
     piece.drag?.dispose();
     piece.cancelCorrection?.();
@@ -379,10 +403,9 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       mesh: piece.mesh,
       bounds,
       canInteract: () => !paused && isEntityGrabbable(entityId),
-      ...(dependencies.createHighlightLayer === undefined
-        ? {}
-        : { createHighlightLayer: dependencies.createHighlightLayer }),
+      createHighlightLayer: dependencies.createHighlightLayer ?? readableHighlight,
       ...actionCallbacks,
+      onGrab() { holdCamera(); actionCallbacks.onGrab(); },
       onDrop(position, rotation) {
         piece.cancelMotion?.();
         piece.cancelMotion = animateLanding(mounted.scene, piece.mesh);
@@ -403,12 +426,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
   function makePiece(entity: EntityRecord): PieceGraph | null {
     const mounted = requireMounted();
     const { components } = entity;
-    if (components.hand !== undefined) {
-      return null;
-    } else if (components.transform === undefined && components.counter === undefined &&
-      components.deck === undefined && components.card === undefined && components.die === undefined) {
-      return null;
-    }
+    if (!hasSpatialPresentation(entity)) return null;
     const definitionId = components.card?.definitionId ?? components.die?.definitionId;
     const definition = definitionId === undefined ? undefined : currentView?.definitions[definitionId];
     const appearance = piecePresentation(entity, definition);
@@ -503,22 +521,24 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       scene = new Scene(engine);
       scene.clearColor = Color4.FromHexString("#050806ff");
       cameraGraph = buildCamera(scene);
+      framing.reset(); introFinished = false;
       cameraGraph.alpha = -1.46;
       cameraGraph.beta = 0.82;
       cameraGraph.radius = 13.2;
       const table = buildTableSurface(scene);
       shadows = buildLighting(scene, highQuality && !software).shadows;
       table.receiveShadows = shadows !== null;
-      presentationHighlight = dependencies.createHighlightLayer?.(scene) ?? new HighlightLayer("presentation-highlight", scene);
+      presentationHighlight = dependencies.createHighlightLayer?.(scene) ?? readableHighlight(scene);
       let cameraIntroMs = 0;
       scene.onBeforeRenderObservable.add(() => {
-        if (cameraGraph === null || cameraIntroMs >= 900) return;
+        if (cameraGraph === null || cameraIntroMs >= 900 || introFinished || !framing.automatic) return;
         cameraIntroMs += scene?.getEngine().getDeltaTime() ?? 0;
         const linear = Math.min(cameraIntroMs / 900, 1);
         const eased = 1 - (1 - linear) ** 3;
         cameraGraph.alpha = -1.46 + (-Math.PI / 2 + 1.46) * eased;
         cameraGraph.beta = 0.82 + 0.1 * eased;
-        cameraGraph.radius = 13.2 - 1.4 * eased;
+        cameraGraph.radius = framing.current.radius + 1.4 * (1 - eased);
+        if (linear === 1) introFinished = true;
       });
     },
     dispose(): void {
@@ -547,7 +567,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       lastDefinitions = view.definitions;
       lastCorrectionId = correctionId;
       const contained = containedIds(view);
-      const ids = Object.keys(state.entities).sort().filter((id) => !contained.has(id) && state.entities[id]?.components.hand === undefined);
+      const ids = Object.keys(state.entities).sort().filter((id) => !contained.has(id) && state.entities[id] !== undefined && hasSpatialPresentation(state.entities[id]!));
       const visible = new Set(ids);
       for (const [id, piece] of pieces) {
         if (!visible.has(id)) {
@@ -590,6 +610,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
         }
         refreshHighlight(id);
       }
+      updateAutomaticFrame();
     },
     async pick(x: number, y: number): Promise<string | null> {
       if (scene === null) return null;
@@ -661,11 +682,13 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       detach(): void {},
       orbit(dx: number, dy: number): void {
         if (cameraGraph === null) return;
+        if (dx !== 0 || dy !== 0) holdCamera();
         cameraGraph.alpha -= dx / 900;
         cameraGraph.beta = clamp(cameraGraph.beta - dy / 900, 0.38, 1.32);
       },
       pan(dx: number, dy: number): void {
         if (cameraGraph === null) return;
+        if (dx !== 0 || dy !== 0) holdCamera();
         const scale = cameraGraph.radius / 1_100;
         const rightX = -Math.sin(cameraGraph.alpha);
         const rightZ = Math.cos(cameraGraph.alpha);
@@ -676,18 +699,19 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       },
       pinch(previousDistance: number, distance: number): void {
         if (cameraGraph === null || previousDistance <= 0 || distance <= 0) return;
-        cameraGraph.radius = clamp(cameraGraph.radius * previousDistance / distance, 7.3, 16);
+        if (previousDistance !== distance) holdCamera();
+        cameraGraph.radius = clamp(cameraGraph.radius * previousDistance / distance, MIN_CAMERA_RADIUS, MAX_CAMERA_RADIUS);
       },
       zoom(deltaY: number): void {
         if (cameraGraph === null) return;
-        cameraGraph.radius = clamp(cameraGraph.radius * Math.exp(deltaY * 0.001), 7.3, 16);
+        if (deltaY !== 0) holdCamera();
+        cameraGraph.radius = clamp(cameraGraph.radius * Math.exp(deltaY * 0.001), MIN_CAMERA_RADIUS, MAX_CAMERA_RADIUS);
       },
       reset(): void {
         if (cameraGraph === null) return;
         cameraGraph.alpha = -Math.PI / 2;
-        cameraGraph.beta = 0.92;
-        cameraGraph.radius = 11.8;
-        cameraGraph.target.set(0, 0, 0);
+        cameraGraph.beta = TABLE_CAMERA_BETA;
+        introFinished = true; framing.reset(); updateAutomaticFrame();
         cameraGraph.inertialAlphaOffset = 0;
         cameraGraph.inertialBetaOffset = 0;
         cameraGraph.inertialRadiusOffset = 0;
@@ -699,6 +723,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
     },
     resize(): void {
       engine?.resize();
+      updateAutomaticFrame();
     },
     setRenderLoop(running: boolean): void {
       if (engine === null || rendering === running) return;

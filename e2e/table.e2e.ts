@@ -112,7 +112,18 @@ test("named cards remain private in hands, play visibly to the table, reveal and
     await page.bringToFront();
     await page.getByRole("button", { name: "Inspect 7 of Diamonds", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Inspecting 7 of Diamonds", exact: true })).toBeVisible();
-    await expect(page.locator(".inspect-overlay__preview .playing-card__pips > span")).toHaveCount(7);
+    // The same full raster face is used in the hand, inspector and 3D table.
+    const inspectedFace = page.locator(".inspect-overlay__preview .playing-card[data-card-face='standard-card'] canvas");
+    await expect(inspectedFace).toBeVisible();
+    await expect(inspectedFace).toHaveAttribute("width", "512");
+    await expect(inspectedFace).toHaveAttribute("height", "736");
+    expect(await inspectedFace.evaluate((element) => {
+      const ctx = (element as HTMLCanvasElement).getContext("2d")!;
+      const pixels = ctx.getImageData(0, 0, 512, 736).data;
+      let redInk = 0;
+      for (let at = 0; at < pixels.length; at += 4) if (pixels[at]! > pixels[at + 1]! * 1.5 && pixels[at + 3]! > 200) redInk++;
+      return redInk;
+    })).toBeGreaterThan(8000);
     await page.screenshot({ path: testInfo.outputPath("card-inspection.png"), fullPage: true });
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog")).not.toBeVisible();
@@ -131,7 +142,8 @@ test("named cards remain private in hands, play visibly to the table, reveal and
     await expect(privateBack.locator("header strong")).toHaveText("Face-down card");
     await privateBack.getByRole("menuitem", { name: "Inspect", exact: true }).click();
     await expect(other.page.getByRole("dialog", { name: "Inspecting Face-down card", exact: true })).toBeVisible();
-    await expect(other.page.locator(".inspect-overlay__preview .playing-card")).toHaveCount(0);
+    await expect(other.page.locator(".inspect-overlay__preview .playing-card[data-card-face='card-back'] canvas")).toBeVisible();
+    await expect(other.page.locator(".inspect-overlay__preview [data-card-face='standard-card'], .inspect-overlay__preview [data-card-face='custom-card']")).toHaveCount(0);
     await expect(other.page.getByText("7 of Diamonds", { exact: true })).toHaveCount(0);
     await other.page.screenshot({ path: testInfo.outputPath("played-card-hidden-face.png"), fullPage: true });
     await other.page.keyboard.press("Escape");
@@ -147,6 +159,15 @@ test("named cards remain private in hands, play visibly to the table, reveal and
     await expect(page.getByRole("button", { name: "Inspect Queen of Clubs", exact: true })).toBeVisible();
     await renderedTable(page);
     await page.screenshot({ path: testInfo.outputPath("card-hand-restored.png"), fullPage: true });
+    await page.getByRole("button", { name: "Inspect Queen of Clubs", exact: true }).click();
+    await expect(page.locator(".inspect-overlay__preview .playing-card canvas")).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath("court-card-desktop.png"), fullPage: false });
+    await page.setViewportSize({ width: 390, height: 480 });
+    await expect(page.getByRole("button", { name: "Close inspect", exact: true })).toBeInViewport();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+    await page.screenshot({ path: testInfo.outputPath("court-card-short.png"), fullPage: false });
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("button", { name: "Inspect Queen of Clubs", exact: true })).toBeFocused();
   } finally { await other.context.close(); }
 });
 

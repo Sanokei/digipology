@@ -75,7 +75,7 @@ test("named draws, private hands, visible center play, and reveal replay to a fr
       const cardWidth = piecePresentation(card).width;
       const distance = Math.abs(deck.components.transform!.position.x - card.components.transform!.position.x);
       expect(distance).toBeGreaterThan((deckWidth + cardWidth) / 2);
-      expect(piecePresentation(card, definitions[card.components.card!.definitionId]).label).toBe("DIGIPOLOGY");
+      expect(piecePresentation(card, definitions[card.components.card!.definitionId]).label).toBe("Face-down card");
     }
   }
   expect([...events].sort()).toEqual(fixture.expectedEventTypes);

@@ -24,6 +24,13 @@ export interface PieceDefinition {
   readonly color?: string;
 }
 
+/** Counters without a transform store rules data; they are not physical tokens. */
+export function hasSpatialPresentation(entity: EntityRecord): boolean {
+  const components = entity.components;
+  return components.hand === undefined && (components.transform !== undefined
+    || components.card !== undefined || components.deck !== undefined || components.die !== undefined);
+}
+
 const SEAT_COLORS = ["#f2a33a", "#42b8ef", "#e9e8df", "#b58cff"] as const;
 
 function cardFaceUp(entity: EntityRecord): boolean {

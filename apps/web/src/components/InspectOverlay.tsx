@@ -1,5 +1,5 @@
 import { useEffect, useRef, type CSSProperties } from "react";
-import { PlayingCardFace, type PlayingCardIdentity } from "./PlayingCardFace";
+import { CustomCardFace, PlayingCardBack, PlayingCardFace, type PlayingCardIdentity } from "./PlayingCardFace";
 
 export interface InspectOverlayItem {
   entityId: string;
@@ -56,7 +56,7 @@ export function InspectOverlay({ item, onDismiss }: { item: InspectOverlayItem; 
         style={item.hidden ? undefined : { "--inspect-color": item.color } as CSSProperties}
         aria-label={item.hidden ? "Face-down card back" : item.label}
       >
-        {!item.hidden && item.face !== undefined ? <PlayingCardFace identity={item.face} /> : <span>{item.hidden ? "DIGIPOLOGY" : item.label}</span>}
+        {item.kind !== "card" ? <span>{item.label}</span> : item.hidden ? <PlayingCardBack /> : item.face !== undefined ? <PlayingCardFace identity={item.face} /> : <CustomCardFace label={item.label} color={item.color} />}
       </div>
       <strong>{item.hidden ? "Face-down card" : item.label}</strong>
       <small>{item.kind === "card" ? "Card" : "Table object"}</small>

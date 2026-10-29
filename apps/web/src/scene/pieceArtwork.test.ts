@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import type { EntityRecord } from "digipology-kernel";
-import { cardArtwork, dieArtworkFaces, drawPieceArtwork, type PieceArtwork } from "./pieceArtwork";
+import { cardArtwork, dieArtworkFaces, type PieceArtwork } from "./pieceArtwork";
+import { drawPieceArtwork } from "./pieceArtworkCanvas";
 import { piecePresentation, piecePresentationSignature, pieceSurfaceLayout } from "./piecePresentation";
 
 function card(faceUp: boolean): EntityRecord {
@@ -45,6 +46,7 @@ test("custom dice preserve their authored result rather than acquiring invented 
     expect(faces).toHaveLength(6);
     expect(faces.every((face) => face.kind === "die-face" && face.value === value && !face.pips)).toBe(true);
   }
+  expect(dieArtworkFaces({ id: "custom", components: { die: { definitionId: "weather", value: 1 } } })[0]).toEqual({ kind: "die-face", value: 1, pips: false });
 });
 
 test("an empty deck is a thin empty placeholder and never displays fictional paper layers", () => {
@@ -64,14 +66,16 @@ test("the face-list changes the renderer signature even when the current die val
   expect(piecePresentationSignature(standard)).not.toBe(piecePresentationSignature(custom));
 });
 
-function drawingRecorder(): { context: CanvasRenderingContext2D; text: string[]; circles: number[] } {
+function drawingRecorder(): { context: CanvasRenderingContext2D; text: string[]; circles: number[]; scales: number[][]; rectangles: number[][] } {
   const text: string[] = []; const circles: number[] = [];
+  const scales: number[][] = []; const rectangles: number[][] = [];
   const target: Record<string, unknown> = {
     createLinearGradient: () => ({ addColorStop() {} }), createRadialGradient: () => ({ addColorStop() {} }),
     fillText: (value: string) => text.push(value), measureText: (value: string) => ({ width: value.length * 25 }),
     arc: (_x: number, _y: number, radius: number, start: number, end: number) => { if (end - start > 6) circles.push(radius); },
+    scale: (...values: number[]) => scales.push(values), fillRect: (...values: number[]) => rectangles.push(values),
   };
-  return { context: new Proxy(target, { get: (object, key) => object[String(key)] ?? (() => undefined) }) as unknown as CanvasRenderingContext2D, text, circles };
+  return { context: new Proxy(target, { get: (object, key) => object[String(key)] ?? (() => undefined) }) as unknown as CanvasRenderingContext2D, text, circles, scales, rectangles };
 }
 
 test("raster artwork paints the correct number of card suits and die pips", () => {
@@ -83,10 +87,18 @@ test("raster artwork paints the correct number of card suits and die pips", () =
     const recording = drawingRecorder();
     drawPieceArtwork(recording.context, 256, 256, { kind: "die-face", value, pips: true });
     expect(recording.circles).toHaveLength(value);
+    expect(recording.rectangles).toHaveLength(0); // transparent ink over the rounded body
   }
   const custom = drawingRecorder();
   drawPieceArtwork(custom.context, 256, 256, { kind: "die-face", value: "sun", pips: false });
   expect(custom.text).toEqual(["sun"]); expect(custom.circles).toHaveLength(0);
+});
+
+test("a power-of-two resized WebGL texture retains the full card layout instead of clustering pips at the top", () => {
+  const recording = drawingRecorder();
+  drawPieceArtwork(recording.context, 512, 1024, { kind: "standard-card", identity: { rank: "7", suit: "diamonds" } });
+  expect(recording.scales).toEqual([[1, 1024 / 736]]);
+  expect(recording.text.filter((text) => text === "♦")).toHaveLength(9);
 });
 
 test("all artwork variants can be painted with browser Canvas2D operations", () => {

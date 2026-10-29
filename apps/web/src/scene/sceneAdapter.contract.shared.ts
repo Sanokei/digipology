@@ -136,6 +136,43 @@ function applyDecisions(adapter: SceneAdapter, decisions: readonly TouchGestureD
 
 export function runSceneAdapterContract(harness: SceneAdapterContractHarness): void {
   describe(`SceneAdapter contract (${harness.name})`, () => {
+    test("omits logical counters without transforms and retains authored spatial score tokens", async () => {
+      const mounted = await harness.mount(() => undefined);
+      const score = contractCounter();
+      const winner: EntityRecord = { id: "winner", components: { counter: { value: 0, default: 0, min: 0, max: 4 } } };
+      mounted.adapter.syncEntities(contractSnapshot({ winner, "counter-1": score, "die-1": contractDie() }));
+      expect(mounted.piece("winner")).toBeNull();
+      expect(mounted.piece("counter-1")).not.toBeNull();
+      expect(mounted.piece("die-1")).not.toBeNull();
+      expect(mounted.livePieceCount()).toBe(2);
+      mounted.adapter.syncEntities(contractSnapshot({ winner, "counter-1": { ...score, components: { counter: score.components.counter! } }, "die-1": contractDie() }));
+      expect(mounted.piece("counter-1")).toBeNull();
+      expect(mounted.livePieceCount()).toBe(1);
+      mounted.adapter.dispose();
+    });
+
+    test("retains a person's pan and zoom across state updates and resize until camera reset", async () => {
+      const mounted = await harness.mount(() => undefined);
+      const { adapter } = mounted;
+      adapter.syncEntities(contractSnapshot({ "card-1": contractCard() }));
+      mounted.tick(1_000);
+      adapter.camera.pan(120, 60); adapter.camera.zoom(-100);
+      const center = adapter.projectToTable(50, 50)!;
+      const corner = adapter.projectToTable(75, 50)!;
+      expect(Math.abs(center.x) + Math.abs(center.z)).toBeGreaterThan(0.1);
+      adapter.resize();
+      adapter.syncEntities(contractSnapshot({ "card-1": contractCard(3) }));
+      mounted.tick(1_000);
+      const retained = adapter.projectToTable(50, 50)!;
+      const retainedCorner = adapter.projectToTable(75, 50)!;
+      expect(retained.x).toBeCloseTo(center.x, 5); expect(retained.z).toBeCloseTo(center.z, 5);
+      expect(retainedCorner.x).toBeCloseTo(corner.x, 5); expect(retainedCorner.z).toBeCloseTo(corner.z, 5);
+      adapter.camera.reset();
+      const reset = adapter.projectToTable(50, 50)!;
+      expect(reset.x).toBeCloseTo(0, 5); expect(reset.z).toBeCloseTo(0, 5);
+      adapter.dispose();
+    });
+
     test("syncs create/update/recreate/remove and resolves pick hit/miss", async () => {
       const mounted = await harness.mount(() => undefined);
       const { adapter } = mounted;

@@ -50,9 +50,11 @@ import type {
   SceneAdapterMountOptions,
 } from "./sceneAdapter";
 import { TABLE_DEPTH, TABLE_SURFACE_Y, TABLE_WIDTH } from "./tableDimensions";
-import { piecePresentation, piecePresentationSignature, pieceSurfaceLayout } from "./piecePresentation";
-import { artworkSize, createArtworkCanvas, type PieceArtwork } from "./pieceArtwork";
+import { hasSpatialPresentation, piecePresentation, piecePresentationSignature, pieceSurfaceLayout } from "./piecePresentation";
+import { artworkSize, type PieceArtwork } from "./pieceArtwork";
+import { createArtworkCanvas } from "./pieceArtworkCanvas";
 import { roundedBoxGeometry, roundedCardGeometry } from "./pieceGeometry";
+import { MAX_CAMERA_RADIUS, MIN_CAMERA_RADIUS, pieceFramingBounds, TABLE_CAMERA_BETA, TableFramingController } from "./tableCameraFraming";
 
 interface DragBounds {
   minX: number;
@@ -375,6 +377,8 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
   let localHeld: string | null = null;
   const pieces = new Map<string, PieceGraph>();
   const staticTextures: DynamicTexture2D[] = [];
+  const framing = new TableFramingController();
+  let introFinished = false;
 
   function requireMounted() {
     if (canvas === null || engine === null || scene === null || cameraGraph === null) {
@@ -382,6 +386,21 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
     }
     return { canvas, engine, scene, camera: cameraGraph };
   }
+
+  function updateAutomaticFrame(): void {
+    if (canvas === null || cameraGraph === null) return;
+    const bounds = [...pieces.keys()].flatMap((id) => {
+      const entity = currentView?.displayedState?.entities[id];
+      const bound = entity === undefined ? null : pieceFramingBounds(entity);
+      return bound === null ? [] : [bound];
+    });
+    const frame = framing.update(canvas.clientWidth, canvas.clientHeight, bounds);
+    if (frame === null) return;
+    cameraGraph.target.x = frame.x; cameraGraph.target.y = 0; cameraGraph.target.z = frame.z;
+    cameraGraph.radius = frame.radius;
+  }
+
+  function holdCamera(): void { framing.hold(); introFinished = true; }
 
   function applyPieceHighlight(piece: PieceGraph): void {
     let color: [number, number, number] = [0, 0, 0];
@@ -499,12 +518,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
   function makePiece(entity: EntityRecord): PieceGraph | null {
     const mounted = requireMounted();
     const { components } = entity;
-    if (components.hand !== undefined) {
-      return null;
-    } else if (components.transform === undefined && components.counter === undefined &&
-      components.deck === undefined && components.card === undefined && components.die === undefined) {
-      return null;
-    }
+    if (!hasSpatialPresentation(entity)) return null;
     const definitionId = components.card?.definitionId ?? components.die?.definitionId;
     const definition = definitionId === undefined ? undefined : currentView?.definitions[definitionId];
     const appearance = piecePresentation(entity, definition);
@@ -632,9 +646,10 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       detachCameraLimits = setCameraLimits(cameraGraph, {
         lowerBetaLimit: 0.38,
         upperBetaLimit: 1.32,
-        lowerRadiusLimit: 7.3,
-        upperRadiusLimit: 16,
+        lowerRadiusLimit: MIN_CAMERA_RADIUS,
+        upperRadiusLimit: MAX_CAMERA_RADIUS,
       }, scene);
+      framing.reset(); introFinished = false;
 
       const mountedEngine = engine;
       const mountedScene = scene;
@@ -684,13 +699,14 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       picker = createGpuPicker(scene);
       let cameraIntroMs = 0;
       onBeforeRender(scene, (deltaMs) => {
-        if (cameraGraph !== null && cameraIntroMs < 900) {
+        if (cameraGraph !== null && cameraIntroMs < 900 && !introFinished && framing.automatic) {
           cameraIntroMs += deltaMs;
           const linear = Math.min(cameraIntroMs / 900, 1);
           const eased = 1 - (1 - linear) ** 3;
           cameraGraph.alpha = mix(-1.46, -Math.PI / 2, eased);
           cameraGraph.beta = mix(0.82, 0.92, eased);
-          cameraGraph.radius = mix(13.2, 11.8, eased);
+          cameraGraph.radius = framing.current.radius + 1.4 * (1 - eased);
+          if (linear === 1) introFinished = true;
         }
         for (const piece of pieces.values()) {
           updateSpawnAndLanding(piece, deltaMs);
@@ -735,7 +751,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       for (const entity of Object.values(state.entities)) {
         for (const item of entity.components.container?.items ?? []) contained.add(item);
       }
-      const ids = Object.keys(state.entities).sort().filter((id) => !contained.has(id) && state.entities[id]?.components.hand === undefined);
+      const ids = Object.keys(state.entities).sort().filter((id) => !contained.has(id) && state.entities[id] !== undefined && hasSpatialPresentation(state.entities[id]!));
       const visible = new Set(ids);
       for (const [id, piece] of pieces) {
         if (!visible.has(id)) {
@@ -774,6 +790,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
             && entity.components.lockable?.locked !== true;
         }
       }
+      updateAutomaticFrame();
     },
     async pick(x: number, y: number): Promise<string | null> {
       if (picker === null) return null;
@@ -805,6 +822,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       if (paused || activeDrag !== null || dependencies.sendAction === undefined) return;
       const piece = pieces.get(entityId);
       if (piece?.grabbable !== true || piece.bounds === undefined) return;
+      holdCamera();
       const callbacks = createDragActionCallbacks(
         entityId,
         dependencies.sendAction,
@@ -900,11 +918,13 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       detach(): void {},
       orbit(dx: number, dy: number): void {
         if (cameraGraph === null) return;
+        if (dx !== 0 || dy !== 0) holdCamera();
         cameraGraph.alpha -= dx / 900;
         cameraGraph.beta = clamp(cameraGraph.beta - dy / 900, 0.38, 1.32);
       },
       pan(dx: number, dy: number): void {
         if (cameraGraph === null) return;
+        if (dx !== 0 || dy !== 0) holdCamera();
         const scale = cameraGraph.radius / 1_100;
         const rightX = -Math.sin(cameraGraph.alpha);
         const rightZ = Math.cos(cameraGraph.alpha);
@@ -915,20 +935,19 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       },
       pinch(previousDistance: number, distance: number): void {
         if (cameraGraph === null || previousDistance <= 0 || distance <= 0) return;
-        cameraGraph.radius = clamp(cameraGraph.radius * previousDistance / distance, 7.3, 16);
+        if (previousDistance !== distance) holdCamera();
+        cameraGraph.radius = clamp(cameraGraph.radius * previousDistance / distance, MIN_CAMERA_RADIUS, MAX_CAMERA_RADIUS);
       },
       zoom(deltaY: number): void {
         if (cameraGraph === null) return;
-        cameraGraph.radius = clamp(cameraGraph.radius * Math.exp(deltaY * 0.001), 7.3, 16);
+        if (deltaY !== 0) holdCamera();
+        cameraGraph.radius = clamp(cameraGraph.radius * Math.exp(deltaY * 0.001), MIN_CAMERA_RADIUS, MAX_CAMERA_RADIUS);
       },
       reset(): void {
         if (cameraGraph === null) return;
         cameraGraph.alpha = -Math.PI / 2;
-        cameraGraph.beta = 0.92;
-        cameraGraph.radius = 11.8;
-        cameraGraph.target.x = 0;
-        cameraGraph.target.y = 0;
-        cameraGraph.target.z = 0;
+        cameraGraph.beta = TABLE_CAMERA_BETA;
+        introFinished = true; framing.reset(); updateAutomaticFrame();
         cameraGraph.inertialAlphaOffset = 0;
         cameraGraph.inertialBetaOffset = 0;
         cameraGraph.inertialRadiusOffset = 0;
@@ -940,6 +959,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
     },
     resize(): void {
       if (engine !== null) resizeEngine(engine);
+      updateAutomaticFrame();
     },
     setRenderLoop(running: boolean): void {
       if (engine === null || rendering === running) return;
