@@ -42,6 +42,10 @@ import {
 import { hasSpatialPresentation, piecePresentation, piecePresentationSignature, pieceSurfaceLayout } from "./piecePresentation";
 import { artworkSize, type PieceArtwork } from "./pieceArtwork";
 import { drawPieceArtwork } from "./pieceArtworkCanvas";
+import { cardBackForGame, type CardBackDefinition } from "./cardBack";
+import { watchCardBackImage } from "./cardBackImages";
+import { CARD_STOCK, type CardPaperShape } from "./cardStock";
+import { canonicalPieceY, physicalPieceY } from "./cardPhysical";
 import { roundedBoxGeometry, roundedCardGeometry, type PieceGeometry } from "./pieceGeometry";
 import { MAX_CAMERA_RADIUS, MIN_CAMERA_RADIUS, pieceFramingBounds, TABLE_CAMERA_BETA, TableFramingController } from "./tableCameraFraming";
 
@@ -113,18 +117,25 @@ function readableHighlight(scene: Scene): HighlightLayer {
   return layer;
 }
 
+const artworkReleases = new WeakMap<DynamicTexture, () => void>();
+
 function artworkTexture(
   scene: Scene, name: string, artwork: PieceArtwork,
   createTexture?: WebglSceneAdapterDependencies["createLabelTexture"],
+  back?: CardBackDefinition, paperShape?: CardPaperShape,
 ): DynamicTexture {
   const [width, height] = artworkSize(artwork);
   const texture = createTexture?.(name, scene)
     ?? new DynamicTexture(name, { width, height }, scene, true);
   texture.hasAlpha = true;
   if (typeof texture.getContext === "function") {
-    const size = texture.getSize();
-    drawPieceArtwork(texture.getContext() as unknown as CanvasRenderingContext2D, size.width, size.height, artwork);
-    texture.update(true);
+    const paint = (backImage?: HTMLImageElement) => {
+      const size = texture.getSize();
+      drawPieceArtwork(texture.getContext() as unknown as CanvasRenderingContext2D, size.width, size.height, artwork, { ...(paperShape ? { paperShape } : {}), ...(backImage ? { backImage } : {}) });
+      texture.update(true);
+    };
+    paint();
+    if (artwork.kind === "card-back" && back && typeof Image !== "undefined") artworkReleases.set(texture, watchCardBackImage(back, (state) => paint(state.image ?? undefined)));
   } else {
     // The injected NullEngine texture seam intentionally has no browser canvas.
     texture.drawText(artwork.kind === "custom-card" ? artwork.label : "", null, 150, "bold 54px Manrope", "#203b35", "#fff9eb", true, true);
@@ -134,12 +145,13 @@ function artworkTexture(
 
 function addPieceSurfaces(
   scene: Scene, parent: Mesh, entity: EntityRecord, appearance: ReturnType<typeof piecePresentation>,
-  definition: Parameters<typeof piecePresentation>[1], createTexture?: WebglSceneAdapterDependencies["createLabelTexture"],
+  definition: Parameters<typeof piecePresentation>[1], createTexture?: WebglSceneAdapterDependencies["createLabelTexture"], back?: CardBackDefinition,
 ): DynamicTexture[] {
   const textures: DynamicTexture[] = [];
   for (const surface of pieceSurfaceLayout(entity, appearance, definition)) {
     const name = `${parent.name}-surface-${surface.name}`;
-    const texture = artworkTexture(scene, name, surface.artwork, createTexture);
+    const artwork = surface.artwork.kind === "card-back" && back ? { ...surface.artwork, gameTitle: back.title } : surface.artwork;
+    const texture = artworkTexture(scene, name, artwork, createTexture, back, surface.paperShape);
     textures.push(texture);
     const mat = new StandardMaterial(`${name}-material`, scene);
     mat.diffuseTexture = texture; mat.useAlphaFromDiffuseTexture = true;
@@ -174,7 +186,7 @@ function addContactShadow(
 function updateContactShadow(piece: PieceGraph): void {
   if (piece.shadow === undefined) return;
   const shadow = piece.shadow.mesh; const source = piece.mesh;
-  shadow.position.set(source.position.x, TABLE_SURFACE_Y + 0.004, source.position.z);
+  shadow.position.set(source.position.x, TABLE_SURFACE_Y + CARD_STOCK.surfaceLift, source.position.z);
   shadow.scaling.set(Math.abs(source.scaling.x), Math.abs(source.scaling.z), 1);
   const q = source.rotationQuaternion;
   if (q !== null) shadow.rotation.y = Math.atan2(2 * (q.w * q.y + q.x * q.z), 1 - 2 * (q.x * q.x + q.y * q.y));
@@ -225,18 +237,20 @@ function transformSignature(transform: TransformComponent | undefined, restingY:
   return `${position.x}:${position.y}:${position.z}:${rotation.x}:${rotation.y}:${rotation.z}:${rotation.w}:${scale.x}:${scale.y}:${scale.z}`;
 }
 
-function transformTarget(transform: TransformComponent | undefined, restingY: number) {
+function isCardStock(mesh: Mesh): boolean { return (mesh.metadata as { thinCard?: boolean } | undefined)?.thinCard === true; }
+
+function transformTarget(transform: TransformComponent | undefined, restingY: number, thinCard = false) {
   return transform === undefined
     ? { position: new Vector3(0, restingY, 0), scaling: Vector3.One(), rotation: Quaternion.Identity() }
     : {
-        position: new Vector3(transform.position.x, Math.max(transform.position.y, restingY), transform.position.z),
+        position: new Vector3(transform.position.x, physicalPieceY(transform.position.y, restingY, thinCard), transform.position.z),
         scaling: new Vector3(transform.scale.x, transform.scale.y, transform.scale.z),
         rotation: new Quaternion(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
       };
 }
 
 function applyTransform(mesh: Mesh, transform: TransformComponent | undefined, restingY: number): void {
-  const target = transformTarget(transform, restingY);
+  const target = transformTarget(transform, restingY, isCardStock(mesh));
   mesh.position.copyFrom(target.position);
   mesh.scaling.copyFrom(target.scaling);
   mesh.rotationQuaternion ??= Quaternion.Identity();
@@ -252,7 +266,7 @@ function animateTransform(
   const fromPosition = mesh.position.clone();
   const fromScaling = mesh.scaling.clone();
   const fromRotation = mesh.rotationQuaternion?.clone() ?? Quaternion.Identity();
-  const target = transformTarget(transform, restingY);
+  const target = transformTarget(transform, restingY, isCardStock(mesh));
   mesh.rotationQuaternion ??= Quaternion.Identity();
   let elapsed = 0;
   const observer = scene.onBeforeRenderObservable.add(() => {
@@ -320,6 +334,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
   const pieces = new Map<string, PieceGraph>();
   const framing = new TableFramingController();
   let introFinished = false;
+  let lastBackSignature = "";
   const highlights = {
     hover: null as string | null,
     selected: null as string | null,
@@ -378,6 +393,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
   function holdCamera(): void { framing.hold(); introFinished = true; }
 
   function destroyPiece(piece: PieceGraph): void {
+    for (const texture of piece.surfaces ?? []) { artworkReleases.get(texture)?.(); artworkReleases.delete(texture); }
     piece.drag?.dispose();
     piece.cancelCorrection?.();
     piece.label?.dispose();
@@ -412,7 +428,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       onDrop(position, rotation) {
         piece.cancelMotion?.();
         piece.cancelMotion = animateLanding(mounted.scene, piece.mesh);
-        actionCallbacks.onDrop(position, rotation);
+        actionCallbacks.onDrop({ ...position, y: canonicalPieceY(position.y, piece.restingY, isCardStock(piece.mesh)) }, rotation);
       },
     });
   }
@@ -433,7 +449,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
     const definitionId = components.card?.definitionId ?? components.die?.definitionId;
     const definition = definitionId === undefined ? undefined : currentView?.definitions[definitionId];
     const appearance = piecePresentation(entity, definition);
-    const restingY = TABLE_SURFACE_Y + appearance.height / 2;
+    const restingY = TABLE_SURFACE_Y + appearance.height * (appearance.kind === "card" ? Math.abs(components.transform?.scale.y ?? 1) : 1) / 2;
     const mesh = appearance.kind === "die"
       ? roundedMesh(`entity-${entity.id}`, roundedBoxGeometry(appearance.width, appearance.height, appearance.depth, 0.105), mounted.scene)
       : appearance.kind === "card" || appearance.kind === "deck"
@@ -455,7 +471,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
           depth: appearance.depth,
           height: appearance.height,
         }, mounted.scene);
-    mesh.metadata = { entityId: entity.id, displayLabel: appearance.label };
+    mesh.metadata = { entityId: entity.id, displayLabel: appearance.label, thinCard: appearance.kind === "card" };
     mesh.isPickable = true;
     mesh.material = material(mounted.scene, entity.id, appearance);
     applyTransform(mesh, components.transform, restingY);
@@ -467,7 +483,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       restingY,
       ...(appearance.kind !== "token"
         ? {
-            surfaces: addPieceSurfaces(mounted.scene, mesh, entity, appearance, definition, dependencies.createLabelTexture),
+            surfaces: addPieceSurfaces(mounted.scene, mesh, entity, appearance, definition, dependencies.createLabelTexture, cardBackForGame(currentView?.gameTitle ?? null, currentView?.cardBackBundle)),
             shadow: addContactShadow(mounted.scene, mesh, appearance, dependencies.createLabelTexture),
           }
         : appearance.label
@@ -563,9 +579,13 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
     syncEntities(view: KernelStoreSnapshot): void {
       currentView = view;
       const state = view.displayedState;
+      const back = cardBackForGame(view.gameTitle, view.cardBackBundle);
+      const backSignature = `${back.key}:${back.title}`;
+      const backChanged = backSignature !== lastBackSignature;
       const correctionId = view.correction?.id ?? null;
       if (state === null) return;
-      if (state === lastDisplayedState && view.definitions === lastDefinitions && correctionId === lastCorrectionId) return;
+      if (!backChanged && state === lastDisplayedState && view.definitions === lastDefinitions && correctionId === lastCorrectionId) return;
+      if (backChanged) { for (const piece of pieces.values()) destroyPiece(piece); pieces.clear(); lastBackSignature = backSignature; }
       lastDisplayedState = state;
       lastDefinitions = view.definitions;
       lastCorrectionId = correctionId;

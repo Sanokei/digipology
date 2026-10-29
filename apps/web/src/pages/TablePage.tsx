@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { HandStrip } from "../components/HandStrip";
 import { ConnectionOverlay } from "../components/ConnectionOverlay";
@@ -10,6 +10,7 @@ import { GameProgressPanel } from "../components/GameProgressPanel";
 import { RulebookDialog } from "../components/RulebookDialog";
 import { useTableAudio } from "../audio/useTableAudio";
 import type { GameSnapshotDto } from "digipology-protocol/http";
+import { api } from "../api/client";
 import { RoomClient, type RoomClientStatus } from "../net/roomClient";
 import { TableScene } from "../scene/TableScene";
 import {
@@ -19,7 +20,7 @@ import {
 } from "../scene/rendererPolicy";
 import { KernelStore } from "../state/kernelStore";
 import { useKernelStore } from "../state/useKernelStore";
-import { loadRoomSession } from "../utils/roomSession";
+import { loadRoomSession, saveRoomSession, type SavedRoomSession } from "../utils/roomSession";
 import { localHandId, localHandItems } from "./tableHandModel";
 import { gameProgress } from "./gameProgress";
 import { inviteUrlForCode } from "../utils/inviteUrl";
@@ -106,6 +107,7 @@ export function PromptPanel({
 
 export function TablePage() {
   const { roomId = "" } = useParams();
+  const navigate = useNavigate();
   const session = useMemo(() => loadRoomSession(roomId), [roomId]);
   const [clientGeneration, setClientGeneration] = useState(0);
   const store = useMemo(() => new KernelStore(), [clientGeneration, roomId]);
@@ -120,6 +122,9 @@ export function TablePage() {
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [rendererStatus, setRendererStatus] = useState<RendererStatus | null>(null);
+  const [openingRound, setOpeningRound] = useState(false);
+  const [roundError, setRoundError] = useState<string | null>(null);
+  const pendingRound = useRef<SavedRoomSession | null>(null);
   const rendererOverrideActive = typeof window !== "undefined"
     && rendererOverrideFromSearch(window.location.search) !== null;
 
@@ -144,6 +149,24 @@ export function TablePage() {
   const turnDisabled = progress.winnerId !== null || (progress.currentPlayerId !== null && progress.currentPlayerId !== session.playerId);
   const handId = localHandId(view.state, session.playerId);
   const decks = Object.values(view.state?.entities ?? {}).filter((entity) => entity.components.deck?.enabled);
+  const hasHands = Object.values(view.state?.entities ?? {}).some((entity) => entity.components.hand);
+  async function playAgain() {
+    if (!session || openingRound) return;
+    setOpeningRound(true); setRoundError(null);
+    try {
+      if (!pendingRound.current) {
+        const result = await api.createRoom({ releaseSlugOrId: session.releaseId, visibility: "private", displayName: view.players.find((player) => player.playerId === session.playerId)?.displayName ?? "Player" });
+        if (!result.ok) throw new Error(result.error.message);
+        pendingRound.current = { ...result.value, releaseId: session.releaseId, gameTitle };
+      }
+      const next = pendingRound.current;
+      saveRoomSession(next);
+      setStatus(INITIAL_STATUS);
+      navigate(`/table/${encodeURIComponent(next.roomId)}`);
+      pendingRound.current = null;
+    } catch (error) { setRoundError(pendingRound.current ? "Your new table is ready, but this browser could not save its session. Allow storage and choose Play again to reopen that same table." : error instanceof Error ? error.message : "The new table could not open. Your finished game is preserved."); }
+    finally { setOpeningRound(false); }
+  }
 
   return <TableScene
     store={store} client={client} playerId={session.playerId} interactionsPaused={status.state !== "connected"}
@@ -152,22 +175,26 @@ export function TablePage() {
     topBar={<TableTopBar gameTitle={gameTitle} playerCount={view.players.length} joinCode={session.joinCode} inviteUrl={inviteUrl} onPlayers={() => setPlayersOpen((value) => !value)} onDiagnostics={() => setDiagnosticsOpen((value) => !value)} menu={<><button className="table-rules-button" type="button" aria-label="How to play" aria-haspopup="dialog" onClick={() => setRulesOpen(true)}><span aria-hidden="true">?</span><span className="table-rules-button__label">Rules</span></button><AudioControls {...audio} /><TableMenu roomId={roomId} roomToken={session.roomToken} isHost={view.players.find((player) => player.playerId === session.playerId)?.host === true} scripted={store.requiresScripts()} confirmedSnapshot={() => store.confirmedSnapshot() as GameSnapshotDto | null} onDiagnostics={() => setDiagnosticsOpen((value) => !value)} /></>} />}
     panels={<>
       {rulesOpen ? <RulebookDialog title={gameTitle} rulebook={view.rulebook} onClose={() => setRulesOpen(false)} /> : null}
-      <GameProgressPanel state={view.state} playerId={session.playerId} />
+      <GameProgressPanel state={view.state} playerId={session.playerId} onPlayAgain={() => void playAgain()} opening={openingRound} continuationError={roundError} />
       {view.correction === null ? null : <div key={view.correction.id} className="prediction-correction" role="status">{view.correction.message}</div>}
+
+      <div className="table-bottom-dock">
       {playersOpen ? <aside className="players-panel table-sheet" aria-label="Players"><div className="panel-heading"><span>Players</span><button type="button" aria-label="Close players" onClick={() => setPlayersOpen(false)}>×</button></div>{view.players.map((player) => <div className="player-row" key={player.playerId}><span className={player.connected ? "connection-dot connection-dot--online" : "connection-dot"} /><span><strong>{player.displayName}</strong><small>{player.seatId ?? "No seat"}</small></span><em>{player.connected ? "Connected" : "Away"}</em></div>)}</aside> : null}
-      <DiceControls dice={dice} definitions={view.definitions} disabled={status.state !== "connected" || turnDisabled} onRoll={(entityId) => {
+      {progress.winnerId === null ? <DiceControls dice={dice} definitions={view.definitions} disabled={status.state !== "connected" || turnDisabled} onRoll={(entityId) => {
         client.sendAction({ type: "die.roll", payload: { entityId } });
-      }} />
-      {decks.length === 0 ? null : <aside className="dice-controls card-controls" aria-label="Card actions"><span>Cards</span>{decks.map((deck) => <div className="dice-controls__die" key={deck.id}>
+      }} /> : null}
+      {decks.length === 0 || progress.winnerId !== null ? null : <aside className="dice-controls card-controls" aria-label="Card actions"><span>Cards</span>{decks.map((deck) => <div className="dice-controls__die" key={deck.id}>
         <button type="button" disabled={status.state !== "connected" || handId === null || (deck.components.container?.items.length ?? 0) === 0} onClick={() => client.sendAction({ type: "deck.draw_to_container", payload: { deckId: deck.id, target: handId, count: 1 } })}>Draw card</button>
         <button type="button" disabled={status.state !== "connected"} onClick={() => client.sendAction({ type: "deck.shuffle", payload: { deckId: deck.id } })}>Shuffle deck</button>
         <output aria-label="Cards remaining">{deck.components.container?.items.length ?? 0}</output>
       </div>)}</aside>}
-      {prompts.map((prompt) => <PromptPanel key={prompt.id} prompt={prompt} disabled={status.state !== "connected"} respond={(response) => {
+
+      {hasHands ? <HandStrip key={roomId} items={handItems} roomId={roomId} client={client} interactionsPaused={status.state !== "connected"} {...(projectToTable === undefined ? {} : { projectToTable })} /> : null}
+      </div>
+      {(progress.winnerId === null ? prompts : []).map((prompt) => <PromptPanel key={prompt.id} prompt={prompt} disabled={status.state !== "connected"} respond={(response) => {
         client.sendAction({ type: "prompt.respond", payload: { promptId: prompt.id, response } });
       }} />)}
       {diagnosticsOpen ? <aside className="diagnostics-panel table-sheet" aria-label="Diagnostics"><div className="panel-heading"><span>Diagnostics</span><button type="button" aria-label="Close diagnostics" onClick={() => setDiagnosticsOpen(false)}>×</button></div><dl><dt>Sequence</dt><dd>{view.state?.sequence ?? "—"}</dd><dt>State hash</dt><dd>{view.stateHash ?? "—"}</dd><dt>Pending</dt><dd>{view.pendingRequestIds.size}</dd><dt>Transport</dt><dd>{status.state}</dd><RendererDiagnostics status={rendererStatus} /></dl><p>{view.diagnostic ?? "No diagnostics yet."}</p></aside> : null}
-      <HandStrip key={roomId} items={handItems} roomId={roomId} client={client} interactionsPaused={status.state !== "connected"} {...(projectToTable === undefined ? {} : { projectToTable })} />
     </>}
     overlay={status.state === "connected" ? null : <ConnectionOverlay status={status} onReload={() => {
       client.stop();

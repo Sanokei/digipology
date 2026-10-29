@@ -1,10 +1,14 @@
-.playing-card { position:absolute; inset:0; display:block; overflow:hidden; border-radius:inherit; background:#fff9eb; color:#203b35; font-family:Georgia,"Times New Roman",serif; text-align:center; }
+.playing-card { position:absolute; inset:0; display:block; overflow:visible; border-radius:0; background:transparent; color:#203b35; font-family:Georgia,"Times New Roman",serif; text-align:center; }
 .playing-card canvas { display:block; width:100%; height:100%; pointer-events:none; }
 .playing-card canvas[hidden] { display:none; }
 .playing-card__fallback { display:grid; position:absolute; inset:12%; place-items:center; font-weight:700; overflow-wrap:anywhere; }
-.inspect-overlay__preview:has(.playing-card) { position:relative; overflow:hidden; padding:0; border:0; aspect-ratio:512 / 736; background:transparent; }
-.hand-card:has(.playing-card) { position:relative; display:flex; flex-direction:column; padding:0; box-shadow:0 2px 0 #c5b89b,0 4px 8px #0004; }
+.inspect-overlay__preview:has(.playing-card) { position:relative; overflow:visible; padding:0; border:0; border-radius:0; aspect-ratio:512 / 736; background:transparent; }
+.hand-card:has(.playing-card) { position:relative; display:flex; flex-direction:column; padding:0; overflow:visible; border:0; border-radius:0; background:transparent; box-shadow:none; }
+.hand-card .playing-card canvas { filter:drop-shadow(0 2px 1px #0004); }
 .hand-card:has(.playing-card) > i { display:none; }
 .hand-card:has(.playing-card) > .hand-card__name { position:absolute; z-index:1; right:0; bottom:0; left:0; max-width:100%; padding:4px 2px; color:#274039; background:#fffcf2f2; border-radius:0 0 6px 6px; font-size:8px; line-height:1.2; opacity:0; pointer-events:none; }
 .hand-card:has(.playing-card):hover > .hand-card__name,
 .hand-card:has(.playing-card):focus-visible > .hand-card__name { opacity:1; }
+.inspect-overlay article { max-height:calc(100dvh - 32px); overflow-y:auto; grid-auto-rows:max-content; overscroll-behavior:contain; }
+.inspect-card-credits { display:grid; gap:8px; max-width:100%; padding:8px 0; font-size:.72rem; line-height:1.5; overflow-wrap:anywhere; }
+.inspect-card-credits a { color:#f3dfb2; }

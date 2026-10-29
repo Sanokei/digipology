@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PieceArtwork } from "../scene/pieceArtwork";
 import { drawPieceArtwork } from "../scene/pieceArtworkCanvas";
+import type { CardBackDefinition } from "../scene/cardBack";
+import { watchCardBackImage } from "../scene/cardBackImages";
 import "./playingCard.css";
 import type { PlayingCardIdentity } from "./playingCardIdentity";
 export type { PlayingCardIdentity } from "./playingCardIdentity";
@@ -8,7 +10,7 @@ export type { PlayingCardIdentity } from "./playingCardIdentity";
 type CardArtwork = Extract<PieceArtwork, { kind: "card-back" | "standard-card" | "custom-card" }>;
 
 /** The hand, inspection view and physical table use the same raster face. */
-function RasterCardFace({ artwork, fallback, compact = false }: { artwork: CardArtwork; fallback: string; compact?: boolean }) {
+function RasterCardFace({ artwork, fallback, compact = false, back }: { artwork: CardArtwork; fallback: string; compact?: boolean; back?: CardBackDefinition }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [painted, setPainted] = useState(false);
   useEffect(() => {
@@ -16,16 +18,18 @@ function RasterCardFace({ artwork, fallback, compact = false }: { artwork: CardA
     const ctx = canvas?.getContext("2d");
     if (ctx === null || ctx === undefined) { setPainted(false); return; }
     let active = true;
+    let backImage: HTMLImageElement | undefined;
     const paint = () => {
       if (!active) return;
-      try { drawPieceArtwork(ctx, 512, 736, artwork); setPainted(true); }
+      try { drawPieceArtwork(ctx, 512, 736, artwork, backImage ? { backImage } : {}); setPainted(true); }
       catch { setPainted(false); }
     };
     paint();
+    const release = back ? watchCardBackImage(back, (state) => { backImage = state.image ?? undefined; paint(); }) : undefined;
     // Repaint once fonts settle, including a late first visit to the table.
     void document.fonts?.ready.then(paint);
-    return () => { active = false; };
-  }, [artwork]);
+    return () => { active = false; release?.(); };
+  }, [artwork, back?.key]);
   return <span className={`playing-card${compact ? " playing-card--compact" : ""}`} aria-hidden="true" data-card-face={artwork.kind}>
     <canvas ref={canvasRef} width={512} height={736} hidden={!painted} />
     {painted ? null : <span className="playing-card__fallback">{fallback}</span>}
@@ -43,7 +47,7 @@ export function CustomCardFace({ label, color, compact = false }: { label: strin
 }
 
 /** No definition, label or face data reaches a concealed card's painter. */
-export function PlayingCardBack() {
-  const artwork = useMemo<CardArtwork>(() => ({ kind: "card-back" }), []);
-  return <RasterCardFace artwork={artwork} fallback="Face-down card" />;
+export function PlayingCardBack({ definition }: { definition?: CardBackDefinition }) {
+  const artwork = useMemo<CardArtwork>(() => ({ kind: "card-back", ...(definition ? { gameTitle: definition.title } : {}) }), [definition?.title]);
+  return <RasterCardFace artwork={artwork} fallback="Face-down card" {...(definition ? { back: definition } : {})} />;
 }

@@ -3,7 +3,7 @@ import { playingCardIdentity, type PlayingCardIdentity } from "../components/pla
 
 /** Presentation data only. A hidden card never carries its definition into artwork. */
 export type PieceArtwork =
-  | { readonly kind: "card-back"; readonly count?: number; readonly enabled?: boolean }
+  | { readonly kind: "card-back"; readonly count?: number; readonly enabled?: boolean; readonly gameTitle?: string }
   | { readonly kind: "standard-card"; readonly identity: PlayingCardIdentity }
   | { readonly kind: "custom-card"; readonly label: string; readonly accent: string }
   | { readonly kind: "die-face"; readonly value: number | string; readonly pips: boolean }

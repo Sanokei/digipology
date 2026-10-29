@@ -1,24 +1,42 @@
 import type { PlayingCardIdentity } from "../components/playingCardIdentity";
 import { artworkSize, CARD_PIPS, DIE_PIPS, type PieceArtwork } from "./pieceArtwork";
+import { DEFAULT_CARD_PAPER_SHAPE, type CardPaperShape } from "./cardStock";
 
 const SUITS = { clubs: "♣", diamonds: "♦", hearts: "♥", spades: "♠" } as const;
 const INK = "#203b35";
 const PAPER = "#fff9eb";
 
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number): void {
+export interface ArtworkPaintOptions {
+  readonly paperShape?: CardPaperShape;
+  readonly backImage?: CanvasImageSource;
+}
+
+function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number | { x: number; y: number }): void {
   ctx.beginPath();
   ctx.roundRect(x, y, width, height, radius);
 }
 
-function paper(ctx: CanvasRenderingContext2D, width: number, height: number): void {
+function cardPaperPath(ctx: CanvasRenderingContext2D, width: number, height: number, shape: CardPaperShape, inset = 0): void {
+  roundRect(ctx, inset, inset, width - 2 * inset, height - 2 * inset, {
+    x: Math.max(0, width * shape.radiusX - inset),
+    y: Math.max(0, height * shape.radiusY - inset),
+  });
+}
+
+/** The same top contour as the physical stock; all image/ink stays inside it. */
+export function clipCardPaper(ctx: CanvasRenderingContext2D, width: number, height: number, shape: CardPaperShape = DEFAULT_CARD_PAPER_SHAPE): void {
+  cardPaperPath(ctx, width, height, shape); ctx.clip();
+}
+
+export function paintCardPaper(ctx: CanvasRenderingContext2D, width: number, height: number, shape: CardPaperShape = DEFAULT_CARD_PAPER_SHAPE): void {
+  ctx.save();
   const gradient = ctx.createLinearGradient(0, 0, width, height);
-  gradient.addColorStop(0, "#fffdf5"); gradient.addColorStop(0.6, PAPER); gradient.addColorStop(1, "#eee2c9");
+  gradient.addColorStop(0, "#fffdf5"); gradient.addColorStop(0.6, PAPER); gradient.addColorStop(1, "#f7edd9");
   ctx.fillStyle = gradient;
-  roundRect(ctx, 2, 2, width - 4, height - 4, 38); ctx.fill();
-  ctx.strokeStyle = "#cbbf9f"; ctx.lineWidth = 2; ctx.stroke();
-  ctx.strokeStyle = "rgba(111, 96, 65, .22)";
-  ctx.lineWidth = 1;
-  roundRect(ctx, 16, 16, width - 32, height - 32, 29); ctx.stroke();
+  cardPaperPath(ctx, width, height, shape); ctx.fill();
+  ctx.strokeStyle = "#d8ccb2"; ctx.lineWidth = 1.4;
+  cardPaperPath(ctx, width, height, shape, 0.7); ctx.stroke();
+  ctx.restore();
 }
 
 function diamond(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height = width): void {
@@ -26,35 +44,57 @@ function diamond(ctx: CanvasRenderingContext2D, x: number, y: number, width: num
   ctx.lineTo(x, y + height / 2); ctx.lineTo(x - width / 2, y); ctx.closePath();
 }
 
-function drawCardBack(ctx: CanvasRenderingContext2D, width: number, height: number, artwork: Extract<PieceArtwork, { kind: "card-back" }>): void {
-  paper(ctx, width, height);
+export interface ArtworkRectangle { readonly x: number; readonly y: number; readonly width: number; readonly height: number }
+
+/** Uses the whole source image, including any printed title; never crops or stretches it. */
+export function containCardBackImage(sourceWidth: number, sourceHeight: number, window: ArtworkRectangle): ArtworkRectangle {
+  const scale = Math.min(window.width / sourceWidth, window.height / sourceHeight);
+  const width = sourceWidth * scale; const height = sourceHeight * scale;
+  return { x: window.x + (window.width - width) / 2, y: window.y + (window.height - height) / 2, width, height };
+}
+
+function rasterSize(image: CanvasImageSource): readonly [number, number] | null {
+  const source = image as unknown as Record<string, unknown>;
+  const dimension = (...keys: string[]) => keys.map((key) => source[key]).find((value): value is number => typeof value === "number" && Number.isFinite(value) && value > 0);
+  const width = dimension("naturalWidth", "videoWidth", "displayWidth", "width");
+  const height = dimension("naturalHeight", "videoHeight", "displayHeight", "height");
+  return width === undefined || height === undefined ? null : [width, height];
+}
+
+function drawCardBack(ctx: CanvasRenderingContext2D, width: number, height: number, artwork: Extract<PieceArtwork, { kind: "card-back" }>, options: ArtworkPaintOptions): void {
+  paintCardPaper(ctx, width, height, options.paperShape);
   const empty = artwork.count === 0;
-  ctx.fillStyle = empty ? "#ded7c5" : artwork.enabled === false ? "#586c64" : "#12584f";
-  roundRect(ctx, 24, 24, width - 48, height - 48, 24); ctx.fill();
-  ctx.save(); roundRect(ctx, 32, 32, width - 64, height - 64, 19); ctx.clip();
-  ctx.lineWidth = 2; ctx.strokeStyle = empty ? "rgba(71, 86, 72, .14)" : "rgba(225, 207, 144, .25)";
-  for (let offset = -height; offset < width + height; offset += 28) {
-    ctx.beginPath(); ctx.moveTo(offset, 0); ctx.lineTo(offset + height, height); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(offset, 0); ctx.lineTo(offset - height, height); ctx.stroke();
+  const rim = width * 0.035;
+  const title = artwork.gameTitle?.trim() ?? "";
+  ctx.font = "600 19px Manrope, sans-serif";
+  const caption = title.length > 0 && ctx.measureText(title).width <= width - rim * 2 ? title : "";
+  // A deck's top card is the same printed back as every loose card. Counts
+  // belong in the table controls/metadata and must never resize the artwork.
+  const footer = caption ? 34 : 0;
+  const window = { x: rim, y: rim, width: width - 2 * rim, height: height - 2 * rim - footer };
+  const size = options.backImage === undefined ? null : rasterSize(options.backImage);
+  if (options.backImage !== undefined && size !== null) {
+    const image = containCardBackImage(size[0], size[1], window);
+    ctx.save(); clipCardPaper(ctx, width, height, options.paperShape);
+    ctx.globalAlpha = empty ? 0.4 : 1;
+    ctx.drawImage(options.backImage, image.x, image.y, image.width, image.height);
+    ctx.restore();
+  } else {
+    // Brief printed fallback while the game's authored bitmap loads.
+    ctx.fillStyle = "#dfe5dc"; ctx.fillRect(window.x, window.y, window.width, window.height);
+    ctx.strokeStyle = "#9ea998"; ctx.lineWidth = 1.5;
+    roundRect(ctx, window.x + 5, window.y + 5, window.width - 10, window.height - 10, 5); ctx.stroke();
   }
-  ctx.restore();
-  ctx.strokeStyle = empty ? "#b7b09c" : "#dfc889"; ctx.lineWidth = 3;
-  roundRect(ctx, 37, 37, width - 74, height - 74, 15); ctx.stroke();
-  roundRect(ctx, 47, 47, width - 94, height - 94, 10); ctx.lineWidth = 1; ctx.stroke();
-  ctx.fillStyle = empty ? "#ded7c5" : "#124f47";
-  diamond(ctx, width / 2, height / 2, 274, 348); ctx.fill(); ctx.lineWidth = 4; ctx.stroke();
-  diamond(ctx, width / 2, height / 2, 248, 316); ctx.lineWidth = 1; ctx.stroke();
-  ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillStyle = empty ? "#65715f" : "#f2dfab";
-  ctx.font = "bold 106px Georgia, 'DejaVu Serif', serif";
-  ctx.fillText(empty ? "—" : "D", width / 2, height / 2 + 3);
-  for (const y of [height / 2 - 107, height / 2 + 107]) { diamond(ctx, width / 2, y, 15); ctx.fill(); }
-  if (artwork.count !== undefined) {
-    const text = artwork.count === 0 ? "EMPTY" : String(artwork.count);
-    ctx.fillStyle = "#fff6de"; roundRect(ctx, width / 2 - 87, height - 166, 174, 98, 49); ctx.fill();
-    ctx.strokeStyle = "#c5a86a"; ctx.lineWidth = 3; ctx.stroke();
-    ctx.fillStyle = INK; ctx.font = `bold ${artwork.count === 0 ? 31 : 53}px Manrope, sans-serif`;
-    ctx.fillText(text, width / 2, height - 115);
+  ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#41574b";
+  if (caption) {
+    ctx.font = "600 19px Manrope, sans-serif";
+    ctx.fillText(caption, width / 2, height - 30);
+  }
+  if (empty) {
+    ctx.fillStyle = "#fff9eb"; roundRect(ctx, width / 2 - 84, height - 124, 168, 64, 30); ctx.fill();
+    ctx.strokeStyle = "#c8b995"; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = INK; ctx.font = "bold 28px Manrope, sans-serif";
+    ctx.fillText("EMPTY", width / 2, height - 90);
   }
 }
 
@@ -143,8 +183,8 @@ function drawCourtFigure(ctx: CanvasRenderingContext2D, rank: string, symbol: st
   ctx.beginPath(); ctx.moveTo(132, 368); ctx.lineTo(380, 368); ctx.stroke(); ctx.restore();
 }
 
-function drawStandardCard(ctx: CanvasRenderingContext2D, width: number, height: number, identity: PlayingCardIdentity): void {
-  paper(ctx, width, height);
+function drawStandardCard(ctx: CanvasRenderingContext2D, width: number, height: number, identity: PlayingCardIdentity, shape?: CardPaperShape): void {
+  paintCardPaper(ctx, width, height, shape);
   const symbol = SUITS[identity.suit];
   const ink = identity.suit === "hearts" || identity.suit === "diamonds" ? "#b13a32" : "#203b35";
   ctx.fillStyle = ink; ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -181,8 +221,8 @@ function wrappedLabel(ctx: CanvasRenderingContext2D, label: string, width: numbe
   return lines;
 }
 
-function drawCustomCard(ctx: CanvasRenderingContext2D, width: number, height: number, artwork: Extract<PieceArtwork, { kind: "custom-card" }>): void {
-  paper(ctx, width, height);
+function drawCustomCard(ctx: CanvasRenderingContext2D, width: number, height: number, artwork: Extract<PieceArtwork, { kind: "custom-card" }>, shape?: CardPaperShape): void {
+  paintCardPaper(ctx, width, height, shape);
   ctx.fillStyle = /^#[0-9a-f]{6}$/i.test(artwork.accent) ? artwork.accent : "#277267";
   roundRect(ctx, 30, 30, width - 60, 116, 18); ctx.fill();
   ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = 2;
@@ -240,15 +280,16 @@ function drawCounter(ctx: CanvasRenderingContext2D, width: number, height: numbe
 }
 
 /** Paints an actual raster texture; it never reads canonical state or hidden definitions. */
-export function drawPieceArtwork(ctx: CanvasRenderingContext2D, width: number, height: number, artwork: PieceArtwork): void {
+export function drawPieceArtwork(ctx: CanvasRenderingContext2D, width: number, height: number, artwork: PieceArtwork, options: ArtworkPaintOptions = {}): void {
   ctx.save(); ctx.clearRect(0, 0, width, height);
   const [designWidth, designHeight] = artworkSize(artwork);
   ctx.scale(width / designWidth, height / designHeight);
   width = designWidth; height = designHeight;
+  if (artwork.kind === "card-back" || artwork.kind === "standard-card" || artwork.kind === "custom-card") clipCardPaper(ctx, width, height, options.paperShape);
   switch (artwork.kind) {
-    case "card-back": drawCardBack(ctx, width, height, artwork); break;
-    case "standard-card": drawStandardCard(ctx, width, height, artwork.identity); break;
-    case "custom-card": drawCustomCard(ctx, width, height, artwork); break;
+    case "card-back": drawCardBack(ctx, width, height, artwork, options); break;
+    case "standard-card": drawStandardCard(ctx, width, height, artwork.identity, options.paperShape); break;
+    case "custom-card": drawCustomCard(ctx, width, height, artwork, options.paperShape); break;
     case "die-face": drawDie(ctx, width, height, artwork); break;
     case "counter-face": drawCounter(ctx, width, height, artwork.value, artwork.color); break;
     case "paper-edge": {
@@ -291,10 +332,10 @@ export function drawPieceArtwork(ctx: CanvasRenderingContext2D, width: number, h
   ctx.restore();
 }
 
-export function createArtworkCanvas(artwork: PieceArtwork): HTMLCanvasElement {
+export function createArtworkCanvas(artwork: PieceArtwork, options: ArtworkPaintOptions = {}): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
   [canvas.width, canvas.height] = artworkSize(artwork);
   const context = canvas.getContext("2d");
-  if (context !== null) drawPieceArtwork(context, canvas.width, canvas.height, artwork);
+  if (context !== null) drawPieceArtwork(context, canvas.width, canvas.height, artwork, options);
   return canvas;
 }

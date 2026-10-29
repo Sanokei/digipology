@@ -1408,3 +1408,8 @@ button.action-card { width: 100%; border-right: 0; border-left: 0; text-align: l
 .game-hero__pick strong, .play-app .play-room-list strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .play-app .play-account__menu summary { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 700px) { .play-app .play-account__menu summary { max-width: 80px; } }
+
+.table-back-status { position:absolute; z-index:4; right:16px; bottom:calc(210px + env(safe-area-inset-bottom)); width:min(320px,calc(100vw - 32px)); padding:12px 16px; border:1px solid #d4bc7c55; border-radius:10px; background:#10221ef5; color:#f0e4c5; font-size:.78rem; line-height:1.5; }
+.table-back-status[hidden] { display:none; }
+.table-back-status button { display:block; margin-top:8px; padding:8px 12px; border:1px solid #e8dba955; border-radius:7px; background:#22483d; color:#fff9eb; cursor:pointer; }
+@media(max-width:600px) { .table-scene__hint:not(.table-scene__hint--readonly), .table-hints:not(.table-hints--touch) { display:none; } .table-hints--touch { bottom:224px; } }

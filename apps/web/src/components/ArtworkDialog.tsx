@@ -1,11 +1,13 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { normalizeArtworkCredits, type DraftArtwork, type ReadyDraftArtwork } from "digipology-protocol";
 import { artworkPackage, downloadBlob, EMPTY_CREDITS, prepareArtwork, verifyArtwork } from "../editor/state/artwork";
+import { cardBackPackage } from "../scene/cardBack";
 import "./artwork.css";
 
-export function ArtworkDialog({ title, artwork, onSave, onClose, onDownloadDraft }: {
+export function ArtworkDialog({ title, artwork, onSave, onClose, onDownloadDraft, purpose = "cover", sourceArtwork }: {
   title: string; artwork?: DraftArtwork; onSave(value: DraftArtwork | undefined): Promise<void>;
   onClose(): void; onDownloadDraft?(value: DraftArtwork | undefined): void;
+  purpose?: "cover" | "card-back"; sourceArtwork?: ReadyDraftArtwork;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const scrollBody = useRef<HTMLDivElement>(null);
@@ -40,7 +42,7 @@ export function ArtworkDialog({ title, artwork, onSave, onClose, onDownloadDraft
     const id = ++operation.current;
     setBusy(true); setError(null);
     try {
-      const next = await prepareArtwork(file, credits);
+      const next = await prepareArtwork(file, credits, purpose === "card-back" ? "contain" : "cover");
       if (id !== operation.current) return;
       setSelected(next); setDecodeFailed(false);
       // Raw image preparation must not overwrite credits edited while decoding.
@@ -68,28 +70,30 @@ export function ArtworkDialog({ title, artwork, onSave, onClose, onDownloadDraft
     try {
       const next = selected ? candidate() : artwork;
       if (onDownloadDraft) onDownloadDraft(next);
-      else if (next?.status === "ready") downloadBlob(new Blob([artworkPackage(next)], { type: "application/json" }), "cover.artwork.json");
+      else if (next?.status === "ready") downloadBlob(new Blob([purpose === "card-back" ? cardBackPackage(next) : artworkPackage(next)], { type: "application/json" }), purpose === "card-back" ? "card-back.artwork.json" : "cover.artwork.json");
     } catch (caught) { setError(caught instanceof Error ? caught.message : "The download could not be prepared."); }
   }
   return <dialog ref={dialog} className="artwork-dialog" aria-labelledby={heading} onCancel={(event) => { event.preventDefault(); onClose(); }} onPointerDown={(event) => { if (event.target === event.currentTarget) { const r = event.currentTarget.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) onClose(); } }}>
-    <header><div><p>Make it yours</p><h2 id={heading}>Artwork for {title}</h2></div><button type="button" aria-label="Close artwork" autoFocus onClick={onClose}>×</button></header>
+    <header><div><p>Make it yours</p><h2 id={heading}>{purpose === "card-back" ? "Card backs for" : "Artwork for"} {title}</h2></div><button type="button" aria-label="Close artwork" autoFocus onClick={onClose}>×</button></header>
     {busy ? <p className="artwork-status" role="status">Preparing or saving artwork…</p> : null}
     {error ? <p className="artwork-error" role="alert">{error}</p> : null}
     <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
       <div ref={scrollBody} className="artwork-dialog__body">
+      {purpose === "card-back" ? <p>This picture appears on this game’s decks and concealed cards. Releases and editable backups include the image and credits. Changing it makes an earlier playtest review out of date.</p> : null}
       <div className="artwork-editor">
-        <div className="artwork-preview">{selected ? <img src={selected.dataUrl} alt={`${title} artwork preview`} onError={() => { setDecodeFailed(true); setError("This saved image could not be decoded. Replace it, or remove it to publish."); }} /> : <p>Choose your cover image</p>}
+        <div className="artwork-preview">{selected ? <img src={selected.dataUrl} alt={`${title} artwork preview`} onError={() => { setDecodeFailed(true); setError("This saved image could not be decoded. Replace it, or remove it to publish."); }} /> : <p>Choose your {purpose === "card-back" ? "card-back" : "cover"} image</p>}
           {selected ? <small>{selected.info.width} × {selected.info.height} · {selected.info.contentType.replace("image/", "").toUpperCase()}</small> : null}</div>
         <div className="artwork-fields">
+          {sourceArtwork ? <button type="button" disabled={busy} onClick={() => { setSelected(sourceArtwork); setCredits(sourceArtwork.info.credits); setDecodeFailed(false); setError(null); }}>Use game cover artwork</button> : null}
           <label>Image or saved artwork<input type="file" accept="image/png,image/jpeg,image/webp,application/json,.json" disabled={busy} onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void choose(file); }} /></label>
-          <p>Fits a portrait crop. Transparent areas use a cream background. PNG, JPEG or WebP, up to 8 MiB and 16 megapixels.</p>
+          <p>{purpose === "card-back" ? "Keeps the full image inside the card." : "Fits a portrait crop."} Transparent areas use a cream background. PNG, JPEG or WebP, up to 8 MiB and 16 megapixels.</p>
           <label>Artist / credit<input maxLength={120} value={credits.artist} onChange={(event) => setCredits({ ...credits, artist: event.currentTarget.value })} /></label>
           <label>License / usage note<input maxLength={80} value={credits.license} onChange={(event) => setCredits({ ...credits, license: event.currentTarget.value })} /></label>
           <label>Public source page<input type="url" maxLength={512} placeholder="https://…" value={credits.sourceUrl} onChange={(event) => setCredits({ ...credits, sourceUrl: event.currentTarget.value })} /></label>
         </div>
       </div>
       </div>
-      <footer><button type="submit" disabled={busy || !selected || decodeFailed}>Save artwork</button>{onDownloadDraft && artwork ? <button type="button" disabled={busy} onClick={() => void save(true)}>Remove artwork</button> : null}<button type="button" disabled={busy || (!selected && !onDownloadDraft)} onClick={download}>{onDownloadDraft ? "Download draft" : "Save with credits"}</button></footer>
+      <footer><button type="submit" disabled={busy || !selected || decodeFailed}>{purpose === "card-back" ? "Use for card backs" : "Save artwork"}</button>{(onDownloadDraft || purpose === "card-back") && artwork ? <button type="button" disabled={busy} onClick={() => void save(true)}>Remove artwork</button> : null}<button type="button" disabled={busy || (!selected && !onDownloadDraft)} onClick={download}>{onDownloadDraft ? "Download draft" : "Save with credits"}</button></footer>
     </form>
   </dialog>;
 }

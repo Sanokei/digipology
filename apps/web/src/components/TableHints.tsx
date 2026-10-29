@@ -55,7 +55,7 @@ export function TableHints({ event, initialCompleted = [] }: { event: TableHintE
         primary: "RMB orbit · MMB pan · wheel zoom · Space reset",
         actions: "Right-click an object for actions",
       };
-  return <aside className="table-hints" aria-live="polite">
+  return <aside className={`table-hints${touch ? " table-hints--touch" : ""}`} aria-live="polite">
     <span>{copy[current]}</span>
     <button type="button" aria-label="Dismiss table hint" onClick={() => {
       const next = new Set(completed).add(current);

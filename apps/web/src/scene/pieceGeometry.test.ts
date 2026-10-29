@@ -47,6 +47,8 @@ test("rounded dice retain dimensions, smooth outward normals and a closed visibl
 });
 
 test("thin cards and full decks retain rounded paper corners without inverted faces", () => {
+  checkGeometry(roundedCardGeometry(0.98, 0.012, 1.4), 0.98, 0.012, 1.4);
+  checkGeometry(roundedCardGeometry(1.06, 0.004, 1.52), 1.06, 0.004, 1.52);
   checkGeometry(roundedCardGeometry(0.98, 0.09, 1.4), 0.98, 0.09, 1.4);
   checkGeometry(roundedCardGeometry(1.06, 0.402, 1.52), 1.06, 0.402, 1.52);
 });

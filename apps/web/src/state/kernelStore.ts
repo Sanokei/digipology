@@ -56,6 +56,8 @@ export interface KernelStoreSnapshot {
   rulebook: GameRulebook | null;
   /** Immutable presentation file; never part of canonical state or prediction. */
   soundBundle: string | null;
+  /** Optional game-wide raster back, outside canonical/predicted state. */
+  cardBackBundle?: string | null;
 }
 
 export type ApplyStreamResult = { ok: true } | { ok: false; expected: number; actual: number };
@@ -112,7 +114,7 @@ export class KernelStore {
   private current: KernelStoreSnapshot = {
     state: null, displayedState: null, events: [], players: [], pendingRequestIds: new Set(),
     predictionLedger: [], correction: null, endedReason: null, stateHash: null,
-    diagnostic: null, definitions: {}, gameTitle: null, rulebook: null, soundBundle: null,
+    diagnostic: null, definitions: {}, gameTitle: null, rulebook: null, soundBundle: null, cardBackBundle: null,
   };
   private readonly listeners = new Set<() => void>();
   private initialSnapshot: GameSnapshot | null = null;
@@ -147,6 +149,7 @@ export class KernelStore {
       gameTitle: bundle.title ?? null,
       rulebook: readRulebook(bundle),
       soundBundle: Array.isArray(bundle.files) ? bundle.files.find((file) => file.path === TABLE_SOUND_PATH)?.content ?? null : null,
+      cardBackBundle: Array.isArray(bundle.files) ? bundle.files.find((file) => file.path === "runtime/presentation/card-back.json")?.content ?? null : null,
     });
   }
 

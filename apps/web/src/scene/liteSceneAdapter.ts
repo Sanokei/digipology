@@ -54,6 +54,10 @@ import { TABLE_DEPTH, TABLE_SURFACE_Y, TABLE_WIDTH } from "./tableDimensions";
 import { hasSpatialPresentation, piecePresentation, piecePresentationSignature, pieceSurfaceLayout } from "./piecePresentation";
 import { artworkSize, type PieceArtwork } from "./pieceArtwork";
 import { createArtworkCanvas } from "./pieceArtworkCanvas";
+import { cardBackForGame, type CardBackDefinition } from "./cardBack";
+import { watchCardBackImage } from "./cardBackImages";
+import { CARD_STOCK, type CardPaperShape } from "./cardStock";
+import { canonicalPieceY, physicalPieceY } from "./cardPhysical";
 import { roundedBoxGeometry, roundedCardGeometry } from "./pieceGeometry";
 import { MAX_CAMERA_RADIUS, MIN_CAMERA_RADIUS, pieceFramingBounds, TABLE_CAMERA_BETA, TableFramingController } from "./tableCameraFraming";
 import { horizontalShadowRotation, LITE_CONTACT_SHADOW } from "./liteContactShadow";
@@ -132,9 +136,12 @@ function transformSignature(transform: TransformComponent | undefined, restingY:
   return `${position.x}:${position.y}:${position.z}:${rotation.x}:${rotation.y}:${rotation.z}:${rotation.w}:${scale.x}:${scale.y}:${scale.z}`;
 }
 
+function isCardStock(mesh: Mesh): boolean { return (mesh.metadata as { thinCard?: boolean } | undefined)?.thinCard === true; }
+
 function transformTarget(
   transform: TransformComponent | undefined,
   restingY: number,
+  thinCard = false,
 ): {
   position: [number, number, number];
   scaling: [number, number, number];
@@ -143,14 +150,14 @@ function transformTarget(
   return transform === undefined
     ? { position: [0, restingY, 0], scaling: [1, 1, 1], rotation: [0, 0, 0, 1] }
     : {
-        position: [transform.position.x, Math.max(transform.position.y, restingY), transform.position.z],
+        position: [transform.position.x, physicalPieceY(transform.position.y, restingY, thinCard), transform.position.z],
         scaling: [transform.scale.x, transform.scale.y, transform.scale.z],
         rotation: [transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w],
       };
 }
 
 function applyTransform(mesh: Mesh, transform: TransformComponent | undefined, restingY: number): void {
-  const target = transformTarget(transform, restingY);
+  const target = transformTarget(transform, restingY, isCardStock(mesh));
   mesh.position.set(...target.position);
   mesh.scaling.set(...target.scaling);
   mesh.rotationQuaternion.set(...target.rotation);
@@ -211,7 +218,7 @@ function startCorrection(
   piece: PieceGraph,
   transform: TransformComponent | undefined,
 ): void {
-  const target = transformTarget(transform, piece.restingY);
+  const target = transformTarget(transform, piece.restingY, isCardStock(piece.mesh));
   piece.correction = {
     elapsed: 0,
     fromPosition: [piece.mesh.position.x, piece.mesh.position.y, piece.mesh.position.z],
@@ -381,6 +388,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
   const staticTextures: DynamicTexture2D[] = [];
   const framing = new TableFramingController();
   let introFinished = false;
+  let lastBackSignature = "";
 
   function requireMounted() {
     if (canvas === null || engine === null || scene === null || cameraGraph === null) {
@@ -430,7 +438,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
     if (piece.labelTexture !== undefined) textures.push(piece.labelTexture);
     // The creator owns one texture reference. Material/render-task references
     // retire through removeFromScene after submitted GPU work has completed.
-    for (const texture of textures) releaseTexture(texture);
+    for (const texture of textures) { artworkReleases.get(texture)?.(); artworkReleases.delete(texture); releaseTexture(texture); }
     removeFromScene(scene, piece.mesh);
   }
 
@@ -445,11 +453,15 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
     return result;
   }
 
-  function makeArtworkTexture(artwork: PieceArtwork): DynamicTexture2D {
+  const artworkReleases = new WeakMap<DynamicTexture2D, () => void>();
+
+  function makeArtworkTexture(artwork: PieceArtwork, back?: CardBackDefinition, paperShape?: CardPaperShape): DynamicTexture2D {
     const mounted = requireMounted();
     const [width, height] = artworkSize(artwork);
     const texture = createDynamicTexture(mounted.engine, width, height, { srgb: true, mipMaps: true });
-    updateDynamicTexture(mounted.engine, texture, createArtworkCanvas(artwork));
+    const paint = (backImage?: HTMLImageElement) => updateDynamicTexture(mounted.engine, texture, createArtworkCanvas(artwork, { ...(paperShape ? { paperShape } : {}), ...(backImage ? { backImage } : {}) }));
+    paint();
+    if (artwork.kind === "card-back" && back && typeof Image !== "undefined") artworkReleases.set(texture, watchCardBackImage(back, (state) => paint(state.image ?? undefined)));
     return texture;
   }
 
@@ -458,7 +470,9 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
   } {
     const mounted = requireMounted(); const surfaceMeshes: Mesh[] = []; const surfaceTextures: DynamicTexture2D[] = [];
     for (const surface of pieceSurfaceLayout(entity, appearance, definition)) {
-      const texture = makeArtworkTexture(surface.artwork); surfaceTextures.push(texture);
+      const back = cardBackForGame(currentView?.gameTitle ?? null, currentView?.cardBackBundle);
+      const artwork = surface.artwork.kind === "card-back" ? { ...surface.artwork, gameTitle: back.title } : surface.artwork;
+      const texture = makeArtworkTexture(artwork, back, surface.paperShape); surfaceTextures.push(texture);
       const mat = createStandardMaterial(); mat.diffuseTexture = texture; mat.diffuseColor = [1, 1, 1];
       mat.ambientColor = [0.15, 0.15, 0.15]; mat.emissiveColor = [0.035, 0.035, 0.035];
       mat.specularColor = hexColor(appearance.kind === "die" ? "#82765d" : "#393327", "#393327");
@@ -482,7 +496,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
   function updateContactShadow(piece: PieceGraph): void {
     if (piece.shadowMesh === undefined) return;
     const shadow = piece.shadowMesh; const source = piece.mesh;
-    shadow.position.set(source.position.x, TABLE_SURFACE_Y + 0.004, source.position.z);
+    shadow.position.set(source.position.x, TABLE_SURFACE_Y + CARD_STOCK.surfaceLift, source.position.z);
     shadow.scaling.set(Math.abs(source.scaling.x), Math.abs(source.scaling.z), 1);
     const q = source.rotationQuaternion;
     const yaw = Math.atan2(2 * (q.w * q.y + q.x * q.z), 1 - 2 * (q.x * q.x + q.y * q.y));
@@ -527,7 +541,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
     const definitionId = components.card?.definitionId ?? components.die?.definitionId;
     const definition = definitionId === undefined ? undefined : currentView?.definitions[definitionId];
     const appearance = piecePresentation(entity, definition);
-    const restingY = TABLE_SURFACE_Y + appearance.height / 2;
+    const restingY = TABLE_SURFACE_Y + appearance.height * (appearance.kind === "card" ? Math.abs(components.transform?.scale.y ?? 1) : 1) / 2;
     const geometry = appearance.kind === "die"
       ? roundedBoxGeometry(appearance.width, appearance.height, appearance.depth, 0.105)
       : appearance.kind === "card" || appearance.kind === "deck"
@@ -552,7 +566,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
           height: appearance.height,
         });
     mesh.name = `entity-${entity.id}`;
-    mesh.metadata = { entityId: entity.id, displayLabel: appearance.label };
+    mesh.metadata = { entityId: entity.id, displayLabel: appearance.label, thinCard: appearance.kind === "card" };
     mesh.pickable = true;
     const pieceMaterial = makeMaterial(appearance);
     mesh.material = pieceMaterial;
@@ -609,7 +623,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
       }
       drag.callbacks.onDrop({
         x: piece.mesh.position.x,
-        y: piece.mesh.position.y,
+        y: canonicalPieceY(piece.mesh.position.y, piece.restingY, isCardStock(piece.mesh)),
         z: piece.mesh.position.z,
       }, {
         x: piece.mesh.rotationQuaternion.x,
@@ -751,9 +765,13 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
     syncEntities(view: KernelStoreSnapshot): void {
       currentView = view;
       const state = view.displayedState;
+      const back = cardBackForGame(view.gameTitle, view.cardBackBundle);
+      const backSignature = `${back.key}:${back.title}`;
+      const backChanged = backSignature !== lastBackSignature;
       const correctionId = view.correction?.id ?? null;
       if (state === null) return;
-      if (state === lastDisplayedState && view.definitions === lastDefinitions && correctionId === lastCorrectionId) return;
+      if (!backChanged && state === lastDisplayedState && view.definitions === lastDefinitions && correctionId === lastCorrectionId) return;
+      if (backChanged) { for (const piece of pieces.values()) destroyPiece(piece); pieces.clear(); lastBackSignature = backSignature; }
       lastDisplayedState = state;
       lastDefinitions = view.definitions;
       lastCorrectionId = correctionId;

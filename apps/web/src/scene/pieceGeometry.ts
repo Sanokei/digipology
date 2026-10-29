@@ -1,3 +1,5 @@
+import { cardStockProfile } from "./cardStock";
+
 /** Shared geometry keeps the same silhouette, dimensions and hit target in both renderers. */
 export interface PieceGeometry {
   readonly positions: Float32Array;
@@ -51,23 +53,25 @@ export function roundedBoxGeometry(width: number, height: number, depth: number,
 }
 
 /** Thin stock with rounded plan-view corners and a small bevel along its paper edge. */
-export function roundedCardGeometry(width: number, height: number, depth: number, radius = 0.075): PieceGeometry {
+export function roundedCardGeometry(width: number, height: number, depth: number): PieceGeometry {
   const positions: number[] = []; const normals: number[] = []; const indices: number[] = []; const uvs: number[] = [];
   const outline: Array<readonly [number, number, number, number]> = [];
-  const bevel = Math.min(0.008, height / 5);
+  const { radius, bevel } = cardStockProfile(width, height, depth);
   for (let corner = 0; corner < 4; corner++) {
     const angle = corner * Math.PI / 2;
     const cx = (corner === 0 || corner === 3 ? 1 : -1) * (width / 2 - radius);
     const cz = (corner < 2 ? 1 : -1) * (depth / 2 - radius);
-    for (let step = 0; step <= 6; step++) {
-      const a = angle + step * Math.PI / 12; const nx = Math.cos(a); const nz = Math.sin(a);
+    for (let step = 0; step <= 10; step++) {
+      const a = angle + step * Math.PI / 20; const nx = Math.cos(a); const nz = Math.sin(a);
       outline.push([cx + radius * nx, cz + radius * nz, nx, nz]);
     }
   }
   const rings = [
     { y: height / 2, inset: bevel, ny: 1, side: 0 },
-    { y: height / 2 - bevel, inset: 0, ny: 0.65, side: 0.76 },
-    { y: -height / 2 + bevel, inset: 0, ny: -0.65, side: 0.76 },
+    { y: height / 2 - bevel * (1 - Math.SQRT1_2), inset: bevel * (1 - Math.SQRT1_2), ny: Math.SQRT1_2, side: Math.SQRT1_2 },
+    { y: height / 2 - bevel, inset: 0, ny: 0, side: 1 },
+    { y: -height / 2 + bevel, inset: 0, ny: 0, side: 1 },
+    { y: -height / 2 + bevel * (1 - Math.SQRT1_2), inset: bevel * (1 - Math.SQRT1_2), ny: -Math.SQRT1_2, side: Math.SQRT1_2 },
     { y: -height / 2, inset: bevel, ny: -1, side: 0 },
   ];
   for (const ring of rings) for (const [x, z, nx, nz] of outline) {
@@ -82,7 +86,8 @@ export function roundedCardGeometry(width: number, height: number, depth: number
   const top = positions.length / 3; positions.push(0, height / 2, 0); normals.push(0, 1, 0); uvs.push(0.5, 0.5);
   const bottom = positions.length / 3; positions.push(0, -height / 2, 0); normals.push(0, -1, 0); uvs.push(0.5, 0.5);
   for (let point = 0; point < count; point++) {
-    const next = (point + 1) % count; indices.push(top, next, point, bottom, 3 * count + point, 3 * count + next);
+    const lastRing = (rings.length - 1) * count;
+    const next = (point + 1) % count; indices.push(top, next, point, bottom, lastRing + point, lastRing + next);
   }
   return result(positions, normals, indices, uvs);
 }

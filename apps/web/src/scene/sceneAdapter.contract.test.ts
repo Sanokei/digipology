@@ -537,7 +537,7 @@ describe("real Lite SceneAdapter contract through a thin engine mock", () => {
       return plane;
     };
     const cardFace = faceFor("card-1"); const dieFace = faceFor("die-1"); const scoreFace = faceFor("counter-1");
-    expect(cardFace.position.y).toBeCloseTo(0.047, 3);
+    expect(cardFace.position.y).toBeCloseTo(0.0066, 4);
     expect(dieFace.position.y).toBeCloseTo(0.402, 3);
     expect(scoreFace.position.y).toBeCloseTo(0.092, 3);
     expect(scoreFace.name).toBe("entity-counter-1-surface-score");

@@ -1,5 +1,6 @@
 import type { EntityRecord } from "digipology-kernel";
 import { cardArtwork, dieArtworkFaces, type PieceArtwork } from "./pieceArtwork";
+import { CARD_STOCK, cardStockProfile, type CardPaperShape } from "./cardStock";
 
 export type PieceShape = "box" | "cylinder" | "ring";
 
@@ -72,7 +73,7 @@ export function piecePresentation(
       kind: "deck",
       width: 1.06,
       depth: 1.52,
-      height: count === 0 ? 0.045 : 0.09 + Math.min(count, 52) * 0.006,
+      height: count === 0 ? 0.004 : CARD_STOCK.singleCardHeight + (Math.min(count, 52) - 1) * 0.006,
       label: `Deck · ${count}`,
       color: "#eee3c9",
       labelColor: "#fff5df",
@@ -86,7 +87,7 @@ export function piecePresentation(
       kind: "card",
       width: 0.98,
       depth: 1.4,
-      height: 0.09,
+      height: CARD_STOCK.singleCardHeight,
       label: faceUp ? definition?.label ?? "Card" : "Face-down card",
       color: "#f6edda",
       labelColor: faceUp ? "#17211d" : "#fff2d5",
@@ -218,6 +219,7 @@ export interface PieceSurface {
   readonly height: number;
   readonly position: readonly [number, number, number];
   readonly rotation: readonly [number, number, number];
+  readonly paperShape?: CardPaperShape;
 }
 
 /** Decorative surfaces never replace the entity's pickable mesh. */
@@ -225,22 +227,24 @@ export function pieceSurfaceLayout(entity: EntityRecord, appearance: PiecePresen
   const { width, depth, height, kind } = appearance;
   const y = height / 2 + 0.002;
   if (kind === "card" || kind === "deck") {
+    const stock = cardStockProfile(width, height, depth);
+    const paperY = height / 2 + CARD_STOCK.surfaceLift;
     const count = entity.components.container?.items.length ?? 0;
     const top: PieceArtwork = kind === "deck"
       ? { kind: "card-back", count, enabled: entity.components.deck?.enabled ?? false }
       : cardArtwork(entity, definition);
     const surfaces: PieceSurface[] = [
-      { name: "face", artwork: top, width: width * 0.995, height: depth * 0.995, position: [0, y, 0], rotation: [Math.PI / 2, 0, 0] },
-      { name: "reverse", artwork: { kind: "card-back" }, width: width * 0.995, height: depth * 0.995, position: [0, -y, 0], rotation: [-Math.PI / 2, 0, 0] },
+      { name: "face", artwork: top, width: stock.faceWidth, height: stock.faceDepth, paperShape: stock.paperShape, position: [0, paperY, 0], rotation: [Math.PI / 2, 0, 0] },
+      { name: "reverse", artwork: { kind: "card-back" }, width: stock.faceWidth, height: stock.faceDepth, paperShape: stock.paperShape, position: [0, -paperY, 0], rotation: [-Math.PI / 2, 0, 0] },
     ];
     if (kind === "deck" && count > 1) {
       const artwork: PieceArtwork = { kind: "paper-edge", count };
-      const h = height - 0.018;
+      const h = stock.edgeHeight;
       surfaces.push(
-        { name: "paper-near", artwork, width: width - 0.13, height: h, position: [0, 0, -depth / 2 - 0.001], rotation: [0, 0, 0] },
-        { name: "paper-far", artwork, width: width - 0.13, height: h, position: [0, 0, depth / 2 + 0.001], rotation: [0, Math.PI, 0] },
-        { name: "paper-right", artwork, width: depth - 0.13, height: h, position: [width / 2 + 0.001, 0, 0], rotation: [0, -Math.PI / 2, 0] },
-        { name: "paper-left", artwork, width: depth - 0.13, height: h, position: [-width / 2 - 0.001, 0, 0], rotation: [0, Math.PI / 2, 0] },
+        { name: "paper-near", artwork, width: stock.edgeWidth, height: h, position: [0, 0, -depth / 2 - CARD_STOCK.surfaceLift], rotation: [0, 0, 0] },
+        { name: "paper-far", artwork, width: stock.edgeWidth, height: h, position: [0, 0, depth / 2 + CARD_STOCK.surfaceLift], rotation: [0, Math.PI, 0] },
+        { name: "paper-right", artwork, width: stock.edgeDepth, height: h, position: [width / 2 + CARD_STOCK.surfaceLift, 0, 0], rotation: [0, -Math.PI / 2, 0] },
+        { name: "paper-left", artwork, width: stock.edgeDepth, height: h, position: [-width / 2 - CARD_STOCK.surfaceLift, 0, 0], rotation: [0, Math.PI / 2, 0] },
       );
     }
     return surfaces;

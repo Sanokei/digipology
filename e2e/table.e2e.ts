@@ -75,7 +75,8 @@ test("two people play Dice Dash to a winner, hear feedback, and retain the finis
     expect(turns).toBeGreaterThan(1);
     expect(turns).toBeLessThan(40);
     await expect(panels[0]!.getByRole("status")).toContainText("wins Dice Dash!");
-    await expect(page.getByRole("button", { name: "Roll Die", exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Roll Die", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Play again", exact: true })).toBeVisible();
     expect(await page.evaluate(() => (window as unknown as { __audioStarts: number[] }).__audioStarts.filter((length) => length > 0).length)).toBeGreaterThan(0);
     await page.getByLabel("Sound settings", { exact: true }).click();
     await page.getByRole("button", { name: "Mute sound", exact: true }).click();
@@ -91,6 +92,21 @@ test("two people play Dice Dash to a winner, hear feedback, and retain the finis
     expect(errors).toEqual([]);
     expect(wasmHosts.length).toBeGreaterThan(0);
     expect(wasmHosts.every((host) => host === "127.0.0.1:8797")).toBe(true);
+    const finishedUrl = page.url();
+    await page.route("**/api/rooms", (route) => route.request().method() === "POST" ? route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { code: "temporary", message: "Controlled new-table outage" } }) }) : route.continue());
+    await page.getByRole("button", { name: "Play again", exact: true }).click();
+    await expect(panels[0]!.getByRole("alert")).toContainText("Controlled new-table outage");
+    expect(page.url()).toBe(finishedUrl);
+    await expect(panels[0]!.getByRole("status")).toContainText("wins Dice Dash!");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: testInfo.outputPath("winner-continuation-retry-390.png"), fullPage: false });
+    await page.unroute("**/api/rooms");
+    await page.getByRole("button", { name: "Play again", exact: true }).click();
+    await expect(page).not.toHaveURL(finishedUrl); await renderedTable(page);
+    await expect(page.getByRole("button", { name: "Roll Die", exact: true })).toBeEnabled();
+    await expect(page.getByRole("complementary", { name: "Game progress" }).locator("li strong")).toHaveText(["0"]);
+    await expect(other.page.getByRole("complementary", { name: "Game progress" }).getByRole("status")).toContainText("wins Dice Dash!");
+    await page.screenshot({ path: testInfo.outputPath("fresh-round-390.png"), fullPage: false });
   } finally { await other.context.close(); }
 });
 

@@ -15,6 +15,8 @@ import type { KernelStore } from "../state/kernelStore";
 import { useKernelStore } from "../state/useKernelStore";
 import { useBabylonScene, type TableHoverRequest } from "./useBabylonScene";
 import type { RendererStatus } from "./rendererPolicy";
+import { cardBackForGame } from "./cardBack";
+import { CardBackStatus } from "../components/CardBackStatus";
 
 export interface TableActionSender {
   sendAction(action: { type: string; payload: unknown }): unknown;
@@ -51,6 +53,7 @@ export function TableScene({
 }: TableSceneProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const view = useKernelStore(store);
+  const cardBack = useMemo(() => cardBackForGame(view.gameTitle, view.cardBackBundle), [view.gameTitle, view.cardBackBundle]);
   const [contextMenu, setContextMenu] = useState<{ entityId: string; x: number; y: number } | null>(null);
   const [inspectedId, setInspectedId] = useState<string | null>(null);
   const [hover, setHover] = useState<TableHoverRequest | null>(null);
@@ -104,7 +107,7 @@ export function TableScene({
       label,
       ...(face === null ? {} : { face }),
       color: definitionId === undefined ? "#d7b26d" : view.definitions[definitionId]?.color ?? "#e7dfc8",
-      kind: entity.components.card === undefined ? "token" : "card",
+      kind: entity.components.deck !== undefined ? "deck" : entity.components.card === undefined ? "token" : "card",
       hidden,
       heldBy: heldByDisplayName(entity, playerId, view.players),
     };
@@ -138,6 +141,7 @@ export function TableScene({
     {rendererOverrideActive && rendererStatus?.mounted != null ? <span className="renderer-override-chip">Renderer: {rendererStatus.mounted} (override)</span> : null}
     {hover !== null && hoverText !== null ? <div className="table-object-tooltip" style={{ left: hover.x + 12, top: hover.y + 12 }} role="status">{hoverText}</div> : null}
     {panels}{overlay}
+    {Object.values(state?.entities ?? {}).some((entity) => entity.components.card || entity.components.deck) ? <CardBackStatus definition={cardBack} /> : null}
     {contextMenu === null || contextEntity === undefined || contextActions.length === 0 ? null : <ObjectContextMenu
       x={contextMenu.x}
       y={contextMenu.y}
@@ -146,6 +150,6 @@ export function TableScene({
       actions={contextActions}
       onDismiss={() => setContextMenu(null)}
     />}
-    {inspectItem === null ? null : <InspectOverlay item={inspectItem} onDismiss={() => setInspectedId(null)} />}
+    {inspectItem === null ? null : <InspectOverlay item={inspectItem} cardBack={cardBack} onDismiss={() => setInspectedId(null)} />}
   </main>;
 }

@@ -1,11 +1,12 @@
 import { useEffect, useRef, type CSSProperties } from "react";
 import { CustomCardFace, PlayingCardBack, PlayingCardFace, type PlayingCardIdentity } from "./PlayingCardFace";
+import type { CardBackDefinition } from "../scene/cardBack";
 
 export interface InspectOverlayItem {
   entityId: string;
   label: string;
   color: string;
-  kind: "card" | "token";
+  kind: "card" | "deck" | "token";
   hidden?: boolean;
   heldBy?: string | null;
   face?: PlayingCardIdentity;
@@ -16,7 +17,7 @@ function focusableElements(root: HTMLElement): HTMLElement[] {
     .filter((element) => !element.hasAttribute("disabled"));
 }
 
-export function InspectOverlay({ item, onDismiss }: { item: InspectOverlayItem; onDismiss(): void }) {
+export function InspectOverlay({ item, onDismiss, cardBack }: { item: InspectOverlayItem; onDismiss(): void; cardBack?: CardBackDefinition }) {
   const dialogRef = useRef<HTMLElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
@@ -54,12 +55,13 @@ export function InspectOverlay({ item, onDismiss }: { item: InspectOverlayItem; 
       <div
         className={`inspect-overlay__preview inspect-overlay__preview--${item.kind}${item.hidden ? " inspect-overlay__preview--back" : ""}`}
         style={item.hidden ? undefined : { "--inspect-color": item.color } as CSSProperties}
-        aria-label={item.hidden ? "Face-down card back" : item.label}
+        aria-label={item.kind === "deck" ? "Deck back" : item.hidden ? "Face-down card back" : item.label}
       >
-        {item.kind !== "card" ? <span>{item.label}</span> : item.hidden ? <PlayingCardBack /> : item.face !== undefined ? <PlayingCardFace identity={item.face} /> : <CustomCardFace label={item.label} color={item.color} />}
+        {item.kind === "token" ? <span>{item.label}</span> : item.hidden || item.kind === "deck" ? <PlayingCardBack {...(cardBack ? { definition: cardBack } : {})} /> : item.face !== undefined ? <PlayingCardFace identity={item.face} /> : <CustomCardFace label={item.label} color={item.color} />}
       </div>
-      <strong>{item.hidden ? "Face-down card" : item.label}</strong>
-      <small>{item.kind === "card" ? "Card" : "Table object"}</small>
+      <strong>{item.kind === "deck" ? item.label : item.hidden ? "Face-down card" : item.label}</strong>
+      <small>{item.kind === "deck" ? "Deck" : item.kind === "card" ? "Card" : "Table object"}</small>
+      {(item.hidden || item.kind === "deck") && cardBack?.credits ? <div className="inspect-card-credits"><small>Card-back artwork · {cardBack.credits.artist || "Creator supplied"} · {cardBack.credits.license || "See source"}</small>{cardBack.credits.sourceUrl ? <a href={cardBack.credits.sourceUrl} target="_blank" rel="noreferrer">Artwork source</a> : null}<a href={cardBack.src} download={`card-back.${cardBack.src.startsWith("data:image/png") ? "png" : cardBack.src.startsWith("data:image/jpeg") ? "jpg" : "webp"}`}>Download card-back image</a></div> : null}
       {item.heldBy === null || item.heldBy === undefined ? null : <p>Held by {item.heldBy}</p>}
     </article>
   </div>;
