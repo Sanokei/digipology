@@ -1,3 +1,8 @@
+---
+title: "Printed cards and per-family artwork"
+description: "Author editable card fronts, distinct deck backs and versioned raster illustrations without changing deterministic gameplay."
+---
+
 # Printed cards and per-family artwork
 
 Custom cards can carry editable printed fields and raster illustrations, with explicit family backs. This presentation stays outside deterministic game state. Existing standard52-card faces and old releases keep their original rendering unless an author explicitly supplies a design.
