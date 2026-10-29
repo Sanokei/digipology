@@ -1,0 +1,293 @@
+{
+  "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+  "files": [
+    {
+      "path": "current/loading-and-touch/card-drop-short.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": "ownership-final-browser",
+      "bytes": 34444,
+      "sha256": "17475eb7d510a91f93fa5955c709fba0ddcbbaff9cbd0d2fb130a80ab8a7b8be",
+      "scope": "Original settled actual browser capture; technical authored game/raster ports. Native checks actual Lite with independent browser processes."
+    },
+    {
+      "path": "current/loading-and-touch/card-inspection-short.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": "ownership-final-browser",
+      "bytes": 51686,
+      "sha256": "e527fa1254fb334e871f199df90708b3efef4c1a3d3bbb487ad9a46bf7b5076b",
+      "scope": "Original settled actual browser capture; technical authored game/raster ports. Native checks actual Lite with independent browser processes."
+    },
+    {
+      "path": "current/loading-and-touch/cards-390-private-hand.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": "ownership-final-browser",
+      "bytes": 107204,
+      "sha256": "c9b508816600c0994cd128b64e0a8d938a0c3116acaa245eb19a124565d54d00",
+      "scope": "Original settled actual browser capture; technical authored game/raster ports. Native checks actual Lite with independent browser processes."
+    },
+    {
+      "path": "current/loading-and-touch/cards-desktop-after-drop.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": "ownership-final-browser",
+      "bytes": 295052,
+      "sha256": "abb740c86176508b73cc647668f5014e31cb55c1fd8eb85f4847326353bd412d",
+      "scope": "Original settled actual browser capture; technical authored game/raster ports. Native checks actual Lite with independent browser processes."
+    },
+    {
+      "path": "current/loading-and-touch/cards-short-settled.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": "ownership-final-browser",
+      "bytes": 37601,
+      "sha256": "a164decff040565b0288ecb3d38956a03b8a14f2e302f2d30ae96e3c09a2dd10",
+      "scope": "Original settled actual browser capture; technical authored game/raster ports. Native checks actual Lite with independent browser processes."
+    },
+    {
+      "path": "current/loading-and-touch/recovered-module-on-return.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": "ownership-final-browser",
+      "bytes": 530527,
+      "sha256": "079cf82bda5cb49dc2a56c34b9268778d6a9dde6c8a4c20b3349dfc77b6cdc9d",
+      "scope": "Original settled actual browser capture; technical authored game/raster ports. Native checks actual Lite with independent browser processes."
+    },
+    {
+      "path": "current/loading-and-touch/table-view-failure.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": "ownership-final-browser",
+      "bytes": 50483,
+      "sha256": "28eb3199d76dda9890b81b6b1b3cba3af7e693fdf84496f9e709826e9e8e163c",
+      "scope": "Original settled actual browser capture; technical authored game/raster ports. Native checks actual Lite with independent browser processes."
+    },
+    {
+      "path": "current/loading-and-touch/table-view-recovered.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": "ownership-final-browser",
+      "bytes": 537722,
+      "sha256": "981a97e90fca82bd6dae4c00208f7c8fe517909b2068d3e03633c88ff1e01dba",
+      "scope": "Original settled actual browser capture; technical authored game/raster ports. Native checks actual Lite with independent browser processes."
+    },
+    {
+      "path": "current/loading-and-touch/guest-cold-error-short.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": "ownership-final-browser",
+      "bytes": 29010,
+      "sha256": "c3595457db08421a4e03297e47dc63d9e4e8e23e53035c75b10a538d3ccbde7e",
+      "scope": "Original settled actual browser capture; technical authored game/raster ports. Native checks actual Lite with independent browser processes."
+    },
+    {
+      "path": "current/loading-and-touch/guest-cold-retry-recovered-short.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": "ownership-final-browser",
+      "bytes": 68836,
+      "sha256": "bcefbb61462b2c8d2bce6ba7b06c093b3dbbbe71a34471bd59a21e277180334a",
+      "scope": "Original settled actual browser capture; technical authored game/raster ports. Native checks actual Lite with independent browser processes."
+    },
+    {
+      "path": "current/loading-and-touch/guest-left-before-late-import-short.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": "ownership-final-browser",
+      "bytes": 253018,
+      "sha256": "3fa3ba846c2d2b6cabacd79e296072cae4edee761a9826896b8b99d2bd908837",
+      "scope": "Original settled actual browser capture; technical authored game/raster ports. Native checks actual Lite with independent browser processes."
+    },
+    {
+      "path": "current/loading-and-touch/guest-room-hand-recovered-short.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": "ownership-final-browser",
+      "bytes": 68836,
+      "sha256": "bcefbb61462b2c8d2bce6ba7b06c093b3dbbbe71a34471bd59a21e277180334a",
+      "scope": "Original settled actual browser capture; technical authored game/raster ports. Native checks actual Lite with independent browser processes."
+    },
+    {
+      "path": "current/native-two-visitors/card-editor-390.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": "native-ownership-final",
+      "bytes": 61955,
+      "sha256": "d9fd513491504406d8dc08780ce15ccb8d840dddc29e45e2b2a9f3eff111e750",
+      "scope": "Original settled actual browser capture; technical authored game/raster ports. Native checks actual Lite with independent browser processes."
+    },
+    {
+      "path": "current/native-two-visitors/guest-no-front-leak.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": "native-ownership-final",
+      "bytes": 300485,
+      "sha256": "83499558eb0a67311581b660a420f8c49080262d9550259689d2b0a663a83d8e",
+      "scope": "Original settled actual browser capture; technical authored game/raster ports. Native checks actual Lite with independent browser processes."
+    },
+    {
+      "path": "current/native-two-visitors/owner-full-rules-390.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": "native-ownership-final",
+      "bytes": 78350,
+      "sha256": "dd64859ea61801a23ee6db4d56a2811e66e46eee01d5d4671bbbe4e366055954",
+      "scope": "Original settled actual browser capture; technical authored game/raster ports. Native checks actual Lite with independent browser processes."
+    },
+    {
+      "path": "current/native-two-visitors/owner-printed-front-desktop.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": "native-ownership-final",
+      "bytes": 217568,
+      "sha256": "650897cd5ed799bbec9922e7c31ff026d3ec7f36e849dc2b8757e94457237481",
+      "scope": "Original settled actual browser capture; technical authored game/raster ports. Native checks actual Lite with independent browser processes."
+    },
+    {
+      "path": "current/native-two-visitors/published-owner-recovered.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": "native-ownership-final",
+      "bytes": 306004,
+      "sha256": "f89143fe873b1457ab005512206f49e1cee137b775d3493efa6236aac1b74394",
+      "scope": "Original settled actual browser capture; technical authored game/raster ports. Native checks actual Lite with independent browser processes."
+    },
+    {
+      "path": "current/native-two-visitors/scoped-hidden-back-no-fields.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": "native-ownership-final",
+      "bytes": 282948,
+      "sha256": "40d010255e7ff50b4730d30427f12dc39e02899b11c8c7aebd3b597dd7f9aded",
+      "scope": "Original settled actual browser capture; technical authored game/raster ports. Native checks actual Lite with independent browser processes."
+    },
+    {
+      "path": "current/native-two-visitors/scoped-revealed-front-full-rules.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": "native-ownership-final",
+      "bytes": 351323,
+      "sha256": "2ed0a0f9c7fb2b0824faddb3c057fe70042c943af66abf09167551492d3b32cc",
+      "scope": "Original settled actual browser capture; technical authored game/raster ports. Native checks actual Lite with independent browser processes."
+    },
+    {
+      "path": "current/native-two-visitors/two-decks-hand-short.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": "native-ownership-final",
+      "bytes": 40660,
+      "sha256": "44eb57989ec61bdc28aa45604089ebe14a4155ac94c3349cc684fcaa78715fea",
+      "scope": "Original settled actual browser capture; technical authored game/raster ports. Native checks actual Lite with independent browser processes."
+    },
+    {
+      "path": "failed-ci/cardDesigns.e2e.ts-a-damag-110e6-ble-as-an-editable-recovery/test-failed-1.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": 40971652740,
+      "bytes": 355348,
+      "sha256": "04ca9ebbbb7959c4844c6aa7dad53f72771680b30fe20c6eea54426e75dce3d1",
+      "scope": "FAILED hosted case, original capture. This is not a settled playtable acceptance image."
+    },
+    {
+      "path": "failed-ci/cardDesigns.e2e.ts-a-scope-aff19-y-editable-backup-and-retry/test-failed-1.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": 40971652740,
+      "bytes": 355348,
+      "sha256": "04ca9ebbbb7959c4844c6aa7dad53f72771680b30fe20c6eea54426e75dce3d1",
+      "scope": "FAILED hosted case, original capture. This is not a settled playtable acceptance image."
+    },
+    {
+      "path": "failed-ci/cardDesigns.e2e.ts-authore-82a43-tion-and-owner-guest-reload/test-failed-1.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": 40971652740,
+      "bytes": 355348,
+      "sha256": "04ca9ebbbb7959c4844c6aa7dad53f72771680b30fe20c6eea54426e75dce3d1",
+      "scope": "FAILED hosted case, original capture. This is not a settled playtable acceptance image."
+    },
+    {
+      "path": "failed-ci/cardDesigns.e2e.ts-real-to-196c4-t-without-obscured-controls/test-failed-1.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": 40971652740,
+      "bytes": 123991,
+      "sha256": "075313f9266953b47ec067265fc094d04ca452dce1c48a018fe8be7a80ef8c72",
+      "scope": "FAILED hosted case, original capture. This is not a settled playtable acceptance image."
+    },
+    {
+      "path": "failed-ci/editor-handoff.e2e.ts-real-86403--and-idempotent-publication/test-failed-1.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": 40971652740,
+      "bytes": 35377,
+      "sha256": "6e96bf428e1ed4e7412cce4d2c59e6c240af6968dbd8de5d842e25a207e69c76",
+      "scope": "FAILED hosted case, original capture. This is not a settled playtable acceptance image."
+    },
+    {
+      "path": "failed-ci/generation.e2e.ts-fixture--63b4a-publication-and-multiplayer/test-failed-1.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": 40971652740,
+      "bytes": 526876,
+      "sha256": "7dbe8019c3e57634129da432fb1c2528d801541a627f7004c06f990555c96f8c",
+      "scope": "FAILED hosted case, original capture. This is not a settled playtable acceptance image."
+    },
+    {
+      "path": "failed-ci/generation.e2e.ts-fixture--63b4a-publication-and-multiplayer/test-failed-2.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": 40971652740,
+      "bytes": 54217,
+      "sha256": "501df76843f8cb456286726bf39f3ffab8680f9ad7c6939bbf98acb8307c4eec",
+      "scope": "FAILED hosted case, original capture. This is not a settled playtable acceptance image."
+    },
+    {
+      "path": "failed-ci/privateDraftLayout.e2e.ts--7fbc2-th-discoverable-camera-help/test-failed-1.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": 40971652740,
+      "bytes": 44372,
+      "sha256": "d37d7de793be9dcdaf4a4e4e8686790398dc64e06757aefd9114970b03073b4d",
+      "scope": "FAILED hosted case, original capture. This is not a settled playtable acceptance image."
+    },
+    {
+      "path": "failed-ci/privateDraftLayout.e2e.ts--7fbc2-th-discoverable-camera-help/test-failed-2.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": 40971652740,
+      "bytes": 119241,
+      "sha256": "772432e912ea779ce9f61f0674285d147c2d0e4e5683b65680d5d301e8071c8e",
+      "scope": "FAILED hosted case, original capture. This is not a settled playtable acceptance image."
+    },
+    {
+      "path": "failed-ci/table.e2e.ts-cold-renderer-9f19e--stay-retired-after-leaving/test-failed-1.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": 40971652740,
+      "bytes": 526495,
+      "sha256": "6521e98e2ba3afe14f0e700a283e5cb1cf5386d38e246502519a6010bbaf89a9",
+      "scope": "FAILED hosted case, original capture. This is not a settled playtable acceptance image."
+    },
+    {
+      "path": "failed-ci/table.e2e.ts-cold-renderer-9f19e--stay-retired-after-leaving/test-failed-2.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": 40971652740,
+      "bytes": 28265,
+      "sha256": "b0957fcc2325592501c19219d618472e5d499f8e968b5c68385026b77203f45d",
+      "scope": "FAILED hosted case, original capture. This is not a settled playtable acceptance image."
+    },
+    {
+      "path": "failed-ci/table.e2e.ts-named-cards-r-06f8c-e-reveal-and-survive-reload/test-failed-1.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": 40971652740,
+      "bytes": 528831,
+      "sha256": "b17a396f737cd0f9754082ca82b155b82e461fcaf26a5a6d17ec66224e0ee234",
+      "scope": "FAILED hosted case, original capture. This is not a settled playtable acceptance image."
+    },
+    {
+      "path": "failed-ci/table.e2e.ts-named-cards-r-06f8c-e-reveal-and-survive-reload/test-failed-2.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": 40971652740,
+      "bytes": 44603,
+      "sha256": "b3fc57bf1646aa76e3a5cc01317ef8c77f2ad3383e97086f7cb2aad5107298db",
+      "scope": "FAILED hosted case, original capture. This is not a settled playtable acceptance image."
+    },
+    {
+      "path": "failed-ci/table.e2e.ts-two-people-pl-c84f0--finished-game-after-reload/test-failed-1.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": 40971652740,
+      "bytes": 30339,
+      "sha256": "c911d7eae33994bcce51c5efd55ec57682d57ba8fd3a926b2be1ff1cc721c45e",
+      "scope": "FAILED hosted case, original capture. This is not a settled playtable acceptance image."
+    },
+    {
+      "path": "failed-ci/table.e2e.ts-two-people-pl-c84f0--finished-game-after-reload/test-failed-2.png",
+      "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "run": 40971652740,
+      "bytes": 452403,
+      "sha256": "d2b6f97466144fa3847190b5fe2ad2afd16aa8229ee03fcf31fa159f0587cb86",
+      "scope": "FAILED hosted case, original capture. This is not a settled playtable acceptance image."
+    },
+    {
+      "path": "before/85e433f-private-draft-390.png",
+      "applicationSource": "85e433f0c443331208be53d3c8d4d212938d2bbf",
+      "run": "pinned a9f0f6f QA original",
+      "bytes": 101824,
+      "sha256": "d858c65c8c550bde0a90ae335d88fa576f63fc77e6b1919d7405a07103ccaa4f",
+      "scope": "Prior obscured phone table; baseline only."
+    }
+  ]
+}

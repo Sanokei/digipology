@@ -1,0 +1,72 @@
+{
+  "applicationSource": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+  "main": "9b0d1cca1797d1ba0caa783f9a86bf30a56a8512",
+  "mainIntegrated": false,
+  "hosted": {
+    "run": 40971652740,
+    "job": 123789607389,
+    "url": "https://github.com/Sanokei/digipology/actions/runs/40971652740",
+    "conclusion": "failure",
+    "units": {
+      "pass": 965,
+      "fail": 0,
+      "files": 141
+    },
+    "browser": {
+      "pass": 32,
+      "fail": 10,
+      "skipped": 0,
+      "flaky": 0,
+      "seconds": 1084.687
+    },
+    "repeatedWorkerCrashObserved": false,
+    "artifactId": 12941232419
+  },
+  "local": [
+    {
+      "run": "ownership-final-browser",
+      "exit": 0,
+      "stats": {
+        "startTime": "2026-10-29T23:13:35.846Z",
+        "duration": 84961.457,
+        "expected": 3,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "scope": "two-cpu-before deliberately reproduces CI-like software GPU load;1pass1fail. Other two runs validate the ordinary desktop/phone path and actual native Lite in separate browser processes."
+    },
+    {
+      "run": "native-ownership-final",
+      "exit": 0,
+      "stats": {
+        "startTime": "2026-10-29T23:15:24.390Z",
+        "duration": 189694.981,
+        "expected": 1,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "scope": "two-cpu-before deliberately reproduces CI-like software GPU load;1pass1fail. Other two runs validate the ordinary desktop/phone path and actual native Lite in separate browser processes."
+    },
+    {
+      "run": "two-cpu-before",
+      "exit": 1,
+      "stats": {
+        "startTime": "2026-10-29T23:42:04.647Z",
+        "duration": 123939.887,
+        "expected": 1,
+        "skipped": 0,
+        "unexpected": 1,
+        "flaky": 0
+      },
+      "scope": "two-cpu-before deliberately reproduces CI-like software GPU load;1pass1fail. Other two runs validate the ordinary desktop/phone path and actual native Lite in separate browser processes."
+    }
+  ],
+  "priorNativeFailures": "https://github.com/Sanokei/digipology/tree/9ccaa8861655a00c0d36754abeccd3207571531e/qa/e97f304900b1-authored-cards-phone/failed",
+  "limitations": [
+    "No genuine prompt/art output, approved art, faithful complete Merlin, perceptual sound or fun acceptance.",
+    "Native success uses independent browser processes; original shared software-GPU initialization failures remain failed.",
+    "The current desktop multi-deck picker overlaps part of the centered hand/Deck label."
+  ]
+}

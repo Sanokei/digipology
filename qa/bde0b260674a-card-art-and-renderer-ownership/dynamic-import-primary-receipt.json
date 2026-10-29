@@ -1,0 +1,6 @@
+{
+  "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/import",
+  "status": 200,
+  "sha256": "e8c3262270960ef9b3498088623c26a9e95159580717b4d987800b73857d9a70",
+  "finding": "MDN distinguishes evaluation caching from load/link retry and notes the browser may cache fetch results. Actual retained Chromium trace shows immediate failed root import reuse after in-place retry. Retry uses only the same origin, strict hashed renderer entry path and a fresh URL; no eval/source rewriting/remote fallback."
+}

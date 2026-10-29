@@ -1,0 +1,33 @@
+{
+  "readAt": "2026-10-29T21:20:21.823349+00:00",
+  "references": [
+    {
+      "url": "https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/drawImage",
+      "status": 200,
+      "bytes": 169688,
+      "sha256": "fb53810f2601205c4f23fdc249ac96094871f3f8421654310b1f9e98ae83e353",
+      "privateCache": "drawImage.html"
+    },
+    {
+      "url": "https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/measureText",
+      "status": 200,
+      "bytes": 159128,
+      "sha256": "679c65a199d1278d1e983e7371d044974cfa72a89df491a28c18009ecb07535c",
+      "privateCache": "measureText.html"
+    },
+    {
+      "url": "https://developer.mozilla.org/en-US/docs/Web/API/HTMLImageElement/decode",
+      "status": 200,
+      "bytes": 164487,
+      "sha256": "d1d70d951d7735daeace90bd7e171ea505c761886bdc348cd6dd7cf3ee05f203",
+      "privateCache": "decode.html"
+    },
+    {
+      "url": "https://github.com/openai/openai-node/blob/4bfed1f69fc0e86e7da0657df8d54b6e99118c02/src/resources/images.ts",
+      "sourceCommit": "4bfed1f69fc0e86e7da0657df8d54b6e99118c02",
+      "sha256": "1d179793d833912eb104aaa6b39b9aec016ddd442ea2efde5cf5eba61b343fb2",
+      "privateCache": "/workspace/.digipology-cloud/openai-node-source/src/resources/images.ts",
+      "scope": "Official image request/response sizes, opaque WebP, encoded bytes; not proof of account access"
+    }
+  ]
+}
