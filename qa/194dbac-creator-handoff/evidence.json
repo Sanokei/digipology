@@ -1,0 +1,89 @@
+{
+  "sourceCommit": "194dbac54647c4474d3ab11934843cbf30356fd0",
+  "sourceRepository": "Sanokei/digipology",
+  "fixtureProvider": true,
+  "liveGenerationVerified": false,
+  "validation": {
+    "unitTests": 851,
+    "unitFiles": 115,
+    "fullBrowserScenarios": 14,
+    "finalFocusedCreationScenarios": 4,
+    "typecheck": "pass",
+    "webBuild": "pass",
+    "siteBuildAndLinks": "pass",
+    "rendererChunks": "pass",
+    "frozenReplays": "unchanged"
+  },
+  "files": [
+    {
+      "path": "screenshots/creation-recovery-desktop.png",
+      "sourceCapture": "fixture-draft-storage-recovery.png",
+      "width": 1440,
+      "height": 1147,
+      "bytes": 152010,
+      "sha256": "7f3763ba9cca341f9f03ed107253866a842caf1ac8a892721fd6d83aa0cb2a53"
+    },
+    {
+      "path": "screenshots/private-play-desktop.png",
+      "sourceCapture": "fixture-private-draft-winner.png",
+      "width": 1440,
+      "height": 960,
+      "bytes": 73946,
+      "sha256": "e2124e0d9a8861d04d03e974a139d305c1b446f2f14c3b15acf8ca762782e59e"
+    },
+    {
+      "path": "screenshots/private-play-narrow.png",
+      "sourceCapture": "fixture-private-draft-mobile.png",
+      "width": 390,
+      "height": 844,
+      "bytes": 45419,
+      "sha256": "8eb7315d53a61936050b23eb33cf2b5d579f92bbcb3b5baa9be6f70d995a1fa8"
+    },
+    {
+      "path": "screenshots/review-desktop.png",
+      "sourceCapture": "fixture-playtest-review-desktop.png",
+      "width": 1440,
+      "height": 960,
+      "bytes": 117190,
+      "sha256": "fbbc7370825053d6996ea23ed35694ec32793c5b43433dd0e56ae6bbc82c95ec"
+    },
+    {
+      "path": "screenshots/restored-review-narrow.png",
+      "sourceCapture": "fixture-playtest-review-mobile.png",
+      "width": 390,
+      "height": 844,
+      "bytes": 54764,
+      "sha256": "c435ea1ec87e88f2727e2d4b8f044c83c854dc411f75a6f02403078db2f9db4e"
+    },
+    {
+      "path": "screenshots/imported-note-recovery-narrow.png",
+      "sourceCapture": "fixture-imported-review-fallback.png",
+      "width": 390,
+      "height": 844,
+      "bytes": 56365,
+      "sha256": "1310a303f1c31bede095c397df540822d7a18d7fd8a19f8a2bdadfb60ad2606f"
+    },
+    {
+      "path": "screenshots/guest-hand-privacy-desktop.png",
+      "sourceCapture": "card-hand-guest-private.png",
+      "width": 1280,
+      "height": 900,
+      "bytes": 46883,
+      "sha256": "159a55f0b230dc32b49e76e011c791656014f70d2ca473f6ab25bbf49744721c"
+    },
+    {
+      "path": "screenshots/table-recovery-desktop.png",
+      "sourceCapture": "table-view-recovered.png",
+      "width": 1440,
+      "height": 960,
+      "bytes": 54171,
+      "sha256": "5182bc872a8b3acdb4079d4ee3418ad257ab00722787c6e01b4e4da503ae8565"
+    },
+    {
+      "path": "accepted-draft.editor.json",
+      "bytes": 6161,
+      "sha256": "2bf4fc264aea07af9ed3cc80b6c21aa386d8feac9a98b26f3292bcfa4835fe78",
+      "manifestHash": "sha256:7cb61e57a9e0a7cd84da3a904dcc61133d89c8a482c3b10c3ad18a7c2038eb2d"
+    }
+  ]
+}
