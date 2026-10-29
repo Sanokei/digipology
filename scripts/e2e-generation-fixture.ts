@@ -15,6 +15,10 @@ export function startGenerationFixture(port = 8795) {
     return draft;
   };
   const dice = author("builtin_dice_dash_3"), cards = author("builtin_first_deal_2");
+  // First Deal is an explicitly manual kernel sandbox. Its archived return-{}
+  // Lua stub is unused; omit that stub in the transport derivative rather than
+  // pretending it is bound game logic. Never modify the pinned source release.
+  cards.files = (cards.files as Array<{ path: string; content: string }>).filter((file) => !file.path.endsWith(".lua"));
   let generations = 0, repairs = 0, directions = 0;
   const imageRequests: Array<{ title: string; purpose: string; promptHash: string; source: string; sha256: string; fixture: true }> = [];
   const imageAttempts = new Map<string, number>();
@@ -68,10 +72,8 @@ export function startGenerationFixture(port = 8795) {
     if (body.messages.some((message) => message.content.includes("[blank-first]"))) (source.artDirection as GameArtDirection).cardBackPrompt += " [blank-first]";
     const files = source.files as Array<{ path: string; content: string }>;
     const broken = structuredClone(source);
-    const firstScript = (broken.files as typeof files).find((file) => file.path.endsWith(".lua"))!;
-    firstScript.content = isCards
-      ? firstScript.content + '\nfunction on_start(ctx)\n error("deterministic fixture requires a repair")\nend'
-      : 'function on_roll(ctx)\n error("deterministic fixture requires a repair")\nend';
+    const firstScript = (broken.files as typeof files).find((file) => file.path.endsWith(".lua"));
+    if (firstScript) firstScript.content = 'function on_roll(ctx)\n error("deterministic fixture requires a repair")\nend';
     if (body.messages.some((message) => message.content.includes("[review-warning]"))) {
       broken.tagline = "A longer dice race for a test playthrough.";
       (broken.settings as Array<{ key: string; numberValue: number }>).find((setting) => setting.key === "targetScore")!.numberValue = 3_000;
