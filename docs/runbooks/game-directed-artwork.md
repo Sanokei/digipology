@@ -72,6 +72,10 @@ preserve server-loaded presentation files exactly. Adding/replacing a back
 changes the release manifest and leaves the old automated review stale until
 the current bundle passes actual validation and the Lua quality service again.
 Background job receipts do not consume editor Undo entries.
+Automatic rechecking is queued only for the exact manifest changed by an artwork
+attachment. Unrelated rule edits keep their previous review visibly stale;
+the creator can request a current check in the artwork dialog. Editing a script
+does not launch a quality request on every keystroke.
 
 ## Focused verification
 

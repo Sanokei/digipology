@@ -270,3 +270,36 @@ test("browser quota failure keeps prepared artwork downloadable and saves it wit
   await expect(page.locator("[data-card-back-state]")).toHaveAttribute("data-card-back-state", "ready");
   await capture(page, info, "artwork-storage-recovered-390.png");
 });
+
+test("unconfigured illustration preserves the playable rules and separate briefs without sample artwork", async ({ page }, info) => {
+  test.setTimeout(90_000); await signIn(page);
+  let gameCalls = 0, imageCalls = 0;
+  page.on("request", (request) => { if (new URL(request.url()).pathname === "/api/ai/games" && request.method() === "POST") gameCalls++; });
+  await page.route("**/api/ai/artwork", (route) => {
+    imageCalls++;
+    return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { code: "artwork_unconfigured", message: "Illustration is unavailable on this server. Your rules are saved. Retry artwork later or replace the images." } }) });
+  });
+  const accepted = await create(page, "[raster-cards-fixture] Exercise the missing-image-provider interface without stock substitution.");
+  await expect.poll(async () => {
+    const jobs = (await saved(page)).artworkGeneration!.jobs;
+    return jobs.cover.status === "unconfigured" && jobs.cardBack.status === "unconfigured";
+  }).toBe(true);
+  await expect(page.locator("[data-card-back-state]")).toHaveAttribute("data-card-back-state", "pending");
+  await expect(page.getByRole("button", { name: "Publish draft & invite", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Draw card", exact: true }).click();
+  await expect(page.getByRole("button", { name: /^Inspect / })).toHaveCount(1);
+  const dialog = await openArtwork(page, accepted.draft.title);
+  await expect(dialog).toContainText("0 of 2 images ready");
+  await expect(dialog.locator(".game-art-asset__state")).toHaveText(["Waiting for image access", "Waiting for image access"]);
+  expect(await dialog.locator(".game-art-assets img, .game-art-assets canvas").count()).toBe(0);
+  const bytes = await download(page, info, "missing-provider.editor.json", () => dialog.getByRole("button", { name: "Download editable draft", exact: true }).click());
+  const backup = JSON.parse(Buffer.from(bytes).toString("utf8"));
+  expect(backup.bundle).toEqual(accepted.draft); expect(backup.artworkGeneration.direction).toEqual(accepted.artDirection); expect(backup.artwork).toBeUndefined();
+  await capture(page, info, "image-provider-unavailable-desktop.png");
+  await page.setViewportSize({ width: 390, height: 844 });
+  const cover = dialog.locator('[data-art-purpose="cover"]');
+  await cover.getByRole("button", { name: "Retry cover", exact: true }).click();
+  await expect.poll(() => imageCalls).toBe(3); expect(gameCalls).toBe(1);
+  await cover.scrollIntoViewIfNeeded(); await capture(page, info, "image-provider-unavailable-390.png");
+  await writeFile(info.outputPath("missing-provider-scope.json"), JSON.stringify({ scope: "Controlled HTTP artwork_unconfigured response after actual fixture rules acceptance; handler configuration is tested separately. No image port/model invoked and no stock image installed.", gameCalls, imageCalls, canonicalInitialStatePreserved: true, imageBriefsPreserved: true, privateDrawStillWorks: true }, null, 2));
+});
