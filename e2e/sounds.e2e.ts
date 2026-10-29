@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 const packPath = fileURLToPath(new URL("../apps/web/public/audio/table-effects/v1/bundle.json", import.meta.url));
 const draftPath = fileURLToPath(new URL("./fixtures/raster-draft.editor.json", import.meta.url));
 const assetPath = "runtime/presentation/table-sounds.json";
-type Heard = { duration: number; sampleRate: number; samples: number; hash: number; rms: number; peak: number };
+type Heard = { duration: number; sampleRate: number; samples: number; hash: number; rms: number; peak: number; signature: number[] };
 type AudioWindow = Window & { heard: Heard[]; audioOutputs: GainNode[]; denyDecode: boolean };
 
 async function monitor(context: BrowserContext) {
@@ -19,7 +19,8 @@ async function monitor(context: BrowserContext) {
       const b = this.buffer;
       if (b) { let hash = 2166136261, power = 0, peak = 0;
         for (const sample of b.getChannelData(0)) { const n = Math.round(sample * 32768); hash = Math.imul(hash ^ (n & 255), 16777619); hash = Math.imul(hash ^ (n >> 8 & 255), 16777619); power += sample * sample; peak = Math.max(peak, Math.abs(sample)); }
-        target.heard.push({ duration: b.duration, sampleRate: b.sampleRate, samples: b.length, hash: hash >>> 0, rms: Math.sqrt(power / b.length), peak });
+        const signal = b.getChannelData(0), signature = Array.from({ length: 512 }, (_, index) => signal[Math.floor(index * b.length / 512)]!);
+        target.heard.push({ duration: b.duration, sampleRate: b.sampleRate, samples: b.length, hash: hash >>> 0, rms: Math.sqrt(power / b.length), peak, signature });
       }
       return start.apply(this, args);
     };
@@ -27,11 +28,19 @@ async function monitor(context: BrowserContext) {
 }
 const heard = (page: Page) => page.evaluate(() => (window as unknown as AudioWindow).heard);
 const clear = (page: Page) => page.evaluate(() => { (window as unknown as AudioWindow).heard.length = 0; });
-function pcmHash(dataUrl: string) {
+function pcmBytes(dataUrl: string) {
   const bytes = Buffer.from(dataUrl.split(",")[1]!, "base64"); let pcm: Buffer | undefined;
   for (let at = 12; at < bytes.length;) { const n = bytes.readUInt32LE(at + 4); if (bytes.toString("ascii", at, at + 4) === "data") { pcm = bytes.subarray(at + 8, at + 8 + n); break; } at += 8 + n + n % 2; }
   if (!pcm) throw new Error("Missing expected master PCM");
-  let hash = 2166136261; for (const byte of pcm) hash = Math.imul(hash ^ byte, 16777619); return hash >>> 0;
+  return pcm;
+}
+function pcmHash(dataUrl: string) { let hash = 2166136261; for (const byte of pcmBytes(dataUrl)) hash = Math.imul(hash ^ byte, 16777619); return hash >>> 0; }
+function clipCorrelation(record: Heard, clip: { dataUrl: string }): number {
+  const pcm = pcmBytes(clip.dataUrl), samples = pcm.length / 2;
+  if (record.sampleRate !== 48000 || record.samples !== samples || Math.abs(record.duration - samples / 48000) > .0001 || record.signature?.length !== 512 || record.rms <= .001 || record.peak > .9) return 0;
+  let dot = 0, a = 0, b = 0;
+  for (let index = 0; index < 512; index++) { const expected = pcm.readInt16LE(Math.floor(index * samples / 512) * 2) / 32768, actual = record.signature[index]!; dot += expected * actual; a += expected * expected; b += actual * actual; }
+  return dot / Math.sqrt(a * b);
 }
 async function ready(page: Page) {
   await page.bringToFront();
@@ -65,7 +74,7 @@ test("a real mastered creator bundle survives editor import, backup, private dic
   await dialog.getByLabel("Sound settings", { exact: true }).click();
   await expect(dialog.locator(".table-audio__settings")).toHaveAttribute("data-audio-state", "ready");
   await clear(page); await dialog.getByRole("button", { name: "Test sound", exact: true }).click();
-  await expect.poll(async () => (await heard(page)).some((r) => r.hash === pcmHash(card.dataUrl))).toBe(true);
+  await expect.poll(async () => (await heard(page)).some((r) => clipCorrelation(r, card) > .999)).toBe(true);
   const bad = structuredClone(pack); bad.clips[0].sha256 = `sha256:${"0".repeat(64)}`;
   await dialog.getByLabel("Sound bundle JSON", { exact: true }).setInputFiles({ name: "damaged.sounds.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(bad)) });
   await expect(dialog.getByRole("alert")).toContainText("SHA-256"); await expect(dialog.getByRole("button", { name: "Use in this game", exact: true })).toBeDisabled();
@@ -92,7 +101,7 @@ test("a real mastered creator bundle survives editor import, backup, private dic
   const score = page.getByLabel("Game progress", { exact: true }).locator("li strong").first();
   const beforeScore = await score.innerText(); await page.getByRole("button", { name: "Roll Die", exact: true }).click(); await expect(score).not.toHaveText(beforeScore);
   await writeFile(info.outputPath("private-first-cue.json"), JSON.stringify({ heard: await heard(page), expectedDiceHash: pcmHash(dice.dataUrl), browser: await page.evaluate(() => ({ visibility: document.visibilityState, outputs: (window as unknown as AudioWindow).audioOutputs.map((g) => ({ state: g.context.state, sampleRate: g.context.sampleRate, gain: g.gain.value })) })) }, null, 2));
-  await expect.poll(async () => (await heard(page)).some((r) => r.hash === pcmHash(dice.dataUrl))).toBe(true);
+  await expect.poll(async () => (await heard(page)).some((r) => clipCorrelation(r, dice) > .999)).toBe(true);
   await page.setViewportSize({ width: 390, height: 844 }); await sourceReady(page);
   await page.screenshot({ path: info.outputPath("private-source-sounds-390.png"), fullPage: false });
   await page.getByLabel("Sound settings", { exact: true }).click(); await page.getByRole("button", { name: "Publish & invite", exact: true }).click(); await expect(page).toHaveURL(/\/table\//); await ready(page);
@@ -117,9 +126,10 @@ test("a real mastered creator bundle survives editor import, backup, private dic
   const guestContext = await browser.newContext({ baseURL: "http://127.0.0.1:8797", viewport: { width: 390, height: 844 } }); await monitor(guestContext);
   const guest = await guestContext.newPage(); await guest.goto(invite!); await guest.getByLabel("Display name", { exact: true }).fill("Sound guest"); await guest.getByRole("button", { name: "Join table", exact: true }).click(); await ready(guest); expect(await heard(guest)).toEqual([]);
   const guestPanel = await sourceReady(guest); await clear(guest); await guestPanel.getByRole("button", { name: "Test sound", exact: true }).click();
-  await expect.poll(async () => (await heard(guest)).some((r) => r.hash === pcmHash(card.dataUrl))).toBe(true);
+  await expect.poll(async () => (await heard(guest)).some((r) => clipCorrelation(r, card) > .999)).toBe(true);
   await guest.screenshot({ path: info.outputPath("guest-source-sounds-390.png"), fullPage: false });
-  await writeFile(info.outputPath("sound-playback.json"), JSON.stringify({ owner: await heard(page), guest: await heard(guest), expectedCardPcmHash: pcmHash(card.dataUrl), expectedDicePcmHash: pcmHash(dice.dataUrl), releaseAssetExact: true, coverVersion: game.coverVersion }, null, 2));
+  const guestHeard = await heard(guest);
+  await writeFile(info.outputPath("sound-playback.json"), JSON.stringify({ owner: await heard(page), guest: guestHeard, guestCardCorrelations: guestHeard.map((r) => clipCorrelation(r, card)), expectedCardPcmHash: pcmHash(card.dataUrl), expectedDicePcmHash: pcmHash(dice.dataUrl), decodedFingerprintScope: "512-point waveform correlation >0.999; native decoded floats need not round to bit-identical PCM; original/master file SHA-256 remains exact", releaseAssetExact: true, coverVersion: game.coverVersion }, null, 2));
   await guestContext.close(); await page.setViewportSize({ width: 1440, height: 960 }); await importDraft(page, backup.path, `sound-reopened-${Date.now()}`);
   const reopened = await download(page, info, "reopened-sounds.editor.json", () => menu(page, "Download editable draft")); expect(JSON.parse(reopened.text).bundle).toEqual(saved.bundle); expect(JSON.parse(reopened.text).artwork).toEqual(saved.artwork);
 });
@@ -162,7 +172,7 @@ test("source fetch and decoder failures show retry, preserve playable fallback a
   await page.setViewportSize({ width: 390, height: 844 }); await page.screenshot({ path: info.outputPath("decode-failure-390.png"), fullPage: false });
   await page.evaluate(() => { (window as unknown as AudioWindow).denyDecode = false; }); await panel.getByRole("button", { name: "Retry source sounds", exact: true }).click(); await expect(panel).toHaveAttribute("data-audio-state", "ready"); await clear(page);
   await panel.getByRole("button", { name: "Test sound", exact: true }).click(); const pack = JSON.parse(await readFile(packPath, "utf8"));
-  await expect.poll(async () => (await heard(page)).some((r) => r.hash === pcmHash(pack.clips[0].dataUrl))).toBe(true);
+  await expect.poll(async () => (await heard(page)).some((r) => clipCorrelation(r, pack.clips[0]) > .999)).toBe(true);
   await page.screenshot({ path: info.outputPath("source-recovered-390.png"), fullPage: false });
   // Controlled visibility transition isolates this lifecycle from headless window scheduling.
   await page.evaluate(() => { Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" }); document.dispatchEvent(new Event("visibilitychange")); });
