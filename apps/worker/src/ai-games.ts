@@ -187,6 +187,23 @@ export async function handleAiGameRequest(input: AiGameRouteInput): Promise<Resp
     : null;
   if (ownedGame instanceof Response) return ownedGame;
 
+  // Consume and validate bounded input before an early configuration response.
+  let prompt: string;
+  let references: AiRuleSource[];
+  try {
+    const body = await readAiJson(input.request);
+    const parsed = input.mode === "create"
+      ? validateCreateAiGameRequest(body)
+      : validateEditAiGameRequest(body);
+    if (!parsed.ok) return jsonError(400, "invalid_request", parsed.error.message);
+    prompt = "prompt" in parsed.value ? parsed.value.prompt : parsed.value.instruction;
+    references = parsed.value.references ?? [];
+  } catch (error) {
+    if (error instanceof RangeError) return jsonError(413, "request_too_large", "The generation request exceeds the 1 MiB body limit.");
+    return jsonError(400, "invalid_request", "Request body must be valid JSON");
+  }
+
+
   const modelFetch = resolveModelFetch(input.env, input.dependencies);
   if (modelFetch === null) {
     return jsonError(503, "ai_unconfigured", "AI creation isn't set up on this server yet");
@@ -209,20 +226,6 @@ export async function handleAiGameRequest(input: AiGameRouteInput): Promise<Resp
     });
   }
 
-  let prompt: string;
-  let references: AiRuleSource[];
-  try {
-    const body = await readAiJson(input.request);
-    const parsed = input.mode === "create"
-      ? validateCreateAiGameRequest(body)
-      : validateEditAiGameRequest(body);
-    if (!parsed.ok) return jsonError(400, "invalid_request", parsed.error.message);
-    prompt = "prompt" in parsed.value ? parsed.value.prompt : parsed.value.instruction;
-    references = parsed.value.references ?? [];
-  } catch (error) {
-    if (error instanceof RangeError) return jsonError(413, "request_too_large", "The generation request exceeds the 1 MiB body limit.");
-    return jsonError(400, "invalid_request", "Request body must be valid JSON");
-  }
 
   let existingBundle: ReleaseBundleDto | null = null;
   if (ownedGame !== null) {
