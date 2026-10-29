@@ -13,13 +13,39 @@ Source repository: https://github.com/SidewaysTurtle/MerlinEconomics
 - Source credits SidewaysTurtle / Kei Sano and says All Rights Reserved. Do not
   relabel it CC0 or put the entire rulebook in the application's distribution.
 
-Normal HTTPS Git access retrieved this source. A normal public CSV export of
-the linked Royal Decrees sheet failed with `Tunnel connection failed: 403
-Forbidden` in the onboarding environment. No connected Sheets tool is available.
-That is an access restriction, not evidence about the sheet's contents. The cloud
-allowlist needs `docs.google.com`; saving that request is not publication or
-proof the destination is now reachable. Do not retry an unchanged denial or use
-another host/proxy to bypass it.
+Normal HTTPS Git access retrieved this source. The earlier ordinary Royal
+Decrees export failed with CONNECT403; that was an access restriction, not
+evidence about its contents. After a fresh environment and a changed network
+draft, the same original URL returned200 on 2026-10-29. All seven original
+complete-workbook XLSX downloads and CSV exports now return200. Every workbook
+has one worksheet, so its original first-sheet CSV covers its tabular data.
+No alternate-host/proxy workaround or new account was used. This observed access
+does not by itself prove which environment draft was published.
+
+The captured CSV bytes are pinned in
+[`scripts/benchmarks/merlin-catalogs.ts`](../../scripts/benchmarks/merlin-catalogs.ts).
+They total33,777 bytes; with the rulebook the complete eight-document packet is
+**99,651 bytes**, within the existing128KiB input. Source contents stay outside
+the checkout/public QA; hashes, original links and analysis are shareable receipts.
+
+| Original catalog | Definitions | Declared copies | Listed copies |
+| --- | ---: | ---: | ---: |
+| Golems | 8 | Not declared as a total | Not inferred |
+| Royal Guards | 4 | Not declared as a total | Not inferred |
+| Tea Leaves | 12 | 30 | **42** |
+| Crystal Ball | 26 | 51 | **52** |
+| Spells | 17 | 62 | 62 |
+| Potions | 7 | 28 | 28 |
+| Royal Decrees | 14 | Not declared as a total | Not inferred |
+
+These are source findings, not silent corrections. Crystal Ball's XLSX A2
+formula is `SUM(A$4:A$999)`, excluding the first listed card at A3. Tea Leaves'
+declared30 remains30 in the raw source despite42 listed copies. Spells retains
+the zero-copy Transmutation definition. Potions retains all526 CSV records,
+including trailing/ingredient data, rather than extracting just seven card rows.
+Original Sheets are editable and have no asserted Git revision; the captured
+2026-10-29 hashes identify this exact input. A changed export must be inspected
+and deliberately repinned instead of silently entering the benchmark.
 
 ## Source intake and alternatives
 
@@ -56,30 +82,39 @@ successful response keeps the accepted source-bearing editable draft.
 
 ## Reproduce the bounded source test
 
-Use a local checkout containing the exact source commit above. This command reads
-the pinned Git object, verifies its hash, and writes into a new directory:
+Use a local checkout containing the exact source commit and the seven captured
+CSV exports named `golems.csv`, `royal-guards.csv`, `tea-leaves.csv`,
+`crystal-ball.csv`, `spells.csv`, `potions.csv` and `royal-decrees.csv` in another
+directory. Export through each original `docs.google.com/spreadsheets/d/ID/export?format=csv`
+URL in the manifest. The script reads the pinned Git object, checks every CSV's
+byte length/hash, analyzes complete quoted/multiline CSV and writes a new packet:
 
 ```bash
-bun scripts/benchmarks/merlin-economics.ts /path/to/MerlinEconomics /tmp/merlin-input
+bun scripts/benchmarks/merlin-economics.ts /path/to/MerlinEconomics /tmp/merlin-input /path/to/pinned-csvs
 ```
 
-It produces the exact rulebook, a normal `merlin-economics.request.json` and an
-acceptance receipt with all seven linked catalogs marked unread. Preparation
-does not invoke a provider or generate a game. Keep these author-provided source
-outputs outside the application checkout and public QA packs.
+It produces the exact rulebook/seven CSVs, a normal
+`merlin-economics.request.json` with all eight references and an acceptance receipt
+that reports the unresolved count/rule gaps. Missing or changed catalogs fail
+before packet output. The legacy two-argument command deliberately prepares a
+rules-only packet marked incomplete; the complete browser benchmark refuses it.
+Preparation does not invoke a provider or generate a game. Keep all author-owned
+source/request outputs outside the application checkout and public QA packs.
 
 After building the web app, run the explicit real-source browser benchmark:
 
 ```bash
-MERLIN_ECONOMICS_SOURCE=/path/to/MerlinEconomics E2E_SKIP_BUILD=1 \
+MERLIN_ECONOMICS_INPUT=/tmp/merlin-input E2E_SKIP_BUILD=1 \
   bun x playwright test --config e2e/merlin.config.ts
 ```
 
 This dedicated test uses the normal UI/API with an intentionally unconfigured
-isolated server. It verifies the whole pinned source, invalid-file recovery,
-desktop/390px/short controls, an actual `ai_unconfigured` response, identical retry
-and request download, and no accepted/published substitute. It has its own match
-pattern and does not silently skip or replace missing external input.
+isolated server. It verifies all eight pinned sources, invalid/ninth-file atomic
+recovery, desktop/390px/short controls, the actual `ai_unconfigured` response,
+identical retry and keyboard request download, and no accepted/published
+substitute. It has its own match pattern and does not skip or substitute a fixture
+when real input is missing. The separate actual normal-app attempt records its
+own provider result; an isolated configuration test is not evidence of live access.
 
 `e2e/ruleSources.e2e.ts` separately uses the existing deterministic dice provider
 fixture to exercise successful creation/repair, private play, editing, exact
@@ -103,14 +138,18 @@ The generated game must support 4–6 players and preserve the actual source's:
 
 The repository `Cards.sheet` contains seven potion definitions / 28 copies,
 thirteen spell definitions / 48 copies, no Tea Leaves definitions and one Crystal
-Ball definition with count zero. Treat it as a partial snapshot, never a silent
-substitute for the unread external catalogs. The rulebook's Taxes, Indicators
-and Bankruptcy cross-references, auction ties/rounding and exact climate/wheel
-values need source confirmation. Record resolved versus unresolved items.
+Ball definition with count zero. It is a partial historical snapshot; the linked
+catalogs above contain substantially more data. Those catalog effects do not
+replace missing general Taxes, Indicators and Bankruptcy sections. Auction
+ties/rounding and exact climate/wheel values still need confirmation. Several
+Crystal Ball triggers/bonuses use placeholders such as “specific threshold”,
+“a certain amount” and “for example”; these are not exact executable rules.
+Retain these gaps and conflicting totals in the player guide rather than inventing
+values. Complete document intake is not source completeness or rules fidelity.
 
 An existing source-bearing dice fixture, a structurally valid bundle, a renamed
 game, or a scripted random playthrough cannot count as Merlin acceptance. Live
-text/image provider access, the seven external catalogs, generated-game semantic
+text/image provider access, resolved source ambiguities, generated-game semantic
 tests and real play/listening review remain prerequisites. Automated counts do
 not establish faithful rules, polished art, balance, perceptual sound quality or
 fun. Reused cover pictures and the old geometric SVG generator remain below the
