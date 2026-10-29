@@ -218,6 +218,27 @@ function drawDie(ctx: CanvasRenderingContext2D, width: number, height: number, a
   }
 }
 
+function drawCounter(ctx: CanvasRenderingContext2D, width: number, height: number, value: number, color: string): void {
+  const x = width / 2; const y = height / 2;
+  ctx.fillStyle = /^#[0-9a-f]{6}$/i.test(color) ? color : "#d2ad57";
+  ctx.beginPath(); ctx.arc(x, y, width / 2 - 2, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "#263f34"; ctx.lineWidth = 4; ctx.stroke();
+  ctx.fillStyle = "#fff5dd";
+  for (let notch = 0; notch < 12; notch++) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(notch * Math.PI / 6);
+    roundRect(ctx, -6, -height / 2 + 6, 12, 24, 3); ctx.fill(); ctx.restore();
+  }
+  ctx.strokeStyle = "#fff5dd"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(x, y, width * 0.405, 0, Math.PI * 2); ctx.stroke();
+  const paper = ctx.createLinearGradient(0, 0, width, height);
+  paper.addColorStop(0, "#fffdf3"); paper.addColorStop(1, "#ecdab4"); ctx.fillStyle = paper;
+  ctx.beginPath(); ctx.arc(x, y, width * 0.345, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "#5d604c"; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = INK; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  const label = String(value); ctx.font = `bold ${label.length > 3 ? 72 : 109}px Manrope, sans-serif`;
+  ctx.fillText(label, x, y + 3, width * 0.62);
+}
+
 /** Paints an actual raster texture; it never reads canonical state or hidden definitions. */
 export function drawPieceArtwork(ctx: CanvasRenderingContext2D, width: number, height: number, artwork: PieceArtwork): void {
   ctx.save(); ctx.clearRect(0, 0, width, height);
@@ -229,6 +250,7 @@ export function drawPieceArtwork(ctx: CanvasRenderingContext2D, width: number, h
     case "standard-card": drawStandardCard(ctx, width, height, artwork.identity); break;
     case "custom-card": drawCustomCard(ctx, width, height, artwork); break;
     case "die-face": drawDie(ctx, width, height, artwork); break;
+    case "counter-face": drawCounter(ctx, width, height, artwork.value, artwork.color); break;
     case "paper-edge": {
       const gradient = ctx.createLinearGradient(0, 0, 0, height);
       gradient.addColorStop(0, "#f5eedc"); gradient.addColorStop(1, "#bfb39b"); ctx.fillStyle = gradient; ctx.fillRect(0, 0, width, height);
@@ -250,8 +272,8 @@ export function drawPieceArtwork(ctx: CanvasRenderingContext2D, width: number, h
       // Fixed integer noise keeps the cloth/grain consistent across both adapters.
       let seed = 7351;
       for (let index = 0; index < (felt ? 34000 : 7000); index++) {
-        seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; const x = seed % width;
-        seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; const y = seed % height;
+        seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; const x = (seed >>> 12) % width;
+        seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; const y = (seed >>> 12) % height;
         ctx.fillStyle = index % 2 ? "rgba(255, 239, 197, .07)" : "rgba(0, 18, 12, .12)";
         ctx.fillRect(x, y, felt ? 1 : 90 + seed % 210, felt ? 2 : 1);
       }

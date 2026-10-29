@@ -435,6 +435,7 @@ export function createLiteSceneAdapter(dependencies: SceneAdapterDependencies): 
   function makeMaterial(appearance: ReturnType<typeof piecePresentation>): StandardMaterialProps {
     const result = createStandardMaterial();
     result.diffuseColor = hexColor(appearance.color, "#d7b26d");
+    if (appearance.kind === "chip") result.diffuseColor = result.diffuseColor.map((channel) => channel * 0.68) as [number, number, number];
     result.specularColor = hexColor(appearance.specular, "#271d10");
     result.emissiveColor = hexColor(appearance.emissive, "#000000");
     result.alpha = appearance.alpha;

@@ -7,6 +7,12 @@ export interface PieceGeometry {
 }
 
 function result(positions: number[], normals: number[], indices: number[], uvs: number[]): PieceGeometry {
+  // Babylon's default scene is left-handed: its native Core/Lite builders use
+  // clockwise front faces with outward normals. The construction below uses
+  // mathematical outward cross-products, so reverse each triangle for Babylon.
+  for (let triangle = 0; triangle < indices.length; triangle += 3) {
+    const next = indices[triangle + 1]!; indices[triangle + 1] = indices[triangle + 2]!; indices[triangle + 2] = next;
+  }
   return { positions: new Float32Array(positions), normals: new Float32Array(normals), indices: new Uint32Array(indices), uvs: new Float32Array(uvs) };
 }
 

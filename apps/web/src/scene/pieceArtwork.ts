@@ -8,6 +8,7 @@ export type PieceArtwork =
   | { readonly kind: "custom-card"; readonly label: string; readonly accent: string }
   | { readonly kind: "die-face"; readonly value: number | string; readonly pips: boolean }
   | { readonly kind: "paper-edge"; readonly count: number }
+  | { readonly kind: "counter-face"; readonly value: number; readonly color: string }
   | { readonly kind: "contact-shadow" }
   | { readonly kind: "felt" }
   | { readonly kind: "wood" };

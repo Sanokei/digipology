@@ -25,6 +25,14 @@ to the actual allocated texture size, overlay transparent pip ink, use a subtle
 outer selection edge, frame spatial pieces on narrow screens, and omit counters
 that have no physical transform. Existing authored spatial counters remain.
 
+A second settled review caught an inside-out rounded body despite passing
+gameplay checks: the initial mathematical triangle winding disagreed with
+Babylon's default left-handed native builders. Compare against the installed
+Core/Lite builders, retain outward normals, and use their clockwise front faces.
+Transparent pip/chip faces use alpha testing; contact shadows keep soft blending.
+Physical score chips carry the actual number on a painted rimmed face instead of
+a floating rectangular label.
+
 Automatic camera framing stops after deliberate camera/piece interaction;
 Reset camera opts back in. Bounds derive only from objects the client may see.
 Canonical transforms and existing grab/drop/flip actions remain unchanged.

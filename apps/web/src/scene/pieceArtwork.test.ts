@@ -94,6 +94,16 @@ test("raster artwork paints the correct number of card suits and die pips", () =
   expect(custom.text).toEqual(["sun"]); expect(custom.circles).toHaveLength(0);
 });
 
+test("spatial counters paint their actual value on the chip and retain the entity hit target", () => {
+  const entity: EntityRecord = { id: "score_seat_2", components: { counter: { value: 17, default: 0, min: 0, max: 20 }, transform: { position: { x: -1, y: 0, z: 2 }, rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: { x: 1, y: 1, z: 1 } } } };
+  const appearance = piecePresentation(entity);
+  expect(appearance).toMatchObject({ kind: "chip", billboardLabel: false, label: "17" });
+  const surface = pieceSurfaceLayout(entity, appearance)[0]!;
+  expect(surface.artwork).toEqual({ kind: "counter-face", value: 17, color: "#42b8ef" });
+  const recording = drawingRecorder(); drawPieceArtwork(recording.context, 256, 256, surface.artwork);
+  expect(recording.text).toEqual(["17"]);
+});
+
 test("a power-of-two resized WebGL texture retains the full card layout instead of clustering pips at the top", () => {
   const recording = drawingRecorder();
   drawPieceArtwork(recording.context, 512, 1024, { kind: "standard-card", identity: { rank: "7", suit: "diamonds" } });
@@ -106,6 +116,7 @@ test("all artwork variants can be painted with browser Canvas2D operations", () 
     { kind: "card-back", count: 52 }, { kind: "card-back", count: 0 }, { kind: "custom-card", label: "A longer authored card title", accent: "#2c615a" },
     { kind: "standard-card", identity: { rank: "K", suit: "spades" } }, { kind: "standard-card", identity: { rank: "A", suit: "diamonds" } },
     { kind: "paper-edge", count: 3 }, { kind: "felt" }, { kind: "wood" }, { kind: "contact-shadow" },
+    { kind: "counter-face", value: 20, color: "#42b8ef" },
   ];
   for (const variant of variants) expect(() => drawPieceArtwork(drawingRecorder().context, 512, 736, variant)).not.toThrow();
 });

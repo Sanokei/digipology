@@ -4,7 +4,7 @@ import { cardArtwork, dieArtworkFaces, type PieceArtwork } from "./pieceArtwork"
 export type PieceShape = "box" | "cylinder" | "ring";
 
 export interface PiecePresentation {
-  readonly kind: "card" | "deck" | "die" | "token";
+  readonly kind: "card" | "deck" | "die" | "chip" | "token";
   readonly shape: PieceShape;
   readonly width: number;
   readonly depth: number;
@@ -111,6 +111,7 @@ export function piecePresentation(
     const color = seatColor(entity.id);
     return {
       ...base,
+      kind: "chip",
       shape: "cylinder",
       width: 0.76,
       depth: 0.76,
@@ -120,7 +121,7 @@ export function piecePresentation(
       labelColor: "#111713",
       labelBackground: color,
       specular: "#5d4827",
-      billboardLabel: true,
+      billboardLabel: false,
     };
   }
   if (components.zone !== undefined) {
@@ -251,6 +252,9 @@ export function pieceSurfaceLayout(entity: EntityRecord, appearance: PiecePresen
       position: ([ [0, y, 0], [0, -y, 0], [0, 0, -depth / 2 - 0.002], [0, 0, depth / 2 + 0.002], [width / 2 + 0.002, 0, 0], [-width / 2 - 0.002, 0, 0] ] as const)[index]!,
       rotation: ([ [Math.PI / 2, 0, 0], [-Math.PI / 2, 0, 0], [0, 0, 0], [0, Math.PI, 0], [0, -Math.PI / 2, 0], [0, Math.PI / 2, 0] ] as const)[index]!,
     }));
+  }
+  if (kind === "chip" && entity.components.counter !== undefined) {
+    return [{ name: "score", artwork: { kind: "counter-face", value: entity.components.counter.value, color: appearance.color }, width: width * 0.995, height: depth * 0.995, position: [0, y, 0], rotation: [Math.PI / 2, 0, 0] }];
   }
   return [];
 }

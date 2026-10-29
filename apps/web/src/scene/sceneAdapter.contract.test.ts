@@ -149,27 +149,6 @@ function quaternion(): FakeQuaternion {
   };
 }
 
-type QuaternionLike = { x: number; y: number; z: number; w: number };
-
-function quaternionMultiply(a: QuaternionLike, b: QuaternionLike): QuaternionLike {
-  return {
-    x: a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
-    y: a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
-    z: a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w,
-    w: a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z,
-  };
-}
-
-function rotateVector(q: QuaternionLike, v: [number, number, number]): [number, number, number] {
-  const p = quaternionMultiply(quaternionMultiply(q, { x: v[0], y: v[1], z: v[2], w: 0 }), {
-    x: -q.x,
-    y: -q.y,
-    z: -q.z,
-    w: q.w,
-  });
-  return [p.x, p.y, p.z];
-}
-
 function mesh(shape: "box" | "cylinder" | "plane" | "torus"): FakeMesh {
   return {
     kind: "mesh",
@@ -540,71 +519,30 @@ runSceneAdapterContract({
 });
 
 describe("real Lite SceneAdapter contract through a thin engine mock", () => {
-  test("raises and reorients only counter labels while compensating parent yaw", async () => {
+  test("keeps card, pip and painted score faces on their physical pieces while the camera orbits", async () => {
     const { adapter } = await mountAdapter(() => undefined);
     const rotatedCounter = counter();
-    const rotation = rotatedCounter.components.transform?.rotation;
-    if (rotation === undefined) throw new Error("Counter transform missing");
-    rotation.y = 1;
-    rotation.w = 0;
-    adapter.syncEntities(snapshot({
-      "card-1": card(),
-      "die-1": die(),
-      "counter-1": rotatedCounter,
-    }));
-    const labelFor = (entityId: string) => {
-      const parent = pieceMesh(entityId);
-      const label = fakeState.createdPlanes.find((candidate) => candidate.parent === parent);
-      if (label === undefined) throw new Error(`Missing label for ${entityId}`);
-      return label;
+    rotatedCounter.components.transform!.rotation = { x: 0, y: 1, z: 0, w: 0 };
+    adapter.syncEntities(snapshot({ "card-1": card(), "die-1": die(), "counter-1": rotatedCounter }));
+    const faceFor = (id: string) => {
+      const plane = fakeState.createdPlanes.find((candidate) => candidate.parent === pieceMesh(id));
+      if (plane === undefined) throw new Error(`Missing physical face for ${id}`);
+      return plane;
     };
-    const cardLabel = labelFor("card-1");
-    const dieLabel = labelFor("die-1");
-    const counterLabel = labelFor("counter-1");
-    const counterPiece = pieceMesh("counter-1");
-    expect(cardLabel.position.y).toBeCloseTo(0.047, 3);
-    expect(dieLabel.position.y).toBeCloseTo(0.402, 3);
-    expect(cardLabel.rotation.x).toBe(Math.PI / 2);
-    expect(dieLabel.rotation.x).toBe(Math.PI / 2);
-    expect(counterLabel.position.y).toBe(0.48);
-    expect(counterLabel.rotation.x).toBe(0);
-    expect(counterPiece.rotationQuaternion.y).toBe(1);
-
-    if (fakeState.scene?.camera === null || fakeState.scene === null) throw new Error("Camera missing");
-    const camera = fakeState.scene.camera;
-    // World-space facing check: label world rotation = parent ⊗ local; the plane's
-    // front normal is local -Z and must point along the camera's direction from its
-    // target; local +X must stay horizontal so the text is upright (no roll).
-    const facing = () => {
-      const world = quaternionMultiply(counterPiece.rotationQuaternion, counterLabel.rotationQuaternion);
-      const normal = rotateVector(world, [0, 0, -1]);
-      const right = rotateVector(world, [1, 0, 0]);
-      const toCamera: [number, number, number] = [
-        Math.cos(camera.alpha) * Math.sin(camera.beta),
-        Math.cos(camera.beta),
-        Math.sin(camera.alpha) * Math.sin(camera.beta),
-      ];
-      return {
-        dot: normal[0] * toCamera[0] + normal[1] * toCamera[1] + normal[2] * toCamera[2],
-        rightY: right[1],
-      };
-    };
-    const initial = facing();
-    expect(initial.dot).toBeCloseTo(1, 10);
-    expect(initial.rightY).toBeCloseTo(0, 10);
-    const initialLabelRotation = { ...counterLabel.rotationQuaternion };
-
-    camera.alpha = 0;
-    camera.beta = 1.1;
-    fakeState.scene.beforeRender?.(16);
-    const reoriented = facing();
-    expect(reoriented.dot).toBeCloseTo(1, 10);
-    expect(reoriented.rightY).toBeCloseTo(0, 10);
-    expect(counterLabel.rotationQuaternion.y).not.toBeCloseTo(initialLabelRotation.y, 6);
-    expect(cardLabel.rotation.x).toBe(Math.PI / 2);
-    expect(dieLabel.rotation.x).toBe(Math.PI / 2);
-    expect(cardLabel.rotationQuaternion).toMatchObject({ x: 0, y: 0, z: 0, w: 1 });
-    expect(dieLabel.rotationQuaternion).toMatchObject({ x: 0, y: 0, z: 0, w: 1 });
+    const cardFace = faceFor("card-1"); const dieFace = faceFor("die-1"); const scoreFace = faceFor("counter-1");
+    expect(cardFace.position.y).toBeCloseTo(0.047, 3);
+    expect(dieFace.position.y).toBeCloseTo(0.402, 3);
+    expect(scoreFace.position.y).toBeCloseTo(0.092, 3);
+    expect(scoreFace.name).toBe("entity-counter-1-surface-score");
+    expect(fakeState.createdPlanes.some((plane) => plane.name === "entity-counter-1-label-plane")).toBe(false);
+    fakeState.scene?.beforeRender?.(1_000);
+    adapter.camera.orbit(140, 100);
+    fakeState.scene?.beforeRender?.(16);
+    for (const face of [cardFace, dieFace, scoreFace]) {
+      expect(face.rotation.x).toBe(Math.PI / 2);
+      expect(face.pickable).toBe(false);
+    }
+    expect(pieceMesh("counter-1").rotationQuaternion).toMatchObject({ x: 0, y: 1, z: 0, w: 0 });
     adapter.dispose();
   });
 
@@ -616,7 +554,7 @@ describe("real Lite SceneAdapter contract through a thin engine mock", () => {
     const initialDie = pieceMesh("die-1");
     const initialCounter = pieceMesh("counter-1");
     for (const [piece, expectedName, count] of [
-      [initialCard, "surface-face", 2], [initialDie, "surface-pip-0", 6], [initialCounter, "label-plane", 1],
+      [initialCard, "surface-face", 2], [initialDie, "surface-pip-0", 6], [initialCounter, "surface-score", 1],
     ] as const) {
       const surfaces = fakeState.createdPlanes.filter((candidate) => candidate.parent === piece);
       expect(surfaces[0]?.name).toBe(`${piece.name}-${expectedName}`);

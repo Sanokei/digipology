@@ -3,6 +3,7 @@ import { Ray } from "@babylonjs/core/Culling/ray.core";
 import { HighlightLayer } from "@babylonjs/core/Layers/highlightLayer";
 import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
+import { Material } from "@babylonjs/core/Materials/material";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
 import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { CreateBox } from "@babylonjs/core/Meshes/Builders/boxBuilder";
@@ -89,6 +90,7 @@ function material(
     result.diffuseColor = Color3.FromHexString("#d7b26d");
   }
   result.specularColor = Color3.FromHexString(appearance.specular);
+  if (appearance.kind === "chip") result.diffuseColor.scaleInPlace(0.68);
   result.emissiveColor = Color3.FromHexString(appearance.emissive);
   result.alpha = appearance.alpha;
   result.roughness = appearance.kind === "die" ? 0.34 : 0.78;
@@ -141,6 +143,7 @@ function addPieceSurfaces(
     textures.push(texture);
     const mat = new StandardMaterial(`${name}-material`, scene);
     mat.diffuseTexture = texture; mat.useAlphaFromDiffuseTexture = true;
+    mat.transparencyMode = Material.MATERIAL_ALPHATEST; mat.alphaCutOff = 0.04;
     mat.diffuseColor = Color3.White(); mat.ambientColor = new Color3(0.15, 0.15, 0.15);
     mat.emissiveColor = new Color3(0.035, 0.035, 0.035);
     mat.specularColor = Color3.FromHexString(appearance.kind === "die" ? "#82765d" : "#393327");
