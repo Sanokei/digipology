@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReadyDraftArtwork } from "digipology-protocol";
 import { rebuildDraftIntegrity } from "../editor/state/bundle";
 import { attachCardBack } from "../editor/state/cardBack";
-import { ART_PURPOSES, artworkJobsReady, initialArtworkGeneration, jobKey, purposeLabel, selectedDraftImage, type ArtPurpose, type ArtworkApi, type ArtworkDraft, type GameArtDirection, type PreparedResult } from "./model";
+import { ART_PURPOSES, artworkJobsReady, artworkNeedsAutomaticReview, initialArtworkGeneration, jobKey, purposeLabel, selectedDraftImage, type ArtPurpose, type ArtworkApi, type ArtworkDraft, type GameArtDirection, type PreparedResult } from "./model";
 import { prepareGeneratedArtwork } from "./prepareGeneratedArtwork";
 import { acceptedArtworkReview } from "./review";
 
@@ -80,7 +80,7 @@ export function useDraftArtworkGeneration({ draft, api, enabled, onDraftChange, 
     Object.assign(job, { assetId: result.original.assetId, originalSha256: result.original.originalSha256 });
     try {
       if (purpose === "cover") next.artwork = result.artwork;
-      else { attachCardBack(next, result.artwork); rebuildDraftIntegrity(next); }
+      else { attachCardBack(next, result.artwork); rebuildDraftIntegrity(next); next.artworkGeneration.reviewManifestHash = next.bundle.integrity.manifestHash; }
     } catch (error) {
       job.status = "failed"; job.failureKind = "storage";
       job.message = `${error instanceof Error ? error.message : "This image could not be attached."} The generated result is retained in this tab; download it or retry saving.`;
@@ -209,7 +209,7 @@ export function useDraftArtworkGeneration({ draft, api, enabled, onDraftChange, 
     delete job.message; delete job.failureKind; delete job.assetId; delete job.selectedAssetId; delete job.originalSha256;
     prepared.current.delete(purpose);
     if (purpose === "cover") next.artwork = artwork;
-    else { attachCardBack(next, artwork); rebuildDraftIntegrity(next); }
+    else { attachCardBack(next, artwork); rebuildDraftIntegrity(next); next.artworkGeneration.reviewManifestHash = next.bundle.integrity.manifestHash; }
     await commit(next, `Replaced ${purposeLabel(purpose).toLowerCase()} image`);
   }, [commit]);
 
@@ -240,7 +240,7 @@ export function useDraftArtworkGeneration({ draft, api, enabled, onDraftChange, 
 
   useEffect(() => {
     const hash = draft.bundle.integrity.manifestHash;
-    if (enabled && active.current === null && artworkJobsReady(draft) && draft.generationReview?.manifestHash !== hash && !reviewed.current.has(hash)) void runReview();
+    if (enabled && active.current === null && artworkNeedsAutomaticReview(draft) && !reviewed.current.has(hash)) void runReview();
   }, [draft, enabled, activity, runReview]);
 
   const selectedImage = (purpose: ArtPurpose) => selectedDraftImage(draft, purpose);

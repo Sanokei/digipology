@@ -44,3 +44,8 @@ export function artworkJobsReady(draft: EditorDraft): boolean {
     return job.status === "ready" && !!selected && job.outputSha256 === selected.info.sha256;
   });
 }
+
+export function artworkNeedsAutomaticReview(draft: EditorDraft): boolean {
+  return artworkJobsReady(draft) && draft.artworkGeneration?.reviewManifestHash === draft.bundle.integrity.manifestHash &&
+    draft.generationReview?.manifestHash !== draft.bundle.integrity.manifestHash;
+}

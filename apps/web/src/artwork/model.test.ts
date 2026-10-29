@@ -4,7 +4,7 @@ import { rasterPng } from "../../../../packages/protocol/src/raster.fixture";
 import { artworkDataUrl, artworkHash } from "../editor/state/artworkData";
 import { createCardGameEditorDraft, createDiceGameEditorDraft, rebuildDraftIntegrity } from "../editor/state/bundle";
 import { attachCardBack } from "../editor/state/cardBack";
-import { artworkJobsReady, initialArtworkGeneration, selectedDraftImage } from "./model";
+import { artworkJobsReady, artworkNeedsAutomaticReview, initialArtworkGeneration, selectedDraftImage } from "./model";
 
 function localRaster(width: number, height: number): ReadyDraftArtwork {
   const bytes = rasterPng(width, height);
@@ -34,4 +34,16 @@ test("a prior image does not count as a finished replacement or stand in for mis
   draft.artworkGeneration.jobs.cover.status = "ready";
   delete draft.artwork;
   expect(artworkJobsReady(draft)).toBe(false);
+});
+
+test("artwork completion checks its exact manifest without launching checks on every unrelated rule edit", () => {
+  const draft = createCardGameEditorDraft("art-check-scope", "2026-10-29T00:00:00.000Z");
+  draft.artwork = localRaster(4, 6); attachCardBack(draft, localRaster(6, 9)); rebuildDraftIntegrity(draft);
+  draft.artworkGeneration = initialArtworkGeneration(draft);
+  expect(artworkNeedsAutomaticReview(draft)).toBe(false);
+  draft.artworkGeneration.reviewManifestHash = draft.bundle.integrity.manifestHash;
+  expect(artworkNeedsAutomaticReview(draft)).toBe(true);
+  draft.bundle.files.find((file) => file.path.endsWith(".lua"))!.content += "\n-- User is still editing rules";
+  rebuildDraftIntegrity(draft);
+  expect(artworkNeedsAutomaticReview(draft)).toBe(false);
 });

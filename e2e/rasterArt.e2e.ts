@@ -122,6 +122,7 @@ test("game-directed cover and back finish without resetting play, then survive p
       const field = await brief.boundingBox(), footer = await dialog.locator("footer").boundingBox();
       return !!field && !!footer && field.y >= 0 && field.y + field.height <= footer.y;
     }).toBe(true);
+    await capture(page, info, "game-artwork-field-short.png");
     await page.keyboard.press("Tab"); await expect(dialog.getByRole("button", { name: /Save direction/ })).toBeFocused();
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
     await capture(page, info, "game-artwork-brief-short.png");
@@ -132,6 +133,10 @@ test("game-directed cover and back finish without resetting play, then survive p
     await page.setViewportSize({ width: 390, height: 844 }); await ready(page); await capture(page, info, "prepared-private-hand-390.png");
     await page.getByRole("button", { name: "Publish & invite", exact: true }).click();
     await expect(page).toHaveURL(/\/table\//); await ready(page);
+    if (info.project.name === "native-art") {
+      const url = new URL(page.url()); url.searchParams.set("renderer", "lite"); await page.goto(url.href); await ready(page);
+      await expect(page.locator(".renderer-override-chip")).toContainText("Renderer: lite");
+    }
     const library = await (await page.request.get("/api/games/mine")).json() as { games: OwnedGameDto[] };
     const game = library.games.find((game) => game.title === first.title)!;
     const published = await (await page.request.get(`/api/releases/${game.latestReleaseId}/bundle`)).json();

@@ -24,6 +24,8 @@ export interface ArtworkGeneration {
   version: 1;
   sourceManifestHash: string;
   direction: GameArtDirection | null;
+  /** Only the exact bundle changed by artwork queues automatic gameplay checks. */
+  reviewManifestHash?: string;
   jobs: Record<ArtJobKey, ArtworkGenerationJob>;
 }
 /** Public provenance travels with the selected immutable image information. */
@@ -76,7 +78,8 @@ export function normalizeArtworkGenerationProvenance(value: unknown): ArtworkGen
   return { model: value.model, promptHash: value.promptHash, originalSha256: value.originalSha256, generatedAt: value.generatedAt };
 }
 export function normalizeArtworkGeneration(value: unknown): ArtworkGeneration | null {
-  if (!record(value) || !exact(value, ["version", "sourceManifestHash", "direction", "jobs"]) || value.version !== 1 ||
+  if (!record(value) || !exact(value, ["version", "sourceManifestHash", "direction", "reviewManifestHash", "jobs"]) || value.version !== 1 ||
+    (value.reviewManifestHash !== undefined && (typeof value.reviewManifestHash !== "string" || !HASH.test(value.reviewManifestHash))) ||
     typeof value.sourceManifestHash !== "string" || !HASH.test(value.sourceManifestHash) || !record(value.jobs) || !exact(value.jobs, ["cover", "cardBack"])) return null;
   const direction = value.direction === null ? null : normalizeGameArtDirection(value.direction);
   if (value.direction !== null && !direction) return null;
@@ -99,7 +102,8 @@ export function normalizeArtworkGeneration(value: unknown): ArtworkGeneration | 
       ...(raw.message === undefined ? {} : { message: raw.message as string }),
       ...(raw.failureKind === undefined ? {} : { failureKind: raw.failureKind as NonNullable<ArtworkGenerationJob["failureKind"]> }) };
   }
-  return { version: 1, sourceManifestHash: value.sourceManifestHash, direction, jobs };
+  return { version: 1, sourceManifestHash: value.sourceManifestHash, direction, jobs,
+    ...(value.reviewManifestHash === undefined ? {} : { reviewManifestHash: value.reviewManifestHash as string }) };
 }
 export function normalizeDraftArtRequest(value: unknown): DraftArtRequest | null {
   if (!record(value) || !exact(value, ["draftId", "title", "purpose", "direction", "revision"]) ||
