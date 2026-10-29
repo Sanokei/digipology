@@ -32,7 +32,7 @@
 .game-art-asset__preview { display:grid; place-items:center; min-height:222px; padding:18px 0; }
 .game-art-asset__preview > img { display:block; width:140px; height:210px; object-fit:contain; box-shadow:0 7px 20px #152d1d20; }
 .game-art-asset__preview > span { display:block; width:140px; line-height:0; }
-.game-art-asset__preview .playing-card { width:140px; height:auto; aspect-ratio:512/736; }
+.game-art-asset__preview .playing-card { position:relative; inset:auto; width:140px; height:auto; aspect-ratio:512/736; }
 .game-art-asset__preview .playing-card canvas { display:block; width:100%; height:100%; }
 .game-art-asset__preview > p { display:grid; place-items:center; box-sizing:border-box; width:140px; min-height:210px; margin:0; padding:18px; border:1px dashed #b1bba3; border-radius:7px; background:#f3f1e6; color:#7c856e; text-align:center; font-size:.76rem; line-height:1.6; }
 .game-art-asset__purpose,.game-art-asset__hint { margin:0 0 14px; color:#61715b; font-size:.74rem; line-height:1.6; }

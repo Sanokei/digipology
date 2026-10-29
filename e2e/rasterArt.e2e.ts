@@ -99,6 +99,10 @@ test("game-directed cover and back finish without resetting play, then survive p
     await expect(dialog).toContainText("Gameplay checks are up to date");
     await capture(page, info, "game-artwork-desktop.png");
     const backPanel = dialog.locator('[data-art-purpose="card-back"]');
+    await expect.poll(async () => {
+      const preview = await backPanel.locator(".game-art-asset__preview").boundingBox(), card = await backPanel.locator("canvas").boundingBox();
+      return !!preview && !!card && card.x >= preview.x && card.y >= preview.y && card.x + card.width <= preview.x + preview.width && card.y + card.height <= preview.y + preview.height;
+    }).toBe(true);
     await backPanel.getByText("Credits & original", { exact: true }).click();
     const originalBytes = await download(page, info, "card-back-original.webp", () => backPanel.getByRole("link", { name: "Download original image", exact: true }).click());
     expect(sha(originalBytes)).toBe(first.artworkGeneration!.jobs.cardBack.originalSha256!);
@@ -113,6 +117,7 @@ test("game-directed cover and back finish without resetting play, then survive p
     await dialog.getByText("Edit the direction & image briefs", { exact: true }).click();
     await page.setViewportSize({ width: 390, height: 480 });
     const brief = dialog.getByLabel("Card-back brief", { exact: true }); await brief.focus();
+    await brief.press("End"); await brief.press("Space");
     await expect.poll(async () => {
       const field = await brief.boundingBox(), footer = await dialog.locator("footer").boundingBox();
       return !!field && !!footer && field.y >= 0 && field.y + field.height <= footer.y;
@@ -208,7 +213,8 @@ test("blank replacements retain selected originals and retry only artwork; inter
   });
   const cover = dialog.locator('[data-art-purpose="cover"]');
   await cover.getByRole("button", { name: "Create another cover", exact: true }).click();
-  await expect(cover.getByRole("alert")).toContainText(/retry|interrupted/i);
+  await expect(cover.getByRole("alert")).toBeVisible();
+  await expect.poll(async () => (await saved(page)).artworkGeneration!.jobs.cover.status).toBe("failed");
   const metricsBefore = await (await page.request.get("http://127.0.0.1:8795/metrics")).json();
   await cover.getByRole("button", { name: "Retry cover", exact: true }).click(); await finished(page);
   expect((await saved(page)).artworkGeneration!.jobs.cover.assetId).toBe(dropped!.assetId);
