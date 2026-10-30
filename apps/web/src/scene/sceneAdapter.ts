@@ -11,6 +11,7 @@ export interface SceneAdapterMountOptions {
 export interface SceneAdapter {
   readonly handlesDesktopDrag: boolean;
   mount(canvas: HTMLCanvasElement, options: SceneAdapterMountOptions): Promise<void>;
+  presentationReady?(): boolean;
   dispose(): void;
   syncEntities(view: KernelStoreSnapshot): void;
   pick(x: number, y: number): Promise<string | null>;

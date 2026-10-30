@@ -66,6 +66,13 @@ export function hardwareScalingLevel(devicePixelRatio: number): number {
   return 1 / clampDevicePixelRatio(devicePixelRatio);
 }
 
+/** Bound software raster work, retaining normal density on smaller surfaces.
+ * DOM controls, printed inspection and the original artwork keep their pixels. */
+export function softwareRenderingScale(width: number, height: number, devicePixelRatio: number): number {
+  const area = (positiveFinite(width) ?? 0) * (positiveFinite(height) ?? 0);
+  return Math.max(hardwareScalingLevel(devicePixelRatio), Math.sqrt(area / 600_000));
+}
+
 export function rendererOverrideFromSearch(search: string): RendererOverride {
   const requested = new URLSearchParams(search).get("renderer");
   return requested === "lite" || requested === "webgl" ? requested : null;

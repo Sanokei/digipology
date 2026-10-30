@@ -12,8 +12,8 @@ async function artwork(page: Page) { await page.getByRole("button", { name: "Edi
 async function capture(page: Page, info: TestInfo, name: string) { await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))); await page.screenshot({ path: info.outputPath(name), fullPage: false }); }
 async function menu(page: Page, action: string) { await page.locator(".editor-menu-dropdown > summary").filter({ hasText: /^File$/ }).click(); await page.locator(".editor-menu-dropdown[open]").getByRole("button", { name: action }).click(); }
 async function download(page: Page, info: TestInfo, name: string, trigger: () => Promise<void>) { const pending = page.waitForEvent("download"); await trigger(); const path = info.outputPath(name); await (await pending).saveAs(path); return { path, value: JSON.parse(await readFile(path, "utf8")) }; }
-async function create(page: Page) {
-  await signIn(page); await page.goto("/create"); await page.getByLabel("Game description", { exact: true }).fill("[raster-cards-fixture] [card-designs-fixture] Verify authored printed fields and two actual deck families. Technical inputs, not live generation or approved artwork.");
+async function create(page: Page, extra = "") {
+  await signIn(page); await page.goto("/create"); await page.getByLabel("Game description", { exact: true }).fill("[raster-cards-fixture] [card-designs-fixture] Verify authored printed fields and two actual deck families. Technical inputs, not live generation or approved artwork. " + extra);
   const pending = page.waitForResponse((r) => r.url().endsWith("/api/ai/games") && r.request().method() === "POST"); await page.getByRole("button", { name: "Create & play", exact: true }).click(); const accepted = await (await pending).json();
   await expect(page).toHaveURL(/\/playtest\//); await ready(page);
   await expect.poll(async () => { const d = await saved(page); return d.artworkGeneration?.cardJobs?.map((j: any) => ({ kind: j.kind, status: j.job.status, message: j.job.message ?? "" })); }, { timeout: 45_000 }).toEqual([{ kind: "family-back", status: "ready", message: "" }, { kind: "family-illustration", status: "ready", message: "" }, { kind: "family-back", status: "ready", message: "" }, { kind: "family-illustration", status: "ready", message: "" }]);
@@ -72,6 +72,66 @@ test("authored card fronts and distinct family backs survive normal editing, pri
   const visibleActions = await cardActions(other); await visibleActions.getByRole("menuitem", { name: "Inspect", exact: true }).click(); await expect(other.getByRole("region", { name: "Full card rules", exact: true })).toContainText("FINAL PRINTED LINE."); await capture(other, info, "scoped-revealed-front-full-rules.png");
   } finally { await guest.close(); }
   } finally { await guestBrowser?.close(); }
+});
+
+test("hybrid controls and private seat changes retain the actual canvas, hand ownership and usable desktop and phone actions", async ({ page }, info) => {
+  test.setTimeout(150_000);
+  let confirmedRolls = 0;
+  page.on("websocket", (socket) => socket.on("framereceived", ({ payload }) => {
+    const message = JSON.parse(payload.toString());
+    if (message.type === "ordered_action" && message.action.type === "die.roll") confirmedRolls++;
+  }));
+  await create(page, "[hybrid-controls-fixture]");
+  const canvas = await page.getByRole("img", { name: "Live synchronized 3D tabletop", exact: true }).elementHandle();
+  await page.getByRole("button", { name: "Draw card", exact: true }).click();
+  const owned = await page.locator(".hand-card").getAttribute("aria-label");
+  async function seat(label: string) {
+    await page.getByRole("button", { name: "Playtest tools", exact: true }).click();
+    await page.getByLabel("Play as", { exact: true }).selectOption({ label });
+    await page.getByRole("button", { name: "Close playtest tools", exact: true }).click();
+    expect(await canvas!.evaluate((node) => node.isConnected && node.dataset.renderState === "ready")).toBe(true);
+  }
+  await seat("Player 2"); await expect(page.locator(".hand-card")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: owned!, exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Draw card", exact: true }).click(); await expect(page.locator(".hand-card")).toHaveCount(1);
+  expect(await page.locator(".hand-card").getAttribute("aria-label")).not.toBe(owned);
+  await seat("Player 1"); await expect(page.getByRole("button", { name: owned!, exact: true })).toBeVisible();
+  await canvas!.dispose();
+  await page.getByRole("button", { name: "Publish & invite", exact: true }).click(); await expect(page).toHaveURL(/\/table\//); await ready(page);
+  await page.getByRole("button", { name: "Draw card", exact: true }).click(); await expect(page.locator(".hand-card")).toHaveCount(1);
+  const hand = page.locator(".hand-strip"), cards = page.getByRole("complementary", { name: "Card actions", exact: true });
+  const dice = page.locator(".table-action-controls > .dice-controls:not(.card-controls)");
+  for (const width of [1440, 1024, 769]) {
+    await page.setViewportSize({ width, height: 960 });
+    await expect.poll(() => page.locator(".table-scene__canvas").evaluate((canvas) => (canvas as HTMLCanvasElement).width * (canvas as HTMLCanvasElement).height)).toBeLessThanOrEqual(600_000);
+    await expect.poll(async () => { const a = await hand.boundingBox(), b = await cards.boundingBox(); return a && b ? b.x - a.x - a.width : -1; }).toBeGreaterThanOrEqual(11);
+    const a = await dice.boundingBox(), b = await cards.boundingBox(); expect(a && b && a.y + a.height <= b.y).toBe(true);
+    await page.getByLabel("Draw from deck", { exact: true }).focus();
+    await page.getByLabel("Draw from deck", { exact: true }).selectOption("reserve_deck");
+    await page.keyboard.press("Tab"); await expect(page.getByRole("button", { name: "Draw card", exact: true })).toBeFocused();
+    await page.getByRole("button", { name: "Draw card", exact: true }).click();
+    await capture(page, info, `hybrid-actions-${width}.png`);
+  }
+  for (const height of [844, 480]) {
+    await page.setViewportSize({ width: 390, height });
+    await expect(page.getByRole("complementary", { name: "Players", exact: true })).toBeVisible();
+    const surface = page.locator(".table-scene__surface");
+    await expect.poll(async () => (await surface.boundingBox())?.height ?? 0).toBeGreaterThan(95);
+    const table = await surface.boundingBox(), tray = await page.locator(".table-bottom-dock").boundingBox();
+    expect(table && tray && table.y + table.height <= tray.y - 7).toBe(true);
+    await page.getByRole("button", { name: "Roll Die", exact: true }).focus();
+    await expect(page.getByRole("button", { name: "Roll Die", exact: true })).toBeInViewport();
+    const beforeRoll = confirmedRolls;
+    await page.keyboard.press("Enter");
+    await expect.poll(() => confirmedRolls).toBeGreaterThan(beforeRoll);
+    await expect(page.getByRole("status", { name: "Die result", exact: true })).toHaveText(/^[1-6]$/);
+    await page.getByRole("button", { name: "Draw card", exact: true }).focus();
+    await expect(page.getByRole("button", { name: "Draw card", exact: true })).toBeInViewport();
+    const count = await page.locator(".hand-card").count(); await page.keyboard.press("Enter"); await expect(page.locator(".hand-card")).toHaveCount(count + 1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+    await capture(page, info, `hybrid-actions-390-${height}.png`);
+    await page.locator(".hand-card").first().click(); await expect(page.getByRole("button", { name: "Close inspect", exact: true })).toBeInViewport(); await page.keyboard.press("Escape");
+  }
 });
 
 test("a damaged saved family image blocks publication until explicit removal and remains available as an editable recovery", async ({ page }, info) => {

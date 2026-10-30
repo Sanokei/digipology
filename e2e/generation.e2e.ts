@@ -37,6 +37,7 @@ test("fixture model goes through real repair into an unpublished playable draft,
   const library = await page.request.get("/api/games/mine");
   expect((await library.json() as { games: unknown[] }).games).toHaveLength(0);
   const progress = page.getByRole("complementary", { name: "Game progress", exact: true });
+  const mountedCanvas = await page.getByRole("img", { name: "Live synchronized 3D tabletop", exact: true }).elementHandle();
   await expect(progress.locator("li")).toHaveCount(2);
   for (let turn = 0; turn < 40; turn++) {
     const status = await progress.getByRole("status").innerText();
@@ -44,10 +45,12 @@ test("fixture model goes through real repair into an unpublished playable draft,
     await page.getByRole("button", { name: "Playtest tools", exact: true }).click();
     await page.getByLabel("Play as", { exact: true }).selectOption({ label: status.startsWith("Player 2") ? "Player 2" : "Player 1" });
     await page.getByRole("button", { name: "Close playtest tools", exact: true }).click();
+    expect(await mountedCanvas!.evaluate((canvas) => canvas.isConnected && canvas.dataset.renderState === "ready")).toBe(true);
     await page.getByRole("button", { name: "Roll Die", exact: true }).click();
     await expect(progress.getByRole("status")).not.toHaveText(status);
   }
   await expect(progress.getByRole("status")).toContainText("wins Dice Dash!");
+  await mountedCanvas!.dispose();
   await ready(page);
   await expect(page.locator(".table-render-status")).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("fixture-private-draft-winner.png"), fullPage: true });

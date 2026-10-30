@@ -49,6 +49,9 @@ export function useBabylonScene(
   const [renderState, setRenderState] = useState<TableRenderState>("loading");
   const pausedRef = useRef(interactionsPaused);
   pausedRef.current = interactionsPaused;
+  const playerRef = useRef(playerId);
+  playerRef.current = playerId;
+  const changeSeatRef = useRef<(() => void) | null>(null);
   const contextRequestRef = useRef(onContextRequest);
   contextRequestRef.current = onContextRequest;
   const rendererStatusRef = useRef(onRendererStatus);
@@ -68,6 +71,10 @@ export function useBabylonScene(
     adapterRef.current?.setPaused(interactionsPaused);
     if (interactionsPaused) cancelTouchRef.current?.();
   }, [interactionsPaused]);
+
+  // Selecting another private playtest seat changes ownership, not the GPU
+  // lifetime. Cancel the old seat's gestures and refresh its visible indicators.
+  useEffect(() => { changeSeatRef.current?.(); }, [playerId]);
 
   useEffect(() => {
     const surface = surfaceRef.current;
@@ -137,7 +144,7 @@ export function useBabylonScene(
             if (options.signal?.aborted) throw new Error("Table renderer initialization was cancelled");
             adapter.syncEntities(store.getSnapshot());
             adapter.setRenderLoop(document.visibilityState !== "hidden");
-            await firstSceneFrames(options.signal);
+            await firstSceneFrames(options.signal, requestAnimationFrame, cancelAnimationFrame, () => adapter.presentationReady?.() ?? true);
           };
           return adapter;
         },
@@ -166,7 +173,7 @@ export function useBabylonScene(
       const sync = () => {
         const snapshot = store.getSnapshot();
         adapter.syncEntities(snapshot);
-        const indicators = presentationHighlightIds(snapshot.displayedState, playerId ?? "");
+        const indicators = presentationHighlightIds(snapshot.displayedState, playerRef.current ?? "");
         const nextHeld = indicators.held;
         const nextLocked = indicators.locked;
         const heldSignature = nextHeld.join("\0");
@@ -192,6 +199,7 @@ export function useBabylonScene(
       let gestureTimer: ReturnType<typeof setTimeout> | null = null;
       let touchQueue = Promise.resolve();
       let disposed = false;
+      let seatGeneration = 0;
       let hoverPoint = { x: 0, y: 0 };
       let hoverEntityId: string | null = null;
       const hoverPicker = createHoverPicker(adapter, (entityId) => {
@@ -208,7 +216,8 @@ export function useBabylonScene(
         if (state === null) return;
         const entity = state.entities[entityId];
         if (entity === undefined) return;
-        const action = primaryActionFor(entity, state, playerId ?? "", localSeatId(state, playerId ?? ""), client !== null);
+        const player = playerRef.current ?? "";
+        const action = primaryActionFor(entity, state, player, localSeatId(state, player), client !== null);
         if (action === null) return;
         if (action.action === null) inspectRequestRef.current?.(entityId);
         else client?.sendAction(action.action);
@@ -292,6 +301,7 @@ export function useBabylonScene(
             adapter.camera.pan(decision.deltaX, decision.deltaY);
             hintGestureRef.current?.("primary");
           } else {
+            const seat = seatGeneration;
             void pickContextRequest(
               adapter,
               decision.x - rect.left,
@@ -299,7 +309,7 @@ export function useBabylonScene(
               decision.x,
               decision.y,
             ).then((request) => {
-              if (!disposed && request !== null) {
+              if (!disposed && seat === seatGeneration && !pausedRef.current && request !== null) {
                 contextRequestRef.current?.(request);
                 hintGestureRef.current?.("actions");
               }
@@ -328,6 +338,7 @@ export function useBabylonScene(
       cancelTouchRef.current = abortTouch;
 
       function queueTouch(event: PointerEvent, type: "down" | "move" | "up" | "cancel"): void {
+        const seat = seatGeneration;
         const rect = canvas.getBoundingClientRect();
         const input = {
           type,
@@ -340,12 +351,13 @@ export function useBabylonScene(
           pointerType: event.pointerType,
         } as const;
         touchQueue = touchQueue.then(async () => {
+          if (seat !== seatGeneration) return;
           if (disposed || pausedRef.current) {
             abortTouch();
             return;
           }
           const decisions = await handleTouchPointerInput(gestures, adapter, input);
-          if (disposed) return;
+          if (disposed || seat !== seatGeneration || pausedRef.current) { abortTouch(); return; }
           applyGestureDecisions(decisions);
           scheduleGestureDeadline(event.timeStamp);
         }).catch((error: unknown) => {
@@ -375,8 +387,9 @@ export function useBabylonScene(
         canvas.setPointerCapture(event.pointerId);
         if (event.button !== 0) return;
         const pointerId = event.pointerId;
+        const seat = seatGeneration;
         void adapter.pick(event.clientX - rect.left, event.clientY - rect.top).then((entityId) => {
-          if (disposed || pausedRef.current || entityId === null || !adapter.isGrabbable(entityId)) return;
+          if (disposed || seat !== seatGeneration || pausedRef.current || entityId === null || !adapter.isGrabbable(entityId)) return;
           applyDesktopDecisions(desktop.claimObject(pointerId, entityId));
         });
       };
@@ -421,8 +434,9 @@ export function useBabylonScene(
       const handleDoubleClick = (event: MouseEvent): void => {
         if (client === null || pausedRef.current) return;
         const rect = canvas.getBoundingClientRect();
+        const seat = seatGeneration;
         void adapter.pick(event.clientX - rect.left, event.clientY - rect.top).then((entityId) => {
-          if (!disposed && entityId !== null) {
+          if (!disposed && seat === seatGeneration && !pausedRef.current && entityId !== null) {
             runPrimary(entityId);
             hintGestureRef.current?.("primary");
           }
@@ -495,6 +509,18 @@ export function useBabylonScene(
       };
       document.addEventListener("visibilitychange", syncRenderLoop);
       syncRenderLoop();
+      changeSeatRef.current = () => {
+        seatGeneration++;
+        abortTouch();
+        applyDesktopDecisions(desktop.abort());
+        hoverPicker.clear();
+        hoverEntityId = null;
+        adapter.setHighlight(null, "hover");
+        adapter.setHighlight(null, "selected");
+        hoverRequestRef.current?.(null);
+        canvas.style.cursor = "default";
+        sync();
+      };
       publishRendererStatus(fallback === null ? selection.renderer : "webgl");
       publishState("ready");
       if (rendererAttempt > 0) canvas.focus({ preventScroll: true });
@@ -503,6 +529,7 @@ export function useBabylonScene(
 
       cleanupMounted = () => {
         disposed = true;
+        changeSeatRef.current = null;
         hoverPicker.dispose();
         cancelTouchRef.current = null;
         abortTouch();
@@ -541,6 +568,6 @@ export function useBabylonScene(
       cleanupMounted = null;
       canvas?.remove();
     };
-  }, [surfaceRef, client, playerId, store, canvasLabel, rendererAttempt]);
+  }, [surfaceRef, client, store, canvasLabel, rendererAttempt]);
   return renderState;
 }

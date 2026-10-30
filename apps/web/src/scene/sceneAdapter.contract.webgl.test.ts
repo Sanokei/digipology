@@ -83,12 +83,17 @@ test.each([
   { renderer: "AMD Radeon RX 6800", software: false },
 ])("WebGL keeps the table graph while adapting costly effects for $renderer", async ({ renderer, software }) => {
   const canvas = new ContractCanvas();
+  Object.defineProperties(canvas, { clientWidth: { value: 1440, configurable: true }, clientHeight: { value: 960, configurable: true } });
   const engine = new NullEngine({ renderWidth: 100, renderHeight: 100, textureSize: 256, deterministicLockstep: false, lockstepMaxSteps: 4, renderingCanvas: canvas as unknown as HTMLCanvasElement });
+  // NullEngine intentionally ignores framebuffer scaling; record the real
+  // adapter's browser-engine requests. Rendered browser cases check pixels.
+  const scales: number[] = [];
+  engine.setHardwareScalingLevel = (scale) => { scales.push(scale); };
   engine.getGlInfo = () => ({ renderer, vendor: "test driver", version: "WebGL 2.0" });
   const adapter = createWebglSceneAdapter({
     createEngine: () => engine,
     createHighlightLayer: () => ({ addMesh: () => {}, removeMesh: () => {}, dispose: () => {} }),
-    matchMedia: () => mediaQuery(), devicePixelRatio: () => 1,
+    matchMedia: () => mediaQuery(), devicePixelRatio: () => 2,
   });
   try {
     await adapter.mount(canvas as unknown as HTMLCanvasElement, { tier: "default" });
@@ -96,6 +101,10 @@ test.each([
     expect(engine.scenes[0]?.meshes.length).toBeGreaterThan(0);
     expect(engine.scenes[0]?.getLightByName("key-light")?.getShadowGenerator() !== null).toBe(!software);
     expect(engine.maxFPS).toBe(software ? 30 : undefined);
+    if (software) expect(canvas.clientWidth * canvas.clientHeight / scales.at(-1)! ** 2).toBeCloseTo(600_000);
+    else expect(scales.at(-1)).toBe(0.5);
+    Object.defineProperties(canvas, { clientWidth: { value: 390 }, clientHeight: { value: 300 } });
+    adapter.resize(); expect(scales.at(-1)).toBe(0.5);
   } finally { adapter.dispose(); }
   expect(engine.isDisposed).toBe(true);
 });

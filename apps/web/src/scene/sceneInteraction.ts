@@ -12,6 +12,7 @@ export interface TouchPointerInput extends Omit<NormalizedPointerEvent, "target"
 
 export interface HoverPicker {
   request(x: number, y: number): void;
+  clear(): void;
   dispose(): void;
 }
 
@@ -37,18 +38,20 @@ export function createHoverPicker(
   let pending: { x: number; y: number } | null = null;
   let inFlight = false;
   let disposed = false;
+  let generation = 0;
 
   function pickNext(): void {
     if (disposed || inFlight || pending === null) return;
     const point = pending;
     pending = null;
     inFlight = true;
+    const current = generation;
     void adapter.pick(point.x, point.y).then(
       (entityId) => {
-        if (!disposed) onResult(entityId);
+        if (!disposed && current === generation) onResult(entityId);
       },
       () => {
-        if (!disposed) onResult(null);
+        if (!disposed && current === generation) onResult(null);
       },
     ).finally(() => {
       inFlight = false;
@@ -62,6 +65,7 @@ export function createHoverPicker(
       pending = { x, y };
       pickNext();
     },
+    clear(): void { generation++; pending = null; },
     dispose(): void {
       disposed = true;
       pending = null;

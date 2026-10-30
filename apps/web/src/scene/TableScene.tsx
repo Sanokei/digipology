@@ -67,6 +67,27 @@ export function TableScene({
   const [inspectedId, setInspectedId] = useState<string | null>(null);
   const [hover, setHover] = useState<TableHoverRequest | null>(null);
   const [hintEvent, setHintEvent] = useState<TableHintEvent | null>(null);
+  useEffect(() => { setContextMenu(null); setInspectedId(null); setHover(null); }, [playerId]);
+  useEffect(() => {
+    if (className?.split(" ").includes("draft-play-scene")) return;
+    const root = surfaceRef.current?.parentElement;
+    const top = root?.querySelector<HTMLElement>(".table-scene__topbar");
+    const dock = root?.querySelector<HTMLElement>(".table-bottom-dock");
+    if (!root || !top || !dock) return;
+    const progress = root.querySelector<HTMLElement>(".game-progress");
+    const actions = root.querySelector<HTMLElement>(".table-action-controls");
+    const update = () => {
+      const bounds = root.getBoundingClientRect();
+      const topEdge = Math.max(top.getBoundingClientRect().bottom, progress?.getBoundingClientRect().bottom ?? 0);
+      root.style.setProperty("--public-surface-top", `${Math.ceil(topEdge - bounds.top + 8)}px`);
+      root.style.setProperty("--public-surface-bottom", `${Math.ceil(bounds.bottom - dock.getBoundingClientRect().top + 8)}px`);
+      root.style.setProperty("--table-actions-height", `${Math.ceil(actions?.getBoundingClientRect().height ?? 0)}px`);
+    };
+    const observer = new ResizeObserver(update);
+    for (const element of [root, top, dock, progress, actions]) if (element) observer.observe(element);
+    update();
+    return () => { observer.disconnect(); for (const property of ["--public-surface-top", "--public-surface-bottom", "--table-actions-height"]) root.style.removeProperty(property); };
+  }, [className, view.state !== null]);
   const scenePaused = interactionsPaused || readOnly || contextMenu !== null || inspectedId !== null;
   const signalHint = (gesture: TableHintGesture) => setHintEvent((previous) => ({ gesture, nonce: (previous?.nonce ?? 0) + 1 }));
 

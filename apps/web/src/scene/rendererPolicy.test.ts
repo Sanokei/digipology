@@ -3,6 +3,7 @@ import { expect, test } from "bun:test";
 import {
   clampDevicePixelRatio,
   hardwareScalingLevel,
+  softwareRenderingScale,
   rendererOverrideFromSearch,
   selectRendererAdapter,
 } from "./rendererPolicy";
@@ -14,6 +15,15 @@ test("device pixel ratio is normalized and clamped to two", () => {
   expect(clampDevicePixelRatio(Number.NaN)).toBe(1);
   expect(hardwareScalingLevel(2)).toBe(0.5);
   expect(hardwareScalingLevel(4)).toBe(0.5);
+});
+
+test("software rendering bounds actual buffer pixels without reducing a small surface or changing the hardware policy", () => {
+  const scale = softwareRenderingScale(1440, 960, 2);
+  expect(1440 * 960 / scale ** 2).toBeCloseTo(600_000);
+  expect(softwareRenderingScale(390, 300, 2)).toBe(0.5);
+  expect(softwareRenderingScale(0, 0, 2)).toBe(0.5);
+  expect(softwareRenderingScale(Number.NaN, 960, 1)).toBe(1);
+  expect(hardwareScalingLevel(2)).toBe(0.5);
 });
 
 test("renderer override parsing accepts only supported adapter names", () => {

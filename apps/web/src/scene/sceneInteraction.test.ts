@@ -125,6 +125,17 @@ describe("async adapter picking preserves gesture thresholds", () => {
 });
 
 describe("hover picker", () => {
+  test("seat changes discard queued and late hover results while allowing the new seat to pick", async () => {
+    const pending: Array<(id: string | null) => void> = [];
+    const results: Array<string | null> = [];
+    const hover = createHoverPicker({ pick: () => new Promise((resolve) => pending.push(resolve)) }, (id) => results.push(id));
+    hover.request(1, 1); hover.request(2, 2); hover.clear(); hover.request(3, 3);
+    pending[0]!("previous-seat-card"); await Promise.resolve(); await Promise.resolve();
+    expect(results).toEqual([]); expect(pending).toHaveLength(2);
+    pending[1]!("current-seat-card"); await Promise.resolve();
+    expect(results).toEqual(["current-seat-card"]);
+    hover.dispose();
+  });
   test("coalesces rapid requests to the latest point and ignores results after disposal", async () => {
     const calls: Array<{ x: number; y: number }> = [];
     const resolvers: Array<(entityId: string | null) => void> = [];

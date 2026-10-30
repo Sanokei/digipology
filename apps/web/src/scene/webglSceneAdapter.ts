@@ -1,3 +1,4 @@
+import { SoftwareFrameBudget, SoftwareGpuFrame } from "./softwareFrameBudget";
 import { readCardDesigns } from "./cardDesigns";
 import { Engine } from "@babylonjs/core/Engines/engine";
 import { Ray } from "@babylonjs/core/Culling/ray.core";
@@ -25,7 +26,7 @@ import {
 } from "./dragBehavior";
 import { createDragActionCallbacks } from "./dragActions";
 import { intersectRayWithHorizontalPlaneToRef } from "./dragPlane";
-import { hardwareScalingLevel } from "./rendererPolicy";
+import { hardwareScalingLevel, softwareRenderingScale } from "./rendererPolicy";
 import type {
   HighlightKind,
   SceneAdapter,
@@ -264,6 +265,7 @@ function animateTransform(
   mesh: Mesh,
   transform: TransformComponent | undefined,
   restingY: number,
+  delta: () => number = () => scene.getEngine().getDeltaTime(),
 ): () => void {
   const fromPosition = mesh.position.clone();
   const fromScaling = mesh.scaling.clone();
@@ -272,7 +274,7 @@ function animateTransform(
   mesh.rotationQuaternion ??= Quaternion.Identity();
   let elapsed = 0;
   const observer = scene.onBeforeRenderObservable.add(() => {
-    elapsed += scene.getEngine().getDeltaTime();
+    elapsed += delta();
     const linear = Math.min(elapsed / 180, 1);
     const eased = 1 - (1 - linear) ** 3;
     Vector3.LerpToRef(fromPosition, target.position, eased, mesh.position);
@@ -283,14 +285,14 @@ function animateTransform(
   return () => scene.onBeforeRenderObservable.remove(observer);
 }
 
-function animateSpawn(scene: Scene, mesh: Mesh): () => void {
+function animateSpawn(scene: Scene, mesh: Mesh, delta: () => number = () => scene.getEngine().getDeltaTime()): () => void {
   const targetScaling = mesh.scaling.clone();
   const targetY = mesh.position.y;
   mesh.scaling.scaleInPlace(0.72);
   mesh.position.y = targetY - 0.08;
   let elapsed = 0;
   const observer = scene.onBeforeRenderObservable.add(() => {
-    elapsed += scene.getEngine().getDeltaTime();
+    elapsed += delta();
     const linear = Math.min(elapsed / 420, 1);
     const offset = linear - 1;
     const eased = 1 + 2.70158 * offset ** 3 + 1.70158 * offset ** 2;
@@ -301,11 +303,11 @@ function animateSpawn(scene: Scene, mesh: Mesh): () => void {
   return () => scene.onBeforeRenderObservable.remove(observer);
 }
 
-function animateLanding(scene: Scene, mesh: Mesh): () => void {
+function animateLanding(scene: Scene, mesh: Mesh, delta: () => number = () => scene.getEngine().getDeltaTime()): () => void {
   const targetScaling = mesh.scaling.clone();
   let elapsed = 0;
   const observer = scene.onBeforeRenderObservable.add(() => {
-    elapsed += scene.getEngine().getDeltaTime();
+    elapsed += delta();
     const linear = Math.min(elapsed / 260, 1);
     const pulse = Math.sin(linear * Math.PI) * (1 - linear);
     mesh.scaling.set(
@@ -326,6 +328,11 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
   let shadows: ReturnType<typeof buildLighting>["shadows"] = null;
   let paused = false;
   let rendering = false;
+  let softwareDriver = false;
+  const drawBudget = new SoftwareFrameBudget();
+  let gpuFrame: SoftwareGpuFrame | null = null;
+  const motionDelta = () => softwareDriver ? drawBudget.deltaMs : engine?.getDeltaTime() ?? 0;
+  const wake = () => drawBudget.wake(performance.now());
   let presentationHighlight: HighlightLayerFacade | null = null;
   let activeDrag: { entityId: string; pointerId: number } | null = null;
   let currentView: KernelStoreSnapshot | null = null;
@@ -369,8 +376,11 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
   }
 
   const render = () => {
+    if (gpuFrame && !gpuFrame.available()) return;
+    if (softwareDriver && !drawBudget.shouldDraw(performance.now(), (scene?.animatables.length ?? 0) > 0)) return;
     for (const piece of pieces.values()) updateContactShadow(piece);
     scene?.render();
+    gpuFrame?.submitted();
   };
 
   function requireMounted() {
@@ -429,7 +439,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       onGrab() { holdCamera(); actionCallbacks.onGrab(); },
       onDrop(position, rotation) {
         piece.cancelMotion?.();
-        piece.cancelMotion = animateLanding(mounted.scene, piece.mesh);
+        piece.cancelMotion = animateLanding(mounted.scene, piece.mesh, motionDelta);
         actionCallbacks.onDrop({ ...position, y: canonicalPieceY(position.y, piece.restingY, isCardStock(piece.mesh)) }, rotation);
       },
     });
@@ -508,23 +518,31 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
         restingY,
       });
     }
-    graph.cancelMotion = animateSpawn(mounted.scene, mesh);
+    graph.cancelMotion = animateSpawn(mounted.scene, mesh, motionDelta);
     return graph;
+  }
+
+  function resizeBuffer(): void {
+    if (engine === null || canvas === null) return;
+    const devicePixelRatio = dependencies.devicePixelRatio?.() ?? window.devicePixelRatio;
+    const scale = softwareDriver ? softwareRenderingScale(canvas.clientWidth, canvas.clientHeight, devicePixelRatio) : hardwareScalingLevel(devicePixelRatio);
+    if (scale !== engine.getHardwareScalingLevel()) engine.setHardwareScalingLevel(scale);
+    else engine.resize();
   }
 
   function handleDprChange(): void {
     if (engine === null) return;
     dprQuery?.removeEventListener("change", handleDprChange);
     const devicePixelRatio = dependencies.devicePixelRatio?.() ?? window.devicePixelRatio;
-    engine.setHardwareScalingLevel(hardwareScalingLevel(devicePixelRatio));
+    resizeBuffer();
     dprQuery = dependencies.matchMedia?.(`(resolution: ${devicePixelRatio}dppx)`)
       ?? window.matchMedia(`(resolution: ${devicePixelRatio}dppx)`);
     dprQuery.addEventListener("change", handleDprChange);
-    engine.resize();
   }
 
   const adapter: SceneAdapter = {
     handlesDesktopDrag: false,
+    presentationReady(): boolean { gpuFrame?.available(); return scene?.isReady() === true && (gpuFrame?.completed ?? true); },
     async mount(nextCanvas: HTMLCanvasElement, options: SceneAdapterMountOptions): Promise<void> {
       if (options.signal?.aborted) throw new Error("Table renderer initialization was cancelled");
       canvas = nextCanvas;
@@ -538,7 +556,11 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       // and an uncapped render loop can stall another table opening on the
       // same device, even when its reported memory/core count is generous.
       const software = /swiftshader|llvmpipe|software|microsoft basic render/i.test(engine.getGlInfo().renderer);
+      softwareDriver = software;
       if (software) engine.maxFPS = 30;
+      const gl = software ? canvas.getContext?.("webgl2") : null;
+      if (gl && typeof gl.fenceSync === "function") gpuFrame = new SoftwareGpuFrame(gl);
+      wake();
       handleDprChange();
       scene = new Scene(engine);
       scene.clearColor = Color4.FromHexString("#050806ff");
@@ -554,7 +576,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       let cameraIntroMs = 0;
       scene.onBeforeRenderObservable.add(() => {
         if (cameraGraph === null || cameraIntroMs >= 900 || introFinished || !framing.automatic) return;
-        cameraIntroMs += scene?.getEngine().getDeltaTime() ?? 0;
+        cameraIntroMs += motionDelta();
         const linear = Math.min(cameraIntroMs / 900, 1);
         const eased = 1 - (1 - linear) ** 3;
         cameraGraph.alpha = -1.46 + (-Math.PI / 2 + 1.46) * eased;
@@ -565,6 +587,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
     },
     dispose(): void {
       adapter.setRenderLoop(false);
+      gpuFrame?.dispose(); gpuFrame = null;
       dprQuery?.removeEventListener("change", handleDprChange);
       dprQuery = null;
       for (const piece of pieces.values()) destroyPiece(piece);
@@ -588,6 +611,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       const correctionId = view.correction?.id ?? null;
       if (state === null) return;
       if (!backChanged && state === lastDisplayedState && view.definitions === lastDefinitions && correctionId === lastCorrectionId) return;
+      wake();
       if (backChanged) { for (const piece of pieces.values()) destroyPiece(piece); pieces.clear(); lastBackSignature = backSignature; }
       lastDisplayedState = state;
       lastDefinitions = view.definitions;
@@ -623,7 +647,7 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
             existing.drag?.dispose();
             delete existing.drag;
             existing.cancelCorrection?.();
-            existing.cancelCorrection = animateTransform(scene, existing.mesh, entity.components.transform, existing.restingY);
+            existing.cancelCorrection = animateTransform(scene, existing.mesh, entity.components.transform, existing.restingY, motionDelta);
             if (existing.dragBounds !== undefined && entity.components.grabbable?.enabled === true) {
               attachPieceDrag(existing, entity.id, existing.dragBounds);
             }
@@ -658,34 +682,41 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       return pieces.get(entityId)?.drag !== undefined && isEntityGrabbable(entityId);
     },
     beginDrag(entityId: string, pointerId: number, x: number, y: number): void {
+      wake();
       const drag = pieces.get(entityId)?.drag;
       if (drag === undefined) return;
       activeDrag = { entityId, pointerId };
       drag.beginTouchDrag(pointerId, x, y);
     },
     updateDrag(pointerId: number, x: number, y: number): void {
+      wake();
       if (activeDrag?.pointerId !== pointerId) return;
       pieces.get(activeDrag.entityId)?.drag?.moveTouchDrag(pointerId, x, y);
     },
     rotateDrag(radians: number): void {
+      wake();
       if (activeDrag === null) return;
       pieces.get(activeDrag.entityId)?.drag?.rotateDrag(radians);
     },
     flipDrag(): void {
+      wake();
       if (activeDrag === null) return;
       pieces.get(activeDrag.entityId)?.drag?.flipDrag();
     },
     endDrag(pointerId: number): void {
+      wake();
       if (activeDrag?.pointerId !== pointerId) return;
       pieces.get(activeDrag.entityId)?.drag?.finishTouchDrag(pointerId);
       activeDrag = null;
     },
     cancelDrag(pointerId: number): void {
+      wake();
       if (activeDrag?.pointerId !== pointerId) return;
       pieces.get(activeDrag.entityId)?.drag?.cancelTouchDrag(pointerId);
       activeDrag = null;
     },
     setHighlight(entityId: string | null, kind: HighlightKind): void {
+      wake();
       if (kind === "held" || kind === "locked") {
         const targets = highlights[kind];
         if (entityId === null) {
@@ -707,12 +738,14 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       attach(): void {},
       detach(): void {},
       orbit(dx: number, dy: number): void {
+      wake();
         if (cameraGraph === null) return;
         if (dx !== 0 || dy !== 0) holdCamera();
         cameraGraph.alpha -= dx / 900;
         cameraGraph.beta = clamp(cameraGraph.beta - dy / 900, 0.38, 1.32);
       },
       pan(dx: number, dy: number): void {
+      wake();
         if (cameraGraph === null) return;
         if (dx !== 0 || dy !== 0) holdCamera();
         const scale = cameraGraph.radius / 1_100;
@@ -724,16 +757,19 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
         cameraGraph.target.z -= rightZ * dx * scale + forwardZ * dy * scale;
       },
       pinch(previousDistance: number, distance: number): void {
+      wake();
         if (cameraGraph === null || previousDistance <= 0 || distance <= 0) return;
         if (previousDistance !== distance) holdCamera();
         cameraGraph.radius = clamp(cameraGraph.radius * previousDistance / distance, MIN_CAMERA_RADIUS, MAX_CAMERA_RADIUS);
       },
       zoom(deltaY: number): void {
+      wake();
         if (cameraGraph === null) return;
         if (deltaY !== 0) holdCamera();
         cameraGraph.radius = clamp(cameraGraph.radius * Math.exp(deltaY * 0.001), MIN_CAMERA_RADIUS, MAX_CAMERA_RADIUS);
       },
       reset(): void {
+      wake();
         if (cameraGraph === null) return;
         cameraGraph.alpha = -Math.PI / 2;
         cameraGraph.beta = TABLE_CAMERA_BETA;
@@ -748,12 +784,13 @@ export function createWebglSceneAdapter(dependencies: WebglSceneAdapterDependenc
       paused = nextPaused;
     },
     resize(): void {
-      engine?.resize();
+      wake();
+      resizeBuffer();
       updateAutomaticFrame();
     },
     setRenderLoop(running: boolean): void {
       if (engine === null || rendering === running) return;
-      if (running) engine.runRenderLoop(render);
+      if (running) { wake(); engine.runRenderLoop(render); }
       else engine.stopRenderLoop(render);
       rendering = running;
     },

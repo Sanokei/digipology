@@ -181,10 +181,12 @@ export function TablePage() {
 
       <div className="table-bottom-dock">
       {playersOpen ? <aside className="players-panel table-sheet" aria-label="Players"><div className="panel-heading"><span>Players</span><button type="button" aria-label="Close players" onClick={() => setPlayersOpen(false)}>×</button></div>{view.players.map((player) => <div className="player-row" key={player.playerId}><span className={player.connected ? "connection-dot connection-dot--online" : "connection-dot"} /><span><strong>{player.displayName}</strong><small>{player.seatId ?? "No seat"}</small></span><em>{player.connected ? "Connected" : "Away"}</em></div>)}</aside> : null}
+      <div className="table-action-controls">
       {progress.winnerId === null ? <DiceControls dice={dice} definitions={view.definitions} disabled={status.state !== "connected" || turnDisabled} onRoll={(entityId) => {
         client.sendAction({ type: "die.roll", payload: { entityId } });
       }} /> : null}
       {progress.winnerId === null ? <CardActions entities={Object.values(view.displayedState?.entities ?? {})} handId={handId} disabled={status.state !== "connected"} {...(view.cardDesignsBundle !== undefined ? { designs: view.cardDesignsBundle } : {})} onAction={(action) => client.sendAction(action)} /> : null}
+      </div>
 
       {hasHands ? <HandStrip key={roomId} items={handItems} roomId={roomId} client={client} interactionsPaused={status.state !== "connected"} {...(projectToTable === undefined ? {} : { projectToTable })} /> : null}
       </div>

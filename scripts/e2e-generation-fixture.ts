@@ -1,10 +1,28 @@
 import { authoringFromBundle } from "../apps/worker/src/ai-game-authoring";
 import { builtinCatalog } from "../apps/worker/src/catalog";
 import { createHash } from "node:crypto";
-import { readRulebook, type GameArtDirection } from "digipology-protocol";
+import { inspectRasterImage, readRulebook, type GameArtDirection } from "digipology-protocol";
 import { fileURLToPath } from "node:url";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { rasterPng } from "../packages/protocol/src/raster.fixture";
 const coverByteHash = (bytes: Uint8Array) => `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+
+/** A real seekable encoder output, not a patched header or synthetic image. */
+export async function landscapeRasterFixture(): Promise<Uint8Array> {
+  const directory = await mkdtemp(join(tmpdir(), "digipology-landscape-"));
+  try {
+    const original = fileURLToPath(new URL("../apps/web/public/art/dice-dash.webp", import.meta.url));
+    const output = join(directory, "illustration.webp");
+    const encoder = Bun.spawn(["ffmpeg", "-v", "error", "-i", original, "-vf", "crop=iw:iw*2/3,scale=1536:1024", "-frames:v", "1", "-c:v", "libwebp", "-quality", "75", output], { stdin: "ignore", stdout: "ignore", stderr: "pipe" });
+    const [code, error] = await Promise.all([encoder.exited, new Response(encoder.stderr).text()]);
+    if (code !== 0) throw new Error(`Technical landscape preparation failed: ${error.slice(0, 500)}`);
+    const bytes = new Uint8Array(await Bun.file(output).arrayBuffer()), header = inspectRasterImage(bytes);
+    if (header?.contentType !== "image/webp" || header.width !== 1536 || header.height !== 1024) throw new Error("Technical landscape fixture is not a complete1536x1024 WebP.");
+    return bytes;
+  } finally { await rm(directory, { recursive: true, force: true }); }
+}
 
 /** Hermetic HTTP ports. These are existing authored rules/raster fixtures, never live creative output. */
 export function startGenerationFixture(port = 8795) {
@@ -23,6 +41,7 @@ export function startGenerationFixture(port = 8795) {
   let generations = 0, repairs = 0, directions = 0;
   const imageRequests: Array<{ title: string; purpose: string; promptHash: string; source: string; sha256: string; fixture: true }> = [];
   const imageAttempts = new Map<string, number>();
+  let landscape: Promise<Uint8Array> | undefined;
   function direction(title: string, needsBack: boolean): GameArtDirection {
     const night = title.includes("Night");
     return { version: 1, style: `Transport fixture only: ${night ? "midnight blue botanical market" : "copper and ember merchant ledger"} illustration for ${title}.`,
@@ -52,10 +71,8 @@ export function startGenerationFixture(port = 8795) {
       }
       if (purpose === "card-illustration") {
         if (body.size !== "1536x1024") return Response.json({ error: "Fixture expects an actual landscape request" }, { status: 400 });
-        const original = fileURLToPath(new URL("../apps/web/public/art/dice-dash.webp", import.meta.url));
-        const crop = Bun.spawnSync(["ffmpeg", "-v", "error", "-i", original, "-vf", "crop=iw:iw*2/3,scale=1536:1024", "-frames:v", "1", "-c:v", "libwebp", "-quality", "75", "-f", "webp", "pipe:1"]);
-        if (crop.exitCode !== 0) throw new Error("Technical landscape fixture preparation failed");
-        bytes = new Uint8Array(crop.stdout); selected += " (actual FFmpeg landscape crop; transport fixture, rejected final art)";
+        landscape ??= landscapeRasterFixture();
+        bytes = await landscape; selected += " (actual verified FFmpeg landscape crop; transport fixture, rejected final art)";
       }
       imageRequests.push({ title, purpose, promptHash: coverByteHash(new TextEncoder().encode(body.prompt)), source: selected, sha256: coverByteHash(bytes), fixture: true });
       return Response.json({ data: [{ b64_json: Buffer.from(bytes).toString("base64") }] });
@@ -90,6 +107,15 @@ export function startGenerationFixture(port = 8795) {
       source.cardDesigns = { version: 1,
         families: [{ id: "main", label: "Main cards", color: "#285b4d", backBrief: "Technical family A back fixture, distinct from family B; no private face clues.", illustrationBrief: "Technical shared landscape illustration for family A." }, { id: "reserve", label: "Reserve cards", color: "#843e30", backBrief: "Technical family B Night motif fixture, distinct from family A; no private face clues.", illustrationBrief: "Technical shared landscape illustration for family B." }],
         cards: defs.map((d) => ({ definitionId: d.id, familyId: definitionFamily.get(d.id), title: d.label, typeLine: "Authored transport verification", cost: "2 tokens (printed field fixture)", condition: "When inspecting this technical card", rulesText: "Technical printed effect: preserve this complete text through editing, private play and publication. First Deal sandbox rules remain unchanged.", flavor: "Technical input only; not generated game art or a new game.", fields: [{ label: "Verification", value: "Printed fields do not alter deterministic actions." }], illustrationBrief: "" })), decks: [{ entityId: "deck", familyId: "main" }, { entityId: "reserve_deck", familyId: "reserve" }] };
+      if (body.messages.some((message) => message.content.includes("[hybrid-controls-fixture]"))) {
+        // A manual kernel-control acceptance input, not a new authored game.
+        const die = structuredClone((dice.entities as typeof entities).find((entity) => entity.components.some((c) => c.type === "die"))!);
+        die.components = die.components.filter((c) => c.type !== "script");
+        const transform = die.components.find((c) => c.type === "transform")!;
+        const value = JSON.parse(transform.dataJson); value.position.x = -2; value.position.z = -1.5; transform.dataJson = JSON.stringify(value);
+        entities.push(die);
+        defs.push(structuredClone((dice.definitions as typeof defs).find((d) => d.id === "standard_d6")!));
+      }
     }
     const files = source.files as Array<{ path: string; content: string }>;
     const broken = structuredClone(source);
