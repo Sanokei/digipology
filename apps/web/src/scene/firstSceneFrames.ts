@@ -15,3 +15,18 @@ export function firstSceneFrames(signal?: AbortSignal, request = requestAnimatio
     frame = request(next);
   });
 }
+
+/** Listen before the frame wait: a background table may become visible while
+ * its renderer is still initializing. The attempt owns this temporary listener. */
+export async function initializeSceneFrames(
+  adapter: { setRenderLoop(running: boolean): void; presentationReady?(): boolean },
+  signal?: AbortSignal,
+  visibility: { readonly visibilityState: string; addEventListener(type: "visibilitychange", listener: () => void): void; removeEventListener(type: "visibilitychange", listener: () => void): void } = document,
+  request = requestAnimationFrame,
+  cancel = cancelAnimationFrame,
+): Promise<void> {
+  const update = () => adapter.setRenderLoop(!signal?.aborted && visibility.visibilityState !== "hidden");
+  visibility.addEventListener("visibilitychange", update);
+  try { update(); await firstSceneFrames(signal, request, cancel, () => adapter.presentationReady?.() ?? true); }
+  finally { visibility.removeEventListener("visibilitychange", update); if (signal?.aborted) adapter.setRenderLoop(false); }
+}

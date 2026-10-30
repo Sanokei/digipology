@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { firstSceneFrames } from "./firstSceneFrames";
+import { firstSceneFrames, initializeSceneFrames } from "./firstSceneFrames";
 
 test("first-piece frame readiness is cancelled and its pending callback removed when the attempt retires", async () => {
   const callbacks = new Map<number, FrameRequestCallback>(), cancelled: number[] = [];
@@ -25,4 +25,25 @@ test("software GPU work must complete before readiness frames count; retirement 
   callbacks[0]!(0); callbacks[1]!(16); await Promise.resolve(); expect(done).toBe(false);
   gpuComplete = true; callbacks[2]!(32); await Promise.resolve(); expect(done).toBe(false);
   callbacks[3]!(48); await pending; expect(done).toBe(true); owner.abort();
+});
+
+test("initialization starts rendering when its background document becomes visible and then releases its temporary listener", async () => {
+  const visibility = Object.assign(new EventTarget(), { visibilityState: "hidden" });
+  const callbacks: FrameRequestCallback[] = [], loops: boolean[] = [];
+  let running = false;
+  const pending = initializeSceneFrames({ setRenderLoop(value) { running = value; loops.push(value); }, presentationReady: () => running }, undefined, visibility,
+    (callback) => { callbacks.push(callback); return callbacks.length; }, () => {});
+  callbacks[0]!(0); expect(loops).toEqual([false]);
+  visibility.visibilityState = "visible"; visibility.dispatchEvent(new Event("visibilitychange"));
+  callbacks[1]!(16); callbacks[2]!(32); await pending; expect(loops).toEqual([false, true]);
+  visibility.visibilityState = "hidden"; visibility.dispatchEvent(new Event("visibilitychange")); expect(loops).toEqual([false, true]);
+});
+
+test("an aborted background initialization cannot restart its retired renderer on a later visibility event", async () => {
+  const visibility = Object.assign(new EventTarget(), { visibilityState: "hidden" });
+  const owner = new AbortController(), loops: boolean[] = [], cancelled: number[] = [];
+  const pending = initializeSceneFrames({ setRenderLoop(value) { loops.push(value); }, presentationReady: () => false }, owner.signal, visibility, () => 1, (id) => { cancelled.push(id); });
+  owner.abort(); await expect(pending).rejects.toThrow("cancelled");
+  visibility.visibilityState = "visible"; visibility.dispatchEvent(new Event("visibilitychange"));
+  expect(loops).toEqual([false, false]); expect(cancelled).toEqual([1]);
 });

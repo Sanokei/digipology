@@ -10,9 +10,9 @@ import {
   type RendererFallback,
   type RendererStatus,
 } from "./rendererPolicy";
-import { firstSceneFrames } from "./firstSceneFrames";
+import { initializeSceneFrames } from "./firstSceneFrames";
 import { loadSceneAdapter } from "./loadSceneAdapter";
-import { mountSceneAdapter } from "./mountSceneAdapter";
+import { mountSceneAdapter, TABLE_RENDER_TIMEOUT_MS } from "./mountSceneAdapter";
 import { DesktopControlMachine, type DesktopControlDecision } from "./desktopControls";
 import { createHoverPicker, handleTouchPointerInput, pickContextRequest } from "./sceneInteraction";
 import type { SceneAdapter, SceneAdapterDependencies } from "./sceneAdapter";
@@ -143,8 +143,7 @@ export function useBabylonScene(
             await initialize(nextCanvas, options);
             if (options.signal?.aborted) throw new Error("Table renderer initialization was cancelled");
             adapter.syncEntities(store.getSnapshot());
-            adapter.setRenderLoop(document.visibilityState !== "hidden");
-            await firstSceneFrames(options.signal, requestAnimationFrame, cancelAnimationFrame, () => adapter.presentationReady?.() ?? true);
+            await initializeSceneFrames(adapter, options.signal);
           };
           return adapter;
         },
@@ -155,7 +154,7 @@ export function useBabylonScene(
           publishRendererStatus(null);
           console.info("Babylon-Lite could not start; using the WebGL renderer instead.", error);
         },
-        8_000, lifetime.signal,
+        TABLE_RENDER_TIMEOUT_MS, lifetime.signal,
       );
       if (effectDisposed) {
         adapter.dispose();

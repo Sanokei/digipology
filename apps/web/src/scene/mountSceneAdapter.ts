@@ -10,6 +10,10 @@ export type SceneAdapterLoader = (renderer: RendererAdapterKind) => Promise<Scen
 
 export type SceneCanvasSource = HTMLCanvasElement | (() => HTMLCanvasElement);
 
+// Measured software cold starts can exceed8s while capability/shader queries
+// block. This remains one total attempt budget, never reset by progress.
+export const TABLE_RENDER_TIMEOUT_MS = 12_000;
+
 /** Includes lazy import, GPU/scene assets and the first frame. The canvas factory gives
  * each attempt its own surface; a late device only touches its retired canvas. */
 async function initializeWithin(load: SceneAdapterLoader, renderer: RendererAdapterKind, source: SceneCanvasSource, tier: RendererTier, timeoutMs: number, owner?: AbortSignal): Promise<SceneAdapter> {
@@ -47,7 +51,7 @@ export async function mountSceneAdapter(
   canvas: SceneCanvasSource,
   tier: RendererTier,
   onLiteFallback: (fallback: RendererFallback, error: unknown) => void,
-  mountTimeoutMs = 8_000,
+  mountTimeoutMs = TABLE_RENDER_TIMEOUT_MS,
   owner?: AbortSignal,
 ): Promise<SceneAdapter> {
   try { return await initializeWithin(load, selection.renderer, canvas, tier, mountTimeoutMs, owner); }

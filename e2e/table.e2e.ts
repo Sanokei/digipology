@@ -1,4 +1,5 @@
 import { test, expect, type Browser, type Page, type WebSocketRoute } from "./fixtures";
+import { TABLE_RENDER_TIMEOUT_MS } from "../apps/web/src/scene/mountSceneAdapter";
 
 async function renderedTable(page: Page) {
   await page.bringToFront();
@@ -321,9 +322,9 @@ test("cold renderer imports time out without losing a guest hand, retry in place
     await other.getByRole("button", { name: "Draw card", exact: true }).click();
     const card = other.locator(".hand-card"); await expect(card).toHaveCount(1);
     const name = (await card.getAttribute("aria-label"))!, room = other.url(), origin = await other.evaluate(() => performance.timeOrigin);
-    // The real production budget is8s per renderer, including the two actual
+    // The real production budget includes the two actual
     // delayed imports. This assertion allows both normal attempts to expire.
-    await expect(other.locator(".table-render-status[role=alert]")).toBeVisible({ timeout: 21_000 });
+    await expect(other.locator(".table-render-status[role=alert]")).toBeVisible({ timeout: 2 * TABLE_RENDER_TIMEOUT_MS + 5_000 });
     await expect.poll(() => imports).toBeGreaterThan(0);
     const retry = other.getByRole("button", { name: "Reload table view", exact: true });
     await expect(retry).toBeInViewport(); await retry.focus();
