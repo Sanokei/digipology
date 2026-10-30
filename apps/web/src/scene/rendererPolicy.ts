@@ -1,4 +1,7 @@
 export type RendererTier = "default" | "low";
+// Measured software cold starts can exceed8s while capability/shader queries
+// block. This remains one total attempt budget, never reset by progress.
+export const TABLE_RENDER_TIMEOUT_MS = 12_000;
 export type RendererAdapterKind = "lite" | "webgl";
 export type RendererOverride = RendererAdapterKind | null;
 export type RendererSelectionReason =

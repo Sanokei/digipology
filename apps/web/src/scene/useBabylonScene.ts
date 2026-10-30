@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import type { TableActionSender } from "./TableScene";
 import type { KernelStore } from "../state/kernelStore";
 import {
+  TABLE_RENDER_TIMEOUT_MS,
   classifyRendererTier,
   rendererOverrideFromSearch,
   selectRendererAdapter,
@@ -12,7 +13,7 @@ import {
 } from "./rendererPolicy";
 import { initializeSceneFrames } from "./firstSceneFrames";
 import { loadSceneAdapter } from "./loadSceneAdapter";
-import { mountSceneAdapter, TABLE_RENDER_TIMEOUT_MS } from "./mountSceneAdapter";
+import { mountSceneAdapter } from "./mountSceneAdapter";
 import { DesktopControlMachine, type DesktopControlDecision } from "./desktopControls";
 import { createHoverPicker, handleTouchPointerInput, pickContextRequest } from "./sceneInteraction";
 import type { SceneAdapter, SceneAdapterDependencies } from "./sceneAdapter";

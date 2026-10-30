@@ -1,18 +1,15 @@
-import type {
-  RendererAdapterKind,
-  RendererAdapterSelection,
-  RendererFallback,
-  RendererTier,
+import {
+  TABLE_RENDER_TIMEOUT_MS,
+  type RendererAdapterKind,
+  type RendererAdapterSelection,
+  type RendererFallback,
+  type RendererTier,
 } from "./rendererPolicy";
 import type { SceneAdapter } from "./sceneAdapter";
 
 export type SceneAdapterLoader = (renderer: RendererAdapterKind) => Promise<SceneAdapter>;
 
 export type SceneCanvasSource = HTMLCanvasElement | (() => HTMLCanvasElement);
-
-// Measured software cold starts can exceed8s while capability/shader queries
-// block. This remains one total attempt budget, never reset by progress.
-export const TABLE_RENDER_TIMEOUT_MS = 12_000;
 
 /** Includes lazy import, GPU/scene assets and the first frame. The canvas factory gives
  * each attempt its own surface; a late device only touches its retired canvas. */

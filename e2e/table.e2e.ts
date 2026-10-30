@@ -1,5 +1,5 @@
 import { test, expect, type Browser, type Page, type WebSocketRoute } from "./fixtures";
-import { TABLE_RENDER_TIMEOUT_MS } from "../apps/web/src/scene/mountSceneAdapter";
+import { TABLE_RENDER_TIMEOUT_MS } from "../apps/web/src/scene/rendererPolicy";
 
 async function renderedTable(page: Page) {
   await page.bringToFront();
