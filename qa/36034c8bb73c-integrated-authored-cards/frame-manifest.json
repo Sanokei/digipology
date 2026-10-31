@@ -1,0 +1,242 @@
+[
+  {
+    "path": "current/repair/card-image-deliberately-recovered.png",
+    "source": "36034c8bb73c83f16b275ae51add888d3bc8d815",
+    "run": 40979739935,
+    "scope": "Successful hosted normal browser acceptance with actual rendered frames; hermetic authored/model/raster inputs, not live generation or approved art.",
+    "sha256": "137e3f4ce821a8b47a141913b4a55a25b4bfc46afb0f86aa7b023854bc9fb115",
+    "width": 1440,
+    "height": 960,
+    "originalCapture": true
+  },
+  {
+    "path": "current/repair/damaged-card-image-publication-blocked.png",
+    "source": "36034c8bb73c83f16b275ae51add888d3bc8d815",
+    "run": 40979739935,
+    "scope": "Successful hosted normal browser acceptance with actual rendered frames; hermetic authored/model/raster inputs, not live generation or approved art.",
+    "sha256": "d935c1763a4c2cdd539d14b90fd376368c7d7c05e0d7ece159627bf3b02fed7a",
+    "width": 1440,
+    "height": 960,
+    "originalCapture": true
+  },
+  {
+    "path": "current/repair/scoped-upload-quota-short.png",
+    "source": "36034c8bb73c83f16b275ae51add888d3bc8d815",
+    "run": 40979739935,
+    "scope": "Successful hosted normal browser acceptance with actual rendered frames; hermetic authored/model/raster inputs, not live generation or approved art.",
+    "sha256": "03b543469313aa641a966b4c9abecc6949a9a1df285522d326e6093b42a95348",
+    "width": 390,
+    "height": 480,
+    "originalCapture": true
+  },
+  {
+    "path": "current/repair/scoped-upload-recovered-390-short.png",
+    "source": "36034c8bb73c83f16b275ae51add888d3bc8d815",
+    "run": 40979739935,
+    "scope": "Successful hosted normal browser acceptance with actual rendered frames; hermetic authored/model/raster inputs, not live generation or approved art.",
+    "sha256": "fb1f309cdb9e823c2c737340e132bbdf0daae61d962318a8d38c6920a4089f5b",
+    "width": 390,
+    "height": 480,
+    "originalCapture": true
+  },
+  {
+    "path": "current/printed-cards/card-editor-390.png",
+    "source": "36034c8bb73c83f16b275ae51add888d3bc8d815",
+    "run": 40979739935,
+    "scope": "Successful hosted normal browser acceptance with actual rendered frames; hermetic authored/model/raster inputs, not live generation or approved art.",
+    "sha256": "0ff2ed89c13d09e201b43ec18ff6082908e26d18d96141793d4b2ebf2c177ce4",
+    "width": 390,
+    "height": 844,
+    "originalCapture": true
+  },
+  {
+    "path": "current/printed-cards/guest-no-front-leak.png",
+    "source": "36034c8bb73c83f16b275ae51add888d3bc8d815",
+    "run": 40979739935,
+    "scope": "Successful hosted normal browser acceptance with actual rendered frames; hermetic authored/model/raster inputs, not live generation or approved art.",
+    "sha256": "7efda79bd74c9f0d3309529f1bfd2f69b43206669389108b7ca58f144988e88f",
+    "width": 1440,
+    "height": 960,
+    "originalCapture": true
+  },
+  {
+    "path": "current/printed-cards/owner-full-rules-390.png",
+    "source": "36034c8bb73c83f16b275ae51add888d3bc8d815",
+    "run": 40979739935,
+    "scope": "Successful hosted normal browser acceptance with actual rendered frames; hermetic authored/model/raster inputs, not live generation or approved art.",
+    "sha256": "1c008e2f9b2e21598d81374aef2952ca416b11603057f718320af93b8e2b6961",
+    "width": 390,
+    "height": 844,
+    "originalCapture": true
+  },
+  {
+    "path": "current/printed-cards/owner-printed-front-desktop.png",
+    "source": "36034c8bb73c83f16b275ae51add888d3bc8d815",
+    "run": 40979739935,
+    "scope": "Successful hosted normal browser acceptance with actual rendered frames; hermetic authored/model/raster inputs, not live generation or approved art.",
+    "sha256": "d50782cefa2b224e29ee39401e38545994762c687042259434cee46ae2c7232a",
+    "width": 1440,
+    "height": 960,
+    "originalCapture": true
+  },
+  {
+    "path": "current/printed-cards/published-owner-recovered.png",
+    "source": "36034c8bb73c83f16b275ae51add888d3bc8d815",
+    "run": 40979739935,
+    "scope": "Successful hosted normal browser acceptance with actual rendered frames; hermetic authored/model/raster inputs, not live generation or approved art.",
+    "sha256": "0b5af98555077d610a4268ca3b186dbeb9fde7f379967ff57ff426e32a934ebf",
+    "width": 1440,
+    "height": 960,
+    "originalCapture": true
+  },
+  {
+    "path": "current/printed-cards/scoped-hidden-back-no-fields.png",
+    "source": "36034c8bb73c83f16b275ae51add888d3bc8d815",
+    "run": 40979739935,
+    "scope": "Successful hosted normal browser acceptance with actual rendered frames; hermetic authored/model/raster inputs, not live generation or approved art.",
+    "sha256": "514045e336e2fd5544e43f22874218e3943584a54b0f0077850c79f91af6c6ea",
+    "width": 1440,
+    "height": 960,
+    "originalCapture": true
+  },
+  {
+    "path": "current/printed-cards/scoped-revealed-front-full-rules.png",
+    "source": "36034c8bb73c83f16b275ae51add888d3bc8d815",
+    "run": 40979739935,
+    "scope": "Successful hosted normal browser acceptance with actual rendered frames; hermetic authored/model/raster inputs, not live generation or approved art.",
+    "sha256": "d11bbf522e9807505b6115dd7bf793ff5ac944d336711d5d0a8b1536771f99bb",
+    "width": 1440,
+    "height": 960,
+    "originalCapture": true
+  },
+  {
+    "path": "current/printed-cards/two-decks-hand-short.png",
+    "source": "36034c8bb73c83f16b275ae51add888d3bc8d815",
+    "run": 40979739935,
+    "scope": "Successful hosted normal browser acceptance with actual rendered frames; hermetic authored/model/raster inputs, not live generation or approved art.",
+    "sha256": "79984ea0502cf058bf7a556d4b6476616ecb7ca5601b09c5b1694a49c0f33a9b",
+    "width": 390,
+    "height": 480,
+    "originalCapture": true
+  },
+  {
+    "path": "current/hybrid/hybrid-actions-1024.png",
+    "source": "36034c8bb73c83f16b275ae51add888d3bc8d815",
+    "run": 40979739935,
+    "scope": "Successful hosted normal browser acceptance with actual rendered frames; hermetic authored/model/raster inputs, not live generation or approved art.",
+    "sha256": "6e3470126460cca9803afdfa76f9877f304be11705f39f78db29c93bcbc55533",
+    "width": 1024,
+    "height": 960,
+    "originalCapture": true
+  },
+  {
+    "path": "current/hybrid/hybrid-actions-1440.png",
+    "source": "36034c8bb73c83f16b275ae51add888d3bc8d815",
+    "run": 40979739935,
+    "scope": "Successful hosted normal browser acceptance with actual rendered frames; hermetic authored/model/raster inputs, not live generation or approved art.",
+    "sha256": "4c252c67d47f9941385e404dac0edaf622d7a73a7fa316ddf8260e765acb88e1",
+    "width": 1440,
+    "height": 960,
+    "originalCapture": true
+  },
+  {
+    "path": "current/hybrid/hybrid-actions-390-480.png",
+    "source": "36034c8bb73c83f16b275ae51add888d3bc8d815",
+    "run": 40979739935,
+    "scope": "Successful hosted normal browser acceptance with actual rendered frames; hermetic authored/model/raster inputs, not live generation or approved art.",
+    "sha256": "b02e497af8ffc24f13724aabad85ff88ca9f9d8c9d12f2908f686657077e3629",
+    "width": 390,
+    "height": 480,
+    "originalCapture": true
+  },
+  {
+    "path": "current/hybrid/hybrid-actions-390-844.png",
+    "source": "36034c8bb73c83f16b275ae51add888d3bc8d815",
+    "run": 40979739935,
+    "scope": "Successful hosted normal browser acceptance with actual rendered frames; hermetic authored/model/raster inputs, not live generation or approved art.",
+    "sha256": "c09adb535e3a14dae3ba4ade2ef51ff86aebf1c182d240657826f78236600083",
+    "width": 390,
+    "height": 844,
+    "originalCapture": true
+  },
+  {
+    "path": "current/hybrid/hybrid-actions-769.png",
+    "source": "36034c8bb73c83f16b275ae51add888d3bc8d815",
+    "run": 40979739935,
+    "scope": "Successful hosted normal browser acceptance with actual rendered frames; hermetic authored/model/raster inputs, not live generation or approved art.",
+    "sha256": "6b68fe1e36166fad5081fc3a9e391b42291b23e172dd9404eddf9bd85bb53b8e",
+    "width": 769,
+    "height": 960,
+    "originalCapture": true
+  },
+  {
+    "path": "current/keyboard/long-status-short-scrolled.png",
+    "source": "36034c8bb73c83f16b275ae51add888d3bc8d815",
+    "run": 40979739935,
+    "scope": "Successful hosted normal browser acceptance with actual rendered frames; hermetic authored/model/raster inputs, not live generation or approved art.",
+    "sha256": "12277283bcd6b41b7864a5187eed346199884d39aabe3aafd8b26f46b452ac24",
+    "width": 390,
+    "height": 480,
+    "originalCapture": true
+  },
+  {
+    "path": "current/stock/court-card-desktop.png",
+    "source": "36034c8bb73c83f16b275ae51add888d3bc8d815",
+    "run": 40979739935,
+    "scope": "Successful hosted normal browser acceptance with actual rendered frames; hermetic authored/model/raster inputs, not live generation or approved art.",
+    "sha256": "2cc2fc5dbb42ad7ae2ec0cb925c2d8c8ddfa3cd261e6b8aadac94c889100b69c",
+    "width": 1440,
+    "height": 960,
+    "originalCapture": true
+  },
+  {
+    "path": "current/stock/court-card-short.png",
+    "source": "36034c8bb73c83f16b275ae51add888d3bc8d815",
+    "run": 40979739935,
+    "scope": "Successful hosted normal browser acceptance with actual rendered frames; hermetic authored/model/raster inputs, not live generation or approved art.",
+    "sha256": "ff532c2c20883a7204fc988ece48bead7bbd1ad5936572cbf3d9b4917003d00b",
+    "width": 390,
+    "height": 480,
+    "originalCapture": true
+  },
+  {
+    "path": "current/winner/finished-game-restored.png",
+    "source": "36034c8bb73c83f16b275ae51add888d3bc8d815",
+    "run": 40979739935,
+    "scope": "Successful hosted normal browser acceptance with actual rendered frames; hermetic authored/model/raster inputs, not live generation or approved art.",
+    "sha256": "261ef8f473157f30e83dd59d475316fd534a58bd37e912bec4e65416db2f7fa5",
+    "width": 1440,
+    "height": 960,
+    "originalCapture": true
+  },
+  {
+    "path": "current/winner/finished-game.png",
+    "source": "36034c8bb73c83f16b275ae51add888d3bc8d815",
+    "run": 40979739935,
+    "scope": "Successful hosted normal browser acceptance with actual rendered frames; hermetic authored/model/raster inputs, not live generation or approved art.",
+    "sha256": "d8bf62df6ac6f218c1c33e4590ac02112d0e56a28cb52815b225e5a908bb23ec",
+    "width": 1440,
+    "height": 960,
+    "originalCapture": true
+  },
+  {
+    "path": "current/winner/fresh-round-390.png",
+    "source": "36034c8bb73c83f16b275ae51add888d3bc8d815",
+    "run": 40979739935,
+    "scope": "Successful hosted normal browser acceptance with actual rendered frames; hermetic authored/model/raster inputs, not live generation or approved art.",
+    "sha256": "5ecb81cbb4148a38bc6ceda61f7a625ddc8af5b433ea0e168b427c61e4d74991",
+    "width": 390,
+    "height": 844,
+    "originalCapture": true
+  },
+  {
+    "path": "current/winner/winner-continuation-retry-390.png",
+    "source": "36034c8bb73c83f16b275ae51add888d3bc8d815",
+    "run": 40979739935,
+    "scope": "Successful hosted normal browser acceptance with actual rendered frames; hermetic authored/model/raster inputs, not live generation or approved art.",
+    "sha256": "a62ae4b7328fcbf8c2e5968ab0fd40d752f7a87bb97ac70a8d520b684eb24757",
+    "width": 390,
+    "height": 844,
+    "originalCapture": true
+  }
+]

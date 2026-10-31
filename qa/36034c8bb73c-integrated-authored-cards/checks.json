@@ -1,0 +1,38 @@
+{
+  "applicationSource": "36034c8bb73c83f16b275ae51add888d3bc8d815",
+  "mainPushExit": 0,
+  "mainRemoteVerified": true,
+  "requiredCI": {
+    "run": 40979739935,
+    "job": 123816522903,
+    "url": "https://github.com/Sanokei/digipology/actions/runs/40979739935",
+    "conclusion": "success",
+    "units": 972,
+    "unitFail": 0,
+    "browser": {
+      "startTime": "2026-10-30T00:30:36.505Z",
+      "duration": 651416.7300000001,
+      "expected": 43,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "errors": 0
+  },
+  "knownExtraStressFailure": {
+    "source": "36034c8bb73c83f16b275ae51add888d3bc8d815",
+    "scope": "Local twoCPU6case run",
+    "pass": 5,
+    "fail": 1,
+    "failure": "Illustrated-card owner reload exceeds8s attempt budget. Preserved in separate candidate pack; not relabelled by hosted success."
+  },
+  "unmergedFollowup": "620586ab1387644d925224e207de4507feeb78f9",
+  "notEstablished": [
+    "genuine provider output or final artwork",
+    "Merlin fidelity/fun/balance",
+    "perceptual audio quality",
+    "cryptographic card secrecy",
+    "successful unattended product loop",
+    "published cloud configuration or production deployment"
+  ]
+}
