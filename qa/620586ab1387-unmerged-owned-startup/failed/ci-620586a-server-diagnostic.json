@@ -1,0 +1,251 @@
+{
+  "schemaVersion": 1,
+  "event": "unexpected-e2e-worker-exit",
+  "pid": 4697,
+  "exitCode": 1,
+  "signal": null,
+  "log": {
+    "logStatus": "available",
+    "logBytes": 90281,
+    "tailBytes": 90281,
+    "tailLimited": false,
+    "errorRecords": 0,
+    "blankErrorRecords": 0,
+    "exceptions": [],
+    "messagesOmitted": true
+  },
+  "firstResources": {
+    "at": "2026-10-30T00:58:03.970Z",
+    "hostFreeBytes": 15048941568,
+    "hostTotalBytes": 16759308288,
+    "processes": [
+      {
+        "pid": 4697,
+        "process": "node",
+        "rssKiB": 8,
+        "peakKiB": 8,
+        "virtualPeakKiB": 48220,
+        "threads": 1
+      }
+    ],
+    "cgroup": {
+      "scope": "shared-process-cgroup",
+      "available": true,
+      "memoryBytes": 3517579264,
+      "memoryLimitBytes": null,
+      "events": {
+        "low": 0,
+        "high": 0,
+        "max": 0,
+        "oom": 0,
+        "oom_kill": 0,
+        "oom_group_kill": 0
+      }
+    }
+  },
+  "recentResources": [
+    {
+      "at": "2026-10-30T01:05:25.639Z",
+      "hostFreeBytes": 13971185664,
+      "hostTotalBytes": 16759308288,
+      "processes": [
+        {
+          "pid": 4697,
+          "process": "node",
+          "rssKiB": 50196,
+          "peakKiB": 50196,
+          "virtualPeakKiB": 791316,
+          "threads": 7
+        },
+        {
+          "pid": 4704,
+          "process": "node",
+          "rssKiB": 242172,
+          "peakKiB": 271312,
+          "virtualPeakKiB": 33016972,
+          "threads": 11
+        },
+        {
+          "pid": 4716,
+          "process": "esbuild",
+          "rssKiB": 15132,
+          "peakKiB": 32928,
+          "virtualPeakKiB": 1271964,
+          "threads": 8
+        },
+        {
+          "pid": 4724,
+          "process": "workerd",
+          "rssKiB": 188692,
+          "peakKiB": 189776,
+          "virtualPeakKiB": 26521540,
+          "threads": 8
+        },
+        {
+          "pid": 4732,
+          "process": "workerd",
+          "rssKiB": 397456,
+          "peakKiB": 424124,
+          "virtualPeakKiB": 39394436,
+          "threads": 9
+        }
+      ],
+      "cgroup": {
+        "scope": "shared-process-cgroup",
+        "available": true,
+        "memoryBytes": 5320437760,
+        "memoryLimitBytes": null,
+        "events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        }
+      }
+    },
+    {
+      "at": "2026-10-30T01:05:30.639Z",
+      "hostFreeBytes": 14121078784,
+      "hostTotalBytes": 16759308288,
+      "processes": [
+        {
+          "pid": 4697,
+          "process": "node",
+          "rssKiB": 50196,
+          "peakKiB": 50196,
+          "virtualPeakKiB": 791316,
+          "threads": 7
+        },
+        {
+          "pid": 4704,
+          "process": "node",
+          "rssKiB": 243472,
+          "peakKiB": 271312,
+          "virtualPeakKiB": 33016972,
+          "threads": 11
+        },
+        {
+          "pid": 4716,
+          "process": "esbuild",
+          "rssKiB": 15140,
+          "peakKiB": 32928,
+          "virtualPeakKiB": 1271964,
+          "threads": 8
+        },
+        {
+          "pid": 4724,
+          "process": "workerd",
+          "rssKiB": 193900,
+          "peakKiB": 193900,
+          "virtualPeakKiB": 26521796,
+          "threads": 8
+        },
+        {
+          "pid": 4732,
+          "process": "workerd",
+          "rssKiB": 399496,
+          "peakKiB": 424124,
+          "virtualPeakKiB": 39394948,
+          "threads": 9
+        }
+      ],
+      "cgroup": {
+        "scope": "shared-process-cgroup",
+        "available": true,
+        "memoryBytes": 5218779136,
+        "memoryLimitBytes": null,
+        "events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        }
+      }
+    },
+    {
+      "at": "2026-10-30T01:05:35.641Z",
+      "hostFreeBytes": 13978603520,
+      "hostTotalBytes": 16759308288,
+      "processes": [
+        {
+          "pid": 4697,
+          "process": "node",
+          "rssKiB": 50196,
+          "peakKiB": 50196,
+          "virtualPeakKiB": 791316,
+          "threads": 7
+        },
+        {
+          "pid": 4704,
+          "process": "node",
+          "rssKiB": 243496,
+          "peakKiB": 271312,
+          "virtualPeakKiB": 33016972,
+          "threads": 11
+        },
+        {
+          "pid": 4716,
+          "process": "esbuild",
+          "rssKiB": 15140,
+          "peakKiB": 32928,
+          "virtualPeakKiB": 1271964,
+          "threads": 8
+        },
+        {
+          "pid": 4724,
+          "process": "workerd",
+          "rssKiB": 194248,
+          "peakKiB": 194248,
+          "virtualPeakKiB": 26521796,
+          "threads": 8
+        },
+        {
+          "pid": 4732,
+          "process": "workerd",
+          "rssKiB": 406184,
+          "peakKiB": 424124,
+          "virtualPeakKiB": 39395108,
+          "threads": 9
+        }
+      ],
+      "cgroup": {
+        "scope": "shared-process-cgroup",
+        "available": true,
+        "memoryBytes": 5317730304,
+        "memoryLimitBytes": null,
+        "events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        }
+      }
+    }
+  ],
+  "finalResources": {
+    "at": "2026-10-30T01:05:35.889Z",
+    "hostFreeBytes": 14606057472,
+    "hostTotalBytes": 16759308288,
+    "processes": [],
+    "cgroup": {
+      "scope": "shared-process-cgroup",
+      "available": true,
+      "memoryBytes": 4621369344,
+      "memoryLimitBytes": null,
+      "events": {
+        "low": 0,
+        "high": 0,
+        "max": 0,
+        "oom": 0,
+        "oom_kill": 0,
+        "oom_group_kill": 0
+      }
+    }
+  }
+}

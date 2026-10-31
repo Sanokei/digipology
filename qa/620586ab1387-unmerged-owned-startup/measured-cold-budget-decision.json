@@ -1,0 +1,15 @@
+{
+  "recordedAt": "2026-10-30T00:33:13.289541+00:00",
+  "base": "36034c8bb73c83f16b275ae51add888d3bc8d815",
+  "reason": "After preserving multiple real8s failures and implementing ownership fences, import retry, seat lifecycle, idle/fence/framebuffer budgets, the last twoCPU failure is the illustrated-card host reload. Other5affected cases pass. Instrumented normal twoCPU first-deal records host6.667s and guest8.666s wall startup; synchronous capability/shader queries dominate.",
+  "decision": "12s finite total attempt budget for lazy import, device/scene/assets and true first frames; no progress resets, no silent retry, no weakening ready/ownership/privacy/publication/auth checks. Existing tests still inject much shorter deadlines to exercise failure deterministically.",
+  "acceptance": [
+    "Printed-card real owner/private/edit/publication/guest/reload/reveal at actual twoCPU affinity.",
+    "Real cold imports held for the complete two-attempt budget, guest failure UI and keyboard retry, unchanged document/socket/room/hand, late import cannot attach after SPA leave.",
+    "One actual native Lite two-visitor artwork/private/publication path; only a mounted Lite assertion counts.",
+    "Build/affected lifetime tests, required exact-source CI before main integration."
+  ],
+  "historicalEvidence": "software-pixels-browser source36034c8 remains5pass/1fail exit1; never relabel as current12s result. Earlier3failure GPU-fence and2failure seat/idle tests retained.",
+  "tradeoff": "The worst case before a two-renderer error increases16s\u219224s. Normal nav and loading remain available; successful actual hardware is not delayed.",
+  "pending": "This decision is not accepted until actual rendered paths pass; do not assert that a longer budget solved the failures before verifying."
+}

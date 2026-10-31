@@ -1,0 +1,7 @@
+{
+  "url": "https://raw.githubusercontent.com/FFmpeg/FFmpeg/n6.1/libavformat/webpenc.c",
+  "status": 200,
+  "sha256": "48f4137b1f5e33ac9686b92a0e80a4600e07ca4b04f7eb2810f8f407a5c7323c",
+  "ciVersion": "Ubuntu24.04 installed ffmpeg7:6.1.1-3ubuntu5, exact hosted log atPrepare audio processing",
+  "finding": "webp_write_trailer callsavio_seek towrite RIFF filesize. A real seekable output file permits finalizing the header; no patched sizes or invented pixels. Local independentffprobe verifies actual1536x1024 decode."
+}

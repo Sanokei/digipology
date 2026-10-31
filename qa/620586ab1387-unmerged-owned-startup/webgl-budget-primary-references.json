@@ -1,0 +1,23 @@
+{
+  "retrievedAt": "2026-10-30T00:08:34.671131+00:00",
+  "sources": [
+    {
+      "url": "https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_best_practices",
+      "status": 200,
+      "sha256": "238a9463bacecf0e5c139625cb04b4a73d048f1f903a19841421b39ba2eaba48",
+      "file": "webgl-best-practices.html"
+    },
+    {
+      "url": "https://developer.mozilla.org/en-US/docs/Web/API/WebGL2RenderingContext/fenceSync",
+      "status": 200,
+      "sha256": "e2422121fa91016512c36868e25b069a7a96c7683ccacc2f380a9a35d7037f67",
+      "file": "fence-sync.html"
+    },
+    {
+      "url": "https://developer.mozilla.org/en-US/docs/Web/API/WebGL2RenderingContext/clientWaitSync",
+      "status": 200,
+      "sha256": "ac82756d3eaa41ccf9d72cda2d6c84704e6df76fdf978aef168090a9271e91d1",
+      "file": "client-wait-sync.html"
+    }
+  ]
+}

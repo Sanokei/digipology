@@ -1,0 +1,83 @@
+{
+  "applicationSource": "620586ab1387644d925224e207de4507feeb78f9",
+  "currentRequiredHosted": {
+    "run": 40982725837,
+    "job": 123826400864,
+    "source": "620586ab1387644d925224e207de4507feeb78f9",
+    "conclusion": "failure",
+    "units": 974,
+    "unitFail": 0,
+    "browserPass": 29,
+    "browserFail": 14,
+    "reason": "Wrangler exited1 at01:05:35UTC with blank stderr error; subsequent browser requests refused. Safe log projection has0exception records; noOOM events. Cause unresolved.",
+    "url": "https://github.com/Sanokei/digipology/actions/runs/40982725837"
+  },
+  "currentLocal": {
+    "fullTypecheck": {
+      "exit": 0,
+      "scope": "all workspaces plus scripts and E2E; E2E app dependency closure contains only rendererPolicy.ts"
+    },
+    "build": {
+      "exit": 0,
+      "log": "pure-policy-build.log"
+    },
+    "native": {
+      "exit": 0,
+      "stats": {
+        "startTime": "2026-10-30T00:54:23.302Z",
+        "duration": 178525.086,
+        "expected": 1,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "scope": "both actual mounted Lite, independent browser/GPU processes, normal edit/private/publication/owner recovery/guest conceal-reveal"
+    },
+    "coldTwoCpu": {
+      "exit": 0,
+      "stats": {
+        "startTime": "2026-10-30T01:00:13.302Z",
+        "duration": 66904.87199999999,
+        "expected": 1,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "scope": "actual held imports12s per attempt, short guest error/retry, same socket/document/room/hand, SPA leave before late module"
+    }
+  },
+  "historical": {
+    "36034c8": {
+      "source": "36034c8bb73c83f16b275ae51add888d3bc8d815",
+      "run": 40979739935,
+      "result": "972units0fail;43browser0skip/flaky/errors",
+      "extraTwoCpu": "5pass1fail; one printed-card owner reload exceeds old8s budget; retained as failure"
+    },
+    "866f63a": {
+      "source": "866f63a52c2decaa2baffb76392d2661f39e9a70",
+      "run": 40981823506,
+      "result": "typecheck failure from E2E mount module importing app workspace types; no hosted browser run",
+      "fix": "policy constant relocated to existing dependency-free rendererPolicy, full typecheck passes"
+    },
+    "priorPack": {
+      "source": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+      "qa": "8ded2d95f199a7975066d923c412ac6e9683ae6e",
+      "url": "https://github.com/Sanokei/digipology/tree/8ded2d95f199a7975066d923c412ac6e9683ae6e/qa/bde0b260674a-card-art-and-renderer-ownership",
+      "scope": "965units32/42hosted browser; original failures preserved"
+    },
+    "physicalStockHistory": "https://github.com/Sanokei/digipology/tree/3584b7",
+    "craftedTableSoundHistory": "https://github.com/Sanokei/digipology/tree/a3f4935f88a87f57f0286b36a9c2cf9185dd5c39/qa/fbc1d4bb8928-crafted-table-sounds"
+  },
+  "notEstablished": [
+    "live provider generation or final art",
+    "faithful complete Merlin gameplay",
+    "perceptual audio/fun/balance",
+    "cryptographic hidden information",
+    "headed background/foreground browser behavior",
+    "shared-process native softwareGPU performance",
+    "public preview/deployment or production migration",
+    "published cloud configuration or successful unattended product loop"
+  ],
+  "mainIntegratedSource": "36034c8bb73c83f16b275ae51add888d3bc8d815",
+  "candidateMerged": false
+}

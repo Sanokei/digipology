@@ -1,0 +1,142 @@
+[
+  {
+    "path": "current/native-two-visitors/card-editor-390.png",
+    "source": "620586ab1387644d925224e207de4507feeb78f9",
+    "run": "pure-policy-native-browser",
+    "scope": "Actual mounted Lite asserted for both visitors, separate browser/GPU processes. Full printed editor/private/publish/owner reload/guest conceal and reveal case passes. Technical existing raster inputs, not approved art or genuine provider output.",
+    "sha256": "d9fd513491504406d8dc08780ce15ccb8d840dddc29e45e2b2a9f3eff111e750",
+    "width": 390,
+    "height": 844,
+    "originalCapture": true
+  },
+  {
+    "path": "current/native-two-visitors/guest-no-front-leak.png",
+    "source": "620586ab1387644d925224e207de4507feeb78f9",
+    "run": "pure-policy-native-browser",
+    "scope": "Actual mounted Lite asserted for both visitors, separate browser/GPU processes. Full printed editor/private/publish/owner reload/guest conceal and reveal case passes. Technical existing raster inputs, not approved art or genuine provider output.",
+    "sha256": "b7235b0e82984069a070e726541c338092e12c5675d39fc00ece0c5f7f4e1cfc",
+    "width": 1440,
+    "height": 960,
+    "originalCapture": true
+  },
+  {
+    "path": "current/native-two-visitors/owner-full-rules-390.png",
+    "source": "620586ab1387644d925224e207de4507feeb78f9",
+    "run": "pure-policy-native-browser",
+    "scope": "Actual mounted Lite asserted for both visitors, separate browser/GPU processes. Full printed editor/private/publish/owner reload/guest conceal and reveal case passes. Technical existing raster inputs, not approved art or genuine provider output.",
+    "sha256": "dd64859ea61801a23ee6db4d56a2811e66e46eee01d5d4671bbbe4e366055954",
+    "width": 390,
+    "height": 844,
+    "originalCapture": true
+  },
+  {
+    "path": "current/native-two-visitors/owner-printed-front-desktop.png",
+    "source": "620586ab1387644d925224e207de4507feeb78f9",
+    "run": "pure-policy-native-browser",
+    "scope": "Actual mounted Lite asserted for both visitors, separate browser/GPU processes. Full printed editor/private/publish/owner reload/guest conceal and reveal case passes. Technical existing raster inputs, not approved art or genuine provider output.",
+    "sha256": "650897cd5ed799bbec9922e7c31ff026d3ec7f36e849dc2b8757e94457237481",
+    "width": 1440,
+    "height": 960,
+    "originalCapture": true
+  },
+  {
+    "path": "current/native-two-visitors/published-owner-recovered.png",
+    "source": "620586ab1387644d925224e207de4507feeb78f9",
+    "run": "pure-policy-native-browser",
+    "scope": "Actual mounted Lite asserted for both visitors, separate browser/GPU processes. Full printed editor/private/publish/owner reload/guest conceal and reveal case passes. Technical existing raster inputs, not approved art or genuine provider output.",
+    "sha256": "ded60123067097fe70bc141d192cabd1017c178e96c8c56662ae8a2da1dd464c",
+    "width": 1440,
+    "height": 960,
+    "originalCapture": true
+  },
+  {
+    "path": "current/native-two-visitors/scoped-hidden-back-no-fields.png",
+    "source": "620586ab1387644d925224e207de4507feeb78f9",
+    "run": "pure-policy-native-browser",
+    "scope": "Actual mounted Lite asserted for both visitors, separate browser/GPU processes. Full printed editor/private/publish/owner reload/guest conceal and reveal case passes. Technical existing raster inputs, not approved art or genuine provider output.",
+    "sha256": "510ef3441c504f1716a78d83443c1ed1263c498e033b6a9a545463c13510825a",
+    "width": 1440,
+    "height": 960,
+    "originalCapture": true
+  },
+  {
+    "path": "current/native-two-visitors/scoped-revealed-front-full-rules.png",
+    "source": "620586ab1387644d925224e207de4507feeb78f9",
+    "run": "pure-policy-native-browser",
+    "scope": "Actual mounted Lite asserted for both visitors, separate browser/GPU processes. Full printed editor/private/publish/owner reload/guest conceal and reveal case passes. Technical existing raster inputs, not approved art or genuine provider output.",
+    "sha256": "886cadd118fa84e6cc8cfe3e3c84e43f385375d38fce129e218e58672fa95dfb",
+    "width": 1440,
+    "height": 960,
+    "originalCapture": true
+  },
+  {
+    "path": "current/native-two-visitors/two-decks-hand-short.png",
+    "source": "620586ab1387644d925224e207de4507feeb78f9",
+    "run": "pure-policy-native-browser",
+    "scope": "Actual mounted Lite asserted for both visitors, separate browser/GPU processes. Full printed editor/private/publish/owner reload/guest conceal and reveal case passes. Technical existing raster inputs, not approved art or genuine provider output.",
+    "sha256": "44eb57989ec61bdc28aa45604089ebe14a4155ac94c3349cc684fcaa78715fea",
+    "width": 390,
+    "height": 480,
+    "originalCapture": true
+  },
+  {
+    "path": "current/cold-guest/guest-cold-error-short.png",
+    "source": "620586ab1387644d925224e207de4507feeb78f9",
+    "run": "pure-policy-cold-browser",
+    "scope": "Genuine built renderer modules deliberately held, complete12s-per-attempt timeout, same-room/document/socket/hand retry and SPA leave before late import; real390x480 originals.",
+    "sha256": "39a8bc28a174fa905bdd1e1c21a4423d9621bf3cf5a0e649ff70c6dec98038d7",
+    "width": 390,
+    "height": 480,
+    "originalCapture": true
+  },
+  {
+    "path": "current/cold-guest/guest-cold-retry-recovered-short.png",
+    "source": "620586ab1387644d925224e207de4507feeb78f9",
+    "run": "pure-policy-cold-browser",
+    "scope": "Genuine built renderer modules deliberately held, complete12s-per-attempt timeout, same-room/document/socket/hand retry and SPA leave before late import; real390x480 originals.",
+    "sha256": "6a047022e46dc4c943d6da3bbe2038a70803859524ad141ee75b3a008cd1cb3b",
+    "width": 390,
+    "height": 480,
+    "originalCapture": true
+  },
+  {
+    "path": "current/cold-guest/guest-left-before-late-import-short.png",
+    "source": "620586ab1387644d925224e207de4507feeb78f9",
+    "run": "pure-policy-cold-browser",
+    "scope": "Genuine built renderer modules deliberately held, complete12s-per-attempt timeout, same-room/document/socket/hand retry and SPA leave before late import; real390x480 originals.",
+    "sha256": "3fa3ba846c2d2b6cabacd79e296072cae4edee761a9826896b8b99d2bd908837",
+    "width": 390,
+    "height": 480,
+    "originalCapture": true
+  },
+  {
+    "path": "current/cold-guest/guest-room-hand-recovered-short.png",
+    "source": "620586ab1387644d925224e207de4507feeb78f9",
+    "run": "pure-policy-cold-browser",
+    "scope": "Genuine built renderer modules deliberately held, complete12s-per-attempt timeout, same-room/document/socket/hand retry and SPA leave before late import; real390x480 originals.",
+    "sha256": "7e6876b241833486d3c91407cd1b2fa455aa93d785aee6c58d8777d2e89e9050",
+    "width": 390,
+    "height": 480,
+    "originalCapture": true
+  },
+  {
+    "path": "before/bde-desktop-hand-actions-overlap.png",
+    "source": "bde0b260674abcdfd72ee23aeb99f186b1966ebf",
+    "run": "native-ownership-final",
+    "scope": "Historical actual Lite source; hand and multi-deck action regions overlap. Prior pinned pack8ded2d95f199a7975066d923c412ac6e9683ae6e.",
+    "sha256": "f89143fe873b1457ab005512206f49e1cee137b775d3493efa6236aac1b74394",
+    "width": 1440,
+    "height": 960,
+    "originalCapture": true
+  },
+  {
+    "path": "failed/36034c8-eight-second-owner-reload.png",
+    "source": "36034c8bb73c83f16b275ae51add888d3bc8d815",
+    "run": "software-pixels-browser",
+    "scope": "FAILED extra twoCPU case, even though required hosted43cases pass. This image is not a settled-table pass;12s followup passes actual path.",
+    "sha256": "30751020a6d8e598d58877da8f364aa8db3b489d29ee986308b38697ca85f0d1",
+    "width": 1440,
+    "height": 960,
+    "originalCapture": true
+  }
+]

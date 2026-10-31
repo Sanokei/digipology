@@ -1,0 +1,7 @@
+{
+  "repository": "https://github.com/KenneyNL/Starter-Kit-3D-Platformer.git",
+  "commit": "3fa8a04b1c01ab23db43123d4ce814a34c3fc7f0",
+  "method": "normal HTTPS Git clone and pinned fetch",
+  "bundleHash": "sha256:75ff158b7671fa3e7203ad8eace4d8dbd4bb4c91b8df4bc8ff7912e7694abcb5",
+  "tool": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers"
+}
